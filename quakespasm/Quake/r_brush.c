@@ -670,7 +670,7 @@ void R_RenderDynamicLightmaps (qmodel_t *model, msurface_t *fa)
 	lightmap[fa->lightmaptexturenum].polys = fa->polys;
 
 	// check for lightmap modification
-	for (maps=0; maps < MAXLIGHTMAPS && fa->styles[maps] != 255; maps++)
+	for (maps=0; maps < MAXLIGHTMAPS && fa->styles[maps] != INVALID_LIGHTSTYLE; maps++)
 		if (d_lightstylevalue[fa->styles[maps]] != fa->cached_light[maps])
 			goto dynamic;
 
@@ -1159,7 +1159,7 @@ void R_BuildLightMap (qmodel_t *model, msurface_t *surf, byte *dest, int stride)
 	// add all the lightmaps
 		if (lightmap)
 		{
-			for (maps = 0 ; maps < MAXLIGHTMAPS && surf->styles[maps] != 255 ;
+			for (maps = 0 ; maps < MAXLIGHTMAPS && surf->styles[maps] != INVALID_LIGHTSTYLE ;
 				 maps++)
 			{
 				scale = d_lightstylevalue[surf->styles[maps]];

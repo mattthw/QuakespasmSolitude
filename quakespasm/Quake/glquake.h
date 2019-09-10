@@ -151,7 +151,7 @@ extern	vec3_t	r_origin;
 //
 extern	refdef_t	r_refdef;
 extern	mleaf_t		*r_viewleaf, *r_oldviewleaf;
-extern	int		d_lightstylevalue[256];	// 8.8 fraction of base light value
+extern	int		d_lightstylevalue[MAX_LIGHTSTYLES];	// 8.8 fraction of base light value
 
 extern	cvar_t	r_norefresh;
 extern	cvar_t	r_drawentities;
@@ -365,6 +365,7 @@ const char *Fog_GetFogCommand(void);	//for demo recording
 
 void R_NewGame (void);
 
+void CL_UpdateLightstyle(unsigned int idx, const char *stylestring);
 void R_AnimateLight (void);
 void R_MarkSurfaces (void);
 void R_CullSurfaces (void);

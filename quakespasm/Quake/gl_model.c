@@ -922,9 +922,13 @@ void Mod_LoadLighting (lump_t *l)
 	// LordHavoc: no .lit found, expand the white lighting data to color
 	if (!l->filelen)
 		return;
-	loadmodel->lightdata = Q1BSPX_FindLump("RGBLIGHTING", &bspxsize);
+	in = Q1BSPX_FindLump("RGBLIGHTING", &bspxsize);
 	if (loadmodel->lightdata && bspxsize == l->filelen*3)
+	{
+		loadmodel->lightdata = out = (byte *) Hunk_AllocName ( l->filelen*3, litfilename);
+		memcpy(out, in, l->filelen*3);
 		Con_DPrintf("bspx lighting loaded\n");
+	}
 	else
 	{
 		in = Q1BSPX_FindLump("LIGHTING_E5BGR9", &bspxsize);
@@ -1402,7 +1406,8 @@ void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 
 	unsigned char *lmshift = NULL, defaultshift = 4;
 	unsigned int *lmoffset = NULL;
-	unsigned char *lmstyle = NULL;
+	unsigned char *lmstyle8 = NULL, stylesperface = 4;
+	unsigned short *lmstyle16 = NULL;
 	int lumpsize;
 	char scalebuf[16];
 
@@ -1437,9 +1442,17 @@ void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 		lmoffset = Q1BSPX_FindLump("LMOFFSET", &lumpsize);
 		if (lumpsize != sizeof(*lmoffset)*count)
 			lmoffset = NULL;
-		lmstyle = Q1BSPX_FindLump("LMSTYLE", &lumpsize);
-		if (lumpsize != sizeof(*lmstyle)*MAXLIGHTMAPS*count)
-			lmstyle = NULL;
+		lmstyle16 = Q1BSPX_FindLump("LMSTYLE16", &lumpsize);
+		stylesperface = lumpsize/(sizeof(*lmstyle16)*count);
+		if (lumpsize != sizeof(*lmstyle16)*stylesperface*count)
+			lmstyle16 = NULL;
+		if (!lmstyle16)
+		{
+			lmstyle8 = Q1BSPX_FindLump("LMSTYLE", &lumpsize);
+			stylesperface = lumpsize/(sizeof(*lmstyle8)*count);
+			if (lumpsize != sizeof(*lmstyle8)*stylesperface*count)
+				lmstyle8 = NULL;
+		}
 
 		if (Mod_ParseWorldspawnKey(loadmodel, "lightmap_scale", scalebuf, sizeof(scalebuf)))
 		{
@@ -1461,8 +1474,8 @@ void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 			planenum = LittleLong(inl->planenum);
 			side = LittleLong(inl->side);
 			texinfon = LittleLong (inl->texinfo);
-			for (i=0 ; i<MAXLIGHTMAPS ; i++)
-				out->styles[i] = inl->styles[i];
+			for (i=0 ; i<4 ; i++)
+				out->styles[i] = ((inl->styles[i]==INVALID_LIGHTSTYLE_OLD)?INVALID_LIGHTSTYLE:inl->styles[i]);
 			lofs = LittleLong(inl->lightofs);
 			inl++;
 		}
@@ -1473,20 +1486,29 @@ void Mod_LoadFaces (lump_t *l, qboolean bsp2)
 			planenum = LittleShort(ins->planenum);
 			side = LittleShort(ins->side);
 			texinfon = LittleShort (ins->texinfo);
-			for (i=0 ; i<MAXLIGHTMAPS ; i++)
-				out->styles[i] = ins->styles[i];
+			for (i=0 ; i<4 ; i++)
+				out->styles[i] = ((ins->styles[i]==INVALID_LIGHTSTYLE_OLD)?INVALID_LIGHTSTYLE:ins->styles[i]);
 			lofs = LittleLong(ins->lightofs);
 			ins++;
 		}
 		shift = defaultshift;
 		//bspx overrides (for lmscale)
-		if (lmstyle)
+		if (lmshift)
 			shift = lmshift[surfnum];
 		if (lmoffset)
 			lofs = LittleLong(lmoffset[surfnum]);
-		if (lmstyle)
-			for (i=0 ; i<MAXLIGHTMAPS ; i++)
-				out->styles[i] = lmstyle[surfnum*MAXLIGHTMAPS+i];
+		if (lmstyle16)
+			for (i=0 ; i<stylesperface ; i++)
+				out->styles[i] = lmstyle16[surfnum*stylesperface+i];
+		else if (lmstyle8)
+			for (i=0 ; i<stylesperface ; i++)
+			{
+				out->styles[i] = lmstyle8[surfnum*stylesperface+i];
+				if (out->styles[i] == INVALID_LIGHTSTYLE_OLD)
+					out->styles[i] = INVALID_LIGHTSTYLE;
+			}
+		for ( ; i<MAXLIGHTMAPS ; i++)
+			out->styles[i] = INVALID_LIGHTSTYLE;
 
 		out->flags = 0;
 

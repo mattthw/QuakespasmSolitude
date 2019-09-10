@@ -1341,9 +1341,17 @@ static void PF_sv_lightstyle (void)
 	{
 		if (client->active || client->spawned)
 		{
-			MSG_WriteChar (&client->message, svc_lightstyle);
-			MSG_WriteChar (&client->message, style);
-			MSG_WriteString (&client->message, val);
+			if (style > 0xff)
+			{
+				MSG_WriteByte (&client->message, svc_stufftext);
+				MSG_WriteString (&client->message, va("//ls %i \"%s\"\n", style, val));
+			}
+			else
+			{
+				MSG_WriteChar (&client->message, svc_lightstyle);
+				MSG_WriteChar (&client->message, style);
+				MSG_WriteString (&client->message, val);
+			}
 		}
 	}
 }

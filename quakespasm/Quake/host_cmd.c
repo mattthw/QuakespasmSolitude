@@ -1009,6 +1009,11 @@ void Host_Reconnect_Sv_f (void)
 	cls.signon = 0;		// need new connection messages
 }
 
+void Host_Lightstyle_f (void)
+{
+	CL_UpdateLightstyle(atoi(Cmd_Argv(1)), Cmd_Argv(2));
+}
+
 /*
 =====================
 Host_Connect_f
@@ -1172,8 +1177,6 @@ void Host_Savegame_f (void)
 	{
 		if (sv.lightstyles[i])
 			fprintf (f, "sv.lightstyles %i \"%s\"\n", i, sv.lightstyles[i]);
-		else
-			fprintf (f, "sv.lightstyles %i \"\"\n", i);
 	}
 	for (i = 1; i < MAX_MODELS; i++)
 	{
@@ -1308,6 +1311,8 @@ void Host_Loadgame_f (void)
 		data = COM_ParseStringNewline (data);
 		sv.lightstyles[i] = (const char *)Hunk_Strdup (com_token, "lightstyles");
 	}
+	for (; i < MAX_LIGHTSTYLES; i++)
+		sv.lightstyles[i] = NULL;
 
 // load the edicts out of the savegame file
 	entnum = -1;		// -1 is the globals
@@ -1874,9 +1879,17 @@ void Host_Spawn_f (void)
 		//CL_ClearState should have cleared all lightstyles, so don't send irrelevant ones
 		if (sv.lightstyles[i])
 		{
-			MSG_WriteByte (&host_client->message, svc_lightstyle);
-			MSG_WriteByte (&host_client->message, (char)i);
-			MSG_WriteString (&host_client->message, sv.lightstyles[i]);
+			if (i > 0xff)
+			{
+				MSG_WriteByte (&host_client->message, svc_stufftext);
+				MSG_WriteString (&host_client->message, va("//ls %i \"%s\"\n", i, sv.lightstyles[i]));
+			}
+			else
+			{
+				MSG_WriteByte (&host_client->message, svc_lightstyle);
+				MSG_WriteByte (&host_client->message, i);
+				MSG_WriteString (&host_client->message, sv.lightstyles[i]);
+			}
 		}
 	}
 
@@ -2644,6 +2657,7 @@ void Host_InitCommands (void)
 	Cmd_AddCommand ("connect", Host_Connect_f);
 	Cmd_AddCommand_Console ("reconnect", Host_Reconnect_Con_f);
 	Cmd_AddCommand_ServerCommand ("reconnect", Host_Reconnect_Sv_f);
+	Cmd_AddCommand_ServerCommand ("ls", Host_Lightstyle_f);
 	Cmd_AddCommand_ClientCommand ("name", Host_Name_f);
 	Cmd_AddCommand_ClientCommand ("noclip", Host_Noclip_f);
 	Cmd_AddCommand_ClientCommand ("setpos", Host_SetPos_f); //QuakeSpasm

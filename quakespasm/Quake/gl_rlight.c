@@ -27,6 +27,33 @@ int	r_dlightframecount;
 
 extern cvar_t r_flatlightstyles; //johnfitz
 
+//Spike - made this a general function
+void CL_UpdateLightstyle(unsigned int idx, const char *str)
+{
+	int total;
+	int j;
+	if (idx < MAX_LIGHTSTYLES)
+	{
+		q_strlcpy (cl_lightstyle[idx].map, str, MAX_STYLESTRING);
+		cl_lightstyle[idx].length = Q_strlen(cl_lightstyle[idx].map);
+		//johnfitz -- save extra info
+		if (cl_lightstyle[idx].length)
+		{
+			total = 0;
+			cl_lightstyle[idx].peak = 'a';
+			for (j=0; j<cl_lightstyle[idx].length; j++)
+			{
+				total += cl_lightstyle[idx].map[j] - 'a';
+				cl_lightstyle[idx].peak = q_max(cl_lightstyle[idx].peak, cl_lightstyle[idx].map[j]);
+			}
+			cl_lightstyle[idx].average = total / cl_lightstyle[idx].length + 'a';
+		}
+		else
+			cl_lightstyle[idx].average = cl_lightstyle[idx].peak = 'm';
+		//johnfitz
+	}
+}
+
 /*
 ==================
 R_AnimateLight
@@ -350,7 +377,7 @@ loc0:
 
 				lightmap = surf->samples + ((dt>>surf->lmshift) * ((surf->extents[0]>>surf->lmshift)+1) + (ds>>surf->lmshift))*3; // LordHavoc: *3 for color
 
-				for (maps = 0;maps < MAXLIGHTMAPS && surf->styles[maps] != 255;maps++)
+				for (maps = 0;maps < MAXLIGHTMAPS && surf->styles[maps] != INVALID_LIGHTSTYLE;maps++)
 				{
 					scale = (float) d_lightstylevalue[surf->styles[maps]] * 1.0 / 256.0;
 					r00 += (float) lightmap[      0] * scale;g00 += (float) lightmap[      1] * scale;b00 += (float) lightmap[2] * scale;

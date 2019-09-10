@@ -243,7 +243,9 @@ typedef struct
 	unsigned int	v[2];		// vertex numbers
 } dledge_t;
 
-#define	MAXLIGHTMAPS	4
+#define	MAXLIGHTMAPS	16
+#define INVALID_LIGHTSTYLE 0xffffu
+#define INVALID_LIGHTSTYLE_OLD 0xffu
 #define LMBLOCK_WIDTH	256	//FIXME: make dynamic. if we have a decent card there's no real reason not to use 4k or 16k (assuming there's no lightstyles/dynamics that need uploading...)
 #define LMBLOCK_HEIGHT	256 //Alternatively, use texture arrays, which would avoid the need to switch textures as often.
 typedef struct
@@ -256,7 +258,7 @@ typedef struct
 	short		texinfo;
 
 // lighting info
-	byte		styles[MAXLIGHTMAPS];
+	byte		styles[4];
 	int			lightofs;		// start of [numstyles*surfsize] samples
 } dsface_t;
 
@@ -270,7 +272,7 @@ typedef struct
 	int			texinfo;
 
 // lighting info
-	byte		styles[MAXLIGHTMAPS];
+	byte		styles[4];
 	int			lightofs;		// start of [numstyles*surfsize] samples
 } dlface_t;
 

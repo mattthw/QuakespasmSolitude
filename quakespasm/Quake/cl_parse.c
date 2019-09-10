@@ -2274,7 +2274,7 @@ void CL_ParseServerMessage (void)
 	int			cmd;
 	int			i;
 	const char		*str; //johnfitz
-	int			total, j, lastcmd; //johnfitz
+	int			lastcmd; //johnfitz
 
 //
 // if recording demos, copy the message out
@@ -2404,26 +2404,7 @@ void CL_ParseServerMessage (void)
 		case svc_lightstyle:
 			i = MSG_ReadByte ();
 			str = MSG_ReadString();
-			if ((unsigned)i < MAX_LIGHTSTYLES)
-			{
-				q_strlcpy (cl_lightstyle[i].map, str, MAX_STYLESTRING);
-				cl_lightstyle[i].length = Q_strlen(cl_lightstyle[i].map);
-				//johnfitz -- save extra info
-				if (cl_lightstyle[i].length)
-				{
-					total = 0;
-					cl_lightstyle[i].peak = 'a';
-					for (j=0; j<cl_lightstyle[i].length; j++)
-					{
-						total += cl_lightstyle[i].map[j] - 'a';
-						cl_lightstyle[i].peak = q_max(cl_lightstyle[i].peak, cl_lightstyle[i].map[j]);
-					}
-					cl_lightstyle[i].average = total / cl_lightstyle[i].length + 'a';
-				}
-				else
-					cl_lightstyle[i].average = cl_lightstyle[i].peak = 'm';
-			}
-			//johnfitz
+			CL_UpdateLightstyle(i, str);
 			break;
 
 		case svc_sound:
