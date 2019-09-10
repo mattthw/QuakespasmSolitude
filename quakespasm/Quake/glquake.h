@@ -429,6 +429,9 @@ void Sky_DrawSky (void);
 void Sky_NewMap (void);
 void Sky_LoadTexture (texture_t *mt);
 void Sky_LoadSkyBox (const char *name);
+extern qboolean skyroom_drawn;		//we draw a skyroom this frame
+extern qboolean skyroom_enabled;	//we know where the skyroom is ...
+extern vec3_t skyroom_origin;		//... and it is here.
 
 void TexMgr_RecalcWarpImageSize (void);
 

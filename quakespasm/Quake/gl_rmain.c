@@ -530,7 +530,7 @@ void R_Clear (void)
 	// from mh -- if we get a stencil buffer, we should clear it, even though we don't use it
 	if (gl_stencilbits)
 		clearbits |= GL_STENCIL_BUFFER_BIT;
-	if (gl_clear.value)
+	if (gl_clear.value && !skyroom_drawn)
 		clearbits |= GL_COLOR_BUFFER_BIT;
 	glClear (clearbits);
 }
@@ -591,7 +591,8 @@ void R_SetupView (void)
 
 	R_CullSurfaces (); //johnfitz -- do after R_SetFrustum and R_MarkSurfaces
 
-	R_UpdateWarpTextures (); //johnfitz -- do this before R_Clear
+	if (!skyroom_drawn)
+		R_UpdateWarpTextures (); //johnfitz -- do this before R_Clear
 
 	R_Clear ();
 
@@ -1069,6 +1070,22 @@ void R_ScaleView (void)
 	GL_ClearBindings ();
 }
 
+static qboolean R_SkyroomWasVisible(void)
+{
+	qmodel_t *model = cl.worldmodel;
+	texture_t *t;
+	size_t i;
+	if (!skyroom_enabled)
+		return false;
+	for (i=0 ; i<model->numtextures ; i++)
+	{
+		t = model->textures[i];
+		if (t && t->texturechains[chain_world] && t->texturechains[chain_world]->flags & SURF_DRAWSKY)
+			return true;
+	}
+	return false;
+}
+
 /*
 ================
 R_RenderView
@@ -1076,6 +1093,7 @@ R_RenderView
 */
 void R_RenderView (void)
 {
+	static qboolean skyroom_visible;
 	double	time1, time2;
 
 	if (r_norefresh.value)
@@ -1096,6 +1114,23 @@ void R_RenderView (void)
 	}
 	else if (gl_finish.value)
 		glFinish ();
+
+	//Spike -- quickly draw the world from the skyroom camera's point of view.
+	skyroom_drawn = false;
+	if (skyroom_enabled && skyroom_visible)
+	{
+		vec3_t vieworg;
+		VectorCopy(r_refdef.vieworg, vieworg);
+		VectorCopy(skyroom_origin, r_refdef.vieworg);
+		R_SetupView ();
+		//note: sky boxes are generally considered an 'infinite' distance away such that you'd not see paralax.
+		//that's my excuse for not handling r_stereo here, and I'm sticking to it.
+		R_RenderScene ();
+
+		VectorCopy(vieworg, r_refdef.vieworg);
+		skyroom_drawn = true;	//disable glClear(GL_COLOR_BUFFER_BIT)
+	}
+	//skyroom end
 
 	R_SetupView (); //johnfitz -- this does everything that should be done once per frame
 
@@ -1134,6 +1169,14 @@ void R_RenderView (void)
 		R_RenderScene ();
 	}
 	//johnfitz
+
+	//Spike: flag whether the skyroom was actually visible, so we don't needlessly draw it when its not (1 frame's lag, hopefully not too noticable)
+	if (r_viewleaf->contents == CONTENTS_SOLID || r_drawflat_cheatsafe || r_lightmap_cheatsafe)
+		skyroom_visible = false;	//don't do skyrooms when the view is in the void, for framerate reasons while debugging.
+	else
+		skyroom_visible = R_SkyroomWasVisible();
+	skyroom_drawn = false;
+	//skyroom end
 
 	R_ScaleView ();
 

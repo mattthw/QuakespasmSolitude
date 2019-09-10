@@ -35,6 +35,10 @@ extern	int rs_skypasses; //for r_speeds readout
 float	skyflatcolor[3];
 float	skymins[2][6], skymaxs[2][6];
 
+qboolean skyroom_drawn;
+qboolean skyroom_enabled;
+vec3_t skyroom_origin;
+
 char	skybox_name[32] = ""; //name of current skybox, or "" if no skybox
 
 gltexture_t	*skybox_textures[6];
@@ -225,6 +229,7 @@ void Sky_NewMap (void)
 	//
 	// initially no sky
 	//
+	skyroom_enabled = false;
 	skybox_name[0] = 0;
 	for (i=0; i<6; i++)
 		skybox_textures[i] = NULL;
@@ -263,8 +268,18 @@ void Sky_NewMap (void)
 
 		if (!strcmp("sky", key))
 			Sky_LoadSkyBox(value);
+		else if (!strcmp("skyroom", key))
+		{	//"_skyroom" "X Y Z". ideally the gamecode would do this with an entity, but people want to use the vanilla gamecode from 1996 for some reason.
+			const char *t = COM_Parse(value);
+			skyroom_origin[0] = atof(com_token);
+			t = COM_Parse(t);
+			skyroom_origin[1] = atof(com_token);
+			t = COM_Parse(t);
+			skyroom_origin[2] = atof(com_token);
+			skyroom_enabled = true;
+		}
 
-		if (!strcmp("skyfog", key))
+		else if (!strcmp("skyfog", key))
 			skyfog = atof(value);
 
 #if 1 //also accept non-standard keys
@@ -985,7 +1000,7 @@ void Sky_DrawSky (void)
 	int				i;
 
 	//in these special render modes, the sky faces are handled in the normal world/brush renderer
-	if (r_drawflat_cheatsafe || r_lightmap_cheatsafe )
+	if (r_drawflat_cheatsafe || r_lightmap_cheatsafe || skyroom_drawn)
 		return;
 
 	//
