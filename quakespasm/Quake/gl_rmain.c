@@ -568,7 +568,7 @@ void R_SetupView (void)
 	r_viewleaf = Mod_PointInLeaf (r_origin, cl.worldmodel);
 	viewcontents = r_viewleaf->contents;
 
-	//spike -- added this loop for moving water volumes
+	//spike -- FTE_ENT_SKIN_CONTENTS -- added this loop for moving water volumes, to avoid v_cshift etc hacks.
 	for (i = 0; i < cl.num_entities && viewcontents == CONTENTS_EMPTY; i++)
 	{
 		mleaf_t *subleaf;
@@ -576,6 +576,15 @@ void R_SetupView (void)
 		if (cl.entities[i].model && cl.entities[i].model->type==mod_brush)
 		{
 			VectorSubtract(r_origin, cl.entities[i].origin, relpos);
+			if (cl.entities[i].angles[0] || cl.entities[i].angles[1] || cl.entities[i].angles[2])
+			{	//rotate the point, just in case.
+				vec3_t axis[3], t;
+				AngleVectors(cl.entities[i].angles, axis[0], axis[1], axis[2]);
+				VectorCopy(relpos, t);
+				relpos[0] = DotProduct(t, axis[0]);
+				relpos[0] = -DotProduct(t, axis[1]);
+				relpos[0] = DotProduct(t, axis[2]);
+			}
 			subleaf = Mod_PointInLeaf (relpos, cl.entities[i].model);
 			if ((char)cl.entities[i].skinnum < 0)
 				viewcontents = ((subleaf->contents == CONTENTS_SOLID)?(char)cl.entities[i].skinnum:CONTENTS_EMPTY);
