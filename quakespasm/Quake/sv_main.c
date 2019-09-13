@@ -2940,10 +2940,10 @@ void SV_SaveSpawnparms (void)
 		PR_ExecuteProgram (pr_global_struct->SetChangeParms);
 		for (j=0 ; j<NUM_BASIC_SPAWN_PARMS ; j++)
 			host_client->spawn_parms[j] = (&pr_global_struct->parm1)[j];
-		for ( ; i< NUM_TOTAL_SPAWN_PARMS ; i++)
+		for ( ; j< NUM_TOTAL_SPAWN_PARMS ; j++)
 		{
-			ddef_t *g = ED_FindGlobal(va("parm%i", i+1));
-			host_client->spawn_parms[i] = g?qcvm->globals[g->ofs]:0;
+			ddef_t *g = ED_FindGlobal(va("parm%i", j+1));
+			host_client->spawn_parms[j] = g?qcvm->globals[g->ofs]:0;
 		}
 	}
 }
