@@ -236,7 +236,14 @@ void SV_WaterMove (void)
 	for (i=0 ; i<3 ; i++)
 		wishvel[i] = forward[i]*cmd.forwardmove + right[i]*cmd.sidemove;
 
-	if (!cmd.forwardmove && !cmd.sidemove && !cmd.upmove)
+	if (sv_player->onladder)
+	{
+		wishvel[2] *= 1+fabs(wishvel[2]/200)*9;	//exaggerate vertical movement.
+		if (sv_player->v.button2)
+			wishvel[2] += 400; //make jump climb (you can turn around and move off to fall)
+	}
+
+	if (!cmd.forwardmove && !cmd.sidemove && !cmd.upmove && !sv_player->onladder)
 		wishvel[2] -= 60;		// drift towards bottom
 	else
 		wishvel[2] += cmd.upmove;
@@ -422,7 +429,7 @@ void SV_ClientThink (void)
 	//johnfitz -- alternate noclip
 	if (sv_player->v.movetype == MOVETYPE_NOCLIP && sv_altnoclip.value)
 		SV_NoclipMove ();
-	else if (sv_player->v.waterlevel >= 2 && sv_player->v.movetype != MOVETYPE_NOCLIP)
+	else if ((sv_player->v.waterlevel >= 2||sv_player->onladder) && sv_player->v.movetype != MOVETYPE_NOCLIP)
 		SV_WaterMove ();
 	else
 		SV_AirMove ();

@@ -508,8 +508,16 @@ void SV_PushMove (edict_t *pusher, float movetime)
 				continue;
 
 		// see if the ent's bbox is inside the pusher's final position
-			if (!SV_TestEntityPosition (check))
-				continue;
+			if (pusher->v.skin < 0)
+			{	//a more precise check...
+				if (!SV_ClipMoveToEntity (pusher, check->v.origin, check->v.mins, check->v.maxs, check->v.origin).startsolid)
+					continue;
+			}
+			else
+			{
+				if (!SV_TestEntityPosition (check))
+					continue;
+			}
 		}
 
 	// remove the onground flag for non-players
@@ -530,10 +538,18 @@ void SV_PushMove (edict_t *pusher, float movetime)
 			// try moving the contacted entity
 			pusher->v.solid = SOLID_NOT;
 			SV_PushEntity (check, move);
-			pusher->v.solid = solid_backup;
 
 			// if it is still inside the pusher, block
-			block = SV_TestEntityPosition (check);
+			if (pusher->v.skin < 0)
+			{	//if it has forced contents then do things in a slightly different order, so water can push properly.
+				block = SV_TestEntityPosition (check);
+				pusher->v.solid = solid_backup;
+			}
+			else
+			{
+				pusher->v.solid = solid_backup;
+				block = SV_TestEntityPosition (check);
+			}
 		}
 		else
 			block = NULL;
@@ -689,6 +705,26 @@ qboolean SV_CheckWater (edict_t *ent)
 {
 	vec3_t	point;
 	int		cont;
+	trace_t tr;
+
+	//Spike -- FTE_ENT_SKIN_CONTENTS -- check if we're on a ladder, and if so fire a trace forwards to ensure its a valid ladder instead of a random volume
+	tr = SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, ent->v.origin, MOVE_HITALLCONTENTS, ent);
+	if (tr.contents == CONTENTS_LADDER)
+	{
+		vec3_t flatforward;
+		flatforward[0] = cos((M_PI/180)*ent->v.angles[1]);
+		flatforward[1] = sin((M_PI/180)*ent->v.angles[1]);
+		flatforward[2] = 0;
+		VectorMA (ent->v.origin, 24, flatforward, point);
+
+		tr = SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, point, 0, ent);
+		if (tr.fraction < 1)
+			sv_player->onladder = true;
+		else
+			sv_player->onladder = false;
+	}
+	else
+		sv_player->onladder = false;
 
 	point[0] = ent->v.origin[0];
 	point[1] = ent->v.origin[1];
@@ -696,18 +732,19 @@ qboolean SV_CheckWater (edict_t *ent)
 
 	ent->v.waterlevel = 0;
 	ent->v.watertype = CONTENTS_EMPTY;
-	cont = SV_PointContents (point);
+	//Spike -- FTE_ENT_SKIN_CONTENTS -- check submodels too, because we can.
+	cont = SV_PointContentsAllBsps (point, ent);
 	if (cont <= CONTENTS_WATER)
 	{
 		ent->v.watertype = cont;
 		ent->v.waterlevel = 1;
 		point[2] = ent->v.origin[2] + (ent->v.mins[2] + ent->v.maxs[2])*0.5;
-		cont = SV_PointContents (point);
+		cont = SV_PointContentsAllBsps (point, ent);
 		if (cont <= CONTENTS_WATER)
 		{
 			ent->v.waterlevel = 2;
 			point[2] = ent->v.origin[2] + ent->v.view_ofs[2];
-			cont = SV_PointContents (point);
+			cont = SV_PointContentsAllBsps (point, ent);
 			if (cont <= CONTENTS_WATER)
 				ent->v.waterlevel = 3;
 		}
@@ -948,7 +985,8 @@ void SV_Physics_Client (edict_t	*ent, int num)
 		if (!SV_RunThink (ent))
 			return;
 		if (!SV_CheckWater (ent) && ! ((int)ent->v.flags & FL_WATERJUMP) )
-			SV_AddGravity (ent);
+			if (!sv_player->onladder)
+				SV_AddGravity (ent);
 		SV_CheckStuck (ent);
 		SV_WalkMove (ent);
 		break;

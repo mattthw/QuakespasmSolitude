@@ -111,7 +111,7 @@ mleaf_t *Mod_PointInLeaf (vec3_t p, qmodel_t *model)
 	if (!model || !model->nodes)
 		Sys_Error ("Mod_PointInLeaf: bad model");
 
-	node = model->nodes;
+	node = model->nodes + model->hulls[0].firstclipnode;
 	while (1)
 	{
 		if (node->contents < 0)

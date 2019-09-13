@@ -555,6 +555,8 @@ R_SetupView -- johnfitz -- this is the stuff that needs to be done once per fram
 */
 void R_SetupView (void)
 {
+	int viewcontents;	//spike -- rewrote this a little
+	int i;
 	Fog_SetupFrame (); //johnfitz
 
 // build the transformation matrix for the given view angles
@@ -564,8 +566,25 @@ void R_SetupView (void)
 // current viewleaf
 	r_oldviewleaf = r_viewleaf;
 	r_viewleaf = Mod_PointInLeaf (r_origin, cl.worldmodel);
+	viewcontents = r_viewleaf->contents;
 
-	V_SetContentsColor (r_viewleaf->contents);
+	//spike -- added this loop for moving water volumes
+	for (i = 0; i < cl.num_entities && viewcontents == CONTENTS_EMPTY; i++)
+	{
+		mleaf_t *subleaf;
+		vec3_t relpos;
+		if (cl.entities[i].model && cl.entities[i].model->type==mod_brush)
+		{
+			VectorSubtract(r_origin, cl.entities[i].origin, relpos);
+			subleaf = Mod_PointInLeaf (relpos, cl.entities[i].model);
+			if ((char)cl.entities[i].skinnum < 0)
+				viewcontents = ((subleaf->contents == CONTENTS_SOLID)?(char)cl.entities[i].skinnum:CONTENTS_EMPTY);
+			else
+				viewcontents = subleaf->contents;
+		}
+	}
+
+	V_SetContentsColor (viewcontents);
 	V_CalcBlend ();
 
 	r_cache_thrash = false;
@@ -575,8 +594,7 @@ void R_SetupView (void)
 	r_fovy = r_refdef.fov_y;
 	if (r_waterwarp.value)
 	{
-		int contents = Mod_PointInLeaf (r_origin, cl.worldmodel)->contents;
-		if (contents == CONTENTS_WATER || contents == CONTENTS_SLIME || contents == CONTENTS_LAVA)
+		if (viewcontents == CONTENTS_WATER || viewcontents == CONTENTS_SLIME || viewcontents == CONTENTS_LAVA)
 		{
 			//variance is a percentage of width, where width = 2 * tan(fov / 2) otherwise the effect is too dramatic at high FOV and too subtle at low FOV.  what a mess!
 			r_fovx = atan(tan(DEG2RAD(r_refdef.fov_x) / 2) * (0.97 + sin(cl.time * 1.5) * 0.03)) * 2 / M_PI_DIV_180;

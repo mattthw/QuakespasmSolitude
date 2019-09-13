@@ -5706,6 +5706,7 @@ static const char *extnames[] =
 	"DP_TE_STANDARDEFFECTBUILTINS",
 	"EXT_BITSHIFT",
 	"FRIK_FILE",				//lacks the file part, but does have the strings part.
+	"FTE_ENT_SKIN_CONTENTS",	//SOLID_BSP&&skin==CONTENTS_FOO changes CONTENTS_SOLID to CONTENTS_FOO, allowing you to swim in moving ents without qc hacks, as well as correcting view cshifts etc.
 #ifdef PSET_SCRIPT
 	"FTE_PART_SCRIPT",
 	"FTE_PART_NAMESPACES",

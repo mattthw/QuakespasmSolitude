@@ -41,6 +41,7 @@ typedef struct
 	float		*start, *end;
 	trace_t		trace;
 	int			type;
+	unsigned int	hitcontents;	//content types to impact upon... (1<<-CONTENTS_FOO) bitmask
 	edict_t		*passedict;
 } moveclip_t;
 
@@ -555,6 +556,14 @@ int SV_TruePointContents (vec3_t p)
 	return SV_HullPointContents (&qcvm->worldmodel->hulls[0], 0, p);
 }
 
+int SV_PointContentsAllBsps(vec3_t p, edict_t *forent)
+{
+	trace_t trace = SV_Move (p, vec3_origin, vec3_origin, p, MOVE_NOMONSTERS|MOVE_HITALLCONTENTS, forent);
+	if (trace.contents <= CONTENTS_CURRENT_0 && trace.contents >= CONTENTS_CURRENT_DOWN)
+		trace.contents = CONTENTS_WATER;
+	return trace.contents;
+}
+
 //===========================================================================
 
 /*
@@ -629,6 +638,7 @@ reenter:
 	if (num < 0)
 	{
 		/*hit a leaf*/
+		trace->contents = num;
 		if (num == CONTENTS_SOLID)
 		{
 			if (trace->allsolid)
@@ -741,7 +751,9 @@ qboolean SV_RecursiveHullCheck (hull_t *hull, int num, float p1f, float p2f, vec
 	if (p1[0]==p2[0] && p1[1]==p2[1] && p1[2]==p2[2])
 	{
 		/*points cannot cross planes, so do it faster*/
-		switch(SV_HullPointContents(hull, num, p1))
+		int c = SV_HullPointContents(hull, num, p1);
+		trace->contents = c;
+		switch(c)
 		{
 		case CONTENTS_SOLID:
 			trace->startsolid = true;
@@ -875,6 +887,11 @@ void SV_ClipToLinks ( areanode_t *node, moveclip_t *clip )
 			trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins2, clip->maxs2, clip->end);
 		else
 			trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins, clip->maxs, clip->end);
+		if (trace.contents == CONTENTS_SOLID && touch->v.skin < 0)
+			trace.contents = touch->v.skin;
+		if (!((1<<(-trace.contents)) & clip->hitcontents))
+			continue;
+
 		if (trace.allsolid || trace.startsolid ||
 		trace.fraction < clip->trace.fraction)
 		{
@@ -951,8 +968,12 @@ trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, e
 	clip.end = end;
 	clip.mins = mins;
 	clip.maxs = maxs;
-	clip.type = type;
+	clip.type = type&3;
 	clip.passedict = passedict;
+	if (type & MOVE_HITALLCONTENTS)
+		clip.hitcontents = ~0u;
+	else
+		clip.hitcontents = (1<<(-CONTENTS_SOLID)) | (1<<(-CONTENTS_CLIP));
 
 	if (type == MOVE_MISSILE)
 	{
