@@ -36,8 +36,7 @@ int					lightmap_count;
 int					last_lightmap_allocated;
 int					allocated[LMBLOCK_WIDTH];
 
-
-unsigned			blocklights[LMBLOCK_WIDTH*LMBLOCK_HEIGHT*3]; //johnfitz -- was 18*18, added lit support (*3) and loosened surface extents maximum (BLOCK_WIDTH*BLOCK_HEIGHT)
+unsigned	blocklights[LMBLOCK_WIDTH*LMBLOCK_HEIGHT*3]; //johnfitz -- was 18*18, added lit support (*3) and loosened surface extents maximum (LMBLOCK_WIDTH*LMBLOCK_HEIGHT)
 
 
 /*
@@ -727,9 +726,9 @@ int AllocBlock (int w, int h, int *x, int *y)
 		if (texnum == lightmap_count)
 		{
 			lightmap_count++;
-			lightmap = realloc(lightmap, sizeof(*lightmap)*lightmap_count);
+			lightmap = (struct lightmap_s *) realloc(lightmap, sizeof(*lightmap)*lightmap_count);
 			memset(&lightmap[texnum], 0, sizeof(lightmap[texnum]));
-			lightmap[texnum].data = malloc(4*LMBLOCK_WIDTH*LMBLOCK_HEIGHT);
+			lightmap[texnum].data = (byte *) malloc(4*LMBLOCK_WIDTH*LMBLOCK_HEIGHT);
 			//as we're only tracking one texture, we don't need multiple copies of allocated any more.
 			memset(allocated, 0, sizeof(allocated));
 		}
@@ -759,7 +758,8 @@ int AllocBlock (int w, int h, int *x, int *y)
 		for (i=0 ; i<w ; i++)
 			allocated[*x + i] = best + h;
 
-		return last_lightmap_allocated=texnum;
+		last_lightmap_allocated = texnum;
+		return texnum;
 	}
 
 	Sys_Error ("AllocBlock: full");
@@ -939,7 +939,7 @@ void GL_BuildLightmaps (void)
 		//johnfitz -- use texture manager
 		sprintf(name, "lightmap%03i",i);
 		lm->texture = TexMgr_LoadImage (cl.worldmodel, name, LMBLOCK_WIDTH, LMBLOCK_HEIGHT,
-			 SRC_LIGHTMAP, lm->data, "", (src_offset_t)lm->data, TEXPREF_LINEAR | TEXPREF_NOPICMIP);
+						SRC_LIGHTMAP, lm->data, "", (src_offset_t)lm->data, TEXPREF_LINEAR | TEXPREF_NOPICMIP);
 		//johnfitz
 	}
 
@@ -1264,7 +1264,7 @@ static void R_UploadLightmap(int lmap)
 	lm->modified = false;
 
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, lm->rectchange.t, LMBLOCK_WIDTH, lm->rectchange.h, gl_lightmap_format,
-		  GL_UNSIGNED_BYTE, lm->data+lm->rectchange.t*LMBLOCK_WIDTH*lightmap_bytes);
+			GL_UNSIGNED_BYTE, lm->data+lm->rectchange.t*LMBLOCK_WIDTH*lightmap_bytes);
 	lm->rectchange.l = LMBLOCK_WIDTH;
 	lm->rectchange.t = LMBLOCK_HEIGHT;
 	lm->rectchange.h = 0;
@@ -1323,6 +1323,6 @@ void R_RebuildAllLightmaps (void)
 	{
 		GL_Bind (lightmap[i].texture);
 		glTexSubImage2D (GL_TEXTURE_2D, 0, 0, 0, LMBLOCK_WIDTH, LMBLOCK_HEIGHT, gl_lightmap_format,
-			GL_UNSIGNED_BYTE, lightmap[i].data);
+				GL_UNSIGNED_BYTE, lightmap[i].data);
 	}
 }

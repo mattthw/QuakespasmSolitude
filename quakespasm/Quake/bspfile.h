@@ -248,8 +248,6 @@ typedef struct
 #define	MAXLIGHTMAPS	16
 #define INVALID_LIGHTSTYLE 0xffffu
 #define INVALID_LIGHTSTYLE_OLD 0xffu
-#define LMBLOCK_WIDTH	256	//FIXME: make dynamic. if we have a decent card there's no real reason not to use 4k or 16k (assuming there's no lightstyles/dynamics that need uploading...)
-#define LMBLOCK_HEIGHT	256 //Alternatively, use texture arrays, which would avoid the need to switch textures as often.
 typedef struct
 {
 	short		planenum;
