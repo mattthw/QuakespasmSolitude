@@ -52,21 +52,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 qboolean		isDedicated;
 cvar_t		sys_throttle = {"sys_throttle", "0.02", CVAR_ARCHIVE};
 
-#define	MAX_HANDLES		32	/* johnfitz -- was 10 */
-static FILE		*sys_handles[MAX_HANDLES];
-
-
+static size_t	sys_handles_max;	/* spike -- removed limit, was 32 (johnfitz -- was 10) */
+static FILE		**sys_handles;
 static int findhandle (void)
 {
-	int i;
+	size_t i, n;
 
-	for (i = 1; i < MAX_HANDLES; i++)
+	for (i = 1; i < sys_handles_max; i++)
 	{
 		if (!sys_handles[i])
 			return i;
 	}
-	Sys_Error ("out of handles");
-	return -1;
+	n = sys_handles_max+10;
+	sys_handles = realloc(sys_handles, sizeof(*sys_handles)*n);
+	if (!sys_handles)
+		Sys_Error ("out of handles");
+	while (sys_handles_max < n)
+		sys_handles[sys_handles_max++] = NULL;
+	return i;
 }
 
 long Sys_filelength (FILE *f)
