@@ -29,8 +29,8 @@ server_static_t	svs;
 
 static char	localmodels[MAX_MODELS][8];	// inline model names for precache
 
-int				sv_protocol = PROTOCOL_FITZQUAKE; //johnfitz
-unsigned int	sv_protocol_pext2; //spike
+int				sv_protocol = PROTOCOL_RMQ;//spike -- enough maps need this now that we can probably afford incompatibility with engines that still don't support 999 (vanilla was already broken) -- PROTOCOL_FITZQUAKE; //johnfitz
+unsigned int	sv_protocol_pext2 = PEXT2_SUPPORTED_SERVER; //spike
 
 //============================================================================
 
@@ -1293,7 +1293,6 @@ void SV_Init (void)
 	for (i=0 ; i<MAX_MODELS ; i++)
 		sprintf (localmodels[i], "*%i", i);
 
-	sv_protocol_pext2 = PEXT2_SUPPORTED_SERVER;
 	i = COM_CheckParm ("-protocol");
 	if (i && i < com_argc - 1)
 		sv_protocol = atoi (com_argv[i + 1]);
