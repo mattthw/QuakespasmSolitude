@@ -33,6 +33,7 @@ void Mod_LoadSpriteModel (qmodel_t *mod, void *buffer);
 void Mod_LoadBrushModel (qmodel_t *mod, void *buffer);
 void Mod_LoadAliasModel (qmodel_t *mod, void *buffer, int pvtype);
 void Mod_LoadMD3Model (qmodel_t *mod, void *buffer);
+void Mod_LoadIQMModel (qmodel_t *mod, const void *buffer);
 qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash);
 
 cvar_t	external_ents = {"external_ents", "1", CVAR_ARCHIVE};
@@ -388,6 +389,11 @@ qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash)
 		Mod_LoadMD3Model(mod, buf);
 		break;
 
+	//Spike -- iqm support
+	case (('I'<<0)+('N'<<8)+('T'<<16)+('E'<<24)):	//iqm
+		Mod_LoadIQMModel(mod, buf);
+		break;
+
 	//Spike -- added checks for a few other model types.
 	//this is useful because of the number of models with renamed extensions.
 	//that and its hard to test the extension stuff when this was crashing.
@@ -397,10 +403,6 @@ qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash)
 		break;
 	case (('I'<<0)+('D'<<8)+('P'<<16)+('2'<<24)):	//md2
 		Con_Warning("%s is an md2 (unsupported)\n", mod->name);
-		mod->type = mod_ext_invalid;
-		break;
-	case (('I'<<0)+('N'<<8)+('T'<<16)+('E'<<24)):	//iqm
-		Con_Warning("%s is an iqm (unsupported)\n", mod->name);
 		mod->type = mod_ext_invalid;
 		break;
 	case (('D'<<0)+('A'<<8)+('R'<<16)+('K'<<24)):	//dpm
@@ -2928,13 +2930,13 @@ void Mod_CalcAliasBounds (aliashdr_t *a)
 
 	for (;;)
 	{
-		if (a->numposes && a->numverts)
+		if (a->nummorphposes && a->numverts)
 		{
 			switch(a->poseverttype)
 			{
 			case PV_QUAKE1:
 				//process verts
-				for (i=0 ; i<a->numposes; i++)
+				for (i=0 ; i<a->nummorphposes; i++)
 					for (j=0; j<a->numverts; j++)
 					{
 						for (k=0; k<3;k++)
@@ -2955,7 +2957,7 @@ void Mod_CalcAliasBounds (aliashdr_t *a)
 				break;
 			case PV_QUAKEFORGE:
 				//process verts
-				for (i=0 ; i<a->numposes; i++)
+				for (i=0 ; i<a->nummorphposes; i++)
 					for (j=0; j<a->numverts; j++)
 					{
 						for (k=0; k<3;k++)
@@ -2976,13 +2978,37 @@ void Mod_CalcAliasBounds (aliashdr_t *a)
 				break;
 			case PV_QUAKE3:
 				//process verts
-				for (i=0 ; i<a->numposes; i++)
+				for (i=0 ; i<a->nummorphposes; i++)
 				{
 					md3XyzNormal_t *pv = (md3XyzNormal_t *)((byte*)a+a->vertexes) + i*a->numverts;
 					for (j=0; j<a->numverts; j++)
 					{
 						for (k=0; k<3;k++)
 							v[k] = pv[j].xyz[k] * 1/64.0;
+
+						for (k=0; k<3;k++)
+						{
+							loadmodel->mins[k] = q_min(loadmodel->mins[k], v[k]);
+							loadmodel->maxs[k] = q_max(loadmodel->maxs[k], v[k]);
+						}
+						dist = v[0] * v[0] + v[1] * v[1];
+						if (yawradius < dist)
+							yawradius = dist;
+						dist += v[2] * v[2];
+						if (radius < dist)
+							radius = dist;
+					}
+				}
+				break;
+			case PV_IQM:
+				//process verts
+				for (i=0 ; i<a->nummorphposes; i++)
+				{
+					const iqmvert_t *pv = (const iqmvert_t *)((byte*)a+a->vertexes) + i*a->numverts;
+					for (j=0; j<a->numverts; j++)
+					{
+						for (k=0; k<3;k++)
+							v[k] = pv[j].xyz[k];
 
 						for (k=0; k<3;k++)
 						{
@@ -3254,7 +3280,7 @@ void Mod_LoadAliasModel (qmodel_t *mod, void *buffer, int pvtype)
 			pframetype = (daliasframetype_t *) Mod_LoadAliasGroup (pframetype + 1, &pheader->frames[i], pvtype);
 	}
 
-	pheader->numposes = posenum;
+	pheader->nummorphposes = posenum;
 	pheader->poseverttype = pvtype;	//it would be safe to always store PV_QUAKE1 here if you wanted to drop the low-order data.
 
 	mod->type = mod_alias;

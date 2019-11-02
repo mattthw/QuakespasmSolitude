@@ -142,6 +142,7 @@ QS_PFNGLUNIFORM1IPROC GL_Uniform1iFunc = NULL; //ericw
 QS_PFNGLUNIFORM1FPROC GL_Uniform1fFunc = NULL; //ericw
 QS_PFNGLUNIFORM3FPROC GL_Uniform3fFunc = NULL; //ericw
 QS_PFNGLUNIFORM4FPROC GL_Uniform4fFunc = NULL; //ericw
+QS_PFNGLUNIFORM4FVPROC GL_Uniform4fvFunc = NULL; //spike (for iqms)
 
 //====================================
 
@@ -1201,6 +1202,7 @@ static void GL_CheckExtensions (void)
 		GL_Uniform1fFunc = (QS_PFNGLUNIFORM1FPROC) SDL_GL_GetProcAddress("glUniform1f");
 		GL_Uniform3fFunc = (QS_PFNGLUNIFORM3FPROC) SDL_GL_GetProcAddress("glUniform3f");
 		GL_Uniform4fFunc = (QS_PFNGLUNIFORM4FPROC) SDL_GL_GetProcAddress("glUniform4f");
+		GL_Uniform4fvFunc = (QS_PFNGLUNIFORM4FVPROC) SDL_GL_GetProcAddress("glUniform4fv");
 
 		if (GL_CreateShaderFunc &&
 			GL_DeleteShaderFunc &&
@@ -1224,7 +1226,8 @@ static void GL_CheckExtensions (void)
 			GL_Uniform1iFunc &&
 			GL_Uniform1fFunc &&
 			GL_Uniform3fFunc &&
-			GL_Uniform4fFunc)
+			GL_Uniform4fFunc &&
+			GL_Uniform4fvFunc)
 		{
 			Con_Printf("FOUND: GLSL\n");
 			gl_glsl_able = true;

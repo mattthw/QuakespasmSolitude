@@ -2278,16 +2278,39 @@ void Host_Give_f (void)
 edict_t	*FindViewthing (void)
 {
 	int		i;
-	edict_t	*e;
+	edict_t	*e = NULL;
 
-	for (i=0 ; i<qcvm->num_edicts ; i++)
+	PR_SwitchQCVM(&sv.qcvm);
+	i = qcvm->num_edicts;
+
+	if (i == qcvm->num_edicts)
 	{
-		e = EDICT_NUM(i);
-		if ( !strcmp (PR_GetString(e->v.classname), "viewthing") )
-			return e;
+		for (i=0 ; i<qcvm->num_edicts ; i++)
+		{
+			e = EDICT_NUM(i);
+			if ( !strcmp (PR_GetString(e->v.classname), "viewthing") )
+				break;
+		}
 	}
-	Con_Printf ("No viewthing on map\n");
-	return NULL;
+
+	if (i == qcvm->num_edicts)
+	{
+		for (i=0 ; i<qcvm->num_edicts ; i++)
+		{
+			e = EDICT_NUM(i);
+			if ( !strcmp (PR_GetString(e->v.classname), "info_player_start") )
+				break;
+		}
+	}
+
+	if (i == qcvm->num_edicts)
+	{
+		e = NULL;
+		Con_Printf ("No viewthing on map\n");
+	}
+
+	PR_SwitchQCVM(NULL);
+	return e;
 }
 
 /*
@@ -2311,8 +2334,11 @@ void Host_Viewmodel_f (void)
 		return;
 	}
 
+	PR_SwitchQCVM(&sv.qcvm);
+	e->v.modelindex = SV_Precache_Model(m->name);
+	e->v.model = PR_SetEngineString(sv.model_precache[(int)e->v.modelindex]);
 	e->v.frame = 0;
-	cl.model_precache[(int)e->v.modelindex] = m;
+	PR_SwitchQCVM(NULL);
 }
 
 /*

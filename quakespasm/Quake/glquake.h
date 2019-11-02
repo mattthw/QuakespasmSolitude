@@ -235,6 +235,7 @@ typedef void (APIENTRYP QS_PFNGLUNIFORM1IPROC) (GLint location, GLint v0);
 typedef void (APIENTRYP QS_PFNGLUNIFORM1FPROC) (GLint location, GLfloat v0);
 typedef void (APIENTRYP QS_PFNGLUNIFORM3FPROC) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2);
 typedef void (APIENTRYP QS_PFNGLUNIFORM4FPROC) (GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3);
+typedef void (APIENTRYP QS_PFNGLUNIFORM4FVPROC) (GLint location, GLsizei count, const GLfloat *value);
 
 extern QS_PFNGLCREATESHADERPROC GL_CreateShaderFunc;
 extern QS_PFNGLDELETESHADERPROC GL_DeleteShaderFunc;
@@ -259,6 +260,7 @@ extern QS_PFNGLUNIFORM1IPROC GL_Uniform1iFunc;
 extern QS_PFNGLUNIFORM1FPROC GL_Uniform1fFunc;
 extern QS_PFNGLUNIFORM3FPROC GL_Uniform3fFunc;
 extern QS_PFNGLUNIFORM4FPROC GL_Uniform4fFunc;
+extern QS_PFNGLUNIFORM4FVPROC GL_Uniform4fvFunc;
 extern	qboolean	gl_glsl_able;
 extern	qboolean	gl_glsl_gamma_able;
 extern	qboolean	gl_glsl_alias_able;

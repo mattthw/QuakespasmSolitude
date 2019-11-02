@@ -318,7 +318,7 @@ typedef struct
 	float				interval;
 	trivertx_t			bboxmin;
 	trivertx_t			bboxmax;
-	int					frame;
+//	int					frame;	//spike - this was redundant.
 	char				name[16];
 } maliasframedesc_t;
 
@@ -374,12 +374,17 @@ typedef struct {
 	//ericw --
 
 	intptr_t					nextsurface;	//spike
-	int					numposes;
+	int					nummorphposes;		//spike -- renamed from numposes
+	int					numboneposes;		//spike -- for iqm
+	int					numbones;			//spike -- for iqm
+	intptr_t			boneinfo;			//spike -- for iqm, boneinfo_t[numbones]
+	intptr_t			boneposedata;		//spike -- for iqm, bonepose_t[numboneposes*numbones]
 	enum
 	{
 		PV_QUAKE1 = 1,	//trivertx_t
 		PV_QUAKE3 = 2,	//md3XyzNormal_t
 		PV_QUAKEFORGE,	//trivertx16_t
+		PV_IQM,			//iqmvert_t
 	} poseverttype;	//spike
 	struct gltexture_s	*gltextures[MAX_SKINS][4]; //johnfitz
 	struct gltexture_s	*fbtextures[MAX_SKINS][4]; //johnfitz
@@ -392,13 +397,32 @@ typedef struct {
 	byte		latlong[2];
 } md3XyzNormal_t;
 
+typedef struct
+{
+	float xyz[3];
+	float norm[3];
+	float st[2];	//these are separate for consistency
+	float rgba[4];	//because we can.
+	float weight[4];
+	byte idx[4];
+} iqmvert_t;
+typedef struct
+{
+	float mat[12];
+} bonepose_t; //pose data for a single bone.
+typedef struct
+{
+	int parent; //-1 for a root bone
+	char name[32];
+	bonepose_t inverse;
+} boneinfo_t;
+
 #define	VANILLA_MAXALIASVERTS	1024
 #define	MAXALIASVERTS	65536 // spike -- was 2000 //johnfitz -- was 1024
 #define	MAXALIASFRAMES	1024  //spike -- was 256
 extern	stvert_t		stverts[MAXALIASVERTS];
 extern	mtriangle_t		*triangles;
 extern	trivertx_t		*poseverts_mdl[MAXALIASFRAMES];
-extern	md3XyzNormal_t	*poseverts_md3[MAXALIASFRAMES];
 
 //===================================================================
 

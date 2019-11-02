@@ -63,28 +63,46 @@ typedef struct {
 	float blend;
 	vec3_t origin;
 	vec3_t angles;
+	bonepose_t *bonestate;
 } lerpdata_t;
 //johnfitz
 
-static GLuint r_alias_program;
+enum
+{
+	ALIAS_GLSL_BASIC,
+	ALIAS_GLSL_SKELETAL,
+	ALIAS_GLSL_MODES
+};
+typedef struct
+{
+	int maxbones;
 
-// uniforms used in vert shader
-static GLuint blendLoc;
-static GLuint shadevectorLoc;
-static GLuint lightColorLoc;
+	GLuint program;
 
-// uniforms used in frag shader
-static GLuint texLoc;
-static GLuint fullbrightTexLoc;
-static GLuint useFullbrightTexLoc;
-static GLuint useOverbrightLoc;
-static GLuint useAlphaTestLoc;
+	// uniforms used in vert shader
+	GLuint bonesLoc;
+	GLuint blendLoc;
+	GLuint shadevectorLoc;
+	GLuint lightColorLoc;
+
+	// uniforms used in frag shader
+	GLuint texLoc;
+	GLuint fullbrightTexLoc;
+	GLuint useFullbrightTexLoc;
+	GLuint useOverbrightLoc;
+	GLuint useAlphaTestLoc;
+} aliasglsl_t;
+static aliasglsl_t r_alias_glsl[ALIAS_GLSL_MODES];
 
 #define pose1VertexAttrIndex 0
 #define pose1NormalAttrIndex 1
 #define pose2VertexAttrIndex 2
 #define pose2NormalAttrIndex 3
 #define texCoordsAttrIndex 4
+#define vertColoursAttrIndex 5
+
+#define boneWeightAttrIndex pose2VertexAttrIndex
+#define boneIndexAttrIndex pose2NormalAttrIndex
 
 /*
 =============
@@ -141,25 +159,39 @@ GLAlias_CreateShaders
 */
 void GLAlias_CreateShaders (void)
 {
+	int i;
+	aliasglsl_t *glsl;
+	char processedVertSource[8192], *defines;
 	const glsl_attrib_binding_t bindings[] = {
 		{ "TexCoords", texCoordsAttrIndex },
 		{ "Pose1Vert", pose1VertexAttrIndex },
 		{ "Pose1Normal", pose1NormalAttrIndex },
 		{ "Pose2Vert", pose2VertexAttrIndex },
-		{ "Pose2Normal", pose2NormalAttrIndex }
+		{ "Pose2Normal", pose2NormalAttrIndex },
+		{ "VertColours", vertColoursAttrIndex }
 	};
 
 	const GLchar *vertSource = \
 		"#version 110\n"
+		"%s"
 		"\n"
-		"uniform float Blend;\n"
 		"uniform vec3 ShadeVector;\n"
 		"uniform vec4 LightColor;\n"
 		"attribute vec4 TexCoords; // only xy are used \n"
 		"attribute vec4 Pose1Vert;\n"
 		"attribute vec3 Pose1Normal;\n"
+		"#ifdef SKELETAL\n"
+		"#define BoneWeight Pose2Vert\n"
+		"#define BoneIndex Pose2Normal\n"
+		"attribute vec4 BoneWeight;\n"
+		"attribute vec4 BoneIndex;\n"
+		"attribute vec4 VertColours;\n"
+		"uniform vec4 BoneTable[MAXBONES*3];\n" //fixme: should probably try to use a UBO or SSBO.
+		"#else\n"
+		"uniform float Blend;\n"
 		"attribute vec4 Pose2Vert;\n"
 		"attribute vec3 Pose2Normal;\n"
+		"#endif\n"
 		"\n"
 		"varying float FogFragCoord;\n"
 		"\n"
@@ -175,12 +207,33 @@ void GLAlias_CreateShaders (void)
 		"void main()\n"
 		"{\n"
 		"	gl_TexCoord[0] = TexCoords;\n"
+		"#ifdef SKELETAL\n"
+		"	mat4 wmat;"
+		"	wmat[0]  = BoneTable[0+3*int(BoneIndex.x)] * BoneWeight.x;"
+		"	wmat[0] += BoneTable[0+3*int(BoneIndex.y)] * BoneWeight.y;"
+		"	wmat[0] += BoneTable[0+3*int(BoneIndex.z)] * BoneWeight.z;"
+		"	wmat[0] += BoneTable[0+3*int(BoneIndex.w)] * BoneWeight.w;"
+		"	wmat[1]  = BoneTable[1+3*int(BoneIndex.x)] * BoneWeight.x;"
+		"	wmat[1] += BoneTable[1+3*int(BoneIndex.y)] * BoneWeight.y;"
+		"	wmat[1] += BoneTable[1+3*int(BoneIndex.z)] * BoneWeight.z;"
+		"	wmat[1] += BoneTable[1+3*int(BoneIndex.w)] * BoneWeight.w;"
+		"	wmat[2]  = BoneTable[2+3*int(BoneIndex.x)] * BoneWeight.x;"
+		"	wmat[2] += BoneTable[2+3*int(BoneIndex.y)] * BoneWeight.y;"
+		"	wmat[2] += BoneTable[2+3*int(BoneIndex.z)] * BoneWeight.z;"
+		"	wmat[2] += BoneTable[2+3*int(BoneIndex.w)] * BoneWeight.w;"
+		"	wmat[3] = vec4(0.0,0.0,0.0,1.0);\n"
+		"	vec4 lerpedVert = (vec4(Pose1Vert.xyz, 1.0) * wmat);\n"
+		"	float dot1 = r_avertexnormal_dot((vec4(Pose1Vert.xyz, 0.0) * wmat).xyz);\n"
+		"#else\n"
 		"	vec4 lerpedVert = mix(vec4(Pose1Vert.xyz, 1.0), vec4(Pose2Vert.xyz, 1.0), Blend);\n"
+		"	float dot1 = mix(r_avertexnormal_dot(Pose1Normal), r_avertexnormal_dot(Pose2Normal), Blend);\n"
+		"#endif\n"
 		"	gl_Position = gl_ModelViewProjectionMatrix * lerpedVert;\n"
 		"	FogFragCoord = gl_Position.w;\n"
-		"	float dot1 = r_avertexnormal_dot(Pose1Normal);\n"
-		"	float dot2 = r_avertexnormal_dot(Pose2Normal);\n"
-		"	gl_FrontColor = LightColor * vec4(vec3(mix(dot1, dot2, Blend)), 1.0);\n"
+		"	gl_FrontColor = LightColor * vec4(vec3(dot1), 1.0);\n"
+		"#ifdef SKELETAL\n"
+		"	gl_FrontColor *= VertColours;\n"	//this is basically only useful for vertex alphas.
+		"#endif\n"
 		"}\n";
 
 	const GLchar *fragSource = \
@@ -215,19 +268,45 @@ void GLAlias_CreateShaders (void)
 	if (!gl_glsl_alias_able)
 		return;
 
-	r_alias_program = GL_CreateProgram (vertSource, fragSource, sizeof(bindings)/sizeof(bindings[0]), bindings);
-
-	if (r_alias_program != 0)
+	for (i = 0; i < ALIAS_GLSL_MODES; i++)
 	{
-	// get uniform locations
-		blendLoc = GL_GetUniformLocation (&r_alias_program, "Blend");
-		shadevectorLoc = GL_GetUniformLocation (&r_alias_program, "ShadeVector");
-		lightColorLoc = GL_GetUniformLocation (&r_alias_program, "LightColor");
-		texLoc = GL_GetUniformLocation (&r_alias_program, "Tex");
-		fullbrightTexLoc = GL_GetUniformLocation (&r_alias_program, "FullbrightTex");
-		useFullbrightTexLoc = GL_GetUniformLocation (&r_alias_program, "UseFullbrightTex");
-		useOverbrightLoc = GL_GetUniformLocation (&r_alias_program, "UseOverbright");
-		useAlphaTestLoc = GL_GetUniformLocation (&r_alias_program, "UseAlphaTest");
+		glsl = &r_alias_glsl[i];
+
+		if (i == ALIAS_GLSL_SKELETAL)
+		{
+			defines = "#define SKELETAL\n#define MAXBONES 64\n";
+			glsl->maxbones = 64;
+		}
+		else
+		{
+			defines = "";
+			glsl->maxbones = 0;
+		}
+		q_snprintf(processedVertSource, sizeof(processedVertSource), vertSource, defines);
+
+		glsl->program = GL_CreateProgram (processedVertSource, fragSource, sizeof(bindings)/sizeof(bindings[0]), bindings);
+
+		if (glsl->program != 0)
+		{
+		// get uniform locations
+			if (i == ALIAS_GLSL_SKELETAL)
+			{
+				glsl->bonesLoc = GL_GetUniformLocation (&glsl->program, "BoneTable");
+				glsl->blendLoc = -1;
+			}
+			else
+			{
+				glsl->bonesLoc = -1;
+				glsl->blendLoc = GL_GetUniformLocation (&glsl->program, "Blend");
+			}
+			glsl->shadevectorLoc = GL_GetUniformLocation (&glsl->program, "ShadeVector");
+			glsl->lightColorLoc = GL_GetUniformLocation (&glsl->program, "LightColor");
+			glsl->texLoc = GL_GetUniformLocation (&glsl->program, "Tex");
+			glsl->fullbrightTexLoc = GL_GetUniformLocation (&glsl->program, "FullbrightTex");
+			glsl->useFullbrightTexLoc = GL_GetUniformLocation (&glsl->program, "UseFullbrightTex");
+			glsl->useOverbrightLoc = GL_GetUniformLocation (&glsl->program, "UseOverbright");
+			glsl->useAlphaTestLoc = GL_GetUniformLocation (&glsl->program, "UseAlphaTest");
+		}
 	}
 }
 
@@ -245,7 +324,7 @@ Supports optional overbright, optional fullbright pixels.
 Based on code by MH from RMQEngine
 =============
 */
-void GL_DrawAliasFrame_GLSL (aliashdr_t *paliashdr, lerpdata_t lerpdata, gltexture_t *tx, gltexture_t *fb)
+void GL_DrawAliasFrame_GLSL (aliasglsl_t *glsl, aliashdr_t *paliashdr, lerpdata_t lerpdata, gltexture_t *tx, gltexture_t *fb)
 {
 	float	blend;
 
@@ -258,7 +337,7 @@ void GL_DrawAliasFrame_GLSL (aliashdr_t *paliashdr, lerpdata_t lerpdata, gltextu
 		blend = 0;
 	}
 
-	GL_UseProgramFunc (r_alias_program);
+	GL_UseProgramFunc (glsl->program);
 
 	GL_BindBuffer (GL_ARRAY_BUFFER, currententity->model->meshvbo);
 	GL_BindBuffer (GL_ELEMENT_ARRAY_BUFFER, currententity->model->meshindexesvbo);
@@ -269,10 +348,11 @@ void GL_DrawAliasFrame_GLSL (aliashdr_t *paliashdr, lerpdata_t lerpdata, gltextu
 	GL_EnableVertexAttribArrayFunc (pose1NormalAttrIndex);
 	GL_EnableVertexAttribArrayFunc (pose2NormalAttrIndex);
 
-	GL_VertexAttribPointerFunc (texCoordsAttrIndex, 2, GL_FLOAT, GL_FALSE, 0, currententity->model->meshvboptr+paliashdr->vbostofs);
 	switch(paliashdr->poseverttype)
 	{
 	case PV_QUAKE1:
+		GL_VertexAttribPointerFunc (texCoordsAttrIndex, 2, GL_FLOAT, GL_FALSE, 0, currententity->model->meshvboptr+paliashdr->vbostofs);
+
 		GL_VertexAttribPointerFunc (pose1VertexAttrIndex, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof (meshxyz_mdl_t), GLARB_GetXYZOffset_MDL (paliashdr, lerpdata.pose1));
 		GL_VertexAttribPointerFunc (pose2VertexAttrIndex, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof (meshxyz_mdl_t), GLARB_GetXYZOffset_MDL (paliashdr, lerpdata.pose2));
 		// GL_TRUE to normalize the signed bytes to [-1 .. 1]
@@ -280,6 +360,8 @@ void GL_DrawAliasFrame_GLSL (aliashdr_t *paliashdr, lerpdata_t lerpdata, gltextu
 		GL_VertexAttribPointerFunc (pose2NormalAttrIndex, 4, GL_BYTE, GL_TRUE, sizeof (meshxyz_mdl_t), GLARB_GetNormalOffset_MDL (paliashdr, lerpdata.pose2));
 		break;
 	case PV_QUAKEFORGE:
+		GL_VertexAttribPointerFunc (texCoordsAttrIndex, 2, GL_FLOAT, GL_FALSE, 0, currententity->model->meshvboptr+paliashdr->vbostofs);
+
 		GL_VertexAttribPointerFunc (pose1VertexAttrIndex, 4, GL_UNSIGNED_SHORT, GL_FALSE, sizeof (meshxyz_mdl16_t), GLARB_GetXYZOffset_MDLQF (paliashdr, lerpdata.pose1));
 		GL_VertexAttribPointerFunc (pose2VertexAttrIndex, 4, GL_UNSIGNED_SHORT, GL_FALSE, sizeof (meshxyz_mdl16_t), GLARB_GetXYZOffset_MDLQF (paliashdr, lerpdata.pose2));
 		// GL_TRUE to normalize the signed bytes to [-1 .. 1]
@@ -287,23 +369,42 @@ void GL_DrawAliasFrame_GLSL (aliashdr_t *paliashdr, lerpdata_t lerpdata, gltextu
 		GL_VertexAttribPointerFunc (pose2NormalAttrIndex, 4, GL_BYTE, GL_TRUE, sizeof (meshxyz_mdl16_t), GLARB_GetNormalOffset_MDLQF (paliashdr, lerpdata.pose2));
 		break;
 	case PV_QUAKE3:
+		GL_VertexAttribPointerFunc (texCoordsAttrIndex, 2, GL_FLOAT, GL_FALSE, 0, currententity->model->meshvboptr+paliashdr->vbostofs);
+
 		GL_VertexAttribPointerFunc (pose1VertexAttrIndex, 4, GL_SHORT, GL_FALSE, sizeof (meshxyz_md3_t), GLARB_GetXYZOffset_MD3 (paliashdr, lerpdata.pose1));
 		GL_VertexAttribPointerFunc (pose2VertexAttrIndex, 4, GL_SHORT, GL_FALSE, sizeof (meshxyz_md3_t), GLARB_GetXYZOffset_MD3 (paliashdr, lerpdata.pose2));
 		// GL_TRUE to normalize the signed bytes to [-1 .. 1]
 		GL_VertexAttribPointerFunc (pose1NormalAttrIndex, 4, GL_BYTE, GL_TRUE, sizeof (meshxyz_md3_t), GLARB_GetNormalOffset_MD3 (paliashdr, lerpdata.pose1));
 		GL_VertexAttribPointerFunc (pose2NormalAttrIndex, 4, GL_BYTE, GL_TRUE, sizeof (meshxyz_md3_t), GLARB_GetNormalOffset_MD3 (paliashdr, lerpdata.pose2));
 		break;
+	case PV_IQM:
+		{
+			const iqmvert_t *pose = (const iqmvert_t*)(currententity->model->meshvboptr+paliashdr->vbovertofs + (paliashdr->numverts_vbo * 0 * sizeof (iqmvert_t)));
+
+			GL_VertexAttribPointerFunc (pose1VertexAttrIndex, 3, GL_FLOAT, GL_FALSE, sizeof (iqmvert_t), pose->xyz);
+			GL_VertexAttribPointerFunc (pose1NormalAttrIndex, 3, GL_FLOAT, GL_FALSE, sizeof (iqmvert_t), pose->norm);
+			GL_VertexAttribPointerFunc (boneWeightAttrIndex, 4, GL_FLOAT, GL_FALSE, sizeof (iqmvert_t), pose->weight);
+			GL_VertexAttribPointerFunc (boneIndexAttrIndex, 4, GL_UNSIGNED_BYTE, GL_FALSE, sizeof (iqmvert_t), pose->idx);
+			GL_VertexAttribPointerFunc (texCoordsAttrIndex, 2, GL_FLOAT, GL_FALSE, sizeof (iqmvert_t), pose->st);
+
+			GL_EnableVertexAttribArrayFunc (vertColoursAttrIndex);
+			GL_VertexAttribPointerFunc (vertColoursAttrIndex, 4, GL_FLOAT, GL_FALSE, sizeof (iqmvert_t), pose->rgba);
+		}
+		break;
 	}
 
 // set uniforms
-	GL_Uniform1fFunc (blendLoc, blend);
-	GL_Uniform3fFunc (shadevectorLoc, shadevector[0], shadevector[1], shadevector[2]);
-	GL_Uniform4fFunc (lightColorLoc, lightcolor[0], lightcolor[1], lightcolor[2], entalpha);
-	GL_Uniform1iFunc (texLoc, 0);
-	GL_Uniform1iFunc (fullbrightTexLoc, 1);
-	GL_Uniform1iFunc (useFullbrightTexLoc, (fb != NULL) ? 1 : 0);
-	GL_Uniform1fFunc (useOverbrightLoc, overbright ? 1 : 0);
-	GL_Uniform1iFunc (useAlphaTestLoc, (currententity->model->flags & MF_HOLEY) ? 1 : 0);
+	if (glsl->blendLoc != -1)
+		GL_Uniform1fFunc (glsl->blendLoc, blend);
+	if (glsl->bonesLoc != -1)
+		GL_Uniform4fvFunc (glsl->bonesLoc, paliashdr->numbones*3, lerpdata.bonestate->mat);
+	GL_Uniform3fFunc (glsl->shadevectorLoc, shadevector[0], shadevector[1], shadevector[2]);
+	GL_Uniform4fFunc (glsl->lightColorLoc, lightcolor[0], lightcolor[1], lightcolor[2], entalpha);
+	GL_Uniform1iFunc (glsl->texLoc, 0);
+	GL_Uniform1iFunc (glsl->fullbrightTexLoc, 1);
+	GL_Uniform1iFunc (glsl->useFullbrightTexLoc, (fb != NULL) ? 1 : 0);
+	GL_Uniform1fFunc (glsl->useOverbrightLoc, overbright ? 1 : 0);
+	GL_Uniform1iFunc (glsl->useAlphaTestLoc, (currententity->model->flags & MF_HOLEY) ? 1 : 0);
 
 // set textures
 	GL_SelectTexture (GL_TEXTURE0);
@@ -324,6 +425,7 @@ void GL_DrawAliasFrame_GLSL (aliashdr_t *paliashdr, lerpdata_t lerpdata, gltextu
 	GL_DisableVertexAttribArrayFunc (pose2VertexAttrIndex);
 	GL_DisableVertexAttribArrayFunc (pose1NormalAttrIndex);
 	GL_DisableVertexAttribArrayFunc (pose2NormalAttrIndex);
+	GL_DisableVertexAttribArrayFunc (vertColoursAttrIndex);
 
 	GL_UseProgramFunc (0);
 	GL_SelectTexture (GL_TEXTURE0);
@@ -344,6 +446,8 @@ void GL_DrawAliasFrame (aliashdr_t *paliashdr, lerpdata_t lerpdata)
 	static	vec4_t vc[65536];
 	int i;
 	float	blend, iblend;
+	const float *texcoords = (const float *)(currententity->model->meshvboptr+paliashdr->vbostofs);
+	int texcoordstride = 0;
 
 	if (lerpdata.pose1 != lerpdata.pose2)
 	{
@@ -511,6 +615,75 @@ void GL_DrawAliasFrame (aliashdr_t *paliashdr, lerpdata_t lerpdata)
 			}
 		}
 		break;
+
+	case PV_IQM:
+		{	//iqm does its blending using bones instead of verts, so we only have to care about one pose here
+			int morphpose = 0;
+			const iqmvert_t *verts2 = (const iqmvert_t*)((byte *)paliashdr + paliashdr->vertexes) + morphpose * paliashdr->numverts_vbo;
+			const iqmvert_t *vboverts2 = (const iqmvert_t*)(currententity->model->meshvboptr+paliashdr->vbovertofs) + (paliashdr->numverts_vbo * morphpose);
+
+			if (shading)
+			{
+				for (i = 0; i < paliashdr->numverts_vbo; i++)
+				{
+					float dot;
+					dot = DotProduct(verts2[i].norm, shadevector);	//NOTE: ignores animated normals
+					if (dot < 0.0)	//bizzare maths guessed by mh
+						dot = 1.0 + dot * (13.0 / 44.0);
+					else
+						dot = 1.0 + dot;
+					vc[i][0] = dot * lightcolor[0] * verts2[i].rgba[0];
+					vc[i][1] = dot * lightcolor[1] * verts2[i].rgba[1];
+					vc[i][2] = dot * lightcolor[2] * verts2[i].rgba[2];
+					vc[i][3] = entalpha * verts2[i].rgba[3];
+				}
+				glEnableClientState(GL_COLOR_ARRAY);
+				GL_BindBuffer (GL_ARRAY_BUFFER, 0);
+				glColorPointer(4, GL_FLOAT, 0, vc);
+			}
+
+			if (lerpdata.bonestate)
+			{	//oh dear. its animated. and we don't have any glsl to animate it for us.
+				bonepose_t pose;
+				const bonepose_t *in;
+				const float *xyz;
+				float w;
+				int j, k;
+				for (i = 0; i < paliashdr->numverts_vbo; i++)
+				{
+					//lerp the matrix... this is less of a nightmare in glsl...
+					in = lerpdata.bonestate + verts2[i].idx[0];
+					w = verts2[i].weight[0];
+					for (j = 0; j < 12; j++)
+						pose.mat[j] = in->mat[j] * w;
+					for (k = 1; k < 3; k++)
+					{
+						w = verts2[i].weight[k];
+						if (!w)
+							continue;
+						in = lerpdata.bonestate + verts2[i].idx[k];
+						for (j = 0; j < 12; j++)
+							pose.mat[j] += in->mat[j] * w;
+					}
+
+					xyz = verts2[i].xyz;
+					vpos[i][0] = xyz[0]*pose.mat[0] + xyz[1]*pose.mat[1] + xyz[2]*pose.mat[2] + pose.mat[3];
+					vpos[i][1] = xyz[0]*pose.mat[4] + xyz[1]*pose.mat[5] + xyz[2]*pose.mat[6] + pose.mat[7];
+					vpos[i][2] = xyz[0]*pose.mat[8] + xyz[1]*pose.mat[9] + xyz[2]*pose.mat[10] + pose.mat[11];
+				}
+
+				GL_BindBuffer (GL_ARRAY_BUFFER, 0);
+				glVertexPointer(3, GL_FLOAT, 0, vpos);
+			}
+			else
+			{
+				GL_BindBuffer (GL_ARRAY_BUFFER, currententity->model->meshvbo);
+				glVertexPointer(3, GL_FLOAT, sizeof (iqmvert_t), vboverts2->xyz);
+			}
+			texcoordstride = sizeof(iqmvert_t);
+			texcoords = vboverts2->st;
+		}
+		break;
 	}
 
 // set textures
@@ -519,16 +692,16 @@ void GL_DrawAliasFrame (aliashdr_t *paliashdr, lerpdata_t lerpdata)
 	{
 		GL_ClientActiveTextureFunc (GL_TEXTURE0);
 		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-		glTexCoordPointer(2, GL_FLOAT, 0, currententity->model->meshvboptr+paliashdr->vbostofs);
+		glTexCoordPointer(2, GL_FLOAT, texcoordstride, texcoords);
 
 		GL_ClientActiveTextureFunc (GL_TEXTURE1);
 		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-		glTexCoordPointer(2, GL_FLOAT, 0, currententity->model->meshvboptr+paliashdr->vbostofs);
+		glTexCoordPointer(2, GL_FLOAT, texcoordstride, texcoords);
 	}
 	else
 	{
 		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-		glTexCoordPointer(2, GL_FLOAT, 0, currententity->model->meshvboptr+paliashdr->vbostofs);
+		glTexCoordPointer(2, GL_FLOAT, texcoordstride, texcoords);
 	}
 
 // draw
@@ -619,6 +792,35 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, int frame, lerpdata_t *lerpdata)
 		lerpdata->pose1 = posenum;
 		lerpdata->pose2 = posenum;
 	}
+
+
+	if (paliashdr->numboneposes)
+	{
+		static bonepose_t inverted[256];
+		bonepose_t lerpbones[256], l;
+		int b, j;
+		const boneinfo_t *bi = (const boneinfo_t *)((byte*)paliashdr + paliashdr->boneinfo);
+		const bonepose_t *p1 = (const bonepose_t *)((byte*)paliashdr + paliashdr->boneposedata) + lerpdata->pose1*paliashdr->numbones;
+		const bonepose_t *p2 = (const bonepose_t *)((byte*)paliashdr + paliashdr->boneposedata) + lerpdata->pose2*paliashdr->numbones;
+		float w2 = lerpdata->blend;
+		float w1 = 1-w2;
+		for (b = 0; b < paliashdr->numbones; b++, p1++, p2++)
+		{
+			//interpolate it
+			for (j = 0; j < 12; j++)
+				l.mat[j] = p1->mat[j]*w1 + p2->mat[j]*w2;
+			//concat it onto the parent (relative->abs)
+			if (bi[b].parent < 0)
+				memcpy(lerpbones[b].mat, l.mat, sizeof(l.mat));
+			else
+				R_ConcatTransforms((void*)lerpbones[bi[b].parent].mat, (void*)l.mat, (void*)lerpbones[b].mat);
+			//and finally invert it
+			R_ConcatTransforms((void*)lerpbones[b].mat, (void*)bi[b].inverse.mat, (void*)inverted[b].mat);
+		}
+		lerpdata->bonestate = inverted;	//and now we can use it.
+	}
+	else
+		lerpdata->bonestate = NULL;
 }
 
 /*
@@ -780,6 +982,7 @@ R_DrawAliasModel -- johnfitz -- almost completely rewritten
 */
 void R_DrawAliasModel (entity_t *e)
 {
+	aliasglsl_t *glsl;
 	aliashdr_t	*paliashdr;
 	int			i, anim;
 	gltexture_t	*tx, *fb;
@@ -793,6 +996,8 @@ void R_DrawAliasModel (entity_t *e)
 	paliashdr = (aliashdr_t *)Mod_Extradata (e->model);
 	R_SetupAliasFrame (paliashdr, e->frame, &lerpdata);
 	R_SetupEntityTransform (e, &lerpdata);
+
+	glsl = &r_alias_glsl[(paliashdr->poseverttype==PV_IQM)?ALIAS_GLSL_SKELETAL:ALIAS_GLSL_BASIC];
 
 	if (e->eflags & EFLAGS_VIEWMODEL)
 	{
@@ -925,9 +1130,9 @@ void R_DrawAliasModel (entity_t *e)
 		}
 	// call fast path if possible. if the shader compliation failed for some reason,
 	// r_alias_program will be 0.
-		else if (r_alias_program != 0)
+		else if (glsl->program != 0 && paliashdr->numbones <= glsl->maxbones)
 		{
-			GL_DrawAliasFrame_GLSL (paliashdr, lerpdata, tx, fb);
+			GL_DrawAliasFrame_GLSL (glsl, paliashdr, lerpdata, tx, fb);
 		}
 		else if (overbright)
 		{
