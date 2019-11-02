@@ -37,7 +37,8 @@ float	skymins[2][6], skymaxs[2][6];
 
 qboolean skyroom_drawn;
 qboolean skyroom_enabled;
-vec3_t skyroom_origin;
+vec4_t skyroom_origin;
+vec4_t skyroom_orientation;
 
 char	skybox_name[32] = ""; //name of current skybox, or "" if no skybox
 
@@ -276,7 +277,18 @@ void Sky_NewMap (void)
 			skyroom_origin[1] = atof(com_token);
 			t = COM_Parse(t);
 			skyroom_origin[2] = atof(com_token);
+			t = COM_Parse(t);
+			skyroom_origin[3] = atof(com_token);
 			skyroom_enabled = true;
+
+			t = COM_Parse(t);
+			skyroom_orientation[3] = atof(com_token);
+			t = COM_Parse(t);
+			skyroom_orientation[0] = atof(com_token);
+			t = COM_Parse(t);
+			skyroom_orientation[1] = atof(com_token);
+			t = COM_Parse(t);
+			skyroom_orientation[2] = atof(com_token);
 		}
 
 		else if (!strcmp("skyfog", key))
@@ -311,6 +323,37 @@ void Sky_SkyCommand_f (void)
 	}
 }
 
+static void Sky_SkyRoomCommand_f (void)
+{
+	switch (Cmd_Argc())
+	{
+	case 1:
+		if (skyroom_enabled)
+			Con_Printf("\"skyroom\" is \"%f %f %f %f %f %f %f %f\"\n", skyroom_origin[0],skyroom_origin[1],skyroom_origin[2],skyroom_origin[3], skyroom_orientation[3],skyroom_orientation[0],skyroom_orientation[1],skyroom_orientation[2]);
+		else
+			Con_Printf("\"skyroom\" is \"\"\n");
+		break;
+	case 4:
+	case 5:
+	case 6:
+		Sky_LoadSkyBox(Cmd_Argv(1));
+		skyroom_enabled = true;
+		skyroom_origin[0] = atof(Cmd_Argv(1));
+		skyroom_origin[1] = atof(Cmd_Argv(2));
+		skyroom_origin[2] = atof(Cmd_Argv(3));
+		skyroom_origin[3] = atof(Cmd_Argv(4));	//paralax
+
+		skyroom_orientation[3] = atof(Cmd_Argv(5));	//speed
+		skyroom_orientation[0] = atof(Cmd_Argv(6));
+		skyroom_orientation[1] = atof(Cmd_Argv(7));
+		skyroom_orientation[2] = atof(Cmd_Argv(8));
+		break;
+	case 2:
+	default:
+		Con_Printf("usage: skyroom origin_x origin_y origin_z paralax_scale speed axis_x axis_y axis_z\n");
+	}
+}
+
 /*
 ====================
 R_SetSkyfog_f -- ericw
@@ -338,6 +381,7 @@ void Sky_Init (void)
 	Cvar_SetCallback (&r_skyfog, R_SetSkyfog_f);
 
 	Cmd_AddCommand ("sky",Sky_SkyCommand_f);
+	Cmd_AddCommand ("skyroom",Sky_SkyRoomCommand_f);
 
 	for (i=0; i<6; i++)
 		skybox_textures[i] = NULL;

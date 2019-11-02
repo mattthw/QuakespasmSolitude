@@ -1147,14 +1147,35 @@ void R_RenderView (void)
 	if (skyroom_enabled && skyroom_visible)
 	{
 		vec3_t vieworg;
+		vec3_t viewang;
 		VectorCopy(r_refdef.vieworg, vieworg);
-		VectorCopy(skyroom_origin, r_refdef.vieworg);
+		VectorCopy(r_refdef.viewangles, viewang);
+		VectorMA(skyroom_origin, skyroom_origin[3],vieworg, r_refdef.vieworg); //allow a little paralax
+
+		if (skyroom_orientation[3])
+		{
+			vec3_t axis[3];
+			float ang = skyroom_orientation[3] * cl.time;
+			if (!skyroom_orientation[0]&&!skyroom_orientation[1]&&!skyroom_orientation[2])
+			{
+				skyroom_orientation[0] = 0;
+				skyroom_orientation[1] = 0;
+				skyroom_orientation[2] = 1;
+			}
+			VectorNormalize(skyroom_orientation);
+			RotatePointAroundVector(axis[0], skyroom_orientation, vpn, ang);
+			RotatePointAroundVector(axis[1], skyroom_orientation, vright, ang);
+			RotatePointAroundVector(axis[2], skyroom_orientation, vup, ang);
+			VectorAngles(axis[0], axis[2], r_refdef.viewangles);
+		}
+
 		R_SetupView ();
 		//note: sky boxes are generally considered an 'infinite' distance away such that you'd not see paralax.
 		//that's my excuse for not handling r_stereo here, and I'm sticking to it.
 		R_RenderScene ();
 
 		VectorCopy(vieworg, r_refdef.vieworg);
+		VectorCopy(viewang, r_refdef.viewangles);
 		skyroom_drawn = true;	//disable glClear(GL_COLOR_BUFFER_BIT)
 	}
 	//skyroom end

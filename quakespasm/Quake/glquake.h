@@ -437,7 +437,8 @@ void Sky_LoadTexture (texture_t *mt);
 void Sky_LoadSkyBox (const char *name);
 extern qboolean skyroom_drawn;		//we draw a skyroom this frame
 extern qboolean skyroom_enabled;	//we know where the skyroom is ...
-extern vec3_t skyroom_origin;		//... and it is here.
+extern vec4_t skyroom_origin;		//... and it is here. [3] is paralax scale
+extern vec4_t skyroom_orientation;
 
 void TexMgr_RecalcWarpImageSize (void);
 
