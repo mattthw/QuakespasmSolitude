@@ -907,7 +907,7 @@ void Mod_LoadLighting (lump_t *l)
 			{
 				if (8+l->filelen*3 == com_filesize)
 				{
-					Con_DPrintf("%s loaded\n", litfilename);
+					Con_DPrintf2("%s loaded\n", litfilename);
 					loadmodel->lightdata = data + 8;
 					return;
 				}
