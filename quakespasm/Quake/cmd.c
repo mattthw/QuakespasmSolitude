@@ -630,6 +630,8 @@ Cmd_Args
 */
 const char	*Cmd_Args (void)
 {
+	if (!cmd_args)
+		return "";
 	return cmd_args;
 }
 
