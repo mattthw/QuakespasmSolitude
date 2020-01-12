@@ -286,11 +286,11 @@ struct qcvm_s
 	size_t knownzonesize;
 
 	//originally defined in pr_exec, but moved into the switchable qcvm struct
-#define	MAX_STACK_DEPTH		64	/* was 32 */
+#define	MAX_STACK_DEPTH		1024 /*was 64*/	/* was 32 */
 	prstack_t	stack[MAX_STACK_DEPTH];
 	int			depth;
 
-#define	LOCALSTACK_SIZE		2048
+#define	LOCALSTACK_SIZE		16384 /* was 2048*/
 	int			localstack[LOCALSTACK_SIZE];
 	int			localstack_used;
 
