@@ -1054,7 +1054,7 @@ void Mod_LoadIQMModel (qmodel_t *mod, const void *buffer)
 	if (LittleLong(pinheader->version) != IQM_VERSION)	//v1 is outdated.
 		Sys_Error ("%s is an unsupported version, %i must be %i", mod->name, LittleLong(pinheader->version), IQM_VERSION);
 
-	pintext = buffer + LittleLong(pinheader->ofs_text);
+	pintext = (const char*)buffer + LittleLong(pinheader->ofs_text);
 
 	numsurfs = LittleLong (pinheader->num_meshes);
 	if (!numsurfs)
@@ -1072,7 +1072,7 @@ void Mod_LoadIQMModel (qmodel_t *mod, const void *buffer)
 		poutvert[j].rgba[0] = poutvert[j].rgba[1] = poutvert[j].rgba[2] = poutvert[j].rgba[3] = poutvert[j].weight[0] = 1;
 	for (a = 0; a < LittleLong(pinheader->num_vertexarrays); a++)
 	{
-		const struct iqmvertexarray *va = (const struct iqmvertexarray*)(buffer+LittleLong(pinheader->ofs_vertexarrays)) + a;
+		const struct iqmvertexarray *va = (const struct iqmvertexarray*)((const byte*)buffer+LittleLong(pinheader->ofs_vertexarrays)) + a;
 		switch(va->type)
 		{
 		case IQM_POSITION:		IQM_LoadVertexes_Float(poutvert->xyz,	3, numverts, buffer, va); break;
@@ -1091,8 +1091,8 @@ void Mod_LoadIQMModel (qmodel_t *mod, const void *buffer)
 	numjoints = LittleLong(pinheader->num_poses);
 	if (pinheader->num_poses == pinheader->num_joints)
 	{
-		const unsigned short	*pinframedata = (const unsigned short*)(buffer + pinheader->ofs_frames);
-		const struct iqmpose	*pinajoint = (const struct iqmpose*)(buffer + pinheader->ofs_poses), *p;
+		const unsigned short	*pinframedata = (const unsigned short*)((const byte*)buffer + pinheader->ofs_frames);
+		const struct iqmpose	*pinajoint = (const struct iqmpose*)((const byte*)buffer + pinheader->ofs_poses), *p;
 		vec3_t pos, scale;
 		vec4_t quat;
 		outposes = Hunk_Alloc(sizeof(*outposes)*numposes*numjoints);
@@ -1126,7 +1126,7 @@ void Mod_LoadIQMModel (qmodel_t *mod, const void *buffer)
 	}
 
 	{
-		const struct iqmjoint	*pinbjoint = (const struct iqmjoint*)(buffer + pinheader->ofs_joints);
+		const struct iqmjoint	*pinbjoint = (const struct iqmjoint*)((const byte*)buffer + pinheader->ofs_joints);
 		bonepose_t basepose[256], rel;
 		vec3_t pos, scale;
 		vec4_t quat;
@@ -1160,7 +1160,7 @@ void Mod_LoadIQMModel (qmodel_t *mod, const void *buffer)
 
 	mod->numframes = q_max(1,numanims);
 
-	for (surf = 0, pinsurface = (const struct iqmmesh*)(buffer + LittleLong(pinheader->ofs_meshes)); surf < numsurfs; surf++, pinsurface++)
+	for (surf = 0, pinsurface = (const struct iqmmesh*)((const byte*)buffer + LittleLong(pinheader->ofs_meshes)); surf < numsurfs; surf++, pinsurface++)
 	{
 		aliashdr_t	*osurf = (aliashdr_t*)((byte*)outhdr + size*surf);
 
@@ -1181,13 +1181,13 @@ void Mod_LoadIQMModel (qmodel_t *mod, const void *buffer)
 		osurf->numindexes = osurf->numtris*3;
 		poutindexes = (unsigned short *) Hunk_Alloc (sizeof (*poutindexes) * osurf->numindexes);
 		osurf->indexes = (intptr_t)poutindexes - (intptr_t)osurf;
-		pintriangle = (const unsigned int*)(buffer + LittleLong(pinheader->ofs_triangles));
+		pintriangle = (const unsigned int*)((const byte*)buffer + LittleLong(pinheader->ofs_triangles));
 		firstidx = LittleLong(pinsurface->first_triangle)*3;
 		pintriangle += firstidx;
 		for (j = 0; j < osurf->numindexes; j++)
 			poutindexes[j] = pintriangle[j] - firstvert;
 
-		pinframes = (const struct iqmanim*)(buffer + pinheader->ofs_anims);
+		pinframes = (const struct iqmanim*)((const byte*)buffer + pinheader->ofs_anims);
 		for (a = 0; a < numanims; a++, pinframes++)
 		{
 			osurf->frames[a].firstpose = LittleLong(pinframes->first_frame);
