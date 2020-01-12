@@ -49,6 +49,9 @@ cvar_t	sv_nostep = {"sv_nostep","0",CVAR_NONE};
 cvar_t	sv_freezenonclients = {"sv_freezenonclients","0",CVAR_NONE};
 cvar_t	sv_gameplayfix_spawnbeforethinks = {"sv_gameplayfix_spawnbeforethinks","0",CVAR_NONE};
 
+cvar_t	sv_sound_watersplash	= {"sv_sound_watersplash",	"misc/h2ohit1.wav", CVAR_NONE};
+cvar_t	sv_sound_land			= {"sv_sound_land",			"demon/dland2.wav", CVAR_NONE};
+
 
 #define	MOVE_EPSILON	0.01
 
@@ -1085,18 +1088,18 @@ void SV_CheckWaterTransition (edict_t *ent)
 
 	if (cont <= CONTENTS_WATER)
 	{
-		if (ent->v.watertype == CONTENTS_EMPTY)
+		if (ent->v.watertype == CONTENTS_EMPTY && *sv_sound_watersplash.string)
 		{	// just crossed into water
-			SV_StartSound (ent, NULL, 0, "misc/h2ohit1.wav", 255, 1);
+			SV_StartSound (ent, NULL, 0, sv_sound_watersplash.string, 255, 1);
 		}
 		ent->v.watertype = cont;
 		ent->v.waterlevel = 1;
 	}
 	else
 	{
-		if (ent->v.watertype != CONTENTS_EMPTY)
+		if (ent->v.watertype != CONTENTS_EMPTY && *sv_sound_watersplash.string)
 		{	// just crossed into water
-			SV_StartSound (ent, NULL, 0, "misc/h2ohit1.wav", 255, 1);
+			SV_StartSound (ent, NULL, 0, sv_sound_watersplash.string, 255, 1);
 		}
 		ent->v.watertype = CONTENTS_EMPTY;
 		ent->v.waterlevel = cont;
@@ -1252,8 +1255,8 @@ void SV_Physics_Step (edict_t *ent)
 
 		if ( (int)ent->v.flags & FL_ONGROUND )	// just hit ground
 		{
-			if (hitsound)
-				SV_StartSound (ent, NULL, 0, "demon/dland2.wav", 255, 1);
+			if (hitsound && *sv_sound_land.string)
+				SV_StartSound (ent, NULL, 0, sv_sound_land.string, 255, 1);
 		}
 	}
 

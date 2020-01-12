@@ -1256,6 +1256,9 @@ void SV_Init (void)
 	extern	cvar_t	com_protocolname;	//spike
 	extern	cvar_t	net_masters[];	//spike
 	extern	cvar_t	rcon_password;	//spike, proquake-compatible rcon
+	extern	cvar_t	sv_sound_watersplash;	//spike - making these changable is handy...
+	extern	cvar_t	sv_sound_land;			//spike - and also mutable...
+
 
 	Cvar_RegisterVariable (&sv_maxvelocity);
 	Cvar_RegisterVariable (&sv_gravity);
@@ -1275,6 +1278,9 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_gameplayfix_setmodelrealbox);
 	Cvar_RegisterVariable (&pr_checkextension);
 	Cvar_RegisterVariable (&sv_altnoclip); //johnfitz
+
+	Cvar_RegisterVariable (&sv_sound_watersplash); //spike
+	Cvar_RegisterVariable (&sv_sound_land); //spike
 
 	if (isDedicated)
 		sv_public.string = "1";
