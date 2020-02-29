@@ -847,7 +847,7 @@ void GLWorld_CreateShaders (void)
 		"{\n"
 		"	tc_tex = TexCoords;\n"
 		"	tc_lm = LMCoords;\n"
-		"	gl_Position = gl_ModelViewProjectionMatrix * vec4(Vert, 1.0);\n"
+		"	gl_Position = gl_ModelViewProjectionMatrix * Vert;\n"
 		"	FogFragCoord = gl_Position.w;\n"
 		"}\n";
 	
