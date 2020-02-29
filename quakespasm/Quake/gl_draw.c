@@ -221,6 +221,7 @@ qpic_t *Draw_PicFromWad (const char *name)
 	qpic_t	*p;
 	glpic_t	gl;
 	src_offset_t offset; //johnfitz
+	lumpinfo_t *info;
 
 	//Spike -- added cachepic stuff here, to avoid glitches if the function is called multiple times with the same image.
 	for (pic=menu_cachepics, i=0 ; i<menu_numcachepics ; pic++, i++)
@@ -231,8 +232,14 @@ qpic_t *Draw_PicFromWad (const char *name)
 	if (menu_numcachepics == MAX_CACHED_PICS)
 		Sys_Error ("menu_numcachepics == MAX_CACHED_PICS");
 
-	p = (qpic_t *) W_GetLumpName (name);
-	if (!p) return pic_nul; //johnfitz
+	p = (qpic_t *) W_GetLumpName (name, &info);
+	if (!p)
+	{
+		Con_SafePrintf ("W_GetLumpName: %s not found\n", name);
+		return pic_nul; //johnfitz
+	}
+	if (info->size < sizeof(int)*2 || 8+p->width*p->height < info->size) Sys_Error ("Draw_PicFromWad: pic \"%s\" truncated", name);
+	if (info->type != TYP_QPIC) Sys_Error ("Draw_PicFromWad: lump \"%s\" is not a qpic", name);
 
 	// load little ones into the scrap
 	if (p->width < 64 && p->height < 64)
@@ -408,9 +415,12 @@ void Draw_LoadPics (void)
 {
 	byte		*data;
 	src_offset_t	offset;
+	lumpinfo_t *info;
 
-	data = (byte *) W_GetLumpName ("conchars");
-	if (!data) Sys_Error ("Draw_LoadPics: couldn't load conchars");
+	data = (byte *) W_GetLumpName ("conchars", &info);
+	if (!data || info->size < 128*128)	Sys_Error ("Draw_LoadPics: couldn't load conchars");
+	if (info->size != 128*128)			Con_Warning("Invalid size for gfx.wad conchars lump - attempting to ignore for compat.\n");
+	else if (info->type != TYP_MIPTEX)	Con_DWarning("Invalid type for gfx.wad conchars lump - attempting to ignore for compat.\n"); //not really a miptex, but certainly NOT a qpic.
 	offset = (src_offset_t)data - (src_offset_t)wad_base;
 	char_texture = TexMgr_LoadImage (NULL, WADFILENAME":conchars", 128, 128, SRC_INDEXED, data,
 		WADFILENAME, offset, (premul_hud?TEXPREF_PREMULTIPLY:0)|TEXPREF_ALPHA | TEXPREF_NEAREST | TEXPREF_NOPICMIP | TEXPREF_CONCHARS);

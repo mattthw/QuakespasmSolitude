@@ -116,9 +116,10 @@ qpic_t *Sbar_CheckPicFromWad (const char *name)
 {
 	extern qpic_t *pic_nul;
 	qpic_t *r;
+	lumpinfo_t *info;
 	if (!hudtype)
 		return pic_nul;	//one already failed, don't waste cpu
-	if (!W_GetLumpinfo(name))
+	if (!W_GetLumpName(name, &info))
 		r = pic_nul;
 	else
 		r = Draw_PicFromWad(name);
