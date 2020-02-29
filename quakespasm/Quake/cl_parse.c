@@ -2635,7 +2635,7 @@ void CL_ParseServerMessage (void)
 
 		case svcdp_downloaddata:
 			if (cl.protocol != PROTOCOL_VERSION_DP7 && !cl.protocol_dpdownload)
-				Host_Error ("Received svcdp_entities but extension not active");
+				Host_Error ("Received svcdp_downloaddata but extension not active");
 			CL_Download_Data();
 			break;
 
