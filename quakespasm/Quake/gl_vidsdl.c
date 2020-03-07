@@ -68,6 +68,8 @@ static int gl_version_minor;
 static const char *gl_extensions;
 static char * gl_extensions_nice;
 
+qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_texture_astc;
+
 static vmode_t	modelist[MAX_MODE_LIST];
 static int		nummodes;
 
@@ -1172,6 +1174,12 @@ static void GL_CheckExtensions (void)
 	{
 		Con_Warning ("texture_non_power_of_two not supported\n");
 	}
+
+	gl_texture_s3tc = (																			   GL_ParseExtensionList(gl_extensions, "GL_EXT_texture_compression_s3tc"));
+	gl_texture_rgtc = (gl_version_major >= 3													|| GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_rgtc"));
+	gl_texture_bptc = (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 2) || GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_bptc"));
+	gl_texture_etc2 = (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_compatibility"));
+	gl_texture_astc = (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_2_compatibility") || GL_ParseExtensionList(gl_extensions, "GL_KHR_texture_compression_astc_ldr"));
 	
 	// GLSL
 	//

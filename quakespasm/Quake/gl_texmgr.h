@@ -40,7 +40,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define TEXPREF_WARPIMAGE		0x0800	// resize this texture when warpimagesize changes
 #define TEXPREF_PREMULTIPLY		0x1000	// rgb = rgb*a; a=a;
 
-enum srcformat {SRC_INDEXED, SRC_LIGHTMAP, SRC_RGBA, SRC_EXTERNAL};
+enum srcformat {SRC_INDEXED, SRC_LIGHTMAP, SRC_RGBA, SRC_EXTERNAL, SRC_FIRSTCOMPRESSED};
+extern qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_texture_astc;
 
 typedef uintptr_t src_offset_t;
 
@@ -87,6 +88,9 @@ void TexMgr_FreeTexturesForOwner (qmodel_t *owner);
 void TexMgr_NewGame (void);
 void TexMgr_Init (void);
 void TexMgr_DeleteTextureObjects (void);
+enum srcformat TexMgr_FormatForCode (const char *code);	//returns SRC_EXTERNAL when not known.
+size_t TexMgr_ImageSize (int width, int height, enum srcformat format);
+void TexMgr_BlockSize (enum srcformat format, int *bytes, int *width, int *height);
 
 // IMAGE LOADING
 gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int height, enum srcformat format,

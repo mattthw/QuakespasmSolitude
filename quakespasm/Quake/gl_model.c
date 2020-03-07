@@ -560,6 +560,90 @@ qboolean Mod_CheckFullbrights (byte *pixels, int count)
 	return false;
 }
 
+static texture_t *Mod_LoadMipTex(miptex_t *mt, byte *lumpend, enum srcformat *fmt, unsigned int *width, unsigned int *height, unsigned int *pixelbytes)
+{
+	//if offsets[0] is 0, then we've no legacy data (offsets[3] signifies the end of the extension data.
+	byte *extdata;
+	texture_t *tx;
+	byte *srcdata = NULL;
+	size_t sz;
+
+	if (!mt->offsets[0])	//the legacy data was omitted. we may still have block-compression though.
+		extdata = (byte*)(mt+1);
+	else if (mt->offsets[0] == sizeof(miptex_t) &&
+			 mt->offsets[1] == mt->offsets[0]+(mt->width>>0)*(mt->height>>0) &&
+			 mt->offsets[2] == mt->offsets[1]+(mt->width>>1)*(mt->height>>1) &&
+			 mt->offsets[3] == mt->offsets[2]+(mt->width>>2)*(mt->height>>2))
+	{	//miptex makes sense and matches the standard 4-mip-levels.
+		extdata = (byte*)mt + mt->offsets[3]+(mt->width>>3)*(mt->height>>3);
+		//FIXME: halflife - leshort=256, palette[256][3].
+		//extdata += 2+256*3;
+	}
+	else	//the numbers don't match what we expect... something weird is going on here... don't misinterpret it.
+		extdata = lumpend;
+
+	if (extdata+4 <= lumpend && extdata[0] == 0 && extdata[1]==0xfb && extdata[2]==0x2b && extdata[3]==0xaf)
+	for (extdata+=4; extdata+8 < lumpend; extdata += sz)
+	{
+		sz = (extdata[0]<<0)|(extdata[1]<<8)|(extdata[2]<<16)|(extdata[3]<<24);
+		if (sz < 8 || sz > lumpend-extdata)	break;	//bad! bad! bad!
+		else if (sz <= 16)	continue;	//nope, no idea
+
+		*fmt = TexMgr_FormatForCode((char*)extdata+4);
+		if (*fmt == SRC_EXTERNAL)
+			continue;	//nope, no idea
+
+		*width = (extdata[8]<<0)|(extdata[9]<<8)|(extdata[10]<<16)|(extdata[11]<<24);
+		*height = (extdata[12]<<0)|(extdata[13]<<8)|(extdata[14]<<16)|(extdata[15]<<24);
+
+		if (*width != TexMgr_SafeTextureSize(*width) || *width != TexMgr_SafeTextureSize(*width))
+			continue;	//nope, can't use that. drivers are too lame (or gl_max_size is too low).
+
+		*pixelbytes = TexMgr_ImageSize(*width, *height, *fmt);
+		if (16+*pixelbytes == sz)
+			srcdata = extdata+16;
+		break;
+	}
+
+	if (!srcdata)
+	{	//no replacements, load the 8bit data.
+		*fmt = SRC_INDEXED;
+		*width = mt->width;
+		*height = mt->height;
+		*pixelbytes = mt->width*mt->height;
+		if (LittleLong (mt->offsets[0]))
+			srcdata = (byte*)mt+LittleLong(mt->offsets[0]);
+	}
+
+	tx = (texture_t *) Hunk_AllocName (sizeof(texture_t) + *pixelbytes, loadname );
+	memcpy (tx->name, mt->name, sizeof(tx->name));
+	tx->name[sizeof(tx->name)-1] = 0;	//just in case...
+	tx->width = mt->width;
+	tx->height = mt->height;
+
+	if (srcdata)
+	{
+		// ericw -- check for pixels extending past the end of the lump.
+		// appears in the wild; e.g. jam2_tronyn.bsp (func_mapjam2),
+		// kellbase1.bsp (quoth), and can lead to a segfault if we read past
+		// the end of the .bsp file buffer
+		if ((srcdata + *pixelbytes) > lumpend)
+		{
+			Con_DPrintf("Texture %s extends past end of lump\n", mt->name);
+			*pixelbytes = q_max(0, lumpend - srcdata);
+		}
+
+		memcpy ( tx+1, srcdata, *pixelbytes);
+	}
+	else
+	{
+		size_t x,y;
+		for(y=0;y<tx->width;y++)
+			for(x=0;x<tx->width;x++)
+				((byte*)(tx+1))[y*tx->width+x] = (((x>>2)^(y>>2))&1)?6:2;
+	}
+	return tx;
+}
 /*
 =================
 Mod_LoadTextures
@@ -567,7 +651,7 @@ Mod_LoadTextures
 */
 void Mod_LoadTextures (lump_t *l)
 {
-	int		i, j, pixels, num, maxanim, altmax;
+	int		i, j, num, maxanim, altmax;
 	miptex_t	*mt;
 	texture_t	*tx, *tx2;
 	texture_t	*anims[10];
@@ -583,6 +667,9 @@ void Mod_LoadTextures (lump_t *l)
 	extern byte *hunk_base;
 //johnfitz
 	qboolean malloced;	//spike
+	enum srcformat fmt;	//spike
+	unsigned int imgwidth, imgheight, imgpixels;
+	unsigned int mipend;
 
 	//johnfitz -- don't return early if no textures; still need to create dummy texture
 	if (!l->filelen)
@@ -602,68 +689,37 @@ void Mod_LoadTextures (lump_t *l)
 	loadmodel->numtextures = nummiptex + 2; //johnfitz -- need 2 dummy texture chains for missing textures
 	loadmodel->textures = (texture_t **) Hunk_AllocName (loadmodel->numtextures * sizeof(*loadmodel->textures) , loadname);
 
-	for (i=0 ; i<nummiptex ; i++)
+	//spike -- rewrote this loop to run backwards (to make it easier to track the end of the miptex) and added handling for extra texture block compression.
+	for (i = nummiptex, mipend=l->filelen; i --> 0; )
 	{
 		m->dataofs[i] = LittleLong(m->dataofs[i]);
 		if (m->dataofs[i] == -1)
 			continue;
+		if (m->dataofs[i] >= mipend)
+			mipend = l->filelen;	//o.O something weird!
 		mt = (miptex_t *)((byte *)m + m->dataofs[i]);
 		mt->width = LittleLong (mt->width);
 		mt->height = LittleLong (mt->height);
-//		for (j=0 ; j<MIPLEVELS ; j++)
-//			mt->offsets[j] = LittleLong (mt->offsets[j]);
+		for (j=0 ; j<MIPLEVELS ; j++)
+			mt->offsets[j] = LittleLong (mt->offsets[j]);
 
 		if ( (mt->width & 15) || (mt->height & 15) )
 			Sys_Error ("Texture %s is not 16 aligned", mt->name);
-		// spike -- quakespasm doesn't use the submips anyway
-		pixels = mt->width*mt->height;
-		//pixels = mt->width*mt->height/64*85;
 
-		tx = (texture_t *) Hunk_AllocName (sizeof(texture_t) +pixels, loadname );
+		tx = Mod_LoadMipTex(mt, (mod_base + l->fileofs + mipend), &fmt, &imgwidth, &imgheight, &imgpixels);
 		loadmodel->textures[i] = tx;
-
-		memcpy (tx->name, mt->name, sizeof(tx->name));
-		tx->width = mt->width;
-		tx->height = mt->height;
-//		for (j=0 ; j<MIPLEVELS ; j++)
-//			tx->offsets[j] = mt->offsets[j] + sizeof(texture_t) - sizeof(miptex_t);
-		// the pixels immediately follow the structures
-
-		if (!LittleLong (mt->offsets[0]))
-		{	// spike -- support tyrlight-ericw's -notex argument to avoid gpl violations from embedded textures
-			size_t x,y;
-			for(y=0;y<tx->width;y++)
-				for(x=0;x<tx->width;x++)
-					((byte*)(tx+1))[y*tx->width+x] = (((x>>2)^(y>>2))&1)?6:2;
-		}
-		else
-		{
-			// ericw -- check for pixels extending past the end of the lump.
-			// appears in the wild; e.g. jam2_tronyn.bsp (func_mapjam2),
-			// kellbase1.bsp (quoth), and can lead to a segfault if we read past
-			// the end of the .bsp file buffer
-			if (((byte*)(mt+1) + pixels) > (mod_base + l->fileofs + l->filelen))
-			{
-				Con_DPrintf("Texture %s extends past end of lump\n", mt->name);
-				pixels = q_max(0, (mod_base + l->fileofs + l->filelen) - (byte*)(mt+1));
-			}
-
-			//spike -- this is actually a pointless waste of memory.
-			//its not like this data will actually be used beyond this function in any gl renderer.
-			//this makes copying it pointless
-			//which in turn makes the pointer-to-array-of-pointers-to-texture a bit silly.
-			memcpy ( tx+1, mt+1, pixels);
-		}
 
 		tx->update_warp = false; //johnfitz
 		tx->warpimage = NULL; //johnfitz
 		tx->fullbright = NULL; //johnfitz
 
+		mipend = m->dataofs[i];
+
 		//johnfitz -- lots of changes
 		if (!isDedicated) //no texture uploading for dedicated server
 		{
 			if (!q_strncasecmp(tx->name,"sky",3)) //sky texture //also note -- was Q_strncmp, changed to match qbsp
-				Sky_LoadTexture (tx);
+				Sky_LoadTexture (tx, fmt, imgwidth, imgheight);
 			else if (tx->name[0] == '*') //warping texture
 			{
 				//external textures -- first look in "textures/mapname/" then look in "textures/"
@@ -688,8 +744,8 @@ void Mod_LoadTextures (lump_t *l)
 				{
 					q_snprintf (texturename, sizeof(texturename), "%s:%s", loadmodel->name, tx->name);
 					offset = (src_offset_t)(mt+1) - (src_offset_t)mod_base;
-					tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, tx->width, tx->height,
-						SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_NONE);
+					tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, imgwidth, imgheight,
+						fmt, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_NONE);
 				}
 
 				//now create the warpimage, using dummy data from the hunk to create the initial image
@@ -749,18 +805,18 @@ void Mod_LoadTextures (lump_t *l)
 				{
 					q_snprintf (texturename, sizeof(texturename), "%s:%s", loadmodel->name, tx->name);
 					offset = (src_offset_t)(mt+1) - (src_offset_t)mod_base;
-					if (Mod_CheckFullbrights ((byte *)(tx+1), pixels))
+					if (fmt == SRC_INDEXED && Mod_CheckFullbrights ((byte *)(tx+1), imgpixels))
 					{
-						tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, tx->width, tx->height,
-							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_NOBRIGHT | extraflags);
+						tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, imgwidth, imgheight,
+							fmt, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_NOBRIGHT | extraflags);
 						q_snprintf (texturename, sizeof(texturename), "%s:%s_glow", loadmodel->name, tx->name);
-						tx->fullbright = TexMgr_LoadImage (loadmodel, texturename, tx->width, tx->height,
-							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_FULLBRIGHT | extraflags);
+						tx->fullbright = TexMgr_LoadImage (loadmodel, texturename, imgwidth, imgheight,
+							fmt, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | TEXPREF_FULLBRIGHT | extraflags);
 					}
 					else
 					{
-						tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, tx->width, tx->height,
-							SRC_INDEXED, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | extraflags);
+						tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, imgwidth, imgheight,
+							fmt, (byte *)(tx+1), loadmodel->name, offset, TEXPREF_MIPMAP | extraflags);
 					}
 				}
 				if (malloced)

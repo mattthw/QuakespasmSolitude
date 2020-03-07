@@ -47,6 +47,56 @@ unsigned int d_8to24table_conchars[256];
 unsigned int d_8to24table_shirt[256];
 unsigned int d_8to24table_pants[256];
 
+static struct
+{
+	const char *mipextname;
+	int internalformat;
+	int format;
+	int type;	//for non-compressed formats
+	int blockbytes;
+	int blockwidth;
+	int blockheight;
+	qboolean *supported;
+} compressedformats[] =
+{
+	{NULL},	//SRC_INDEXED
+	{NULL},	//SRC_LIGHTMAP
+	{NULL},	//SRC_RGBA
+	{NULL},	//SRC_EXTERNAL
+
+	{"RGBA", GL_RGBA,GL_RGBA,GL_UNSIGNED_INT_8_8_8_8_REV,	 4, 1, 1, NULL},
+	{"RGB", GL_RGB,GL_RGB,GL_UNSIGNED_BYTE,					 3, 1, 1, NULL},
+	{"565", GL_RGB565,GL_RGB,GL_UNSIGNED_SHORT_5_6_5,		 2, 1, 1, NULL},
+	{"4444", GL_RGBA4,GL_RGBA,GL_UNSIGNED_SHORT_4_4_4_4,	 2, 1, 1, NULL},
+	{"5551", GL_RGB5_A1,GL_RGBA,GL_UNSIGNED_SHORT_5_5_5_1,	 2, 1, 1, NULL},
+	{"LUM8", GL_LUMINANCE8,GL_LUMINANCE,GL_UNSIGNED_BYTE,	 1, 1, 1, NULL},
+	{"EXP5", GL_RGB9_E5,GL_RGB,GL_UNSIGNED_INT_5_9_9_9_REV,	 4, 1, 1, &gl_texture_astc},
+	{"BC1", GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,0,0,			 8, 4, 4, &gl_texture_s3tc},
+	{"BC2",	GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,0,0,			16, 4, 4, &gl_texture_s3tc},
+	{"BC3", GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,0,0,			16, 4, 4, &gl_texture_s3tc},
+	{"BC4", GL_COMPRESSED_RED_RGTC1,0,0,					 8, 4, 4, &gl_texture_rgtc},
+	{"BC5", GL_COMPRESSED_RG_RGTC2,0,0,						16, 4, 4, &gl_texture_rgtc},
+	{"BC6", GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT,0,0,		16, 4, 4, &gl_texture_bptc},
+	{"BC7",	GL_COMPRESSED_RGBA_BPTC_UNORM,0,0,				16, 4, 4, &gl_texture_bptc},
+	{"ETC1", GL_COMPRESSED_RGB8_ETC2,0,0,					 8, 4, 4, &gl_texture_etc2},
+	{"ETC2", GL_COMPRESSED_RGB8_ETC2,0,0,					 8, 4, 4, &gl_texture_etc2},
+	{"ETCP", GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2,0,0,8, 4, 4, &gl_texture_etc2},
+	{"ETCA", GL_COMPRESSED_RGBA8_ETC2_EAC,0,0,				16, 4, 4, &gl_texture_etc2},
+	{"AST4", GL_COMPRESSED_RGBA_ASTC_4x4_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"AS54", GL_COMPRESSED_RGBA_ASTC_5x4_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"AST5", GL_COMPRESSED_RGBA_ASTC_5x5_KHR,0,0,			16, 5, 5, &gl_texture_astc},
+	{"AS65", GL_COMPRESSED_RGBA_ASTC_6x5_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"AST6", GL_COMPRESSED_RGBA_ASTC_6x6_KHR,0,0,			16, 6, 6, &gl_texture_astc},
+	{"AS85", GL_COMPRESSED_RGBA_ASTC_8x5_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"AS86", GL_COMPRESSED_RGBA_ASTC_8x6_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"AST8", GL_COMPRESSED_RGBA_ASTC_8x8_KHR,0,0,			16, 8, 8, &gl_texture_astc},
+	{"AS05", GL_COMPRESSED_RGBA_ASTC_10x5_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"AS06", GL_COMPRESSED_RGBA_ASTC_10x6_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"AS08", GL_COMPRESSED_RGBA_ASTC_10x8_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"AST0", GL_COMPRESSED_RGBA_ASTC_10x10_KHR,0,0,			16, 8, 8, &gl_texture_astc},
+	{"AST2", GL_COMPRESSED_RGBA_ASTC_12x12_KHR,0,0,			16, 8, 8, &gl_texture_astc},
+};
+
 /*
 ================================================================================
 
@@ -1096,6 +1146,134 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 	TexMgr_SetFilterModes (glt);
 }
 
+void TexMgr_BlockSize (enum srcformat format, int *bytes, int *width, int *height)
+{
+	*width = 1;
+	*height = 1;
+	switch(format)
+	{
+	case SRC_RGBA:
+		*bytes = 4;
+		break;
+	case SRC_LIGHTMAP:
+		*bytes = lightmap_bytes;
+		break;
+	case SRC_INDEXED:
+		*bytes = 1;
+		break;
+	case SRC_EXTERNAL:
+		*bytes = 0;
+		break;
+	default:
+		*bytes  = compressedformats[format].blockbytes;
+		*width  = compressedformats[format].blockwidth;
+		*height	= compressedformats[format].blockheight;
+		break;
+	}
+}
+size_t TexMgr_ImageSize (int width, int height, enum srcformat format)
+{
+	int	miplevel, mipwidth, mipheight;
+	size_t mipbytes = 0, blockbytes;
+	unsigned int blockwidth, blockheight;
+	switch(format)
+	{
+	case SRC_RGBA:
+		return width*height*4;
+	case SRC_LIGHTMAP:
+		return width*height*lightmap_bytes;
+	case SRC_INDEXED:
+		return width*height;
+	case SRC_EXTERNAL:	//panic
+		Con_Printf("TexMgr_ImageCompressedSize called for SRC_EXTERNAL\n");
+		return 0;
+	default:
+		//a compressed format with multiple mip levels in it
+		blockbytes     = compressedformats[format].blockbytes;
+		blockwidth     = compressedformats[format].blockwidth;
+		blockheight    = compressedformats[format].blockheight;
+		for (miplevel = 0; ; miplevel++)
+		{
+			mipwidth = width >> miplevel;
+			mipheight = height >> miplevel;
+			if (!mipwidth && !mipheight)
+				break;
+			mipwidth = q_max(1,mipwidth);	//include the 1*1 mip with non-square textures.
+			mipheight = q_max(1,mipheight);
+			mipbytes += blockbytes*((mipwidth+blockwidth-1)/blockwidth)*((mipheight+blockheight-1)/blockheight);
+		}
+		return mipbytes;
+	}
+}
+enum srcformat TexMgr_FormatForCode (const char *code)
+{
+	size_t i;
+	for (i = 0; i < sizeof(compressedformats)/sizeof(compressedformats[0]); i++)
+	{
+		if (!compressedformats[i].mipextname)
+			continue;
+		if (!strncasecmp(code, compressedformats[i].mipextname, 4))
+			return i;
+	}
+	return SRC_EXTERNAL;
+}
+static void TexMgr_LoadImageCompressed (gltexture_t *glt, byte *data)
+{
+	int	internalformat,	format, type, miplevel, mipwidth, mipheight, picmip;
+	size_t mipbytes, blockbytes;
+	unsigned int blockwidth, blockheight;
+
+	internalformat = compressedformats[glt->source_format].internalformat;
+	format         = compressedformats[glt->source_format].format;
+	type           = compressedformats[glt->source_format].type;
+	blockbytes     = compressedformats[glt->source_format].blockbytes;
+	blockwidth     = compressedformats[glt->source_format].blockwidth;
+	blockheight    = compressedformats[glt->source_format].blockheight;
+
+	//no premultiply support.
+	//no npot fallback support
+
+	// mipmap down
+	picmip = ((glt->flags & TEXPREF_NOPICMIP) || !(glt->flags & TEXPREF_MIPMAP)) ? 0 : q_max((int)gl_picmip.value, 0);
+
+	//make sure the picmip level is not bigger than the number of mips that we have available...
+	while (picmip && (!(glt->width>>picmip) || !(glt->height>>picmip)))
+		picmip--;
+
+	if (type && blockbytes < 4)
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);	//makes stuff work more reliably, if slower.
+
+	//upload each mip level in turn.
+	GL_Bind (glt);
+	for (miplevel = 0; ; miplevel++)
+	{
+		mipwidth = glt->width >> miplevel;
+		mipheight = glt->height >> miplevel;
+		if (!mipwidth && !mipheight)
+			break;
+		mipwidth = q_max(1,mipwidth);	//include the 1*1 mip with non-square textures.
+		mipheight = q_max(1,mipheight);
+		mipbytes = blockbytes*((mipwidth+blockwidth-1)/blockwidth)*((mipheight+blockheight-1)/blockheight);
+		if (miplevel-picmip >= 0)
+		{
+			if (type)
+				glTexImage2D(GL_TEXTURE_2D, miplevel-picmip, internalformat, mipwidth, mipheight, 0, format, type, data);
+			else
+				glCompressedTexImage2D(GL_TEXTURE_2D, miplevel-picmip, internalformat, mipwidth, mipheight, 0, mipbytes, data);
+		}
+		data += mipbytes;
+
+		if (!(glt->flags & TEXPREF_MIPMAP))
+			break;
+	}
+
+	if (type && blockbytes < 4)
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);	//back to opengl's default.
+
+	// set filter modes
+	TexMgr_SetFilterModes (glt);
+}
+
 /*
 ================
 TexMgr_LoadImage8 -- handles 8bit source data, then passes it to LoadImage32
@@ -1225,21 +1403,10 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 		return NULL;
 
 	// cache check
-	switch (format)
-	{
-	case SRC_INDEXED:
-		crc = CRC_Block(data, width * height);
-		break;
-	case SRC_LIGHTMAP:
-		crc = CRC_Block(data, width * height * lightmap_bytes);
-		break;
-	case SRC_RGBA:
-		crc = CRC_Block(data, width * height * 4);
-		break;
-	case SRC_EXTERNAL:
-	default: /* not reachable but avoids compiler warnings */
+	if (format == SRC_EXTERNAL)
 		crc = 0;
-	}
+	else
+		crc = CRC_Block(data, TexMgr_ImageSize(width, height, format));
 	if ((flags & TEXPREF_OVERWRITE) && (glt = TexMgr_FindTexture (owner, name)))
 	{
 		if (glt->source_crc == crc)
@@ -1295,6 +1462,9 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 	case SRC_RGBA:
 		TexMgr_LoadImage32 (glt, (unsigned *)data);
 		break;
+	default:
+		TexMgr_LoadImageCompressed (glt, data);
+		break;
 	}
 
 	Hunk_FreeToLowMark(mark);
@@ -1335,12 +1505,8 @@ void TexMgr_ReloadImage (gltexture_t *glt, int shirt, int pants)
 		if (!f)
 			goto invalid;
 		fseek (f, glt->source_offset, SEEK_CUR);
-		size = (long) (glt->source_width * glt->source_height);
-		/* should be SRC_INDEXED, but no harm being paranoid:  */
-		if (glt->source_format == SRC_RGBA)
-			size *= 4;
-		else if (glt->source_format == SRC_LIGHTMAP)
-			size *= lightmap_bytes;
+
+		size = TexMgr_ImageSize(glt->source_width, glt->source_height, glt->source_format);
 		data = (byte *) Hunk_Alloc (size);
 		fread (data, 1, size, f);
 		fclose (f);
@@ -1429,6 +1595,9 @@ invalid:
 	case SRC_EXTERNAL:
 	case SRC_RGBA:
 		TexMgr_LoadImage32 (glt, (unsigned *)data);
+		break;
+	default:
+		TexMgr_LoadImageCompressed (glt, data);
 		break;
 	}
 

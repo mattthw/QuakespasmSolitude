@@ -433,7 +433,7 @@ void GL_MakeAliasModelDisplayLists (qmodel_t *m, aliashdr_t *hdr);
 void Sky_Init (void);
 void Sky_DrawSky (void);
 void Sky_NewMap (void);
-void Sky_LoadTexture (texture_t *mt);
+void Sky_LoadTexture (texture_t *mt, enum srcformat fmt, unsigned int width, unsigned int height);
 void Sky_LoadSkyBox (const char *name);
 extern qboolean skyroom_drawn;		//we draw a skyroom this frame
 extern qboolean skyroom_enabled;	//we know where the skyroom is ...
