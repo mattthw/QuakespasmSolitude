@@ -805,9 +805,14 @@ void R_ShowBoundingBoxes (void)
 		else
 		{
 			//box entity
-			VectorAdd (ed->v.mins, ed->v.origin, mins);
-			VectorAdd (ed->v.maxs, ed->v.origin, maxs);
-			R_EmitWireBox (mins, maxs);
+			if (ed->v.solid == SOLID_BSP && (ed->v.angles[0]||ed->v.angles[1]||ed->v.angles[2]) && pr_checkextension.value)
+				R_EmitWireBox (ed->v.absmin, ed->v.absmax);
+			else
+			{
+				VectorAdd (ed->v.mins, ed->v.origin, mins);
+				VectorAdd (ed->v.maxs, ed->v.origin, maxs);
+				R_EmitWireBox (mins, maxs);
+			}
 		}
 	}
 	PR_SwitchQCVM(oldvm);
