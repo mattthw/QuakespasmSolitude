@@ -564,7 +564,21 @@ static void ED_PrintEdict_f (void)
 	if (i < 0 || i >= qcvm->num_edicts)
 		Con_Printf("Bad edict number\n");
 	else
-		ED_PrintNum (i);
+	{
+		if (Cmd_Argc() == 2 || svs.maxclients != 1)	//edict N
+			ED_PrintNum (i);
+		else					//edict N FLD ...
+		{
+			ddef_t *def = ED_FindField(Cmd_Argv(2));
+			if (!def)
+				Con_Printf("Field %s not defined\n", Cmd_Argv(2));
+			else if (Cmd_Argc() < 4)
+				Con_Printf("Edict %u.%s==%s\n", i, PR_GetString(def->s_name), PR_UglyValueString(def->type&~DEF_SAVEGLOBAL, (eval_t *)((char *)&EDICT_NUM(i)->v + def->ofs*4)));
+			else
+				ED_ParseEpair((void *)&EDICT_NUM(i)->v, def, Cmd_Argv(3));
+		}
+
+	}
 	PR_SwitchQCVM(NULL);
 }
 
