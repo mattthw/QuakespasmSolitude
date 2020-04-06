@@ -450,10 +450,15 @@ void SV_DropClient (qboolean crash)
 		{
 		// call the prog function for removing a client
 		// this will set the body to a dead frame, among other things
+			qcvm_t *oldvm = qcvm;
+			PR_SwitchQCVM(NULL);
+			PR_SwitchQCVM(&sv.qcvm);
 			saveSelf = pr_global_struct->self;
 			pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
 			PR_ExecuteProgram (pr_global_struct->ClientDisconnect);
 			pr_global_struct->self = saveSelf;
+			PR_SwitchQCVM(NULL);
+			PR_SwitchQCVM(oldvm);
 		}
 
 		Sys_Printf ("Client %s removed\n",host_client->name);
