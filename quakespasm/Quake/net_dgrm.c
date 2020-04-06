@@ -56,7 +56,7 @@ cvar_t net_masters[] =
 	{"net_master2", ""},
 	{"net_master3", ""},
 	{"net_master4", ""},
-	{"net_masterextra1", "ghdigital.com:27950"},
+	{"net_masterextra1", "master.frag-net.com:27950"},
 	{"net_masterextra2", "dpmaster.deathmask.net:27950"},
 	{"net_masterextra3", "dpmaster.tchr.no:27950"},
 	{NULL}
