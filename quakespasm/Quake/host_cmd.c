@@ -2327,15 +2327,20 @@ void Host_Viewmodel_f (void)
 	if (!e)
 		return;
 
-	m = Mod_ForName (Cmd_Argv(1), false);
-	if (!m)
+	if (!*Cmd_Argv(1))
+		m = NULL;
+	else
 	{
-		Con_Printf ("Can't load %s\n", Cmd_Argv(1));
-		return;
+		m = Mod_ForName (Cmd_Argv(1), false);
+		if (!m)
+		{
+			Con_Printf ("Can't load %s\n", Cmd_Argv(1));
+			return;
+		}
 	}
 
 	PR_SwitchQCVM(&sv.qcvm);
-	e->v.modelindex = SV_Precache_Model(m->name);
+	e->v.modelindex = m?SV_Precache_Model(m->name):0;
 	e->v.model = PR_SetEngineString(sv.model_precache[(int)e->v.modelindex]);
 	e->v.frame = 0;
 	PR_SwitchQCVM(NULL);
@@ -2356,12 +2361,14 @@ void Host_Viewframe_f (void)
 	if (!e)
 		return;
 	m = cl.model_precache[(int)e->v.modelindex];
+	if (m)
+	{
+		f = atoi(Cmd_Argv(1));
+		if (f >= m->numframes)
+			f = m->numframes - 1;
 
-	f = atoi(Cmd_Argv(1));
-	if (f >= m->numframes)
-		f = m->numframes - 1;
-
-	e->v.frame = f;
+		e->v.frame = f;
+	}
 }
 
 
@@ -2371,7 +2378,7 @@ void PrintFrameName (qmodel_t *m, int frame)
 	maliasframedesc_t	*pframedesc;
 
 	hdr = (aliashdr_t *)Mod_Extradata (m);
-	if (!hdr)
+	if (!hdr || m->type != mod_alias)
 		return;
 	pframedesc = &hdr->frames[frame];
 
@@ -2392,12 +2399,14 @@ void Host_Viewnext_f (void)
 	if (!e)
 		return;
 	m = cl.model_precache[(int)e->v.modelindex];
+	if (m)
+	{
+		e->v.frame = e->v.frame + 1;
+		if (e->v.frame >= m->numframes)
+			e->v.frame = m->numframes - 1;
 
-	e->v.frame = e->v.frame + 1;
-	if (e->v.frame >= m->numframes)
-		e->v.frame = m->numframes - 1;
-
-	PrintFrameName (m, e->v.frame);
+		PrintFrameName (m, e->v.frame);
+	}
 }
 
 /*
@@ -2415,12 +2424,14 @@ void Host_Viewprev_f (void)
 		return;
 
 	m = cl.model_precache[(int)e->v.modelindex];
+	if (m)
+	{
+		e->v.frame = e->v.frame - 1;
+		if (e->v.frame < 0)
+			e->v.frame = 0;
 
-	e->v.frame = e->v.frame - 1;
-	if (e->v.frame < 0)
-		e->v.frame = 0;
-
-	PrintFrameName (m, e->v.frame);
+		PrintFrameName (m, e->v.frame);
+	}
 }
 
 /*
