@@ -89,6 +89,7 @@ void TexMgr_NewGame (void);
 void TexMgr_Init (void);
 void TexMgr_DeleteTextureObjects (void);
 enum srcformat TexMgr_FormatForCode (const char *code);	//returns SRC_EXTERNAL when not known.
+enum srcformat TexMgr_FormatForName (const char *name);	//returns SRC_EXTERNAL when not known.
 size_t TexMgr_ImageSize (int width, int height, enum srcformat format);
 void TexMgr_BlockSize (enum srcformat format, int *bytes, int *width, int *height);
 

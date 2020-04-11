@@ -722,15 +722,18 @@ void Mod_LoadTextures (lump_t *l)
 				Sky_LoadTexture (tx, fmt, imgwidth, imgheight);
 			else if (tx->name[0] == '*') //warping texture
 			{
+				enum srcformat rfmt = SRC_RGBA;
+				fwidth = fheight = 0;
+				malloced = false;
 				//external textures -- first look in "textures/mapname/" then look in "textures/"
 				mark = Hunk_LowMark();
 				COM_StripExtension (loadmodel->name + 5, mapname, sizeof(mapname));
 				q_snprintf (filename, sizeof(filename), "textures/%s/#%s", mapname, tx->name+1); //this also replaces the '*' with a '#'
-				data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &malloced);
+				data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
 				if (!data)
 				{
 					q_snprintf (filename, sizeof(filename), "textures/#%s", tx->name+1);
-					data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &malloced);
+					data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
 				}
 
 				//now load whatever we found
@@ -738,7 +741,7 @@ void Mod_LoadTextures (lump_t *l)
 				{
 					q_strlcpy (texturename, filename, sizeof(texturename));
 					tx->gltexture = TexMgr_LoadImage (loadmodel, texturename, fwidth, fheight,
-						SRC_RGBA, data, filename, 0, TEXPREF_NONE);
+						rfmt, data, filename, 0, TEXPREF_NONE);
 				}
 				else //use the texture from the bsp file
 				{
@@ -762,6 +765,9 @@ void Mod_LoadTextures (lump_t *l)
 			{
 				// ericw -- fence textures
 				int	extraflags;
+				enum srcformat rfmt = SRC_RGBA;
+				fwidth = fheight = 0;
+				malloced = false;
 
 				extraflags = 0;
 				if (tx->name[0] == '{')
@@ -772,34 +778,34 @@ void Mod_LoadTextures (lump_t *l)
 				mark = Hunk_LowMark ();
 				COM_StripExtension (loadmodel->name + 5, mapname, sizeof(mapname));
 				q_snprintf (filename, sizeof(filename), "textures/%s/%s", mapname, tx->name);
-				data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &malloced);
+				data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
 				if (!data)
 				{
 					q_snprintf (filename, sizeof(filename), "textures/%s", tx->name);
-					data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &malloced);
+					data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &rfmt, &malloced);
 				}
 
 				//now load whatever we found
 				if (data) //load external image
 				{
 					tx->gltexture = TexMgr_LoadImage (loadmodel, filename, fwidth, fheight,
-						SRC_RGBA, data, filename, 0, TEXPREF_MIPMAP | extraflags );
+						rfmt, data, filename, 0, TEXPREF_MIPMAP | extraflags );
 
 					//now try to load glow/luma image from the same place
 					if (malloced)
 						free(data);
 					Hunk_FreeToLowMark (mark);
 					q_snprintf (filename2, sizeof(filename2), "%s_glow", filename);
-					data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &malloced);
+					data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &rfmt, &malloced);
 					if (!data)
 					{
 						q_snprintf (filename2, sizeof(filename2), "%s_luma", filename);
-						data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &malloced);
+						data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &rfmt, &malloced);
 					}
 
 					if (data)
 						tx->fullbright = TexMgr_LoadImage (loadmodel, filename2, fwidth, fheight,
-							SRC_RGBA, data, filename, 0, TEXPREF_MIPMAP | extraflags );
+							rfmt, data, filename, 0, TEXPREF_MIPMAP | extraflags );
 				}
 				else //use the texture from the bsp file
 				{
@@ -2869,31 +2875,32 @@ void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype)
 			char filename[MAX_QPATH];
 			char filename2[MAX_QPATH];
 			byte *data;
-			int fwidth, fheight;
-			qboolean malloced;
+			int fwidth=0, fheight=0;
+			qboolean malloced=false;
+			enum srcformat fmt = SRC_RGBA;
 			q_snprintf (filename, sizeof(filename), "%s_%i", loadmodel->name, i);
-			data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &malloced);
+			data = !gl_load24bit.value?NULL:Image_LoadImage (filename, &fwidth, &fheight, &fmt, &malloced);
 			//now load whatever we found
 			if (data) //load external image
 			{
 				pheader->gltextures[i][0] = TexMgr_LoadImage (loadmodel, filename, fwidth, fheight,
-					SRC_RGBA, data, filename, 0, TEXPREF_ALPHA|texflags|TEXPREF_MIPMAP );
+					fmt, data, filename, 0, TEXPREF_ALPHA|texflags|TEXPREF_MIPMAP );
 
 				//now try to load glow/luma image from the same place
 				if (malloced)
 					free(data);
 				Hunk_FreeToLowMark (mark);
 				q_snprintf (filename2, sizeof(filename2), "%s_glow", filename);
-				data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &malloced);
+				data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &fmt, &malloced);
 				if (!data)
 				{
 					q_snprintf (filename2, sizeof(filename2), "%s_luma", filename);
-					data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &malloced);
+					data = !gl_load24bit.value?NULL:Image_LoadImage (filename2, &fwidth, &fheight, &fmt, &malloced);
 				}
 
 				if (data)
 					pheader->fbtextures[i][0] = TexMgr_LoadImage (loadmodel, filename2, fwidth, fheight,
-						SRC_RGBA, data, filename, 0, TEXPREF_ALPHA|texflags|TEXPREF_MIPMAP );
+						fmt, data, filename, 0, TEXPREF_ALPHA|texflags|TEXPREF_MIPMAP );
 				else
 					pheader->fbtextures[i][0] = NULL;
 			}

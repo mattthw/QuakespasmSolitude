@@ -1152,6 +1152,7 @@ static void P_LoadTexture(part_type_t *ptype, qboolean warn)
 		byte *data = NULL;
 		char filename[MAX_QPATH];
 		int fwidth=0, fheight=0;
+		enum srcformat fmt=SRC_RGBA;
 		int hunkmark;
 		char *texname = va("%s%s%s", ptype->texname, ptype->looks.premul?"_premul":"", ptype->looks.nearest?"_nearest":"");
 		qboolean malloced = false;
@@ -1163,17 +1164,17 @@ static void P_LoadTexture(part_type_t *ptype, qboolean warn)
 			if (!data)
 			{
 				q_snprintf (filename, sizeof(filename), "textures/%s", ptype->texname);
-				data = Image_LoadImage (filename, &fwidth, &fheight, &malloced);
+				data = Image_LoadImage (filename, &fwidth, &fheight, &fmt, &malloced);
 			}
 			if (!data)
 			{
 				q_snprintf (filename, sizeof(filename), "%s", ptype->texname);
-				data = Image_LoadImage (filename, &fwidth, &fheight, &malloced);
+				data = Image_LoadImage (filename, &fwidth, &fheight, &fmt, &malloced);
 			}
 
 			if (data)
 			{
-				ptype->looks.texture = TexMgr_LoadImage(NULL, texname, fwidth, fheight, SRC_RGBA, data, filename, 0, (ptype->looks.premul?TEXPREF_PREMULTIPLY:0)|(ptype->looks.nearest?TEXPREF_NEAREST:TEXPREF_LINEAR)|TEXPREF_NOPICMIP|TEXPREF_ALPHA);
+				ptype->looks.texture = TexMgr_LoadImage(NULL, texname, fwidth, fheight, fmt, data, filename, 0, (ptype->looks.premul?TEXPREF_PREMULTIPLY:0)|(ptype->looks.nearest?TEXPREF_NEAREST:TEXPREF_LINEAR)|TEXPREF_NOPICMIP|TEXPREF_ALPHA);
 			}
 			if (malloced)
 				free(data);

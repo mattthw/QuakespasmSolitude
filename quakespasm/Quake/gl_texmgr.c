@@ -49,14 +49,15 @@ unsigned int d_8to24table_pants[256];
 
 static struct
 {
-	const char *mipextname;
-	int internalformat;
-	int format;
-	int type;	//for non-compressed formats
-	int blockbytes;
-	int blockwidth;
-	int blockheight;
-	qboolean *supported;
+	const char *formatname;	//full name
+	const char *mipextname;	//four chars
+	int internalformat;		//opengl's internal format (mostly sized formats)
+	int format;				//for non-compressed formats (opengl's transcoding)
+	int type;				//for non-compressed formats (opengl's transcoding)
+	int blockbytes;			//bytes per block
+	int blockwidth;			//width of a block (or 1 for non-block formats)
+	int blockheight;		//height of a block (or 1 for non-block formats)
+	qboolean *supported;	//pointer to some boolean that says whether some opengl extension is actually support or not.
 } compressedformats[] =
 {
 	{NULL},	//SRC_INDEXED
@@ -64,37 +65,38 @@ static struct
 	{NULL},	//SRC_RGBA
 	{NULL},	//SRC_EXTERNAL
 
-	{"RGBA", GL_RGBA,GL_RGBA,GL_UNSIGNED_INT_8_8_8_8_REV,	 4, 1, 1, NULL},
-	{"RGB", GL_RGB,GL_RGB,GL_UNSIGNED_BYTE,					 3, 1, 1, NULL},
-	{"565", GL_RGB565,GL_RGB,GL_UNSIGNED_SHORT_5_6_5,		 2, 1, 1, NULL},
-	{"4444", GL_RGBA4,GL_RGBA,GL_UNSIGNED_SHORT_4_4_4_4,	 2, 1, 1, NULL},
-	{"5551", GL_RGB5_A1,GL_RGBA,GL_UNSIGNED_SHORT_5_5_5_1,	 2, 1, 1, NULL},
-	{"LUM8", GL_LUMINANCE8,GL_LUMINANCE,GL_UNSIGNED_BYTE,	 1, 1, 1, NULL},
-	{"EXP5", GL_RGB9_E5,GL_RGB,GL_UNSIGNED_INT_5_9_9_9_REV,	 4, 1, 1, &gl_texture_astc},
-	{"BC1", GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,0,0,			 8, 4, 4, &gl_texture_s3tc},
-	{"BC2",	GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,0,0,			16, 4, 4, &gl_texture_s3tc},
-	{"BC3", GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,0,0,			16, 4, 4, &gl_texture_s3tc},
-	{"BC4", GL_COMPRESSED_RED_RGTC1,0,0,					 8, 4, 4, &gl_texture_rgtc},
-	{"BC5", GL_COMPRESSED_RG_RGTC2,0,0,						16, 4, 4, &gl_texture_rgtc},
-	{"BC6", GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT,0,0,		16, 4, 4, &gl_texture_bptc},
-	{"BC7",	GL_COMPRESSED_RGBA_BPTC_UNORM,0,0,				16, 4, 4, &gl_texture_bptc},
-	{"ETC1", GL_COMPRESSED_RGB8_ETC2,0,0,					 8, 4, 4, &gl_texture_etc2},
-	{"ETC2", GL_COMPRESSED_RGB8_ETC2,0,0,					 8, 4, 4, &gl_texture_etc2},
-	{"ETCP", GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2,0,0,8, 4, 4, &gl_texture_etc2},
-	{"ETCA", GL_COMPRESSED_RGBA8_ETC2_EAC,0,0,				16, 4, 4, &gl_texture_etc2},
-	{"AST4", GL_COMPRESSED_RGBA_ASTC_4x4_KHR,0,0,			16, 4, 4, &gl_texture_astc},
-	{"AS54", GL_COMPRESSED_RGBA_ASTC_5x4_KHR,0,0,			16, 4, 4, &gl_texture_astc},
-	{"AST5", GL_COMPRESSED_RGBA_ASTC_5x5_KHR,0,0,			16, 5, 5, &gl_texture_astc},
-	{"AS65", GL_COMPRESSED_RGBA_ASTC_6x5_KHR,0,0,			16, 4, 4, &gl_texture_astc},
-	{"AST6", GL_COMPRESSED_RGBA_ASTC_6x6_KHR,0,0,			16, 6, 6, &gl_texture_astc},
-	{"AS85", GL_COMPRESSED_RGBA_ASTC_8x5_KHR,0,0,			16, 4, 4, &gl_texture_astc},
-	{"AS86", GL_COMPRESSED_RGBA_ASTC_8x6_KHR,0,0,			16, 4, 4, &gl_texture_astc},
-	{"AST8", GL_COMPRESSED_RGBA_ASTC_8x8_KHR,0,0,			16, 8, 8, &gl_texture_astc},
-	{"AS05", GL_COMPRESSED_RGBA_ASTC_10x5_KHR,0,0,			16, 4, 4, &gl_texture_astc},
-	{"AS06", GL_COMPRESSED_RGBA_ASTC_10x6_KHR,0,0,			16, 4, 4, &gl_texture_astc},
-	{"AS08", GL_COMPRESSED_RGBA_ASTC_10x8_KHR,0,0,			16, 4, 4, &gl_texture_astc},
-	{"AST0", GL_COMPRESSED_RGBA_ASTC_10x10_KHR,0,0,			16, 8, 8, &gl_texture_astc},
-	{"AST2", GL_COMPRESSED_RGBA_ASTC_12x12_KHR,0,0,			16, 8, 8, &gl_texture_astc},
+	{"RGBA8",		"RGBA", GL_RGBA,GL_RGBA,GL_UNSIGNED_INT_8_8_8_8_REV,	 4, 1, 1, NULL},
+	{"RGB8",		"RGB",  GL_RGB,GL_RGB,GL_UNSIGNED_BYTE,					 3, 1, 1, NULL},
+	{"RGB565",		"565",  GL_RGB565,GL_RGB,GL_UNSIGNED_SHORT_5_6_5,		 2, 1, 1, NULL},
+	{"RGBA4444",	"4444", GL_RGBA4,GL_RGBA,GL_UNSIGNED_SHORT_4_4_4_4,		 2, 1, 1, NULL},
+	{"RGBA5551",	"5551", GL_RGB5_A1,GL_RGBA,GL_UNSIGNED_SHORT_5_5_5_1,	 2, 1, 1, NULL},
+	{"L8",			"LUM8", GL_LUMINANCE8,GL_LUMINANCE,GL_UNSIGNED_BYTE,	 1, 1, 1, NULL},
+	{"E5BGR9",		"EXP5", GL_RGB9_E5,GL_RGB,GL_UNSIGNED_INT_5_9_9_9_REV,	 4, 1, 1, &gl_texture_astc},
+	{"BC1_RGBA",	"BC1",  GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,0,0,			 8, 4, 4, &gl_texture_s3tc},
+	{"BC2_RGBA",	"BC2",  GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,0,0,			16, 4, 4, &gl_texture_s3tc},
+	{"BC3_RGBA",	"BC3",  GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,0,0,			16, 4, 4, &gl_texture_s3tc},
+	{"BC4_R",		"BC4",  GL_COMPRESSED_RED_RGTC1,0,0,					 8, 4, 4, &gl_texture_rgtc},
+	{"BC5_RG",		"BC5",  GL_COMPRESSED_RG_RGTC2,0,0,						16, 4, 4, &gl_texture_rgtc},
+	{"BC6_RGB_UFLOAT","BC6",GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT,0,0,		16, 4, 4, &gl_texture_bptc},
+	{"BC7_RGBA",	"BC7",  GL_COMPRESSED_RGBA_BPTC_UNORM,0,0,				16, 4, 4, &gl_texture_bptc},
+	{"ETC1_RGB8",	"ETC1", GL_COMPRESSED_RGB8_ETC2,0,0,					 8, 4, 4, &gl_texture_etc2},
+	{"ETC2_RGB8",	"ETC2", GL_COMPRESSED_RGB8_ETC2,0,0,					 8, 4, 4, &gl_texture_etc2},
+	{"ETC2_RGB8A1",	"ETCP", GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2,0,0, 8, 4, 4, &gl_texture_etc2},
+	{"ETC2_RGB8A8",	"ETCA", GL_COMPRESSED_RGBA8_ETC2_EAC,0,0,				16, 4, 4, &gl_texture_etc2},
+	{"ASTC_4X4",	"AST4", GL_COMPRESSED_RGBA_ASTC_4x4_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"ASTC_5X4",	"AS54", GL_COMPRESSED_RGBA_ASTC_5x4_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"ASTC_5X5",	"AST5", GL_COMPRESSED_RGBA_ASTC_5x5_KHR,0,0,			16, 5, 5, &gl_texture_astc},
+	{"ASTC_6X5",	"AS65", GL_COMPRESSED_RGBA_ASTC_6x5_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"ASTC_6X6",	"AST6", GL_COMPRESSED_RGBA_ASTC_6x6_KHR,0,0,			16, 6, 6, &gl_texture_astc},
+	{"ASTC_8X5",	"AS85", GL_COMPRESSED_RGBA_ASTC_8x5_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"ASTC_8X6",	"AS86", GL_COMPRESSED_RGBA_ASTC_8x6_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"ASTC_8X8",	"AST8", GL_COMPRESSED_RGBA_ASTC_8x8_KHR,0,0,			16, 8, 8, &gl_texture_astc},
+	{"ASTC_10X5",	"AS05", GL_COMPRESSED_RGBA_ASTC_10x5_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"ASTC_10X6",	"AS06", GL_COMPRESSED_RGBA_ASTC_10x6_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"ASTC_10X8",	"AS08", GL_COMPRESSED_RGBA_ASTC_10x8_KHR,0,0,			16, 4, 4, &gl_texture_astc},
+	{"ASTC_10X10",	"AST0", GL_COMPRESSED_RGBA_ASTC_10x10_KHR,0,0,			16, 8, 8, &gl_texture_astc},
+	{"ASTC_12X10",	"AST0", GL_COMPRESSED_RGBA_ASTC_12x10_KHR,0,0,			16, 8, 8, &gl_texture_astc},
+	{"ASTC_12X12",	"AST2", GL_COMPRESSED_RGBA_ASTC_12x12_KHR,0,0,			16, 8, 8, &gl_texture_astc},
 };
 
 /*
@@ -1205,6 +1207,18 @@ size_t TexMgr_ImageSize (int width, int height, enum srcformat format)
 		return mipbytes;
 	}
 }
+enum srcformat TexMgr_FormatForName (const char *code)
+{
+	size_t i;
+	for (i = 0; i < sizeof(compressedformats)/sizeof(compressedformats[0]); i++)
+	{
+		if (!compressedformats[i].formatname)
+			continue;
+		if (!strcasecmp(code, compressedformats[i].formatname))
+			return i;
+	}
+	return SRC_EXTERNAL;
+}
 enum srcformat TexMgr_FormatForCode (const char *code)
 {
 	size_t i;
@@ -1398,6 +1412,7 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 	gltexture_t *glt;
 	int mark;
 	qboolean malloced;
+	enum srcformat fmt;
 
 	if (isDedicated)
 		return NULL;
@@ -1442,7 +1457,7 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 		TexMgr_LoadLightmap (glt, data);
 		break;
 	case SRC_EXTERNAL:
-		data = Image_LoadImage (glt->source_file, (int *)&glt->source_width, (int *)&glt->source_height, &malloced); //simple file
+		data = Image_LoadImage (glt->source_file, (int *)&glt->source_width, (int *)&glt->source_height, &fmt, &malloced); //simple file
 		if (!data)
 		{
 			glt->source_width = glt->source_height = 1;
@@ -1454,7 +1469,12 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 		{
 			glt->width = glt->source_width;
 			glt->height = glt->source_height;
-			TexMgr_LoadImage32 (glt, (unsigned *)data);
+			if (fmt == SRC_RGBA)
+				TexMgr_LoadImage32 (glt, (unsigned *)data);
+			else if (fmt == SRC_INDEXED)
+				TexMgr_LoadImage8 (glt, data);
+			else
+				TexMgr_LoadImageCompressed (glt, data);
 			if (malloced)
 				free(data);
 		}
@@ -1491,6 +1511,7 @@ void TexMgr_ReloadImage (gltexture_t *glt, int shirt, int pants)
 	byte	*src, *dst, *data = NULL, *translated;
 	int	mark, size, i;
 	qboolean malloced = false;
+	enum srcformat fmt = glt->source_format;
 //
 // get source data
 //
@@ -1512,7 +1533,7 @@ void TexMgr_ReloadImage (gltexture_t *glt, int shirt, int pants)
 		fclose (f);
 	}
 	else if (glt->source_file[0] && !glt->source_offset)
-		data = Image_LoadImage (glt->source_file, (int *)&glt->source_width, (int *)&glt->source_height, &malloced); //simple file
+		data = Image_LoadImage (glt->source_file, (int *)&glt->source_width, (int *)&glt->source_height, &fmt, &malloced); //simple file
 	else if (!glt->source_file[0] && glt->source_offset)
 		data = (byte *) glt->source_offset; //image in memory
 
