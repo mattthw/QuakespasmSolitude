@@ -269,6 +269,10 @@ extern	qboolean	gl_glsl_alias_able;
 //ericw -- NPOT texture support
 extern	qboolean	gl_texture_NPOT;
 
+//spike -- precompressed texture support
+typedef void (APIENTRYP QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC) (GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const GLvoid *data);
+extern QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC GL_CompressedTexImage2D;
+
 //johnfitz -- polygon offset
 #define OFFSET_BMODEL 1
 #define OFFSET_NONE 0

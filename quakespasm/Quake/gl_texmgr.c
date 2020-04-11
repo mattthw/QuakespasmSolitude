@@ -1259,7 +1259,7 @@ static void TexMgr_LoadImageCompressed (gltexture_t *glt, byte *data)
 			if (type)
 				glTexImage2D(GL_TEXTURE_2D, miplevel-picmip, internalformat, mipwidth, mipheight, 0, format, type, data);
 			else
-				glCompressedTexImage2D(GL_TEXTURE_2D, miplevel-picmip, internalformat, mipwidth, mipheight, 0, mipbytes, data);
+				GL_CompressedTexImage2D(GL_TEXTURE_2D, miplevel-picmip, internalformat, mipwidth, mipheight, 0, mipbytes, data);
 		}
 		data += mipbytes;
 

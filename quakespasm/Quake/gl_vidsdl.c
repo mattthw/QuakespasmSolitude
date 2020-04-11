@@ -146,6 +146,8 @@ QS_PFNGLUNIFORM3FPROC GL_Uniform3fFunc = NULL; //ericw
 QS_PFNGLUNIFORM4FPROC GL_Uniform4fFunc = NULL; //ericw
 QS_PFNGLUNIFORM4FVPROC GL_Uniform4fvFunc = NULL; //spike (for iqms)
 
+QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC GL_CompressedTexImage2D = NULL;	//spike
+
 //====================================
 
 //johnfitz -- new cvars
@@ -1175,11 +1177,12 @@ static void GL_CheckExtensions (void)
 		Con_Warning ("texture_non_power_of_two not supported\n");
 	}
 
-	gl_texture_s3tc = (																			   GL_ParseExtensionList(gl_extensions, "GL_EXT_texture_compression_s3tc"));
-	gl_texture_rgtc = (gl_version_major >= 3													|| GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_rgtc"));
-	gl_texture_bptc = (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 2) || GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_bptc"));
-	gl_texture_etc2 = (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_compatibility"));
-	gl_texture_astc = (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_2_compatibility") || GL_ParseExtensionList(gl_extensions, "GL_KHR_texture_compression_astc_ldr"));
+	GL_CompressedTexImage2D = (gl_version_major>=2||(gl_version_major==1&&gl_version_major>=3))?(QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC) SDL_GL_GetProcAddress("glCompressedTexImage2D"):NULL;
+	gl_texture_s3tc = GL_CompressedTexImage2D && (																			   GL_ParseExtensionList(gl_extensions, "GL_EXT_texture_compression_s3tc"));
+	gl_texture_rgtc = GL_CompressedTexImage2D && (gl_version_major >= 3													|| GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_rgtc"));
+	gl_texture_bptc = GL_CompressedTexImage2D && (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 2) || GL_ParseExtensionList(gl_extensions, "GL_ARB_texture_compression_bptc"));
+	gl_texture_etc2 = GL_CompressedTexImage2D && (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_compatibility"));
+	gl_texture_astc = GL_CompressedTexImage2D && (gl_version_major > 4 || (gl_version_major == 4 && gl_version_minor >= 3) || GL_ParseExtensionList(gl_extensions, "GL_ARB_ES3_2_compatibility") || GL_ParseExtensionList(gl_extensions, "GL_KHR_texture_compression_astc_ldr"));
 	
 	// GLSL
 	//
