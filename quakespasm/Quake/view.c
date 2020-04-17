@@ -117,8 +117,13 @@ float V_CalcBob (void)
 	float	bob;
 	float	cycle;
 
-	cycle = cl.time - (int)(cl.time/cl_bobcycle.value)*cl_bobcycle.value;
-	cycle /= cl_bobcycle.value;
+	if (!cl_bobcycle.value)
+		cycle = 0;
+	else
+	{
+		cycle = cl.time - (int)(cl.time/cl_bobcycle.value)*cl_bobcycle.value;
+		cycle /= cl_bobcycle.value;
+	}
 	if (cycle < cl_bobup.value)
 		cycle = M_PI * cycle / cl_bobup.value;
 	else
