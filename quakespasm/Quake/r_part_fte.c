@@ -4954,6 +4954,9 @@ int PScript_RunParticleEffectState (vec3_t org, vec3_t dir, float count, int typ
 			ctx.scale1 /= m;
 			ctx.scale2 /= m;
 
+			if (ptype->randsmax!=1)
+				ctx.bias1 += ptype->texsstride * (rand()%ptype->randsmax);
+
 			//inserts decals through a callback.
 			Mod_ClipDecal(ctx.model, ctx.center, ctx.normal, ctx.tangent2, ctx.tangent1, m, ptype->surfflagmask, ptype->surfflagmatch, PScript_AddDecals, &ctx);
 #endif
