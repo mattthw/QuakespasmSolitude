@@ -4529,6 +4529,18 @@ static void PF_cl_getstat_float(void)
 	else
 		G_FLOAT(OFS_RETURN) = cl.statsf[stnum];
 }
+static void PF_cl_getstat_string(void)
+{
+	int stnum = G_FLOAT(OFS_PARM0);
+	if (stnum < 0 || stnum > countof(cl.statss) || !cl.statss[stnum])
+		G_INT(OFS_RETURN) = 0;
+	else
+	{
+		char *result = PR_GetTempString();
+		q_strlcpy(result, cl.statss[stnum], STRINGTEMP_LENGTH);
+		G_INT(OFS_RETURN) = PR_SetEngineString(result);
+	}
+}
 
 struct
 {
@@ -5450,7 +5462,7 @@ static struct
 //	{"drawrotsubpic",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		D("void(vector pivot, vector mins, vector maxs, string pic, vector txmin, vector txsize, vector rgb, vector alphaandangles)", "Overcomplicated draw function for over complicated people. Positions follow drawrotpic, while texture coords follow drawsubpic. Due to argument count limitations in builtins, the alpha value and angles are combined into separate fields of a vector (tip: use fteqcc's [alpha, angle] feature.")},
 	{"getstati",		PF_NoSSQC,			PF_cl_getstat_int,	330,	D("#define getstati_punf(stnum) (float)(__variant)getstati(stnum)\nint(float stnum)", "Retrieves the numerical value of the given EV_INTEGER or EV_ENTITY stat. Use getstati_punf if you wish to type-pun a float stat as an int to avoid truncation issues in DP.")},// (EXT_CSQC)
 	{"getstatf",		PF_NoSSQC,			PF_cl_getstat_float,331,	D("#define getstatbits getstatf\nfloat(float stnum, optional float firstbit, optional float bitcount)", "Retrieves the numerical value of the given EV_FLOAT stat. If firstbit and bitcount are specified, retrieves the upper bits of the STAT_ITEMS stat (converted into a float, so there are no VM dependancies).")},// (EXT_CSQC)
-//	{"getstats",		PF_NoSSQC,			PF_cl_getstat_str,	332,	D("string(float stnum)", "Retrieves the value of the given EV_STRING stat, as a tempstring.\nOlder engines may use 4 consecutive integer stats, with a limit of 15 chars (yes, really. 15.), but "FULLENGINENAME" uses a separate namespace for string stats and has a much higher length limit.")},
+	{"getstats",		PF_NoSSQC,			PF_cl_getstat_string,332,	D("string(float stnum)", "Retrieves the value of the given EV_STRING stat, as a tempstring.\nString stats use a separate pool of stats from numeric ones.\n")},
 //	{"getplayerstat",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		D("__variant(float playernum, float statnum, float stattype)", "Retrieves a specific player's stat, matching the type specified on the server. This builtin is primarily intended for mvd playback where ALL players are known. For EV_ENTITY, world will be returned if the entity is not in the pvs, use type-punning with EV_INTEGER to get the entity number if you just want to see if its set. STAT_ITEMS should be queried as an EV_INTEGER on account of runes and items2 being packed into the upper bits.")},
 	{"setmodelindex",	PF_sv_setmodelindex,PF_cl_setmodelindex,333,	D("void(entity e, float mdlindex)", "Sets a model by precache index instead of by name. Otherwise identical to setmodel.")},//
 //	{"modelnameforindex",PF_modelnameforidx,PF_modelnameforidx,	334,	D("string(float mdlindex)", "Retrieves the name of the model based upon a precache index. This can be used to reduce csqc network traffic by enabling model matching.")},//

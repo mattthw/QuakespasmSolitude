@@ -88,6 +88,17 @@ void CL_ClearTrailStates(void)
 	}
 }
 
+void CL_FreeState(void)
+{
+	int i;
+	for (i = 0; i < MAX_CL_STATS; i++)
+		free(cl.statss[i]);
+	CL_ClearTrailStates();
+	PR_ClearProgs(&cl.qcvm);
+	free(cl.static_entities);
+	memset (&cl, 0, sizeof(cl));
+}
+
 /*
 =====================
 CL_ClearState
@@ -99,12 +110,8 @@ void CL_ClearState (void)
 	if (!sv.active)
 		Host_ClearMemory ();
 
-	CL_ClearTrailStates();
-
-	PR_ClearProgs(&cl.qcvm);
-
 // wipe the entire cl structure
-	memset (&cl, 0, sizeof(cl));
+	CL_FreeState();
 
 	SZ_Clear (&cls.message);
 

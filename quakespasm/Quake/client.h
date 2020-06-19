@@ -164,6 +164,7 @@ typedef struct
 // information for local display
 	int			stats[MAX_CL_STATS];	// health, etc
 	float		statsf[MAX_CL_STATS];
+	char		*statss[MAX_CL_STATS];
 	int			items;			// inventory bit flags
 	float	item_gettime[32];	// cl.time of aquiring item, for blinking
 	float		faceanimtime;	// use anim frame if cl.time < this
@@ -394,6 +395,7 @@ void CL_ParseEffect (qboolean big);
 void CL_ParseTEnt (void);
 void CL_UpdateTEnts (void);
 
+void CL_FreeState(void);
 void CL_ClearState (void);
 void CL_ClearTrailStates(void);
 

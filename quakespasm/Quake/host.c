@@ -589,12 +589,11 @@ void Host_ClearMemory (void)
 	Hunk_FreeToLowMark (host_hunklevel);
 	cls.signon = 0;
 	PR_ClearProgs(&sv.qcvm);
-	PR_ClearProgs(&cl.qcvm);
-	free(cl.static_entities);
 	free(sv.static_entities);	//spike -- this is dynamic too, now
 	free(sv.ambientsounds);
 	memset (&sv, 0, sizeof(sv));
-	memset (&cl, 0, sizeof(cl));
+
+	CL_FreeState();
 }
 
 
@@ -818,7 +817,7 @@ void _Host_Frame (double time)
 
 	CL_AccumulateCmd ();
 
-	//Run the server+networking (client->server->client), at a different rate from everyt
+	//Run the server+networking (client->server->client), at a different rate from everything else
 	if (accumtime >= host_netinterval)
 	{
 		float realframetime = host_frametime;

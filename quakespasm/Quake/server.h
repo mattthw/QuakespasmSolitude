@@ -147,9 +147,11 @@ typedef struct client_s
 
 	qboolean		pextknown;
 	unsigned int	protocol_pext2;
-	unsigned int	resendstats[MAX_CL_STATS/32];	//the stats which need to be resent.
+	unsigned int	resendstatsnum[MAX_CL_STATS/32];	//the stats which need to be resent.
+	unsigned int	resendstatsstr[MAX_CL_STATS/32];	//the stats which need to be resent.
 	int				oldstats_i[MAX_CL_STATS];		//previous values of stats. if these differ from the current values, reflag resendstats.
 	float			oldstats_f[MAX_CL_STATS];		//previous values of stats. if these differ from the current values, reflag resendstats.
+	char			*oldstats_s[MAX_CL_STATS];
 	struct entity_num_state_s{
 		unsigned int num;	//ascending order, there can be gaps.
 		entity_state_t state;
@@ -167,7 +169,8 @@ typedef struct client_s
 		//reflagged state includes stats updates, entity updates, and entity removes.
 		int				sequence;	//to see if its stale
 		float			timestamp;	
-		unsigned int	resendstats[MAX_CL_STATS/32];
+		unsigned int	resendstatsnum[MAX_CL_STATS/32];
+		unsigned int	resendstatsstr[MAX_CL_STATS/32];
 		struct
 		{
 			unsigned int num;

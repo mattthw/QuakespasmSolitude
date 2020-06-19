@@ -2154,6 +2154,17 @@ static void CL_ParseStatInt(int stat, int ival)
 {
 	CL_ParseStatNumeric(stat,ival,ival);
 }
+static void CL_ParseStatString(int stat, const char *str)
+{
+	if (stat < 0 || stat >= MAX_CL_STATS)
+	{
+		Con_DWarning ("svc_updatestat: %i is invalid\n", stat);
+		return;
+	}
+	free(cl.statss[stat]);
+	cl.statss[stat] = strdup(str);
+	//hud doesn't know/care about any of these strings so don't bother invalidating anything.
+}
 
 //mods and servers might not send the \n instantly.
 //some mods bug out and omit the \n entirely, this function helps prevent the damage from spreading too much.
@@ -2651,10 +2662,7 @@ void CL_ParseServerMessage (void)
 			if (!(cl.protocol_pext2 & PEXT2_REPLACEMENTDELTAS))
 				Host_Error ("Received svcfte_updatestatstring but extension not active");
 			i = MSG_ReadByte ();
-			if (i >= 0 && i < MAX_CL_STATS)
-				/*cl.statss[i] =*/ MSG_ReadString ();
-			else
-				Con_Warning ("svcfte_updatestatstring: %i is invalid\n", i);
+			CL_ParseStatString(i, MSG_ReadString());
 			break;
 		case svcfte_updatestatfloat:
 			if (!(cl.protocol_pext2 & PEXT2_REPLACEMENTDELTAS))

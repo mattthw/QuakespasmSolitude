@@ -34,7 +34,7 @@ unsigned int	sv_protocol_pext2 = PEXT2_SUPPORTED_SERVER; //spike
 
 //============================================================================
 
-void SV_CalcStats(client_t *client, int *statsi, float *statsf)
+void SV_CalcStats(client_t *client, int *statsi, float *statsf, const char **statss)
 {
 	size_t i;
 	edict_t *ent = client->edict;
@@ -48,6 +48,7 @@ void SV_CalcStats(client_t *client, int *statsi, float *statsf)
 
 	memset(statsi, 0, sizeof(*statsi)*MAX_CL_STATS);
 	memset(statsf, 0, sizeof(*statsf)*MAX_CL_STATS);
+	memset(statss, 0, sizeof(*statss)*MAX_CL_STATS);
 	statsf[STAT_HEALTH] = ent->v.health;
 //	statsf[STAT_FRAGS] = ent->v.frags;	//obsolete
 	statsi[STAT_WEAPON] = SV_ModelIndex(PR_GetString(ent->v.weaponmodel));
@@ -133,6 +134,8 @@ void SV_CalcStats(client_t *client, int *statsi, float *statsf)
 			statsf[sv.customstats[i].idx+2] = eval->vector[2];
 			break;
 		case ev_string:		//not supported in this build... send with svcfte_updatestatstring on change, which is annoying.
+			statss[sv.customstats[i].idx] = PR_GetString(eval->string);
+			break;
 		case ev_void:		//nothing...
 		case ev_field:		//panic! everyone panic!
 		case ev_function:	//doesn't make much sense
@@ -579,6 +582,14 @@ static size_t snapshot_maxents;
 
 void SVFTE_DestroyFrames(client_t *client)
 {
+	int i;
+	for (i = 0; i < MAX_CL_STATS; i++)
+	{
+		if (!client->oldstats_s[i])
+			continue;
+		free(client->oldstats_s[i]);
+		client->oldstats_s[i] = 0;
+	}
 	if (client->previousentities)
 		free(client->previousentities);
 	client->previousentities = NULL;
@@ -639,7 +650,10 @@ static void SVFTE_DroppedFrame(client_t *client, int sequence)
 	frame->sequence = -1;
 	//flag their stats for resend
 	for (i = 0; i < MAX_CL_STATS/32; i++)
-		client->resendstats[i] |= frame->resendstats[i];
+	{
+		client->resendstatsnum[i] |= frame->resendstatsnum[i];
+		client->resendstatsstr[i] |= frame->resendstatsstr[i];
+	}
 	//flag their various entities as needing a resend too.
 	for (i = 0; i < frame->numents; i++)
 		client->pendingentities_bits[frame->ents[i].num] |= frame->ents[i].bits;
@@ -676,9 +690,16 @@ static void SVFTE_WriteStats(client_t *client, sizebuf_t *msg)
 {
 	int statsi[MAX_CL_STATS];
 	float statsf[MAX_CL_STATS];
+	const char *statss[MAX_CL_STATS];
 	int i;
 	struct deltaframe_s *frame;
 	int sequence = NET_QSocketGetSequenceOut(client->netconnection);
+	int maxstats;
+
+	if (client->protocol_pext2 & PEXT2_REPLACEMENTDELTAS)
+		maxstats = MAX_CL_STATS;
+	else
+		maxstats = 32;
 
 	frame = &client->frames[sequence&(client->numframes-1)];
 
@@ -686,9 +707,9 @@ static void SVFTE_WriteStats(client_t *client, sizebuf_t *msg)
 		SVFTE_DroppedFrame(client, frame->sequence);
 
 	//figure out the current values in a nice easy way (yay for copying to make arrays easier!)
-	SV_CalcStats(client, statsi, statsf);
+	SV_CalcStats(client, statsi, statsf, statss);
 
-	for (i = 0; i < MAX_CL_STATS; i++)
+	for (i = 0; i < maxstats; i++)
 	{
 		//small cleanup
 		if (!statsi[i])
@@ -701,14 +722,28 @@ static void SVFTE_WriteStats(client_t *client, sizebuf_t *msg)
 		{
 			client->oldstats_i[i] = statsi[i];
 			client->oldstats_f[i] = statsf[i];
-			client->resendstats[i/32] |= 1u<<(i&31);
+			client->resendstatsnum[i/32] |= 1u<<(i&31);
+		}
+
+		if (statss[i] || client->oldstats_s[i])
+		{
+			const char *os = client->oldstats_s[i];
+			const char *ns = statss[i];
+			if (!ns)	ns="";
+			if (!os)	os="";
+			if (strcmp(os,ns))
+			{
+				client->resendstatsstr[i/32] |= 1u<<(i&31);
+				free(client->oldstats_s[i]);
+				client->oldstats_s[i] = strdup(ns);
+			}
 		}
 
 		//if its flagged then unflag it, log it, and send it
-		if (client->resendstats[i/32] & (1u<<(i&31)))
+		if (client->resendstatsnum[i/32] & (1u<<(i&31)))
 		{
-			client->resendstats[i/32] &= ~(1u<<(i&31));
-			frame->resendstats[i/32] |= 1u<<(i&31);
+			client->resendstatsnum[i/32] &= ~(1u<<(i&31));
+			frame->resendstatsnum[i/32] |= 1u<<(i&31);
 
 			if ((double)statsi[i] != statsf[i] && statsf[i])
 			{	//didn't round nicely, so send as a float
@@ -731,6 +766,19 @@ static void SVFTE_WriteStats(client_t *client, sizebuf_t *msg)
 					MSG_WriteByte(msg, statsi[i]);
 				}
 			}
+		}
+		//if its flagged then unflag it, log it, and send it
+		if (client->resendstatsstr[i/32] & (1u<<(i&31)))
+		{
+			client->resendstatsstr[i/32] &= ~(1u<<(i&31));
+			frame->resendstatsstr[i/32] |= 1u<<(i&31);
+
+			MSG_WriteByte(msg, svcfte_updatestatstring);
+			MSG_WriteByte(msg, i);
+			if (statss[i])
+				MSG_WriteString(msg, statss[i]);
+			else
+				MSG_WriteString(msg, NULL);
 		}
 	}
 }

@@ -3316,7 +3316,7 @@ void Mod_LoadAliasModel (qmodel_t *mod, void *buffer, int pvtype)
 
 	for (i=0 ; i<pheader->numverts ; i++)
 	{
-		stverts[i].onseam = LittleLong (pinstverts[i].onseam);
+		stverts[i].onseam = LittleLong (pinstverts[i].onseam);	//should only be 0 or ALIAS_ONSEAM. other values (particuarly 1) is a model bug and will be treated as ALIAS_ONSEAM in this implementation.
 		stverts[i].s = LittleLong (pinstverts[i].s);
 		stverts[i].t = LittleLong (pinstverts[i].t);
 	}
