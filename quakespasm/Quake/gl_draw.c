@@ -419,7 +419,7 @@ void Draw_LoadPics (void)
 
 	data = (byte *) W_GetLumpName ("conchars", &info);
 	if (!data || info->size < 128*128)	Sys_Error ("Draw_LoadPics: couldn't load conchars");
-	if (info->size != 128*128)			Con_Warning("Invalid size for gfx.wad conchars lump - attempting to ignore for compat.\n");
+	if (info->size != 128*128)			Con_Warning("Invalid size for gfx.wad conchars lump (%u, expected %u) - attempting to ignore for compat.\n", info->size, 128*128);
 	else if (info->type != TYP_MIPTEX)	Con_DWarning("Invalid type for gfx.wad conchars lump - attempting to ignore for compat.\n"); //not really a miptex, but certainly NOT a qpic.
 	offset = (src_offset_t)data - (src_offset_t)wad_base;
 	char_texture = TexMgr_LoadImage (NULL, WADFILENAME":conchars", 128, 128, SRC_INDEXED, data,
