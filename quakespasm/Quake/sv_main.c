@@ -274,18 +274,6 @@ static unsigned int MSGFTE_DeltaCalcBits(entity_state_t *from, entity_state_t *t
 	return bits;
 }
 
-//#undef MSG_WriteEntity
-void MSG_WriteEntity (sizebuf_t *sb, int c, unsigned int pext2)
-{
-	//high short, low byte
-	if (c > 0x7fff && (pext2 & PEXT2_REPLACEMENTDELTAS))
-	{
-		MSG_WriteShort(sb, 0x8000|(c>>8));
-		MSG_WriteByte(sb, c&0xff);
-	}
-	else
-		MSG_WriteShort(sb, c);
-}
 static void MSGFTE_WriteEntityUpdate(unsigned int bits, entity_state_t *state, sizebuf_t *msg, unsigned int pext2, unsigned int protocolflags)
 {
 	unsigned int predbits = 0;

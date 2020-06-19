@@ -761,6 +761,19 @@ void MSG_WriteAngle16 (sizebuf_t *sb, float f, unsigned int flags)
 }
 //johnfitz
 
+//spike -- for PEXT2_REPLACEMENTDELTAS
+void MSG_WriteEntity (sizebuf_t *sb, unsigned int entnum, unsigned int pext2)
+{
+	//high short, low byte
+	if (entnum > 0x7fff && (pext2 & PEXT2_REPLACEMENTDELTAS))
+	{
+		MSG_WriteShort(sb, 0x8000|(entnum>>8));
+		MSG_WriteByte(sb, entnum&0xff);
+	}
+	else
+		MSG_WriteShort(sb, entnum);
+}
+
 //
 // reading functions
 //
@@ -932,9 +945,9 @@ float MSG_ReadAngle16 (unsigned int flags)
 }
 //johnfitz
 
-int MSG_ReadEntity(unsigned int pext2)
+unsigned int MSG_ReadEntity(unsigned int pext2)
 {
-	int e = (unsigned short)MSG_ReadShort();
+	unsigned int e = (unsigned short)MSG_ReadShort();
 	if (pext2 & PEXT2_REPLACEMENTDELTAS)
 	{
 		if (e & 0x8000)

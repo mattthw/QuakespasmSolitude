@@ -103,6 +103,7 @@ void MSG_WriteString (sizebuf_t *sb, const char *s);
 void MSG_WriteCoord (sizebuf_t *sb, float f, unsigned int flags);
 void MSG_WriteAngle (sizebuf_t *sb, float f, unsigned int flags);
 void MSG_WriteAngle16 (sizebuf_t *sb, float f, unsigned int flags); //johnfitz
+void MSG_WriteEntity(sizebuf_t *sb, unsigned int index, unsigned int pext2); //spike
 struct entity_state_s;
 void MSG_WriteStaticOrBaseLine(sizebuf_t *buf, int idx, struct entity_state_s *state, unsigned int protocol_pext2, unsigned int protocol, unsigned int protocolflags); //spike
 
@@ -121,7 +122,7 @@ float MSG_ReadCoord (unsigned int flags);
 float MSG_ReadAngle (unsigned int flags);
 float MSG_ReadAngle16 (unsigned int flags); //johnfitz
 byte *MSG_ReadData (unsigned int length); // spike
-int MSG_ReadEntity(unsigned int pext2); //spike
+unsigned int MSG_ReadEntity(unsigned int pext2); //spike
 
 void COM_Effectinfo_Enumerate(int (*cb)(const char *pname));	//spike -- for dp compat
 

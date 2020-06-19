@@ -1638,10 +1638,10 @@ static void PF_sv_WriteString (void)
 	MSG_WriteString (WriteDest(), G_STRING(OFS_PARM1));
 }
 
-#define MSG_WriteEntity MSG_WriteShort	//fixme - replacement deltas encodes 0x8000+ in 24 bits
 static void PF_sv_WriteEntity (void)
 {
-	MSG_WriteEntity (WriteDest(), G_EDICTNUM(OFS_PARM1));
+	extern unsigned int sv_protocol_pext2;	//spike -- this ought to be client-specific, but we can't cope with that, so just live with the problems when ents>32768 (which QS doesn't support anyway)
+	MSG_WriteEntity (WriteDest(), G_EDICTNUM(OFS_PARM1), sv_protocol_pext2);
 }
 
 //=============================================================================

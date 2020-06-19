@@ -63,7 +63,7 @@ void CL_ParseBeam (qmodel_t *m, const char *trailname, const char *impactname)
 	beam_t	*b;
 	int		i;
 
-	ent = MSG_ReadShort ();
+	ent = MSG_ReadEntity (cl.protocol_pext2);
 
 	start[0] = MSG_ReadCoord (cl.protocolflags);
 	start[1] = MSG_ReadCoord (cl.protocolflags);
