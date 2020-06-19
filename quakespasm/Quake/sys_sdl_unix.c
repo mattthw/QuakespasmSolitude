@@ -353,10 +353,15 @@ void Sys_Init (void)
 #ifndef DO_USERDIRS
 	host_parms->userdir = host_parms->basedir; /* code elsewhere relies on this ! */
 #else
-	memset (userdir, 0, sizeof(userdir));
-	Sys_GetUserdir(userdir, sizeof(userdir));
-	Sys_mkdir (userdir);
-	host_parms->userdir = userdir;
+	if (COM_CheckParm("-nohome"))
+		host_parms->userdir = host_parms->basedir;
+	else
+	{
+		memset (userdir, 0, sizeof(userdir));
+		Sys_GetUserdir(userdir, sizeof(userdir));
+		Sys_mkdir (userdir);
+		host_parms->userdir = userdir;
+	}
 #endif
 	host_parms->numcpus = Sys_NumCPUs ();
 	Sys_Printf("Detected %d CPUs.\n", host_parms->numcpus);
