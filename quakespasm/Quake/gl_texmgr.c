@@ -1214,7 +1214,7 @@ enum srcformat TexMgr_FormatForName (const char *code)
 	{
 		if (!compressedformats[i].formatname)
 			continue;
-		if (!strcasecmp(code, compressedformats[i].formatname))
+		if (!q_strcasecmp(code, compressedformats[i].formatname))
 			return i;
 	}
 	return SRC_EXTERNAL;
@@ -1226,7 +1226,7 @@ enum srcformat TexMgr_FormatForCode (const char *code)
 	{
 		if (!compressedformats[i].mipextname)
 			continue;
-		if (!strncasecmp(code, compressedformats[i].mipextname, 4))
+		if (!q_strncasecmp(code, compressedformats[i].mipextname, 4))
 			return i;
 	}
 	return SRC_EXTERNAL;
