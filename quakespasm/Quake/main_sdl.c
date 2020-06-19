@@ -120,10 +120,16 @@ int main(int argc, char *argv[])
 
 	parms.memsize = DEFAULT_MEMORY;
 	if (COM_CheckParm("-heapsize"))
-	{
+	{	//in kb
 		t = COM_CheckParm("-heapsize") + 1;
 		if (t < com_argc)
 			parms.memsize = Q_atoi(com_argv[t]) * 1024;
+	}
+	else if (COM_CheckParm("-mem"))
+	{	//in mb, matching vanilla's arg on dos or linux.
+		t = COM_CheckParm("-mem") + 1;
+		if (t < com_argc)
+			parms.memsize = Q_atoi(com_argv[t]) * 1024*1024;
 	}
 
 	parms.membase = malloc (parms.memsize);
