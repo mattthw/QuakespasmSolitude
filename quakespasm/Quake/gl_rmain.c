@@ -188,6 +188,7 @@ GLSLGamma_GammaCorrect
 */
 void GLSLGamma_GammaCorrect (void)
 {
+	int tw=glwidth,th=glheight;
 	float smax, tmax;
 
 	if (!gl_glsl_gamma_able)
@@ -200,17 +201,21 @@ void GLSLGamma_GammaCorrect (void)
 	if (!r_gamma_texture)
 	{
 		glGenTextures (1, &r_gamma_texture);
-		glBindTexture (GL_TEXTURE_2D, r_gamma_texture);
+		r_gamma_texture_width = 0;
+		r_gamma_texture_height = 0;
+	}
+	GL_DisableMultitexture();
+	glBindTexture (GL_TEXTURE_2D, r_gamma_texture);
 
-		r_gamma_texture_width = glwidth;
-		r_gamma_texture_height = glheight;
-
-		if (!gl_texture_NPOT)
-		{
-			r_gamma_texture_width = TexMgr_Pad(r_gamma_texture_width);
-			r_gamma_texture_height = TexMgr_Pad(r_gamma_texture_height);
-		}
-	
+	if (!gl_texture_NPOT)
+	{
+		tw = TexMgr_Pad(tw);
+		th = TexMgr_Pad(th);
+	}
+	if (r_gamma_texture_width != tw || r_gamma_texture_height != th)
+	{
+		r_gamma_texture_width = tw;
+		r_gamma_texture_height = th;
 		glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA8, r_gamma_texture_width, r_gamma_texture_height, 0, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, NULL);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -227,8 +232,6 @@ void GLSLGamma_GammaCorrect (void)
 	}
 	
 // copy the framebuffer to the texture
-	GL_DisableMultitexture();
-	glBindTexture (GL_TEXTURE_2D, r_gamma_texture);
 	glCopyTexSubImage2D (GL_TEXTURE_2D, 0, 0, 0, glx, gly, glwidth, glheight);
 
 // draw the texture back to the framebuffer with a fragment shader
