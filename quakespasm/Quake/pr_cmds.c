@@ -1160,7 +1160,7 @@ int SV_Precache_Model(const char *s)
 			{
 				//let existing clients know about it
 				MSG_WriteByte(&sv.reliable_datagram, svcdp_precache);
-				MSG_WriteShort(&sv.reliable_datagram, i|0x8000);
+				MSG_WriteShort(&sv.reliable_datagram, i|0x0000);
 				MSG_WriteString(&sv.reliable_datagram, s);
 			}
 
