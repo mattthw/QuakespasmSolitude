@@ -746,8 +746,11 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, int frame, lerpdata_t *lerpdata)
 
 	if (numposes > 1)
 	{
-		e->lerptime = paliashdr->frames[frame].interval;
-		posenum += (int)(cl.time / e->lerptime) % numposes;
+		float time = cl.time + e->syncbase;	//Spike: Readded syncbase
+		if (time < 0)
+			time = 0;	//just in case...
+		e->lerptime = paliashdr->frames[frame].interval;	//FIXME: no per-frame intervals
+		posenum += (int)(time / e->lerptime) % numposes;
 	}
 	else
 		e->lerptime = 0.1;

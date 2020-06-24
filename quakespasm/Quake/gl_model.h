@@ -357,7 +357,7 @@ typedef struct {
 	int			numverts;
 	int			numtris;
 	int			numframes;
-	synctype_t	synctype;
+//	synctype_t	synctype;
 	int			flags;
 	float		size;
 

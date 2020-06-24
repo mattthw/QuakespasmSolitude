@@ -554,8 +554,6 @@ static void CL_EntitiesDeltaed(void)
 
 		ent->msgtime = cl.mtime[0];
 
-		ent->frame = ent->netstate.frame;
-
 		i = ent->netstate.colormap;
 		if (!i)
 			ent->colormap = vid.colormap;
@@ -611,7 +609,9 @@ static void CL_EntitiesDeltaed(void)
 		// or randomized
 			if (model)
 			{
-				if (model->synctype == ST_RAND)
+				if (model->synctype == ST_FRAMETIME)
+					ent->syncbase = -cl.time;
+				else if (model->synctype == ST_RAND)
 					ent->syncbase = (float)(rand()&0x7fff) / 0x7fff;
 				else
 					ent->syncbase = 0.0;
@@ -623,6 +623,9 @@ static void CL_EntitiesDeltaed(void)
 
 			ent->lerpflags |= LERP_RESETANIM; //johnfitz -- don't lerp animation across model changes
 		}
+		else if (model && model->synctype == ST_FRAMETIME && ent->frame != ent->netstate.frame)
+			ent->syncbase = -cl.time;
+		ent->frame = ent->netstate.frame;
 
 		if ( forcelink )
 		{	// didn't have an update last message

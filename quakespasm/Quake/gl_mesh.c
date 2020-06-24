@@ -1285,6 +1285,7 @@ void Mod_LoadIQMModel (qmodel_t *mod, const void *buffer)
 	mod->flags = LittleLong (pinheader->flags);
 
 
+	mod->synctype = ST_FRAMETIME;	//keep IQM animations synced to when .frame is changed. framegroups are otherwise not very useful.
 	mod->type = mod_alias;
 
 	Mod_CalcAliasBounds (outhdr); //johnfitz
