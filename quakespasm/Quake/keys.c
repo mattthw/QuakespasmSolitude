@@ -1279,10 +1279,37 @@ void Key_GetGrabbedInput (int *lastkey, int *lastchar)
 		*lastchar = key_inputgrab.lastchar;
 }
 
+qboolean Menu_HandleKeyEvent(qboolean down, int keyc, int unic)
+{
+	qboolean inhibit = false;
+	if (key_dest != key_menu)
+		;
+	else if (cls.menu_qcvm.extfuncs.Menu_InputEvent)
+	{
+		PR_SwitchQCVM(&cls.menu_qcvm);
+		G_FLOAT(OFS_PARM0) = down?CSIE_KEYDOWN:CSIE_KEYUP;
+		G_VECTORSET(OFS_PARM1, Key_NativeToQC(keyc), 0, 0);	//x
+		G_VECTORSET(OFS_PARM2, unic, 0, 0);	//y
+		G_VECTORSET(OFS_PARM3, 0, 0, 0);	//devid
+		PR_ExecuteProgram(cls.menu_qcvm.extfuncs.Menu_InputEvent);
+		inhibit	 = G_FLOAT(OFS_RETURN);
+		PR_SwitchQCVM(NULL);
+	}
+	else if (down?cls.menu_qcvm.extfuncs.m_keydown:cls.menu_qcvm.extfuncs.m_keyup)
+	{
+		PR_SwitchQCVM(&cls.menu_qcvm);
+		G_FLOAT(OFS_PARM0) = Key_NativeToQC(keyc);	//scancode
+		G_FLOAT(OFS_PARM1) = unic;					//unicode
+		PR_ExecuteProgram(down?cls.menu_qcvm.extfuncs.m_keydown:cls.menu_qcvm.extfuncs.m_keyup);
+		inhibit	 = G_FLOAT(OFS_RETURN);
+		PR_SwitchQCVM(NULL);
+	}
+	return inhibit;
+}
 qboolean CSQC_HandleKeyEvent(qboolean down, int keyc, int unic)
 {
 	qboolean inhibit = false;
-	if (cl.qcvm.extfuncs.CSQC_InputEvent && key_dest == key_game)
+	if (cl.qcvm.extfuncs.CSQC_InputEvent && (key_dest == key_game || !down))
 	{
 		PR_SwitchQCVM(&cl.qcvm);
 		G_FLOAT(OFS_PARM0) = down?CSIE_KEYDOWN:CSIE_KEYUP;
@@ -1293,7 +1320,9 @@ qboolean CSQC_HandleKeyEvent(qboolean down, int keyc, int unic)
 		inhibit	 = G_FLOAT(OFS_RETURN);
 		PR_SwitchQCVM(NULL);
 	}
-	return inhibit;
+	if (key_dest == key_game)
+		return inhibit;
+	return false;
 }
 
 /*
@@ -1345,13 +1374,15 @@ void Key_Event (int key, qboolean down)
 	{
 		if (!down)
 		{
+			Menu_HandleKeyEvent(down, key, 0);
 			CSQC_HandleKeyEvent(down, key, 0);	//Spike -- for consistency
 			return;
 		}
 
 		if (keydown[K_SHIFT])
-		{
-			Con_ToggleConsole_f();
+		{	//shift+escape forces the console (without closing it again - use a regular escape to get rid fo it after, making it easier to type blind).
+			if (key_dest != key_console)
+				Con_ToggleConsole_f();
 			return;
 		}
 
@@ -1361,13 +1392,14 @@ void Key_Event (int key, qboolean down)
 			Key_Message (key);
 			break;
 		case key_menu:
-			M_Keydown (key);
+			if (!Menu_HandleKeyEvent(down, key, 0))
+				M_Keydown (key);
 			break;
 		case key_game:
 		case key_console:
 			if (CSQC_HandleKeyEvent(down, key, 0))	//Spike -- CSQC needs to be able to intercept escape. Note that shift+escape will always give the console for buggy mods.
 				break;
-			M_ToggleMenu_f ();
+			M_ToggleMenu(1);
 			break;
 		default:
 			Sys_Error ("Bad key_dest");
@@ -1376,8 +1408,11 @@ void Key_Event (int key, qboolean down)
 		return;
 	}
 
-	//Spike -- give csqc a change to handle (and swallow) key events.
-	if (CSQC_HandleKeyEvent(down, key, 0))
+	//Spike -- give menuqc a chance to handle (and swallow) key events.
+	if ((key_dest == key_menu || !down) && Menu_HandleKeyEvent(down, key, 0))
+		return;
+	//Spike -- give csqc a chance to handle (and swallow) key events.
+	if ((key_dest == key_game || !down) && CSQC_HandleKeyEvent(down, key, 0))
 		return;
 
 // key up events only generate commands if the game key binding is
@@ -1401,7 +1436,7 @@ void Key_Event (int key, qboolean down)
 // during demo playback, most keys bring up the main menu
 	if (cls.demoplayback && down && consolekeys[key] && key_dest == key_game && key != K_TAB)
 	{
-		M_ToggleMenu_f ();
+		M_ToggleMenu (1);
 		return;
 	}
 
@@ -1483,7 +1518,8 @@ void Char_Event (int key)
 		Char_Message (key);
 		break;
 	case key_menu:
-		M_Charinput (key);
+		if (!Menu_HandleKeyEvent(true, 0, key))
+			M_Charinput (key);
 		break;
 	case key_game:
 		if (!con_forcedup)

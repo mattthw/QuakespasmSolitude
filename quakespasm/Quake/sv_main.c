@@ -988,8 +988,8 @@ void SV_BuildEntityState(edict_t *ent, entity_state_t *state)
 	}
 	else
 		state->colormod[0] = state->colormod[1] = state->colormod[2] = 32;
-	state->traileffectnum = GetEdictFieldValue(ent, qcvm->extfields.traileffectnum)->_float;
-	state->emiteffectnum = GetEdictFieldValue(ent, qcvm->extfields.emiteffectnum)->_float;
+	state->traileffectnum = qcvm->extfields.traileffectnum>=0?GetEdictFieldValue(ent, qcvm->extfields.traileffectnum)->_float:0;
+	state->emiteffectnum = qcvm->extfields.emiteffectnum>=0?GetEdictFieldValue(ent, qcvm->extfields.emiteffectnum)->_float:0;
 	if ((val = GetEdictFieldValue(ent, qcvm->extfields.tag_entity)) && val->edict)
 		state->tagentity = NUM_FOR_EDICT(PROG_TO_EDICT(val->edict));
 	else
@@ -3064,7 +3064,7 @@ void SV_SpawnServer (const char *server)
 	else sv.protocolflags = 0;
 
 // load progs to get entity field count
-	PR_LoadProgs ("progs.dat", true, pr_ssqcbuiltins, pr_ssqcnumbuiltins);
+	PR_LoadProgs ("progs.dat", true, PROGHEADER_CRC, pr_ssqcbuiltins, pr_ssqcnumbuiltins);
 
 // allocate server memory
 	/* Host_ClearMemory() called above already cleared the whole sv structure */

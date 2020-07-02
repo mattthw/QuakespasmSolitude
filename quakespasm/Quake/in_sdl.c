@@ -83,6 +83,10 @@ static int buttonremap[] =
 /* total accumulated mouse movement since last frame */
 static int	total_dx, total_dy = 0;
 
+#if 1
+static void IN_BeginIgnoringMouseEvents(void){}
+static void IN_EndIgnoringMouseEvents(void){}
+#else
 static int SDLCALL IN_FilterMouseEvents (const SDL_Event *event)
 {
 	switch (event->type)
@@ -130,6 +134,7 @@ static void IN_EndIgnoringMouseEvents(void)
 		SDL_SetEventFilter(NULL);
 #endif
 }
+#endif
 
 #ifdef MACOS_X_ACCELERATION_HACK
 static cvar_t in_disablemacosxmouseaccel = {"in_disablemacosxmouseaccel", "1", CVAR_ARCHIVE};
@@ -284,8 +289,8 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 	qboolean freemouse;		//the OS should have a free cursor too...
 	qboolean needevents;	//whether we want to receive events still
 
-	wantcursor = (key_dest == key_console || (key_dest == key_menu&&!bind_grab)) || (key_dest == key_game && cl.csqc_cursorforced);
-	freemouse = wantcursor && (modestate == MS_WINDOWED || (key_dest == key_game && cl.csqc_cursorforced));
+	wantcursor = (key_dest == key_console || (key_dest == key_menu&&!bind_grab)) || (key_dest == key_game && cl.qcvm.cursorforced);
+	freemouse = wantcursor && (modestate == MS_WINDOWED || (key_dest == key_game && cl.qcvm.cursorforced));
 	needevents = (!wantcursor) || key_dest == key_game;
 
 	if (isDedicated)
@@ -430,10 +435,10 @@ void IN_Init (void)
 	if (SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL) == -1)
 		Con_Printf("Warning: SDL_EnableKeyRepeat() failed.\n");
 #else
-	if (textmode)
-		SDL_StartTextInput();
-	else
-		SDL_StopTextInput();
+//	if (textmode)
+//		SDL_StartTextInput();
+//	else
+//		SDL_StopTextInput();
 #endif
 	if (safemode || COM_CheckParm("-nomouse"))
 	{
@@ -472,12 +477,40 @@ extern cvar_t cl_minpitch; /* johnfitz -- variable pitch clamping */
 
 void IN_MouseMotion(int dx, int dy, int wx, int wy)
 {
-	if (key_dest != key_game && key_dest != key_message)
+	vid.cursorpos[0] = wx;
+	vid.cursorpos[1] = wy;
+	if (key_dest == key_menu && cls.menu_qcvm.extfuncs.Menu_InputEvent)
+	{
+		PR_SwitchQCVM(&cls.menu_qcvm);
+		if (qcvm->cursorforced)
+		{
+			float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+			wx /= s;
+			wy /= s;
+
+			G_FLOAT(OFS_PARM0) = CSIE_MOUSEABS;
+			G_VECTORSET(OFS_PARM1, wx, wy, 0);	//x
+			G_VECTORSET(OFS_PARM2, wy, 0, 0);	//y
+			G_VECTORSET(OFS_PARM3, 0, 0, 0);	//devid
+		}
+		else
+		{
+			G_FLOAT(OFS_PARM0) = CSIE_MOUSEDELTA;
+			G_VECTORSET(OFS_PARM1, dx, dy, 0);	//x
+			G_VECTORSET(OFS_PARM2, dy, 0, 0);	//y
+			G_VECTORSET(OFS_PARM3, 0, 0, 0);	//devid
+		}
+		PR_ExecuteProgram(qcvm->extfuncs.Menu_InputEvent);
+		if (G_FLOAT(OFS_RETURN) || qcvm->cursorforced)
+			dx = dy = 0;	//if the qc says it handled it, swallow the movement.
+		PR_SwitchQCVM(NULL);
+	}
+	else if (key_dest != key_game && key_dest != key_message)
 		dx = dy = 0;
 	else if (cl.qcvm.extfuncs.CSQC_InputEvent)
 	{
 		PR_SwitchQCVM(&cl.qcvm);
-		if (cl.csqc_cursorforced)
+		if (qcvm->cursorforced)
 		{
 			float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 			wx /= s;
@@ -496,7 +529,7 @@ void IN_MouseMotion(int dx, int dy, int wx, int wy)
 			G_VECTORSET(OFS_PARM3, 0, 0, 0);	//devid
 		}
 		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_InputEvent);
-		if (G_FLOAT(OFS_RETURN) || cl.csqc_cursorforced)
+		if (G_FLOAT(OFS_RETURN) || qcvm->cursorforced)
 			dx = dy = 0;	//if the qc says it handled it, swallow the movement.
 		PR_SwitchQCVM(NULL);
 	}
@@ -859,7 +892,7 @@ void IN_ClearStates (void)
 void IN_UpdateInputMode (void)
 {
 	qboolean want_textmode = Key_TextEntry();
-	if (textmode != want_textmode)
+	if (0)//textmode != want_textmode)
 	{
 		textmode = want_textmode;
 #if !defined(USE_SDL2)
@@ -952,7 +985,7 @@ static inline int IN_SDL_KeysymToQuakeKey(SDLKey sym)
 	case SDLK_BREAK: return K_PAUSE;
 	case SDLK_PAUSE: return K_PAUSE;
 
-	case SDLK_WORLD_18: return '~'; // the '²' key
+	case SDLK_WORLD_18: return '~'; // the 'Â²' key
 
 	default: return 0;
 	}

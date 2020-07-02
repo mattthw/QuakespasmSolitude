@@ -902,43 +902,48 @@ void R_SetupAliasLighting (entity_t	*e)
 	float		radiansangle;
 	float		*origin = e->origin;
 
-	if (e->eflags & EFLAGS_VIEWMODEL)
-		origin = r_refdef.vieworg;
-	R_LightPoint (origin);
-
-	//add dlights
-	for (i=0 ; i<MAX_DLIGHTS ; i++)
+	if (!r_refdef.drawworld)
+		lightcolor[0] = lightcolor[1] = lightcolor[2] = 255;
+	else
 	{
-		if (cl_dlights[i].die >= cl.time)
+		if (e->eflags & EFLAGS_VIEWMODEL)
+			origin = r_refdef.vieworg;
+		R_LightPoint (origin);
+
+		//add dlights
+		for (i=0 ; i<MAX_DLIGHTS ; i++)
 		{
-			VectorSubtract (origin, cl_dlights[i].origin, dist);
-			add = cl_dlights[i].radius - VectorLength(dist);
-			if (add > 0)
-				VectorMA (lightcolor, add, cl_dlights[i].color, lightcolor);
+			if (cl_dlights[i].die >= cl.time)
+			{
+				VectorSubtract (origin, cl_dlights[i].origin, dist);
+				add = cl_dlights[i].radius - VectorLength(dist);
+				if (add > 0)
+					VectorMA (lightcolor, add, cl_dlights[i].color, lightcolor);
+			}
 		}
-	}
 
-	// minimum light value on gun (24)
-	if (e == &cl.viewent)
-	{
-		add = 72.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
-		if (add > 0.0f)
+		// minimum light value on gun (24)
+		if (e == &cl.viewent)
 		{
-			lightcolor[0] += add / 3.0f;
-			lightcolor[1] += add / 3.0f;
-			lightcolor[2] += add / 3.0f;
+			add = 72.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+			if (add > 0.0f)
+			{
+				lightcolor[0] += add / 3.0f;
+				lightcolor[1] += add / 3.0f;
+				lightcolor[2] += add / 3.0f;
+			}
 		}
-	}
 
-	// minimum light value on players (8)
-	if (e > cl.entities && e <= cl.entities + cl.maxclients)
-	{
-		add = 24.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
-		if (add > 0.0f)
+		// minimum light value on players (8)
+		if (e > cl.entities && e <= cl.entities + cl.maxclients)
 		{
-			lightcolor[0] += add / 3.0f;
-			lightcolor[1] += add / 3.0f;
-			lightcolor[2] += add / 3.0f;
+			add = 24.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+			if (add > 0.0f)
+			{
+				lightcolor[0] += add / 3.0f;
+				lightcolor[1] += add / 3.0f;
+				lightcolor[2] += add / 3.0f;
+			}
 		}
 	}
 

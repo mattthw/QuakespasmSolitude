@@ -1464,6 +1464,10 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 			glt->width = glt->source_width;
 			glt->height = glt->source_height;
 			TexMgr_LoadImage8 (glt, (byte*)"\x07");
+
+			glt->source_width = glt->source_height = 0;
+			glt->width = glt->source_width;
+			glt->height = glt->source_height;
 		}
 		else
 		{

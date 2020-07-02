@@ -94,11 +94,13 @@ typedef struct cmd_function_s
 	const char		*name;
 	xcommand_t		function;
 	cmd_source_t	srctype;
+	qboolean		dynamic;
 } cmd_function_t;
 
 void	Cmd_Init (void);
 
-void	Cmd_AddCommand2 (const char *cmd_name, xcommand_t function, cmd_source_t srctype);
+cmd_function_t *Cmd_AddCommand2 (const char *cmd_name, xcommand_t function, cmd_source_t srctype);
+void Cmd_RemoveCommand (cmd_function_t *cmd);
 // called by the init functions of other parts of the program to
 // register commands and functions to call for them.
 // The cmd_name is referenced later, so it should not be in temp memory

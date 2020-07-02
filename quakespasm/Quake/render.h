@@ -127,6 +127,7 @@ typedef struct
 	float		fov_x, fov_y;
 
 	int			ambientlight;
+	qboolean	drawworld;
 } refdef_t;
 
 

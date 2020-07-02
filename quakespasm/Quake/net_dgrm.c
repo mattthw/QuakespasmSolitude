@@ -1833,13 +1833,10 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 					hostCacheCount++;
 				}
 				Info_ReadKey(info, "hostname", hostcache[n].name, sizeof(hostcache[n].name));
+				if (!*hostcache[n].name)
+					q_strlcpy(hostcache[n].name, "UNNAMED", sizeof(hostcache[n].name));
 				Info_ReadKey(info, "mapname", hostcache[n].map, sizeof(hostcache[n].map));
-				Info_ReadKey(info, "modname", tmp, sizeof(tmp));
-				if (!COM_GameDirMatches(tmp))
-				{
-					q_strlcpy(hostcache[n].name, va("{%s}", tmp), sizeof(hostcache[n].name));
-					q_strlcpy(hostcache[n].map, "", sizeof(hostcache[n].map));
-				}
+				Info_ReadKey(info, "modname", hostcache[n].gamedir, sizeof(hostcache[n].gamedir));
 
 				Info_ReadKey(info, "clients", tmp, sizeof(tmp));
 				hostcache[n].users = atoi(tmp);
@@ -1922,6 +1919,8 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 			hostCacheCount++;
 		}
 		q_strlcpy(hostcache[n].name, MSG_ReadString(), sizeof(hostcache[n].name));
+		if (!*hostcache[n].name)
+			q_strlcpy(hostcache[n].name, "UNNAMED", sizeof(hostcache[n].name));
 		q_strlcpy(hostcache[n].map, MSG_ReadString(), sizeof(hostcache[n].map));
 		hostcache[n].users = MSG_ReadByte();
 		hostcache[n].maxusers = MSG_ReadByte();

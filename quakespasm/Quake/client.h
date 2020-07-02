@@ -144,6 +144,9 @@ typedef struct
 		char	temp[MAX_OSPATH];		//the temp filename for the download, will be renamed to current
 		float	starttime;
 	} download;
+
+//Spike -- menuqc stuff.
+	qcvm_t menu_qcvm;
 } client_static_t;
 
 extern client_static_t	cls;
@@ -290,7 +293,6 @@ typedef struct
 	//spike -- end downloads
 
 	qcvm_t	qcvm;	//for csqc.
-	qboolean csqc_cursorforced;	//we want a mouse cursor.
 	float	csqc_sensitivity;	//scaler for sensitivity
 } client_state_t;
 

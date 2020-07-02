@@ -533,7 +533,7 @@ void R_Clear (void)
 	// from mh -- if we get a stencil buffer, we should clear it, even though we don't use it
 	if (gl_stencilbits)
 		clearbits |= GL_STENCIL_BUFFER_BIT;
-	if (gl_clear.value && !skyroom_drawn)
+	if (gl_clear.value && !skyroom_drawn && r_refdef.drawworld)
 		clearbits |= GL_COLOR_BUFFER_BIT;
 	glClear (clearbits);
 }
@@ -566,35 +566,40 @@ void R_SetupView (void)
 	VectorCopy (r_refdef.vieworg, r_origin);
 	AngleVectors (r_refdef.viewangles, vpn, vright, vup);
 
-// current viewleaf
-	r_oldviewleaf = r_viewleaf;
-	r_viewleaf = Mod_PointInLeaf (r_origin, cl.worldmodel);
-	viewcontents = r_viewleaf->contents;
-
-	//spike -- FTE_ENT_SKIN_CONTENTS -- added this loop for moving water volumes, to avoid v_cshift etc hacks.
-	for (i = 0; i < cl.num_entities && viewcontents == CONTENTS_EMPTY; i++)
+	if (r_refdef.drawworld)
 	{
-		mleaf_t *subleaf;
-		vec3_t relpos;
-		if (cl.entities[i].model && cl.entities[i].model->type==mod_brush)
+// current viewleaf
+		r_oldviewleaf = r_viewleaf;
+		r_viewleaf = Mod_PointInLeaf (r_origin, cl.worldmodel);
+		viewcontents = r_viewleaf->contents;
+
+		//spike -- FTE_ENT_SKIN_CONTENTS -- added this loop for moving water volumes, to avoid v_cshift etc hacks.
+		for (i = 0; i < cl.num_entities && viewcontents == CONTENTS_EMPTY; i++)
 		{
-			VectorSubtract(r_origin, cl.entities[i].origin, relpos);
-			if (cl.entities[i].angles[0] || cl.entities[i].angles[1] || cl.entities[i].angles[2])
-			{	//rotate the point, just in case.
-				vec3_t axis[3], t;
-				AngleVectors(cl.entities[i].angles, axis[0], axis[1], axis[2]);
-				VectorCopy(relpos, t);
-				relpos[0] = DotProduct(t, axis[0]);
-				relpos[0] = -DotProduct(t, axis[1]);
-				relpos[0] = DotProduct(t, axis[2]);
+			mleaf_t *subleaf;
+			vec3_t relpos;
+			if (cl.entities[i].model && cl.entities[i].model->type==mod_brush)
+			{
+				VectorSubtract(r_origin, cl.entities[i].origin, relpos);
+				if (cl.entities[i].angles[0] || cl.entities[i].angles[1] || cl.entities[i].angles[2])
+				{	//rotate the point, just in case.
+					vec3_t axis[3], t;
+					AngleVectors(cl.entities[i].angles, axis[0], axis[1], axis[2]);
+					VectorCopy(relpos, t);
+					relpos[0] = DotProduct(t, axis[0]);
+					relpos[0] = -DotProduct(t, axis[1]);
+					relpos[0] = DotProduct(t, axis[2]);
+				}
+				subleaf = Mod_PointInLeaf (relpos, cl.entities[i].model);
+				if ((char)cl.entities[i].skinnum < 0)
+					viewcontents = ((subleaf->contents == CONTENTS_SOLID)?(char)cl.entities[i].skinnum:CONTENTS_EMPTY);
+				else
+					viewcontents = subleaf->contents;
 			}
-			subleaf = Mod_PointInLeaf (relpos, cl.entities[i].model);
-			if ((char)cl.entities[i].skinnum < 0)
-				viewcontents = ((subleaf->contents == CONTENTS_SOLID)?(char)cl.entities[i].skinnum:CONTENTS_EMPTY);
-			else
-				viewcontents = subleaf->contents;
 		}
 	}
+	else
+		viewcontents = CONTENTS_EMPTY;
 
 	V_SetContentsColor (viewcontents);
 	V_CalcBlend ();
@@ -617,19 +622,22 @@ void R_SetupView (void)
 
 	R_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
 
-	R_MarkSurfaces (); //johnfitz -- create texture chains from PVS
+	if (r_refdef.drawworld)
+	{
+		R_MarkSurfaces (); //johnfitz -- create texture chains from PVS
 
-	R_CullSurfaces (); //johnfitz -- do after R_SetFrustum and R_MarkSurfaces
+		R_CullSurfaces (); //johnfitz -- do after R_SetFrustum and R_MarkSurfaces
 
-	if (!skyroom_drawn)
-		R_UpdateWarpTextures (); //johnfitz -- do this before R_Clear
+		if (!skyroom_drawn)
+			R_UpdateWarpTextures (); //johnfitz -- do this before R_Clear
+	}
 
 	R_Clear ();
 
 	//johnfitz -- cheat-protect some draw modes
 	r_drawflat_cheatsafe = r_fullbright_cheatsafe = r_lightmap_cheatsafe = false;
-	r_drawworld_cheatsafe = true;
-	if (cl.maxclients == 1)
+	r_drawworld_cheatsafe = r_refdef.drawworld;
+	if (cl.maxclients == 1 && r_refdef.drawworld)
 	{
 		if (!r_drawworld.value) r_drawworld_cheatsafe = false;
 
@@ -984,10 +992,13 @@ void R_RenderScene (void)
 
 	R_RenderDlights (); //triangle fan dlights -- johnfitz -- moved after water
 
-	R_DrawParticles ();
+	if (r_refdef.drawworld)
+	{
+		R_DrawParticles ();
 #ifdef PSET_SCRIPT
-	PScript_DrawParticles();
+		PScript_DrawParticles();
 #endif
+	}
 
 	Fog_DisableGFog (); //johnfitz
 

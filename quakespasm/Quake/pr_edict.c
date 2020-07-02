@@ -1101,6 +1101,7 @@ void PR_ClearProgs(qcvm_t *vm)
 	if (qcvm->knownstrings)
 		Z_Free ((void *)qcvm->knownstrings);
 	free(qcvm->edicts); // ericw -- sv.edicts switched to use malloc()
+	free(qcvm->progs);	// spike -- pr_progs switched to use malloc (so menuqc doesn't end up stuck on the early hunk nor wiped on every map change)
 	memset(qcvm, 0, sizeof(*qcvm));
 
 	qcvm = NULL;
@@ -1112,14 +1113,14 @@ void PR_ClearProgs(qcvm_t *vm)
 PR_LoadProgs
 ===============
 */
-qboolean PR_LoadProgs (const char *filename, qboolean fatal, builtin_t *builtins, size_t numbuiltins)
+qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcrc, builtin_t *builtins, size_t numbuiltins)
 {
 	int			i;
 	unsigned int u;
 
 	PR_ClearProgs(qcvm);	//just in case.
 
-	qcvm->progs = (dprograms_t *)COM_LoadHunkFile (filename, NULL);
+	qcvm->progs = (dprograms_t *)COM_LoadMallocFile(filename, NULL);
 	if (!qcvm->progs)
 		return false;
 
@@ -1142,7 +1143,7 @@ qboolean PR_LoadProgs (const char *filename, qboolean fatal, builtin_t *builtins
 			return false;
 		}
 	}
-	if (qcvm->progs->crc != PROGHEADER_CRC)
+	if (qcvm->progs->crc != needcrc)
 	{
 		if (fatal)
 			Host_Error ("%s system vars have been modified, progdefs.h is out of date", filename);

@@ -244,8 +244,9 @@ double SetNetTime(void);
 
 typedef struct
 {
-	char	name[16];
+	char	name[64];
 	char	map[16];
+	char	gamedir[16];
 	char	cname[NET_NAMELEN];
 	int		users;
 	int		maxusers;

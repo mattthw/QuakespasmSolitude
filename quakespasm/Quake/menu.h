@@ -55,7 +55,8 @@ void M_Init (void);
 void M_Keydown (int key);
 void M_Charinput (int key);
 qboolean M_TextEntry (void);
-void M_ToggleMenu_f (void);
+void M_ToggleMenu (int mode);
+void MQC_Shutdown(void);
 
 void M_Menu_Main_f (void);
 void M_Menu_Options_f (void);

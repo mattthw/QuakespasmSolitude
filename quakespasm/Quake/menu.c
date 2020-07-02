@@ -201,39 +201,6 @@ void M_DrawTextBox (int x, int y, int width, int lines)
 
 int m_save_demonum;
 
-/*
-================
-M_ToggleMenu_f
-================
-*/
-void M_ToggleMenu_f (void)
-{
-	m_entersound = true;
-
-	if (key_dest == key_menu)
-	{
-		if (m_state != m_main)
-		{
-			M_Menu_Main_f ();
-			return;
-		}
-
-		key_dest = key_game;
-		m_state = m_none;
-
-		IN_UpdateGrabs();
-		return;
-	}
-	if (key_dest == key_console)
-	{
-		Con_ToggleConsole_f ();
-	}
-	else
-	{
-		M_Menu_Main_f ();
-	}
-}
-
 
 //=============================================================================
 /* MAIN MENU */
@@ -2733,30 +2700,205 @@ void M_ServerList_Key (int k)
 
 }
 
+static struct
+{
+	const char *name;
+	xcommand_t function;
+	cmd_function_t *cmd;
+} menucommands[] =
+{
+	{"menu_main", M_Menu_Main_f},
+	{"menu_singleplayer", M_Menu_SinglePlayer_f},
+	{"menu_load", M_Menu_Load_f},
+	{"menu_save", M_Menu_Save_f},
+	{"menu_multiplayer", M_Menu_MultiPlayer_f},
+	{"menu_setup", M_Menu_Setup_f},
+	{"menu_options", M_Menu_Options_f},
+	{"menu_keys", M_Menu_Keys_f},
+	{"menu_video", M_Menu_Video_f},
+	{"help", M_Menu_Help_f},
+	{"menu_quit", M_Menu_Quit_f},
+};
+
+//=============================================================================
+/* MenuQC Subsystem */
+extern builtin_t pr_menubuiltins[];
+extern int pr_menunumbuiltins;
+#define MENUQC_PROGHEADER_CRC 10020
+void MQC_End(void)
+{
+	PR_SwitchQCVM(NULL);
+}
+void MQC_Begin(void)
+{
+	PR_SwitchQCVM(&cls.menu_qcvm);
+	pr_global_struct = NULL;
+}
+static qboolean MQC_Init(void)
+{
+	size_t i;
+	qboolean success;
+	PR_SwitchQCVM(&cls.menu_qcvm);
+	if (COM_CheckParm("-qmenu") || fitzmode || !pr_checkextension.value)
+		success = false;
+	else
+		success = PR_LoadProgs("menu.dat", false, MENUQC_PROGHEADER_CRC, pr_menubuiltins, pr_menunumbuiltins);
+	if (success && qcvm->extfuncs.m_draw)
+	{
+		for (i = 0; i < sizeof(menucommands)/sizeof(menucommands[0]); i++)
+			if (menucommands[i].cmd)
+			{
+				Cmd_RemoveCommand (menucommands[i].cmd);
+				menucommands[i].cmd = NULL;
+			}
+
+
+		qcvm->max_edicts = CLAMP (MIN_EDICTS,(int)max_edicts.value,MAX_EDICTS);
+		qcvm->edicts = (edict_t *) malloc (qcvm->max_edicts*qcvm->edict_size);
+		qcvm->num_edicts = qcvm->reserved_edicts = 1;
+		memset(qcvm->edicts, 0, qcvm->num_edicts*qcvm->edict_size);
+
+		if (qcvm->extfuncs.m_init)
+			PR_ExecuteProgram(qcvm->extfuncs.m_init);
+	}
+	PR_SwitchQCVM(NULL);
+	return success;
+}
+
+void MQC_Shutdown(void)
+{
+	size_t i;
+	if (key_dest == key_menu)
+		key_dest = key_console;
+	PR_ClearProgs(&cls.menu_qcvm);					//nuke it from orbit
+
+	for (i = 0; i < sizeof(menucommands)/sizeof(menucommands[0]); i++)
+		if (!menucommands[i].cmd)
+			menucommands[i].cmd = Cmd_AddCommand (menucommands[i].name, menucommands[i].function);
+}
+
+static void MQC_Command_f(void)
+{
+	if (cls.menu_qcvm.extfuncs.GameCommand)
+	{
+		MQC_Begin();
+		G_INT(OFS_PARM0) = PR_MakeTempString(Cmd_Args());
+		PR_ExecuteProgram(qcvm->extfuncs.GameCommand);
+		MQC_End();
+	}
+	else
+		Con_Printf("menu_cmd: no menuqc GameCommand function available\n");
+}
+
 //=============================================================================
 /* Menu Subsystem */
 
+/*
+================
+M_ToggleMenu_f
+================
+*/
+void M_ToggleMenu (int mode)
+{
+	if (cls.menu_qcvm.extfuncs.m_toggle)
+	{
+		MQC_Begin();
+		G_FLOAT(OFS_PARM0) = mode;
+		PR_ExecuteProgram(qcvm->extfuncs.m_toggle);
+		MQC_End();
+		return;
+	}
+
+	m_entersound = true;
+
+	if (key_dest == key_menu)
+	{
+		if (mode != 0 && m_state != m_main)
+		{
+			M_Menu_Main_f ();
+			return;
+		}
+
+		key_dest = key_game;
+		m_state = m_none;
+
+		IN_UpdateGrabs();
+		return;
+	}
+	else if (mode == 0)
+		return;
+	if (mode == -1 && key_dest == key_console)
+	{
+		Con_ToggleConsole_f ();
+	}
+	else
+	{
+		M_Menu_Main_f ();
+	}
+}
+static void M_ToggleMenu_f (void)
+{
+	M_ToggleMenu((Cmd_Argc() < 2) ? -1 : atoi(Cmd_Argv(1)));
+}
+
+static void M_MenuRestart_f (void)
+{
+	qboolean off = !strcmp(Cmd_Argv(1), "off");
+	if (off || !MQC_Init())
+		MQC_Shutdown();
+}
 
 void M_Init (void)
 {
 	Cmd_AddCommand ("togglemenu", M_ToggleMenu_f);
+	Cmd_AddCommand ("menu_cmd", MQC_Command_f);
+	Cmd_AddCommand ("menu_restart", M_MenuRestart_f);	//qss still loads progs on hunk, so we can't do this safely.
 
-	Cmd_AddCommand ("menu_main", M_Menu_Main_f);
-	Cmd_AddCommand ("menu_singleplayer", M_Menu_SinglePlayer_f);
-	Cmd_AddCommand ("menu_load", M_Menu_Load_f);
-	Cmd_AddCommand ("menu_save", M_Menu_Save_f);
-	Cmd_AddCommand ("menu_multiplayer", M_Menu_MultiPlayer_f);
-	Cmd_AddCommand ("menu_setup", M_Menu_Setup_f);
-	Cmd_AddCommand ("menu_options", M_Menu_Options_f);
-	Cmd_AddCommand ("menu_keys", M_Menu_Keys_f);
-	Cmd_AddCommand ("menu_video", M_Menu_Video_f);
-	Cmd_AddCommand ("help", M_Menu_Help_f);
-	Cmd_AddCommand ("menu_quit", M_Menu_Quit_f);
+	if (!MQC_Init())
+		MQC_Shutdown();
 }
 
 
 void M_Draw (void)
 {
+	if (cls.menu_qcvm.extfuncs.m_draw)
+	{	//Spike -- menuqc
+		float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+		if (!host_initialized)
+			return;
+		MQC_Begin();
+
+		if (scr_con_current && key_dest == key_menu)
+		{	//make sure we don't have the console getting drawn in the background making the menu unreadable.
+			//FIXME: rework console to show over the top of menuqc.
+			Draw_ConsoleBackground ();
+			S_ExtraUpdate ();
+		}
+
+		GL_SetCanvas (CANVAS_CSQC);
+		glEnable (GL_BLEND);	//in the finest tradition of glquake, we litter gl state calls all over the place. yay state trackers.
+		glDisable (GL_ALPHA_TEST);	//in the finest tradition of glquake, we litter gl state calls all over the place. yay state trackers.
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+		if (qcvm->extglobals.time)
+			*qcvm->extglobals.time = realtime;
+		if (qcvm->extglobals.frametime)
+			*qcvm->extglobals.frametime = host_frametime;
+		G_FLOAT(OFS_PARM0+0) = vid.width/s;
+		G_FLOAT(OFS_PARM0+1) = vid.height/s;
+		G_FLOAT(OFS_PARM0+2) = 0;
+		PR_ExecuteProgram(qcvm->extfuncs.m_draw);
+
+		glDisable (GL_BLEND);
+		glEnable (GL_ALPHA_TEST);
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);	//back to ignoring vertex colours.
+		glDisable(GL_SCISSOR_TEST);
+		glColor3f (1,1,1);
+
+		MQC_End();
+		return;
+	}
+
 	if (m_state == m_none || key_dest != key_menu)
 		return;
 
@@ -2865,6 +3007,9 @@ void M_Draw (void)
 
 void M_Keydown (int key)
 {
+	if (cls.menu_qcvm.extfuncs.m_draw)	//don't get confused.
+		return;
+
 	switch (m_state)
 	{
 	case m_none:
@@ -2939,6 +3084,9 @@ void M_Keydown (int key)
 
 void M_Charinput (int key)
 {
+	if (cls.menu_qcvm.extfuncs.m_draw)	//don't get confused.
+		return;
+
 	switch (m_state)
 	{
 	case m_setup:

@@ -67,7 +67,7 @@ void PR_Init (void);
 
 void PR_ExecuteProgram (func_t fnum);
 void PR_ClearProgs(qcvm_t *vm);
-qboolean PR_LoadProgs (const char *filename, qboolean fatal, builtin_t *builtins, size_t numbuiltins);
+qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcrc, builtin_t *builtins, size_t numbuiltins);
 
 //from pr_ext.c
 void PR_InitExtensions(void);
@@ -160,7 +160,7 @@ char *PF_VarString (int	first);
 void PF_Fixme(void);	//the 'unimplemented' builtin. woot.
 
 struct pr_extfuncs_s
-{	//various global qc entry points that might be called by the engine, if set.
+{	//various global ssqc entry points that might be called by the engine, if set.
 	func_t		EndFrame;
 	func_t		SV_ParseClientCommand;
 
@@ -178,11 +178,26 @@ struct pr_extfuncs_s
 
 //	func_t		CSQC_Parse_TempEntity;	//evil... This is the bane of all protocol compatibility. Die.
 //	func_t		CSQC_Parse_StuffCmd; //not in simple. Too easy to make cheats by ignoring server messages.
+
+	//menuqc-specific entry points
+	func_t		m_init;
+	func_t		m_toggle;	//-1: toggle, 0: clear, 1: force
+	func_t		m_draw;
+	func_t		m_keydown;	//obsoleted by Menu_InputEvent, included for dp compat.
+	func_t		m_keyup;	//obsoleted by Menu_InputEvent, included for dp compat.
+	func_t		m_consolecommand;
+	func_t		Menu_InputEvent;
+
+	//generic entry points, albeit not necessarily implemented for more than one module.
+	func_t		GameCommand;//obsoleted by m_consolecommand, included for dp compat.
 };
 extern	cvar_t	pr_checkextension;	//if 0, extensions are disabled (unless they'd be fatal, but they're still spammy)
 
 struct pr_extglobals_s
 {
+	//menuqc things...
+	float	*time;
+	float	*frametime;
 	//csqc-specific globals...
 	float	*cltime;
 	float	*maxclients;
@@ -272,6 +287,7 @@ struct qcvm_s
 	struct pr_extglobals_s extglobals;
 	struct pr_extfuncs_s extfuncs;
 	struct pr_extfields_s extfields;
+	qboolean cursorforced;
 
 	//was static inside pr_edict
 	char		*strings;

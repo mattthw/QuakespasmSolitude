@@ -1155,6 +1155,7 @@ void SCR_UpdateScreen (void)
 	//
 	// determine size of refresh window
 	//
+	r_refdef.drawworld = true;
 	if (vid.recalc_refdef)
 		SCR_CalcRefdef ();
 

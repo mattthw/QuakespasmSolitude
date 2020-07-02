@@ -140,6 +140,7 @@ int Q_strcmp (const char *s1, const char *s2);
 int Q_strncmp (const char *s1, const char *s2, int count);
 int	Q_atoi (const char *str);
 float Q_atof (const char *str);
+void Q_ftoa(char *str, float in);
 
 
 #include "strl_fn.h"

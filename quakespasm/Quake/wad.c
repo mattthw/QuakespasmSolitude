@@ -110,6 +110,8 @@ void W_LoadWadFile (void) //johnfitz -- filename is now hard-coded for honesty
 	{
 		lump_p->filepos = LittleLong(lump_p->filepos);
 		lump_p->size = LittleLong(lump_p->size);
+		if (lump_p->filepos + lump_p->size > com_filesize && !(lump_p->filepos + LittleLong(lump_p->disksize) > com_filesize))
+			lump_p->size = LittleLong(lump_p->disksize);
 		if (lump_p->filepos < 0 || lump_p->size < 0 || lump_p->filepos + lump_p->size > com_filesize)
 		{
 			if (lump_p->filepos > com_filesize || lump_p->size < 0)

@@ -272,6 +272,8 @@ void R_PushDlights (void)
 
 	r_dlightframecount = r_framecount + 1;	// because the count hasn't
 											//  advanced yet for this frame
+	if (!r_refdef.drawworld)
+		return;
 	l = cl_dlights;
 
 	for (i=0 ; i<MAX_DLIGHTS ; i++, l++)

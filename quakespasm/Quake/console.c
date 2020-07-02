@@ -119,10 +119,13 @@ void Con_ToggleConsole_f (void)
 		if (cls.state == ca_connected)
 			key_dest = key_game;
 		else
-			M_Menu_Main_f ();
+			M_ToggleMenu(1);
 	}
 	else
+	{
+		M_ToggleMenu(0);
 		key_dest = key_console;
+	}
 
 	SCR_EndLoadingPlaque ();
 	memset (con_times, 0, sizeof(con_times));
@@ -607,7 +610,7 @@ void Con_Printf (const char *fmt, ...)
 	Con_Print (msg);
 
 // update the screen if the console is displayed
-	if (cls.signon != SIGNONS && !scr_disabled_for_loading )
+	if (cls.signon != SIGNONS && !scr_disabled_for_loading && !qcvm)
 	{
 	// protect against infinite loop if something in SCR_UpdateScreen calls
 	// Con_Printd

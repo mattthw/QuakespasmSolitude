@@ -44,51 +44,60 @@ static struct in6_addr	myAddrv6;
 
 sys_socket_t UDP4_Init (void)
 {
-	int	err;
 	char	*tst;
-	char	buff[MAXHOSTNAMELEN];
-	struct hostent		*local;
 	struct qsockaddr	addr;
 
 	if (COM_CheckParm ("-noudp") || COM_CheckParm ("-noudp4"))
 		return INVALID_SOCKET;
 
-	// determine my name & address
 	myAddr4 = htonl(INADDR_LOOPBACK);
-	if (gethostname(buff, MAXHOSTNAMELEN) != 0)
+#ifdef __linux__
+	//gethostbyname(gethostname()) is only supported if the hostname can be looked up on an actual name server
+	//this means its usable as a test to see if other hosts can see it, but means we cannot use it to find out the local address.
+	//it also means stalls and slow loading and other undesirable behaviour, so lets stop doing this legacy junk.
+	//we probably have multiple interfaces nowadays anyway (wan and lan and wifi and localhost and linklocal addresses and zomgwtf).
+#else
 	{
-		err = SOCKETERRNO;
-		Con_SafePrintf("UDP4_Init: gethostname failed (%s)\n",
-							socketerror(err));
-	}
-	else
-	{
-		buff[MAXHOSTNAMELEN - 1] = 0;
+		// determine my name & address
+		int	err;
+		char	buff[MAXHOSTNAMELEN];
+		struct hostent		*local;
+		if (gethostname(buff, MAXHOSTNAMELEN) != 0)
+		{
+			err = SOCKETERRNO;
+			Con_SafePrintf("UDP4_Init: gethostname failed (%s)\n",
+								socketerror(err));
+		}
+		else
+		{
+			buff[MAXHOSTNAMELEN - 1] = 0;
 #ifdef PLATFORM_OSX
-		// ericw -- if our hostname ends in ".local" (a macOS thing),
-		// don't bother calling gethostbyname(), because it blocks for a few seconds
-		// and then fails (on my system anyway.)
-		tst = strstr(buff, ".local");
-		if (tst && tst[6] == '\0')
-		{
-			Con_SafePrintf("UDP_Init: skipping gethostbyname for %s\n", buff);
-		}
-		else
+			// ericw -- if our hostname ends in ".local" (a macOS thing),
+			// don't bother calling gethostbyname(), because it blocks for a few seconds
+			// and then fails (on my system anyway.)
+			tst = strstr(buff, ".local");
+			if (tst && tst[6] == '\0')
+			{
+				Con_SafePrintf("UDP_Init: skipping gethostbyname for %s\n", buff);
+			}
+			else
 #endif
-		if (!(local = gethostbyname(buff)))
-		{
-			Con_SafePrintf("UDP4_Init: gethostbyname failed (%s)\n",
-							hstrerror(h_errno));
-		}
-		else if (local->h_addrtype != AF_INET)
-		{
-			Con_SafePrintf("UDP4_Init: address from gethostbyname not IPv4\n");
-		}
-		else
-		{
-			myAddr4 = *(in_addr_t *)local->h_addr_list[0];
+			if (!(local = gethostbyname(buff)))
+			{
+				Con_SafePrintf("UDP4_Init: gethostbyname failed (%s)\n",
+								hstrerror(h_errno));
+			}
+			else if (local->h_addrtype != AF_INET)
+			{
+				Con_SafePrintf("UDP4_Init: address from gethostbyname not IPv4\n");
+			}
+			else
+			{
+				myAddr4 = *(in_addr_t *)local->h_addr_list[0];
+			}
 		}
 	}
+#endif
 
 	if ((net_controlsocket4 = UDP4_OpenSocket(0)) == INVALID_SOCKET)
 	{
@@ -844,12 +853,13 @@ int UDP6_GetAddrFromName (const char *name, struct qsockaddr *addr)
 #ifdef __linux__ //sadly there is no posix standard for querying all ipv4+ipv6 addresses.
 #include <ifaddrs.h>
 static struct ifaddrs *iflist;
-double iftime; //requery sometimes.
+static double iftime; //requery sometimes.
 static int UDP_GetAddresses(qhostaddr_t *addresses, int maxaddresses, int fam)
 {
 	struct ifaddrs *ifa;
 	int result = 0;
 	double time = Sys_DoubleTime();
+	size_t l;
 	if (time - iftime > 1 && iflist)
 	{
 		freeifaddrs(iflist);
@@ -867,7 +877,13 @@ static int UDP_GetAddresses(qhostaddr_t *addresses, int maxaddresses, int fam)
 		if (ifa->ifa_addr == NULL)
 			continue;
 		if (fam == ifa->ifa_addr->sa_family)
-			q_strlcpy(addresses[result++], UDP_AddrToString((struct qsockaddr*)ifa->ifa_addr, false), sizeof(addresses[0]));
+		{
+			q_strlcpy(addresses[result], UDP_AddrToString((struct qsockaddr*)ifa->ifa_addr, false), sizeof(addresses[0]));
+			l = strlen(addresses[result]);	//trim any useless :0 port numbers.
+			if (l > 2 && !strcmp(addresses[result]+l-2, ":0"))
+				addresses[result][l-2] = 0;
+			result++;
+		}
 	}
 	return result;
 }

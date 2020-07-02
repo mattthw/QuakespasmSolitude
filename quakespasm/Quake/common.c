@@ -556,6 +556,54 @@ float Q_atof (const char *str)
 	return val*sign;
 }
 
+// Q_ftoa: convert IEEE 754 float to a base-10 string with "infinite" decimal places
+void Q_ftoa(char *str, float in)
+{
+	unsigned int i = *((int *)&in);
+
+	int signbit = (i & 0x80000000) >> 31;
+	int exp = (signed int)((i & 0x7F800000) >> 23) - 127;
+	int mantissa = (i & 0x007FFFFF);
+
+	if (exp == 128) // 255(NaN/Infinity bits) - 127(bias)
+	{
+		if (signbit)
+		{
+			*str = '-';
+			str++;
+		}
+		if (mantissa == 0) // infinity
+			strcpy(str, "1.#INF");
+		else // NaN or indeterminate
+			strcpy(str, "1.#NAN");
+		return;
+	}
+
+	exp = -exp;
+	exp = (int)(exp * 0.30102999957f); // convert base 2 to base 10
+	exp += 8;
+
+	if (exp <= 0)
+		sprintf(str, "%.0f", in);
+	else
+	{
+		char tstr[32];
+		char *lsig = str - 1;
+		sprintf(tstr, "%%.%if", exp);
+		sprintf(str, tstr, in);
+		// find last significant digit and trim
+		while (*str)
+		{
+			if (*str >= '1' && *str <= '9')
+				lsig = str;
+			else if (*str == '.')
+				lsig = str - 1;
+			str++;
+		}
+		lsig[1] = '\0';
+	}
+}
+
 /*
 ============================================================================
 
@@ -1626,7 +1674,7 @@ typedef struct
 	int		dirlen;
 } dpackheader_t;
 
-#define MAX_FILES_IN_PACK	2048
+#define MAX_FILES_IN_PACK	4096
 
 char	com_gamenames[1024];	//eg: "hipnotic;quoth;warp", no id1, no private stuff
 char	com_gamedir[MAX_OSPATH];

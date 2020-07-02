@@ -96,8 +96,11 @@ static void PF_error (void)
 	s = PF_VarString(0);
 	Con_Printf ("======SERVER ERROR in %s:\n%s\n",
 			PR_GetString(qcvm->xfunction->s_name), s);
-	ed = PROG_TO_EDICT(pr_global_struct->self);
-	ED_Print (ed);
+	if (qcvm != &cls.menu_qcvm)
+	{
+		ed = PROG_TO_EDICT(pr_global_struct->self);
+		ED_Print (ed);
+	}
 
 	Host_Error ("Program error");
 }
@@ -1026,8 +1029,10 @@ static void PF_ftos (void)
 	s = PR_GetTempString();
 	if (v == (int)v)
 		sprintf (s, "%d",(int)v);
+	else if (!pr_checkextension.value)
+		sprintf (s, "%5.1f",v);	//dodgy path
 	else
-		sprintf (s, "%5.1f",v);
+		Q_ftoa (s, v);	//what's normally expected
 	G_INT(OFS_RETURN) = PR_SetEngineString(s);
 }
 
@@ -2067,3 +2072,130 @@ builtin_t pr_csqcbuiltins[] =
 	PF_NoCSQC,//PF_setspawnparms
 };
 int pr_csqcnumbuiltins = sizeof(pr_csqcbuiltins)/sizeof(pr_csqcbuiltins[0]);
+
+///////////////////////////////////////////////////////////////////
+//menuqc
+
+static void PF_clientstate (void)
+{
+	//be sure to return ca_connected for TRYING to connect even if no response yet. QSS is still blocking.
+	G_FLOAT(OFS_RETURN) = cls.state;
+}
+static void PF_cvar_menuhack (void)
+{	//hack around menuqc expecting vid_conwidth/vid_conheight to work.
+	const char	*str = G_STRING(OFS_PARM0);
+
+	if (!strcmp(str, "vid_conwidth"))
+	{
+		float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+		G_FLOAT(OFS_RETURN) = vid.width/s;
+	}
+	else if (!strcmp(str, "vid_conheight"))
+	{
+		float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+		G_FLOAT(OFS_RETURN) = vid.height/s;
+	}
+	else
+		G_FLOAT(OFS_RETURN) = Cvar_VariableValue (str);
+}
+
+//as a DP-derived API, these builtin numbers are completely unrelated to the ssqc ones. expect problems.
+#define PF_MenuQCToDo PF_Fixme
+#define PF_MenuCQMess PF_Fixme
+#define PF_MenuCQExt PF_Fixme
+builtin_t pr_menubuiltins[] = {
+	PF_Fixme,				//#0
+	PF_MenuCQExt,			//#1 PF_checkextension
+	PF_error,				//#2
+	PF_objerror,			//#3
+	PF_MenuCQExt,			//#4 PF_print
+	PF_MenuQCToDo,			//#5 PF_cl_bprint,
+	PF_MenuQCToDo,			//#6 PF_cl_sprint,
+	PF_MenuQCToDo,			//#7 PF_menu_cprint,
+	PF_normalize,			//#8
+	PF_vlen,				//#9
+	PF_vectoyaw,			//#10
+	PF_vectoangles,			//#11
+	PF_random,				//#12
+	PF_localcmd,			//#13
+	PF_cvar_menuhack,		//#14
+	PF_cvar_set,			//#15
+	PF_dprint,				//#16
+	PF_ftos,				//#17
+	PF_fabs,				//#18
+	PF_vtos,				//#19
+	PF_MenuCQExt,			//#20 PF_etos,
+	PF_MenuCQExt,			//#21 PF_stof,
+
+	PF_Spawn,				//#22
+	PF_Remove,				//#23
+	PF_Find,				//#24
+	PF_MenuCQExt,			//#25 PF_FindFloat,
+	PF_MenuCQExt,			//#26 PF_menu_findchain,
+	PF_MenuCQExt,			//#27 PF_menu_findchainfloat,
+
+	PF_precache_file,		//#28
+	PF_cl_precache_sound,	//#29
+	PF_coredump,			//#30
+	PF_traceon,				//#31
+	PF_traceoff,			//#32
+	PF_eprint,				//#33
+	PF_rint,				//#34
+	PF_floor,				//#35
+	PF_ceil,				//#36
+	PF_nextent,				//#37
+	PF_MenuCQExt,			//#38 PF_Sin,
+	PF_MenuCQExt,			//#39 PF_Cos,
+	PF_MenuCQExt,			//#40 PF_Sqrt,
+	PF_MenuCQExt,			//#41 PF_randomvector,
+	PF_MenuCQExt,			//#42 PF_registercvar,
+	PF_MenuCQExt,			//#43 PF_min,
+	PF_MenuCQExt,			//#44 PF_max,
+	PF_MenuCQExt,			//#45 PF_bound,
+	PF_MenuCQExt,			//#46 PF_pow,
+	PF_MenuCQExt,			//#47 PF_CopyEntity,
+	PF_MenuCQExt,			//#48 PF_fopen,
+	PF_MenuCQExt,			//#49 PF_fclose,
+	PF_MenuCQExt,			//#50 PF_fgets,
+	PF_MenuCQExt,			//#51 PF_fputs,
+	PF_MenuCQExt,			//#52 PF_strlen,
+	PF_MenuCQExt,			//#53 PF_strcat,
+	PF_MenuCQExt,			//#54 PF_substring,
+	PF_MenuCQExt,			//#55 PF_stov,
+	PF_MenuCQExt,			//#56 PF_strzone,
+	PF_MenuCQExt,			//#57 PF_strunzone,
+	PF_MenuCQExt,			//#58 PF_Tokenize,
+	PF_MenuCQExt,			//#59 PF_ArgV,
+	PF_MenuCQExt,			//#60 PF_isserver,
+	PF_MenuCQExt,			//#61 PF_cl_clientcount,
+	PF_clientstate,			//#62
+	PF_MenuCQExt,			//#63 PF_cl_clientcommand,
+	PF_MenuCQExt,			//#64 PF_cl_changelevel,
+	PF_MenuCQExt,			//#65 PF_cl_localsound,
+	PF_MenuCQExt,			//#66 PF_cl_getmousepos,
+	PF_MenuCQExt,			//#67 PF_gettime,
+	PF_MenuCQExt,			//#68 PF_loadfromdata,
+	PF_MenuCQExt,			//#69 PF_loadfromfile,
+	PF_MenuCQExt,			//#70 PF_mod,
+	PF_MenuCQExt,			//#71 PF_menu_cvar_string,
+	PF_MenuCQExt,			//#72 PF_crash,
+	PF_MenuCQExt,			//#73 PF_stackdump,
+	PF_MenuCQExt,			//#74 PF_search_begin,
+	PF_MenuCQExt,			//#75 PF_search_end,
+	PF_MenuCQExt,			//#76 PF_search_getsize,
+	PF_MenuCQExt,			//#77 PF_search_getfilename,
+	PF_MenuCQExt,			//#78 PF_chr2str,
+	PF_MenuCQExt,			//#79 PF_etof,
+	PF_MenuCQExt,			//#80 PF_ftoe,
+	PF_MenuCQExt,			//#81 PF_IsNotNull,
+	PF_MenuCQExt,			//#82 PF_altstr_count,
+	PF_MenuCQExt,			//#83 PF_altstr_prepare,
+	PF_MenuCQExt,			//#84 PF_altstr_get,
+	PF_MenuCQExt,			//#85 PF_altstr_set,
+	PF_MenuCQExt,			//#86 PF_altstr_ins,
+	PF_MenuCQExt,			//#87 PF_FindFlags,
+	PF_MenuCQExt,			//#88 PF_menu_findchainflags,
+	PF_MenuCQExt,			//#89 PF_cvar_defstring,
+	//all other builtins will just have to use the extension system
+};
+int pr_menunumbuiltins = sizeof(pr_menubuiltins)/sizeof(pr_menubuiltins[0]);
