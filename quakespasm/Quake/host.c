@@ -80,6 +80,7 @@ cvar_t	pausable = {"pausable","1",CVAR_NONE};
 
 cvar_t	developer = {"developer","0",CVAR_NONE};
 
+static cvar_t	pr_engine = {"pr_engine", ENGINE_NAME_AND_VER, CVAR_NONE};
 cvar_t	temp1 = {"temp1","0",CVAR_NONE};
 
 cvar_t devstats = {"devstats","0",CVAR_NONE}; //johnfitz -- track developer statistics that vary every frame
@@ -283,6 +284,7 @@ void Host_InitLocal (void)
 
 	Host_InitCommands ();
 
+	Cvar_RegisterVariable (&pr_engine);
 	Cvar_RegisterVariable (&host_framerate);
 	Cvar_RegisterVariable (&host_speeds);
 	Cvar_RegisterVariable (&host_maxfps); //johnfitz
