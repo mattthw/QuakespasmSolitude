@@ -1219,7 +1219,7 @@ cvar_t cl_voip_ducking = {"cl_voip_ducking", "0.5", true};
 cvar_t cl_voip_codec = {"cl_voip_codec", "", true};	//opus by default (quakespasm actually comes with a dll for that one)
 cvar_t cl_voip_noisefilter = {"cl_voip_noisefilter", "1", true};
 cvar_t cl_voip_autogain = {"cl_voip_autogain", "0", true};
-cvar_t cl_voip_opus_bitrate = {"cl_voip_opus_bitrate", "3000", true};
+cvar_t cl_voip_bitrate = {"cl_voip_bitrate", "3000", true};
 
 #ifdef USE_SPEEX_CODEC
 #include <speex/speex.h>
@@ -2402,7 +2402,7 @@ void S_Voip_Transmit(unsigned char clc, sizebuf_t *buf)
 					frames = 0;
 				}
 
-				nrate = cl_voip_opus_bitrate.value;
+				nrate = cl_voip_bitrate.value;
 				if (nrate != s_voip.curbitrate)
 				{
 					s_voip.curbitrate = nrate;
@@ -2601,7 +2601,7 @@ void S_Voip_Init(void)
 #ifndef FORCE_ENCODER
 	Cvar_RegisterVariable(&cl_voip_codec);
 #endif
-	Cvar_RegisterVariable(&cl_voip_opus_bitrate);
+	Cvar_RegisterVariable(&cl_voip_bitrate);
 	Cvar_RegisterVariable(&cl_voip_noisefilter);
 	Cvar_RegisterVariable(&cl_voip_autogain);
 	Cmd_AddCommand("cl_voip_codecs", S_Voip_Codecs_f);
