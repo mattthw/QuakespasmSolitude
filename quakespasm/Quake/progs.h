@@ -287,7 +287,9 @@ struct qcvm_s
 	struct pr_extglobals_s extglobals;
 	struct pr_extfuncs_s extfuncs;
 	struct pr_extfields_s extfields;
+
 	qboolean cursorforced;
+	void *cursorhandle;	//video code.
 
 	//was static inside pr_edict
 	char		*strings;

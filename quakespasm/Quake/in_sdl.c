@@ -289,8 +289,9 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 	qboolean freemouse;		//the OS should have a free cursor too...
 	qboolean needevents;	//whether we want to receive events still
 
-	wantcursor = (key_dest == key_console || (key_dest == key_menu&&!bind_grab)) || (key_dest == key_game && cl.qcvm.cursorforced);
-	freemouse = wantcursor && (modestate == MS_WINDOWED || (key_dest == key_game && cl.qcvm.cursorforced));
+	qboolean gamecodecursor = (key_dest == key_game && cl.qcvm.cursorforced) || (key_dest == key_menu && cls.menu_qcvm.cursorforced);
+	wantcursor = (key_dest == key_console || (key_dest == key_menu&&!bind_grab)) || gamecodecursor;
+	freemouse = wantcursor && (modestate == MS_WINDOWED || gamecodecursor);
 	needevents = (!wantcursor) || key_dest == key_game;
 
 	if (isDedicated)
@@ -310,6 +311,16 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 #endif
 
 #if defined(USE_SDL2)
+	if (wantcursor)
+	{
+		VID_UpdateCursor();
+		SDL_ShowCursor(SDL_ENABLE);
+	}
+	else
+	{
+		SDL_ShowCursor(SDL_DISABLE);
+		VID_UpdateCursor();
+	}
 	if (SDL_SetRelativeMouseMode(freemouse?SDL_FALSE:SDL_TRUE) != 0)
 	{
 		Con_Printf("WARNING: SDL_SetRelativeMouseMode(%s) failed.\n", freemouse?"SDL_FALSE":"SDL_TRUE");

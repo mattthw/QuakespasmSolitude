@@ -75,6 +75,7 @@ static int		nummodes;
 
 static qboolean	vid_initialized = false;
 
+static SDL_Cursor	*vid_cursor;
 #if defined(USE_SDL2)
 static SDL_Window	*draw_context;
 static SDL_GLContext	gl_context;
@@ -2346,3 +2347,70 @@ static void VID_Menu_f (void)
 	VID_Menu_RebuildRateList ();
 }
 
+void VID_UpdateCursor(void)
+{
+	SDL_Cursor *nc;
+
+	qcvm_t *vm;
+	if (key_dest == key_menu)
+		vm = &cls.menu_qcvm;
+	else if (key_dest == key_game)
+		vm = &cl.qcvm;
+	else
+		vm = NULL;
+	nc = vm?vm->cursorhandle:NULL;
+	if (vid_cursor != nc)
+	{
+		vid_cursor = nc;
+		if (nc)	//null is an invalid sdl cursor handle
+			SDL_SetCursor(nc);
+		else
+			SDL_SetCursor(SDL_GetDefaultCursor());	//doesn't need freeing or anything.
+	}
+}
+void VID_SetCursor(qcvm_t *vm, const char *cursorname, float hotspot[2], float cursorscale)
+{
+	SDL_Cursor *oldcursor;
+	int mark = Hunk_LowMark();
+	qboolean malloced = false;
+	char npath[MAX_QPATH];
+	SDL_Surface *surf = NULL;
+	byte *imagedata = NULL;
+	if (cursorname && *cursorname)
+	{
+		enum srcformat fmt;
+		int width, height;
+		COM_StripExtension(cursorname, npath, sizeof(npath));
+		imagedata = Image_LoadImage(npath, &width, &height, &fmt, &malloced);
+		if (imagedata && fmt == SRC_RGBA)
+		{	//simple 32bit RGBA byte-ordered data.
+			surf = SDL_CreateRGBSurfaceFrom(imagedata, width, height, 32, width*4, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+			if (cursorscale != 1 && surf)
+			{	//rescale image by cursorscale
+				int nwidth = q_max(1,width*cursorscale);
+				int nheight = q_max(1,height*cursorscale);
+				SDL_Surface *scaled = SDL_CreateRGBSurface(0, nwidth, nheight, 32, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+				SDL_BlitScaled(surf, NULL, scaled, NULL);
+				SDL_FreeSurface(surf);
+				surf = scaled;
+			}
+		}
+	}
+
+	oldcursor = vm->cursorhandle;
+	if (surf)
+	{
+		vm->cursorhandle = SDL_CreateColorCursor(surf, hotspot[0], hotspot[1]);
+		SDL_FreeSurface(surf);
+	}
+	else
+		vm->cursorhandle = NULL;
+
+	Hunk_FreeToLowMark(mark);
+	if (malloced)
+		free(imagedata);
+
+	VID_UpdateCursor();
+	if (oldcursor)
+		SDL_FreeCursor(oldcursor);
+}

@@ -91,5 +91,8 @@ qboolean VID_IsMinimized (void);
 void	VID_Lock (void);
 void	VID_SetWindowCaption(const char *newcaption);
 
+void VID_UpdateCursor(void);
+void VID_SetCursor(qcvm_t *vm, const char *cursorname, float hotspot[2], float cursorscale);
+
 #endif	/* __VID_DEFS_H */
 

@@ -37,7 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern cvar_t sv_gameplayfix_setmodelrealbox;
 cvar_t pr_checkextension = {"pr_checkextension", "1", CVAR_NONE};	//spike - enables qc extensions. if 0 then they're ALL BLOCKED! MWAHAHAHA! *cough* *splutter*
-int pr_ext_warned_particleeffectnum;	//so these only spam once per map
+static int pr_ext_warned_particleeffectnum;	//so these only spam once per map
 
 static void *PR_FindExtGlobal(int type, const char *name);
 void SV_CheckVelocity (edict_t *ent);
@@ -1349,7 +1349,7 @@ static struct {
 	unsigned int start;
 	unsigned int end;
 } qctoken[MAXQCTOKENS];
-unsigned int qctoken_count;
+static unsigned int qctoken_count;
 
 static void tokenize_flush(void)
 {
@@ -1379,7 +1379,7 @@ static int tokenizeqc(const char *str, qboolean dpfuckage)
 	while (qctoken_count < MAXQCTOKENS)
 	{
 		/*skip whitespace here so the token's start is accurate*/
-		while (*str && *(unsigned char*)str <= ' ')
+		while (*str && *(const unsigned char*)str <= ' ')
 			str++;
 
 		if (!*str)
@@ -2900,7 +2900,7 @@ static void PF_fsize(void)
 }
 #endif
 
-struct filesearch_s
+static struct filesearch_s
 {
 	qcvm_t *owner;
 	size_t numfiles;
@@ -3061,7 +3061,7 @@ struct strbuf {
 
 #define BUFSTRBASE 1
 #define NUMSTRINGBUFS 64u
-struct strbuf strbuflist[NUMSTRINGBUFS];
+static struct strbuf strbuflist[NUMSTRINGBUFS];
 
 static void PF_buf_shutdown(void)
 {
@@ -3184,11 +3184,11 @@ static void PF_buf_copy(void)
 static int PF_buf_sort_sortprefixlen;
 static int PF_buf_sort_ascending(const void *a, const void *b)
 {
-	return strncmp(*(char**)a, *(char**)b, PF_buf_sort_sortprefixlen);
+	return strncmp(*(char*const*)a, *(char*const*)b, PF_buf_sort_sortprefixlen);
 }
 static int PF_buf_sort_descending(const void *b, const void *a)
 {
-	return strncmp(*(char**)a, *(char**)b, PF_buf_sort_sortprefixlen);
+	return strncmp(*(char*const*)a, *(char*const*)b, PF_buf_sort_sortprefixlen);
 }
 // #444 void(float bufhandle, float sortprefixlen, float backward) buf_sort (DP_QC_STRINGBUFFERS)
 static void PF_buf_sort(void)
@@ -4161,7 +4161,7 @@ static void PF_crc16(void)
 		G_FLOAT(OFS_RETURN) = crc;
 	}
 	else
-		G_FLOAT(OFS_RETURN) = CRC_Block((byte*)str, len);
+		G_FLOAT(OFS_RETURN) = CRC_Block((const byte*)str, len);
 }
 static void PF_digest_hex(void)
 {
@@ -4619,14 +4619,14 @@ static void PF_cl_getstat_string(void)
 	}
 }
 
-struct
+static struct
 {
 	char name[MAX_QPATH];
 	int type;
 	qpic_t *pic;
 } *qcpics;
-size_t numqcpics;
-size_t maxqcpics;
+static size_t numqcpics;
+static size_t maxqcpics;
 void PR_ReloadPics(qboolean purge)
 {
 	numqcpics = 0;
@@ -4902,8 +4902,8 @@ static void PF_cl_drawfill(void)
 
 static qpic_t *polygon_pic;
 #define MAX_POLYVERTS
-polygonvert_t polygon_verts[256];
-unsigned int polygon_numverts;
+static polygonvert_t polygon_verts[256];
+static unsigned int polygon_numverts;
 static void PF_R_PolygonBegin(void)
 {
 	qpic_t *pic	= DrawQC_CachePic(G_STRING(OFS_PARM0), false);
@@ -5087,37 +5087,11 @@ static void PF_cl_findkeysforcommandex(void)
 static void PF_cl_setcursormode(void)
 {
 	qboolean absmode = G_FLOAT(OFS_PARM0);
-//	const char *cursorname = (qcvm->argc<=1)?"":G_STRING(OFS_PARM1);
-//	float *hotspot = (qcvm->argc<=2)?NULL:G_VECTOR(OFS_PARM2);
-//	float cursorscale = (qcvm->argc<=3)?1:G_FLOAT(OFS_PARM3);
+	const char *cursorname = (qcvm->argc<=1)?"":G_STRING(OFS_PARM1);
+	float *hotspot = (qcvm->argc<=2)?NULL:G_VECTOR(OFS_PARM2);
+	float cursorscale = (qcvm->argc<=3)?1:G_FLOAT(OFS_PARM3);
 
-/*	if (absmode)
-	{
-		int mark = Hunk_LowMark();
-		int width, height;
-		qboolean malloced;
-		byte *imagedata = Image_LoadImage(cursorname, &width, &height, &malloced);
-		//TODO: rescale image by cursorscale
-		SDL_Surface *surf = !imagedata?NULL:SDL_CreateRGBSurfaceFrom(imagedata, width, height, 32, width*4, 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
-		Hunk_FreeToLowMark(mark);
-		if (malloced)
-			free(imagedata);
-		if (surf)
-		{
-			cursor = SDL_CreateColorCursor(surf, hotspot[0], hotspot[1]);
-			SDL_FreeSurface(surf);
-			SDL_SetCursor(cursor);
-		}
-		else
-		{
-			SDL_SetCursor(SDL_GetDefaultCursor());
-			cursor = NULL;
-		}
-		if (oldcursor)
-			SDL_FreeCursor(oldcursor);
-		oldcursor = cursor;
-	}*/
-
+	VID_SetCursor(qcvm, cursorname, hotspot, cursorscale);
 	qcvm->cursorforced = absmode;
 }
 static void PF_cl_getcursormode(void)
@@ -5391,40 +5365,25 @@ static void PF_m_getmousepos(void)
 }
 static void PF_m_setmousetarget(void)
 {
-	/*int d = G_FLOAT(OFS_PARM0);
+	int d = G_FLOAT(OFS_PARM0);
 	switch(d)
 	{
-	case 0:
-		key_dest = key_game;
-		break;
 	case 1:
-		key_dest = key_message;
+		qcvm->cursorforced = false;
 		break;
 	case 2:
-		key_dest = key_menu;
+		qcvm->cursorforced = true;
 		break;
 	default:
 		break;
-	}*/
+	}
 }
 static void PF_m_getmousetarget(void)
 {
-	G_FLOAT(OFS_RETURN) = 0;
-	/*switch(key_dest)
-	{
-	case key_game:
-		G_FLOAT(OFS_RETURN) = 0;
-		break;
-	case key_message:
-		G_FLOAT(OFS_RETURN) = 1;
-		break;
-	case key_menu:
+	if (qcvm->cursorforced)
 		G_FLOAT(OFS_RETURN) = 2;
-		break;
-	default:
-		G_FLOAT(OFS_RETURN) = 0;
-		break;
-	}*/
+	else
+		G_FLOAT(OFS_RETURN) = 1;
 }
 static void PF_cl_getresolution(void)
 {
@@ -6321,6 +6280,7 @@ static struct
 	{"soundlength",		PF_NoSSQC,			PF_cl_soundlength,	534,	PF_cl_soundlength,534, D("float(string sample)", "Provides a way to query the duration of a sound sample, allowing you to set up a timer to chain samples.")},
 	{"buf_loadfile",	PF_buf_loadfile,	PF_buf_loadfile,	535,	PF_buf_loadfile,535, D("float(string filename, strbuf bufhandle)", "Appends the named file into a string buffer (which must have been created in advance). The return value merely says whether the file was readable.")},
 	{"buf_writefile",	PF_buf_writefile,	PF_buf_writefile,	536,	PF_buf_writefile,536, D("float(filestream filehandle, strbuf bufhandle, optional float startpos, optional float numstrings)", "Writes the contents of a string buffer onto the end of the supplied filehandle (you must have already used fopen). Additional optional arguments permit you to constrain the writes to a subsection of the stringbuffer.")},
+	//{"bufstr_find",	PF_bufstr_find,		PF_bufstr_find,		537,	PF_bufstr_find,537, D("float(strbuf bufhandle, string match, float matchtype=5, optional float firstidx=0, optional float step=1)", "Finds the first occurence of the requested string, returning its index (or -1).")},
 
 	{"setkeydest",		PF_NoSSQC,			PF_NoCSQC,			601,	PF_m_setkeydest,601, D("void(float dest)", "Grab key focus")},
 	{"getkeydest",		PF_NoSSQC,			PF_NoCSQC,			602,	PF_m_getkeydest,602, D("float()", "Returns key focus")},
@@ -6436,6 +6396,7 @@ static const char *extnames[] =
 #endif
 	"FTE_QC_CHECKCOMMAND",
 	"FTE_QC_CROSSPRODUCT",
+	"FTE_QC_HARDWARECURSORS",
 	"FTE_QC_INFOKEY",
 	"FTE_QC_INTCONV",
 	"FTE_QC_MULTICAST",
