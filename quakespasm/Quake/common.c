@@ -2302,7 +2302,7 @@ void COM_ListFiles(void *ctx, const char *gamedir, const char *pattern, qboolean
 		DIR		*dir_p;
 		struct dirent	*dir_t;
 
-		q_snprintf (filestring, sizeof(filestring), "%s/%s%s", gamedir, prefixdir, pattern);
+		q_snprintf (filestring, sizeof(filestring), "%s/%s", gamedir, prefixdir);
 		dir_p = opendir(filestring);
 		if (dir_p == NULL)
 			return;
