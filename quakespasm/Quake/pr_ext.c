@@ -2239,6 +2239,12 @@ static void PF_cvar_string(void)
 		q_strlcpy(temp, var->string, STRINGTEMP_LENGTH);
 		G_INT(OFS_RETURN) = PR_SetEngineString(temp);
 	}
+	else if (!strcmp(name, "game"))
+	{	//game looks like a cvar in most other respects (and is a cvar in fte). let cvar_string work on it as a way to find out the current gamedir.
+		char *temp = PR_GetTempString();
+		q_strlcpy(temp, COM_GetGameNames(true), STRINGTEMP_LENGTH);
+		G_INT(OFS_RETURN) = PR_SetEngineString(temp);
+	}
 	else
 		G_INT(OFS_RETURN) = 0;
 }
@@ -2905,14 +2911,16 @@ static struct filesearch_s
 	qcvm_t *owner;
 	size_t numfiles;
 	size_t maxfiles;
+	unsigned int flags;
 	struct
 	{
 		char name[MAX_QPATH];
 		time_t mtime;
 		size_t fsize;
+		searchpath_t *spath;
 	} *file;
 } searches[16];
-static qboolean PR_Search_AddFile(void *ctx, const char *fname, time_t mtime, size_t fsize)
+static qboolean PR_Search_AddFile(void *ctx, const char *fname, time_t mtime, size_t fsize, searchpath_t *spath)
 {
 	struct filesearch_s *c = ctx;
 	if (c->numfiles == c->maxfiles)
@@ -2923,10 +2931,10 @@ static qboolean PR_Search_AddFile(void *ctx, const char *fname, time_t mtime, si
 	q_strlcpy(c->file[c->numfiles].name, fname, sizeof(c->file[c->numfiles].name));
 	c->file[c->numfiles].mtime = mtime;
 	c->file[c->numfiles].fsize = fsize;
+	c->file[c->numfiles].spath = spath;
 	c->numfiles++;
 	return true;
 }
-void COM_ListFiles(void *ctx, const char *gamedir, const char *pattern, qboolean (*cb)(void *ctx, const char *fname, time_t mtime, size_t fsize));
 static void PF_search_shutdown(void)
 {
 	size_t i;
@@ -2947,14 +2955,16 @@ static void PF_search_begin(void)
 {
 	size_t i;
 	const char *pattern = G_STRING(OFS_PARM0);
-//	qboolean caseinsensitive = !!G_FLOAT(OFS_PARM0);
-//	qboolaen quiet = !!G_FLOAT(OFS_PARM0);
+	unsigned int flags = G_FLOAT(OFS_PARM1);
+//	qboolaen quiet = !!G_FLOAT(OFS_PARM2);
+//	const char *pkgfilter = G_STRING(OFS_PARM3);
 
 	for (i = 0; i < countof(searches); i++)
 	{
 		if (!searches[i].owner)
 		{
-			COM_ListFiles(&searches[i], com_gamedir, pattern, PR_Search_AddFile);
+			searches[i].flags = flags;
+			COM_ListAllFiles(&searches[i], pattern, PR_Search_AddFile);
 			if (!searches[i].numfiles)
 				break;
 			searches[i].owner = qcvm;
@@ -3009,7 +3019,7 @@ static void PF_search_getfilesize(void)
 }
 static void PF_search_getfilemtime(void)
 {
-	char *ret = PR_GetTempString();
+	char *ret;
 	size_t handle = G_FLOAT(OFS_PARM0);
 	size_t index = G_FLOAT(OFS_PARM1);
 	G_INT(OFS_RETURN) = 0;
@@ -3018,8 +3028,58 @@ static void PF_search_getfilemtime(void)
 	if (index < 0 || index >= searches[handle].numfiles)
 		return; //erk
 
+	ret = PR_GetTempString();
 	strftime(ret, STRINGTEMP_LENGTH, "%Y-%m-%d %H:%M:%S", localtime(&searches[handle].file[index].mtime));
 	G_INT(OFS_RETURN) = PR_SetEngineString(ret);
+}
+static void PF_search_getpackagename(void)
+{
+	searchpath_t *spath;
+//	char *ret;
+	size_t handle = G_FLOAT(OFS_PARM0);
+	size_t index = G_FLOAT(OFS_PARM1);
+	G_INT(OFS_RETURN) = 0;
+	if (handle < 0 || handle >= countof(searches))
+		return; //erk
+	if (index < 0 || index >= searches[handle].numfiles)
+		return; //erk
+
+	for (spath = com_searchpaths; spath; spath = spath->next)
+		if (spath == searches[handle].file[index].spath)
+			break;
+
+	if (spath)
+	{
+		if (searches[handle].flags & 2)
+		{	//gamedir/packagename. not necessarily fopenable.
+			if (spath->pack)
+			{
+				const char *pathname = spath->pack->filename;
+				const char *last = pathname, *last2 = "";
+				while (*pathname)
+				{
+					if (*pathname == '/')
+					{
+						last2 = last;
+						last = pathname + 1;
+					}
+					pathname++;
+				}
+				G_INT(OFS_RETURN) = PR_MakeTempString(last2);
+			}
+			else
+				G_INT(OFS_RETURN) = PR_MakeTempString(COM_SkipPath(spath->filename));
+		}
+		else
+		{	//like whichpack thus like frik_file. which sucks.
+			if (spath->pack)
+				G_INT(OFS_RETURN) = PR_MakeTempString(COM_SkipPath(spath->pack->filename));
+			else
+				G_INT(OFS_RETURN) = 0;
+		}
+	}
+	else
+		G_INT(OFS_RETURN) = 0;	//no idea where it came from. sorry.
 }
 
 static void PF_whichpack(void)
@@ -3419,43 +3479,6 @@ static void PF_bufstr_free(void)
 	strbuflist[bufno].strings[index] = NULL;
 }
 
-
-
-static int wildcmp(const char *wild, const char *string)
-{	//case-insensitive string compare with wildcards. returns true for a match.
-	while (*string)
-	{
-		if (*wild == '*')
-		{
-			if (*string == '/' || *string == '\\')
-			{
-				//* terminates if we get a match on the char following it, or if its a \ or / char
-				wild++;
-				continue;
-			}
-			if (wildcmp(wild+1, string))
-				return true;
-			string++;
-		}
-		else if ((q_tolower(*wild) == q_tolower(*string)) || (*wild == '?'))
-		{
-			//this char matches
-			wild++;
-			string++;
-		}
-		else
-		{
-			//failure
-			return false;
-		}
-	}
-
-	while (*wild == '*')
-	{
-		wild++;
-	}
-	return !*wild;
-}
 static void PF_buf_cvarlist(void)
 {
 	size_t bufno = G_FLOAT(OFS_PARM0)-BUFSTRBASE;
@@ -6216,6 +6239,7 @@ static struct
 	{"search_getfilename",PF_search_getfilename,PF_search_getfilename,447,PF_search_getfilename,77, "string(searchhandle handle, float num)", "Retrieves name of one of the files that was found by the initial search."},
 	{"search_getfilesize",PF_search_getfilesize,PF_search_getfilesize,0,PF_search_getfilesize,0, "float(searchhandle handle, float num)", "Retrieves the size of one of the files that was found by the initial search."},
 	{"search_getfilemtime",PF_search_getfilemtime,PF_search_getfilemtime,0,PF_search_getfilemtime,0, "string(searchhandle handle, float num)", "Retrieves modification time of one of the files in %Y-%m-%d %H:%M:%S format."},
+	{"search_getpackagename",PF_search_getpackagename,PF_search_getpackagename,0,PF_search_getpackagename,0, "string(searchhandle handle, float num)", "Retrieves the name of the package the file was found inside."},
 	{"cvar_string",		PF_cvar_string,		PF_cvar_string,		448,	PF_cvar_string,71, "string(string cvarname)"},//DP_QC_CVAR_STRING
 	{"findflags",		PF_findflags,		PF_findflags,		449,	PF_findflags,0, "entity(entity start, .float fld, float match)"},//DP_QC_FINDFLAGS
 	{"findchainflags",	PF_findchainflags,	PF_findchainflags,	450,	PF_NoMenu, "entity(.float fld, float match)"},//DP_QC_FINDCHAINFLAGS

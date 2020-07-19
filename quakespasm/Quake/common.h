@@ -141,6 +141,7 @@ int Q_strncmp (const char *s1, const char *s2, int count);
 int	Q_atoi (const char *str);
 float Q_atof (const char *str);
 void Q_ftoa(char *str, float in);
+int wildcmp(const char *wild, const char *string);
 
 
 #include "strl_fn.h"
@@ -221,6 +222,7 @@ typedef struct pack_s
 	char	filename[MAX_OSPATH];
 	int		handle;
 	int		numfiles;
+	time_t	mtime;
 	packfile_t	*files;
 } pack_t;
 
@@ -244,6 +246,7 @@ extern	char	com_basedir[MAX_OSPATH];
 extern	char	com_gamedir[MAX_OSPATH];
 extern	int	file_from_pak;	// global indicating that file came from a pak
 
+void COM_ListAllFiles(void *ctx, const char *pattern, qboolean (*cb)(void *ctx, const char *fname, time_t mtime, size_t fsize, searchpath_t *spath));
 const char *COM_GetGameNames(qboolean full);
 qboolean COM_GameDirMatches(const char *tdirs);
 
