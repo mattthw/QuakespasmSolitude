@@ -578,7 +578,7 @@ void Key_Console (int key)
 		// If the last two lines are identical, skip storing this line in history 
 		// by not incrementing edit_line
 		if (strcmp(workline, key_lines[(edit_line-1)&31]))
-			edit_line = (edit_line + 1) & 31;
+			edit_line = (edit_line + 1) & (CMDLINES - 1);
 
 		history_line = edit_line;
 		key_lines[edit_line][0] = ']';
@@ -779,6 +779,8 @@ void Char_Console (int key)
 			workline[MAXCMDLINE - 2] = 0;
 			workline += key_linepos;
 			len = strlen(workline) + 1;
+			if (len > MAXCMDLINE-2)
+				len = MAXCMDLINE-2;
 			memmove (workline + 1, workline, len);
 			*workline = key;
 		}
