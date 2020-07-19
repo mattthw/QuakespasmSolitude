@@ -2084,15 +2084,28 @@ static void PF_clientstate (void)
 static void PF_cvar_menuhack (void)
 {	//hack around menuqc expecting vid_conwidth/vid_conheight to work.
 	const char	*str = G_STRING(OFS_PARM0);
+	float s;
 
 	if (!strcmp(str, "vid_conwidth"))
 	{
-		float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+		if (qcvm == &cls.menu_qcvm)
+		{
+			s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+			s = CLAMP (1.0, scr_menuscale.value, s);
+		}
+		else
+			s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 		G_FLOAT(OFS_RETURN) = vid.width/s;
 	}
 	else if (!strcmp(str, "vid_conheight"))
 	{
-		float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+		if (qcvm == &cls.menu_qcvm)
+		{
+			s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+			s = CLAMP (1.0, scr_menuscale.value, s);
+		}
+		else
+			s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 		G_FLOAT(OFS_RETURN) = vid.height/s;
 	}
 	else

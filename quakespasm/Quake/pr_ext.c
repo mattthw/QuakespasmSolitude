@@ -4824,7 +4824,14 @@ static void PF_cl_stringwidth(void)
 
 static void PF_cl_drawsetclip(void)
 {
-	float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+	float s;
+	if (qcvm == &cls.menu_qcvm)
+	{
+		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+		s = CLAMP (1.0, scr_menuscale.value, s);
+	}
+	else
+		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 
 	float x = G_FLOAT(OFS_PARM0)*s;
 	float y = G_FLOAT(OFS_PARM1)*s;
@@ -5380,7 +5387,14 @@ static void PF_m_getkeydest(void)
 }
 static void PF_m_getmousepos(void)
 {
-	float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+	float s;
+	if (qcvm == &cls.menu_qcvm)
+	{
+		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+		s = CLAMP (1.0, scr_menuscale.value, s);
+	}
+	else
+		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 
 	G_FLOAT(OFS_RETURN+0) = vid.cursorpos[0]/s;
 	G_FLOAT(OFS_RETURN+1) = vid.cursorpos[1]/s;
@@ -5886,7 +5900,14 @@ void R_RenderScene (void);
 float CalcFovy (float fov_x, float width, float height);
 static void PF_m_renderscene(void)
 {
-	float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+	float s;
+	if (qcvm == &cls.menu_qcvm)
+	{
+		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+		s = CLAMP (1.0, scr_menuscale.value, s);
+	}
+	else
+		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 
 	VectorCopy(viewprops.origin, r_refdef.vieworg);
 	VectorCopy(viewprops.angles, r_refdef.viewangles);
@@ -5912,7 +5933,10 @@ static void PF_m_renderscene(void)
 
 	vid.recalc_refdef = true;
 	GL_Set2D();
-	GL_SetCanvas (CANVAS_CSQC);
+	if (qcvm == &cls.menu_qcvm)
+		GL_SetCanvas (CANVAS_MENUQC);
+	else
+		GL_SetCanvas (CANVAS_CSQC);
 	glEnable (GL_BLEND);
 	glDisable (GL_ALPHA_TEST);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);

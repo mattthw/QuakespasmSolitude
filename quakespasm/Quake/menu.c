@@ -2863,7 +2863,8 @@ void M_Draw (void)
 {
 	if (cls.menu_qcvm.extfuncs.m_draw)
 	{	//Spike -- menuqc
-		float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+		float s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+		s = CLAMP (1.0, scr_menuscale.value, s);
 		if (!host_initialized)
 			return;
 		MQC_Begin();
@@ -2875,7 +2876,7 @@ void M_Draw (void)
 			S_ExtraUpdate ();
 		}
 
-		GL_SetCanvas (CANVAS_CSQC);
+		GL_SetCanvas (CANVAS_MENUQC);
 		glEnable (GL_BLEND);	//in the finest tradition of glquake, we litter gl state calls all over the place. yay state trackers.
 		glDisable (GL_ALPHA_TEST);	//in the finest tradition of glquake, we litter gl state calls all over the place. yay state trackers.
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);

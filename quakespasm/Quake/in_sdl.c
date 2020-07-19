@@ -495,7 +495,9 @@ void IN_MouseMotion(int dx, int dy, int wx, int wy)
 		PR_SwitchQCVM(&cls.menu_qcvm);
 		if (qcvm->cursorforced)
 		{
-			float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+			float s;
+			s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+			s = CLAMP (1.0, scr_menuscale.value, s);
 			wx /= s;
 			wy /= s;
 

@@ -826,6 +826,12 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho (0, 640, 200, 0, -99999, 99999);
 		glViewport (glx + (glwidth - 320*s) / 2, gly + (glheight - 200*s) / 2, 640*s, 200*s);
 		break;
+	case CANVAS_MENUQC:
+		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+		s = CLAMP (1.0, scr_menuscale.value, s);
+		glOrtho (0, glwidth/s, glheight/s, 0, -99999, 99999);
+		glViewport (glx, gly, glwidth, glheight);
+		break;
 	case CANVAS_CSQC:
 		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 		glOrtho (0, glwidth/s, glheight/s, 0, -99999, 99999);
