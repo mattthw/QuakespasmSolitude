@@ -1231,6 +1231,8 @@ nolength:
 						*f++ = 'x';
 					else if (*s == 'P')
 						*f++ = 'X';
+					else if (*s == 'S')
+						*f++ = 's';
 					else
 						*f++ = *s;
 					*f++ = 0;
@@ -1299,6 +1301,42 @@ nolength:
 								o += u8_strpad(o, end - o, buf, (flags & PRINTF_LEFT) != 0, width, precision);
 							}
 */							break;
+						case 'S':
+							{	//tokenizable string
+								const char *quotedarg = GETARG_STRING(thisarg);
+
+								//try and escape it... hopefully it won't get truncated by precision limits...
+								char quotedbuf[65536];
+								size_t l;
+								l = strlen(quotedarg);
+								if (strchr(quotedarg, '\"') || strchr(quotedarg, '\n') || strchr(quotedarg, '\r') || l+3 >= sizeof(quotedbuf))
+								{	//our escapes suck...
+									Con_Warning("PF_sprintf: unable to safely escape arg: %s\n", s0);
+									quotedarg="";
+								}
+								quotedbuf[0] = '\"';
+								memcpy(quotedbuf+1, quotedarg, l);
+								quotedbuf[1+l] = '\"';
+								quotedbuf[1+l+1] = 0;
+								quotedarg = quotedbuf;
+
+								//UTF-8-FIXME: figure it out yourself
+//								if(flags & PRINTF_ALTERNATE)
+								{
+									if(precision < 0) // not set
+										q_snprintf(o, end - o, formatbuf, width, quotedarg);
+									else
+										q_snprintf(o, end - o, formatbuf, width, precision, quotedarg);
+									o += strlen(o);
+								}
+/*								else
+								{
+									if(precision < 0) // not set
+										precision = end - o - 1;
+									o += u8_strpad(o, end - o, quotedarg, (flags & PRINTF_LEFT) != 0, width, precision);
+								}
+*/							}
+							break;
 						case 's':
 							//UTF-8-FIXME: figure it out yourself
 //							if(flags & PRINTF_ALTERNATE)
