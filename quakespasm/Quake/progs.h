@@ -84,7 +84,7 @@ int SV_Precache_Sound(const char *s);
 void PR_spawnfunc_misc_model(edict_t *self);
 
 //from pr_edict, for pr_ext. reflection is messy.
-qboolean	ED_ParseEpair (void *base, ddef_t *key, const char *s);
+qboolean	ED_ParseEpair (void *base, ddef_t *key, const char *s, qboolean zoned);
 const char *PR_UglyValueString (int type, eval_t *val);
 ddef_t *ED_FindField (const char *name);
 ddef_t *ED_FindGlobal (const char *name);

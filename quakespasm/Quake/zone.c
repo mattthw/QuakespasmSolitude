@@ -76,7 +76,8 @@ void Z_Free (void *ptr)
 	memblock_t	*block, *other;
 
 	if (!ptr)
-		Sys_Error ("Z_Free: NULL pointer");
+		return;	//ignore this like libc would
+//		Sys_Error ("Z_Free: NULL pointer");
 
 	block = (memblock_t *) ( (byte *)ptr - sizeof(memblock_t));
 	if (block->id != ZONEID)

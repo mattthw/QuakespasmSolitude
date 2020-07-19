@@ -492,7 +492,7 @@ static void PF_strzone(void)
 	if (id >= qcvm->knownzonesize)
 	{
 		qcvm->knownzonesize = (id+32)&~7;
-		qcvm->knownzone = Z_Realloc(qcvm->knownzone, qcvm->knownzonesize>>3);
+		qcvm->knownzone = Z_Realloc(qcvm->knownzone, (qcvm->knownzonesize+7)>>3);
 	}
 	qcvm->knownzone[id>>3] |= 1u<<(id&7);
 
@@ -3809,7 +3809,7 @@ static void PF_putentfldstr(void)
 	edict_t *ent = G_EDICT(OFS_PARM1);
 	const char *value = G_STRING(OFS_PARM2);
 	if (fldidx < (unsigned int)qcvm->progs->numfielddefs)
-		G_FLOAT(OFS_RETURN) = ED_ParseEpair ((void *)&ent->v, qcvm->fielddefs+fldidx, value);
+		G_FLOAT(OFS_RETURN) = ED_ParseEpair ((void *)&ent->v, qcvm->fielddefs+fldidx, value, true);
 	else
 		G_FLOAT(OFS_RETURN) = false;
 }
@@ -6645,33 +6645,31 @@ void PR_AutoCvarChanged(cvar_t *var)
 		glob = ED_FindGlobal(n);
 		if (glob)
 		{
-			if (!ED_ParseEpair ((void *)qcvm->globals, glob, var->string))
+			if (!ED_ParseEpair ((void *)qcvm->globals, glob, var->string, true))
 				Con_Warning("EXT: Unable to configure %s\n", n);
 		}
 		PR_SwitchQCVM(NULL);
 	}
 	if (cl.qcvm.globals)
 	{
-		PR_SwitchQCVM(NULL);
 		PR_SwitchQCVM(&cl.qcvm);
 		n = va("autocvar_%s", var->name);
 		glob = ED_FindGlobal(n);
 		if (glob)
 		{
-			if (!ED_ParseEpair ((void *)qcvm->globals, glob, var->string))
+			if (!ED_ParseEpair ((void *)qcvm->globals, glob, var->string, true))
 				Con_Warning("EXT: Unable to configure %s\n", n);
 		}
 		PR_SwitchQCVM(NULL);
 	}
 	if (cls.menu_qcvm.globals)
 	{
-		PR_SwitchQCVM(NULL);
 		PR_SwitchQCVM(&cls.menu_qcvm);
 		n = va("autocvar_%s", var->name);
 		glob = ED_FindGlobal(n);
 		if (glob)
 		{
-			if (!ED_ParseEpair ((void *)qcvm->globals, glob, var->string))
+			if (!ED_ParseEpair ((void *)qcvm->globals, glob, var->string, true))
 				Con_Warning("EXT: Unable to configure %s\n", n);
 		}
 		PR_SwitchQCVM(NULL);
@@ -6806,7 +6804,7 @@ void PR_EnableExtensions(ddef_t *pr_globaldefs)
 			if (!var)
 				continue;	//name conflicts with a command?
 	
-			if (!ED_ParseEpair ((void *)qcvm->globals, &pr_globaldefs[i], var->string))
+			if (!ED_ParseEpair ((void *)qcvm->globals, &pr_globaldefs[i], var->string, true))
 				Con_Warning("EXT: Unable to configure %s\n", n);
 			var->flags |= CVAR_AUTOCVAR;
 		}
