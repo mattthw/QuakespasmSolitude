@@ -982,7 +982,8 @@ void R_RenderScene (void)
 
 	S_ExtraUpdate (); // don't let sound get messed up if going slow
 
-	R_DrawShadows (); //johnfitz -- render entity shadows
+	if (r_refdef.drawworld)
+		R_DrawShadows (); //johnfitz -- render entity shadows
 
 	R_DrawEntitiesOnList (false); //johnfitz -- false means this is the pass for nonalpha entities
 
