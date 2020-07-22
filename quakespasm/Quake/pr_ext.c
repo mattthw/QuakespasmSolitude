@@ -185,6 +185,7 @@ int PR_Markup_Parse(struct markup_s *mu)
 					continue;
 				}
 				break;	//malformed
+			case 'a':	//alternate charset (read: masked)...
 			case 'm':	//toggle masking.
 				mu->txt+=2;
 				mu->mask ^= 128;
