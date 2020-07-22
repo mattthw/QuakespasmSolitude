@@ -1935,6 +1935,7 @@ static int COM_FindFile (const char *filename, int *handle, FILE **file,
 		&& strcmp(ext, "png") != 0
 		&& strcmp(ext, "jpg") != 0
 		&& strcmp(ext, "jpeg") != 0
+		&& strcmp(ext, "dds") != 0
 		&& strcmp(ext, "lit") != 0
 		&& strcmp(ext, "ent") != 0)
 		Con_DPrintf ("FindFile: can't find %s\n", filename);
@@ -2796,8 +2797,29 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 	if ((com_basedir[j-1] == '\\') || (com_basedir[j-1] == '/'))
 		com_basedir[j-1] = 0;
 
-	// start up with GAMENAME by default (id1)
-	COM_AddGameDirectory (GAMENAME);
+	i = COM_CheckParmNext (i, "-basegame");
+	if (i)
+	{	//-basegame:
+		// a) replaces all hardcoded dirs (read: alternative to id1)
+		// b) isn't flushed on normal gamedir switches (like id1).
+		com_modified = true; //shouldn't be relevant when not using id content... but we don't really know.
+		for(;; i = COM_CheckParmNext (i, "-basegame"))
+		{
+			if (!i || i >= com_argc-1)
+				break;
+
+			p = com_argv[i + 1];
+			if (!*p || !strcmp(p, ".") || strstr(p, "..") || *p=='/' || *p=='\\' || strstr(p, ":"))
+				Sys_Error ("gamedir should be a single directory name, not a path\n");
+			if (p != NULL)
+				COM_AddGameDirectory (p);
+		}
+	}
+	else
+	{
+		// start up with GAMENAME by default (id1)
+		COM_AddGameDirectory (GAMENAME);
+	}
 
 	/* this is the end of our base searchpath:
 	 * any set gamedirs, such as those from -game command line
