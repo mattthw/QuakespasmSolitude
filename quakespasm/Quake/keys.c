@@ -577,7 +577,7 @@ void Key_Console (int key)
 
 		// If the last two lines are identical, skip storing this line in history 
 		// by not incrementing edit_line
-		if (strcmp(workline, key_lines[(edit_line-1)&31]))
+		if (strcmp(workline, key_lines[(edit_line-1)&(CMDLINES - 1)]))
 			edit_line = (edit_line + 1) & (CMDLINES - 1);
 
 		history_line = edit_line;
@@ -676,11 +676,11 @@ void Key_Console (int key)
 		len = strlen(workline);
 		if ((int)len == key_linepos)
 		{
-			len = strlen(key_lines[(edit_line + 31) & 31]);
+			len = strlen(key_lines[(edit_line + (CMDLINES-1)) & (CMDLINES-1)]);
 			if ((int)len <= key_linepos)
 				return; // no character to get
 			workline += key_linepos;
-			*workline = key_lines[(edit_line + 31) & 31][key_linepos];
+			*workline = key_lines[(edit_line + (CMDLINES-1)) & (CMDLINES-1)][key_linepos];
 			workline[1] = 0;
 			key_linepos++;
 		}
@@ -698,7 +698,7 @@ void Key_Console (int key)
 		history_line_last = history_line;
 		do
 		{
-			history_line = (history_line - 1) & 31;
+			history_line = (history_line - 1) & (CMDLINES-1);
 		} while (history_line != edit_line && !key_lines[history_line][1]);
 
 		if (history_line == edit_line)
@@ -720,7 +720,7 @@ void Key_Console (int key)
 
 		do
 		{
-			history_line = (history_line + 1) & 31;
+			history_line = (history_line + 1) & (CMDLINES-1);
 		} while (history_line != edit_line && !key_lines[history_line][1]);
 
 		if (history_line == edit_line)
