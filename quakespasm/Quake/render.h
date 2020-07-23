@@ -44,6 +44,7 @@ typedef struct efrag_s
 #define LERP_RESETANIM2	(1<<2) //set this and previous flag to disable anim lerping for two anim frames
 #define LERP_RESETMOVE	(1<<3) //disable movement lerping until next origin/angles change
 #define LERP_FINISH		(1<<4) //use lerpfinish time from server update instead of assuming interval of 0.1
+#define LERP_EXPLICIT	(1<<5) //for csqc, using explicit frame1/2+frac+times
 //johnfitz
 
 typedef struct entity_s
@@ -82,11 +83,24 @@ typedef struct entity_s
 	byte					eflags;			//spike -- mostly a mirror of netstate, but handles tag inheritance (eww!)
 	byte					alpha;			//johnfitz -- alpha
 	byte					lerpflags;		//johnfitz -- lerping
-	float					lerpstart;		//johnfitz -- animation lerping
-	float					lerptime;		//johnfitz -- animation lerping
+
+	union
+	{
+		struct
+		{	//read-only lerp data for csqc...
+			int frame2;
+			float lerpfrac;
+			float time[2];
+		} snap;
+		struct
+		{	//updated by the model rendering code.
+			float					lerpstart;		//johnfitz -- animation lerping
+			float					lerptime;		//johnfitz -- animation lerping
+			short					previouspose;	//johnfitz -- animation lerping
+			short					currentpose;	//johnfitz -- animation lerping
+		} state;
+	} lerp;
 	float					lerpfinish;		//johnfitz -- lerping -- server sent us a more accurate interval, use it instead of 0.1
-	short					previouspose;	//johnfitz -- animation lerping
-	short					currentpose;	//johnfitz -- animation lerping
 //	short					futurepose;		//johnfitz -- animation lerping
 	float					movelerpstart;	//johnfitz -- transform lerping
 	vec3_t					previousorigin;	//johnfitz -- transform lerping

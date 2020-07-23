@@ -5787,10 +5787,10 @@ static void PF_m_addentity(void)
 			eval_t *origin = GetEdictFieldValue(ed, ED_FindFieldOffset("origin"));
 			eval_t *angles = GetEdictFieldValue(ed, ED_FindFieldOffset("angles"));
 			eval_t *frame = GetEdictFieldValue(ed, ED_FindFieldOffset("frame"));
-//			eval_t *frame2 = GetEdictFieldValue(ed, ED_FindFieldOffset("frame2"));
-//			eval_t *lerpfrac = GetEdictFieldValue(ed, ED_FindFieldOffset("lerpfrac"));
-//			eval_t *frame1time = GetEdictFieldValue(ed, ED_FindFieldOffset("frame1time"));
-//			eval_t *frame2time = GetEdictFieldValue(ed, ED_FindFieldOffset("frame2time"));
+			eval_t *frame2 = GetEdictFieldValue(ed, ED_FindFieldOffset("frame2"));
+			eval_t *lerpfrac = GetEdictFieldValue(ed, ED_FindFieldOffset("lerpfrac"));
+			eval_t *frame1time = GetEdictFieldValue(ed, ED_FindFieldOffset("frame1time"));
+			eval_t *frame2time = GetEdictFieldValue(ed, ED_FindFieldOffset("frame2time"));
 			eval_t *skin = GetEdictFieldValue(ed, ED_FindFieldOffset("skin"));
 			eval_t *alpha = GetEdictFieldValue(ed, ED_FindFieldOffset("alpha"));
 
@@ -5799,12 +5799,16 @@ static void PF_m_addentity(void)
 			if (angles)
 				VectorCopy(angles->vector, e->angles);
 			e->model = model;
-			e->frame = frame?frame->_float:0;
 			e->skinnum = skin?skin->_float:0;
 			e->alpha = alpha?ENTALPHA_ENCODE(alpha->_float):ENTALPHA_DEFAULT;
 
 			//can't exactly use currentpose/previous pose, as we don't know them.
-			e->lerpflags = LERP_RESETANIM|LERP_RESETMOVE;
+			e->lerpflags = LERP_EXPLICIT|LERP_RESETANIM|LERP_RESETMOVE;
+			e->frame = frame?frame->_float:0;
+			e->lerp.snap.frame2 = frame2?frame2->_float:0;
+			e->lerp.snap.lerpfrac = lerpfrac?lerpfrac->_float:0;
+			e->lerp.snap.time[0] = frame1time?frame1time->_float:0;
+			e->lerp.snap.time[1] = frame2time?frame2time->_float:0;
 		}
 	}
 }
@@ -6376,8 +6380,8 @@ static struct
 
 	{"callfunction",	PF_callfunction,	PF_callfunction,			605,PF_callfunction,			605, D("void(.../*, string funcname*/)", "Invokes the named function. The function name is always passed as the last parameter and must always be present. The others are passed to the named function as-is")},
 	{"isfunction",		PF_isfunction,		PF_isfunction,				607,PF_isfunction,				607, D("float(string s)", "Returns true if the named function exists and can be called with the callfunction builtin.")},
-	{"getresolution",			PF_NoSSQC,	PF_NoCSQC,					608,PF_cl_getresolution,		608, D("vector(float mode, float forfullscreen)", "Returns available/common video modes.")},
-	{"gethostcachevalue",		PF_NoSSQC,	PF_gethostcachevalue,		511,PF_gethostcachevalue,		611, D("float(float type)", "Returns number of servers known")},
+	{"getresolution",			PF_NoSSQC,	PF_cl_getresolution,		608,PF_cl_getresolution,		608, D("vector(float mode, float forfullscreen)", "Returns available/common video modes.")},
+	{"gethostcachevalue",		PF_NoSSQC,	PF_gethostcachevalue,		611,PF_gethostcachevalue,		611, D("float(float type)", "Returns number of servers known")},
 	{"gethostcachestring",		PF_NoSSQC,	PF_gethostcachestring,		612,PF_gethostcachestring,		612, D("string(float type, float hostnr)", "Retrieves some specific type of info about the specified server.")},
 	{"parseentitydata",	PF_parseentitydata, NULL/*field hacks*/,		613,NULL,						613, D("float(entity e, string s, optional float offset)", "Reads a single entity's fields into an already-spawned entity. s should contain field pairs like in a saved game: {\"foo1\" \"bar\" \"foo2\" \"5\"}. Returns <=0 on failure, otherwise returns the offset in the string that was read to.")},
 	{"resethostcachemasks",		PF_NoSSQC,	PF_resethostcachemasks,		615,PF_resethostcachemasks,		615, D("void()", "Resets server listing filters.")},
@@ -6558,6 +6562,8 @@ static void PF_checkbuiltin (void)
 						{	//but it will be defined if its actually executed.
 							if (extensionbuiltins[i].desc && !strncmp(extensionbuiltins[i].desc, "stub.", 5))
 								G_FLOAT(OFS_RETURN) = false;	//pretend it won't work if it probably won't be useful
+							else if (!extensionbuiltins[i].menufunc)
+								G_FLOAT(OFS_RETURN) = false;	//works, but not in this module
 							else
 								G_FLOAT(OFS_RETURN) = true;
 							break;
@@ -6572,6 +6578,9 @@ static void PF_checkbuiltin (void)
 						{	//but it will be defined if its actually executed.
 							if (extensionbuiltins[i].desc && !strncmp(extensionbuiltins[i].desc, "stub.", 5))
 								G_FLOAT(OFS_RETURN) = false;	//pretend it won't work if it probably won't be useful
+							else if ((qcvm == &cl.qcvm && !extensionbuiltins[i].ssqcfunc)
+								 || (qcvm == &sv.qcvm && !extensionbuiltins[i].csqcfunc))
+								G_FLOAT(OFS_RETURN) = false;	//works, but not in this module
 							else
 								G_FLOAT(OFS_RETURN) = true;
 							break;

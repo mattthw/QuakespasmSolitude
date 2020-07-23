@@ -730,9 +730,9 @@ void GL_DrawAliasFrame (aliashdr_t *paliashdr, lerpdata_t lerpdata)
 R_SetupAliasFrame -- johnfitz -- rewritten to support lerping
 =================
 */
-void R_SetupAliasFrame (aliashdr_t *paliashdr, int frame, lerpdata_t *lerpdata)
+void R_SetupAliasFrame (aliashdr_t *paliashdr, entity_t *e, lerpdata_t *lerpdata)
 {
-	entity_t		*e = currententity;
+	int frame = e->frame;
 	int				posenum, numposes;
 
 	if ((frame >= paliashdr->numframes) || (frame < 0))
@@ -741,61 +741,105 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, int frame, lerpdata_t *lerpdata)
 		frame = 0;
 	}
 
-	posenum = paliashdr->frames[frame].firstpose;
-	numposes = paliashdr->frames[frame].numposes;
-
-	if (numposes > 1)
+	if (e->lerpflags & LERP_EXPLICIT)
 	{
-		float time = cl.time + e->syncbase;	//Spike: Readded syncbase
-		if (time < 0)
-			time = 0;	//just in case...
-		e->lerptime = paliashdr->frames[frame].interval;	//FIXME: no per-frame intervals
-		posenum += (int)(time / e->lerptime) % numposes;
+		int frame2 = e->lerp.snap.frame2;
+		float frac = e->lerp.snap.lerpfrac;
+		float time = cl.time;
+
+		if ((frame2 >= paliashdr->numframes) || (frame2 < 0))
+			frame2 = 0;
+
+		if (paliashdr->frames[(frac > 0.5)?frame2:frame].numposes > 1)
+		{	//our stronger sequence is a framegroup, but we can only do two-way blends.
+			if (frac > 0.5)
+			{
+				frame = frame2;
+				time = e->lerp.snap.time[1];
+			}
+			else
+				time = e->lerp.snap.time[0];
+
+			if (time < 0)
+				time = 0;	//just in case...
+			frac = (time / paliashdr->frames[frame].interval);
+			posenum = (int)frac;
+			lerpdata->blend = (frac - posenum);
+
+			posenum += paliashdr->frames[frame].firstpose;
+			numposes = paliashdr->frames[frame].numposes;
+
+			lerpdata->pose1 = (posenum)%numposes;
+			lerpdata->pose2 = (posenum+1)%numposes;
+		}
+		else
+		{
+			lerpdata->blend = frac;
+
+			lerpdata->pose1 = paliashdr->frames[frame].firstpose;
+			lerpdata->pose1 += (unsigned int)(e->lerp.snap.time[0]/paliashdr->frames[frame].interval) % paliashdr->frames[frame].numposes;
+
+			lerpdata->pose2 = paliashdr->frames[frame2].firstpose;
+			lerpdata->pose2 += (unsigned int)(e->lerp.snap.time[1]/paliashdr->frames[frame2].interval) % paliashdr->frames[frame].numposes;
+		}
 	}
 	else
-		e->lerptime = 0.1;
+	{
+		posenum = paliashdr->frames[frame].firstpose;
+		numposes = paliashdr->frames[frame].numposes;
 
-	if (e->lerpflags & LERP_RESETANIM) //kill any lerp in progress
-	{
-		e->lerpstart = 0;
-		e->previouspose = posenum;
-		e->currentpose = posenum;
-		e->lerpflags -= LERP_RESETANIM;
-	}
-	else if (e->currentpose != posenum) // pose changed, start new lerp
-	{
-		if (e->lerpflags & LERP_RESETANIM2) //defer lerping one more time
+		if (numposes > 1)
 		{
-			e->lerpstart = 0;
-			e->previouspose = posenum;
-			e->currentpose = posenum;
-			e->lerpflags -= LERP_RESETANIM2;
+			float time = cl.time + e->syncbase;	//Spike: Readded syncbase
+			if (time < 0)
+				time = 0;	//just in case...
+			e->lerp.state.lerptime = paliashdr->frames[frame].interval;	//FIXME: no per-frame intervals
+			posenum += (int)(time / e->lerp.state.lerptime) % numposes;
 		}
 		else
+			e->lerp.state.lerptime = 0.1;
+
+		if (e->lerpflags & LERP_RESETANIM) //kill any lerp in progress
 		{
-			e->lerpstart = cl.time;
-			e->previouspose = e->currentpose;
-			e->currentpose = posenum;
+			e->lerp.state.lerpstart = 0;
+			e->lerp.state.previouspose = posenum;
+			e->lerp.state.currentpose = posenum;
+			e->lerpflags -= LERP_RESETANIM;
+		}
+		else if (e->lerp.state.currentpose != posenum) // pose changed, start new lerp
+		{
+			if (e->lerpflags & LERP_RESETANIM2) //defer lerping one more time
+			{
+				e->lerp.state.lerpstart = 0;
+				e->lerp.state.previouspose = posenum;
+				e->lerp.state.currentpose = posenum;
+				e->lerpflags -= LERP_RESETANIM2;
+			}
+			else
+			{
+				e->lerp.state.lerpstart = cl.time;
+				e->lerp.state.previouspose = e->lerp.state.currentpose;
+				e->lerp.state.currentpose = posenum;
+			}
+		}
+
+		//set up values
+		if (r_lerpmodels.value && !(e->model->flags & MOD_NOLERP && r_lerpmodels.value != 2))
+		{
+			if (e->lerpflags & LERP_FINISH && numposes == 1)
+				lerpdata->blend = CLAMP (0, (cl.time - e->lerp.state.lerpstart) / (e->lerpfinish - e->lerp.state.lerpstart), 1);
+			else
+				lerpdata->blend = CLAMP (0, (cl.time - e->lerp.state.lerpstart) / e->lerp.state.lerptime, 1);
+			lerpdata->pose1 = e->lerp.state.previouspose;
+			lerpdata->pose2 = e->lerp.state.currentpose;
+		}
+		else //don't lerp
+		{
+			lerpdata->blend = 1;
+			lerpdata->pose1 = posenum;
+			lerpdata->pose2 = posenum;
 		}
 	}
-
-	//set up values
-	if (r_lerpmodels.value && !(e->model->flags & MOD_NOLERP && r_lerpmodels.value != 2))
-	{
-		if (e->lerpflags & LERP_FINISH && numposes == 1)
-			lerpdata->blend = CLAMP (0, (cl.time - e->lerpstart) / (e->lerpfinish - e->lerpstart), 1);
-		else
-			lerpdata->blend = CLAMP (0, (cl.time - e->lerpstart) / e->lerptime, 1);
-		lerpdata->pose1 = e->previouspose;
-		lerpdata->pose2 = e->currentpose;
-	}
-	else //don't lerp
-	{
-		lerpdata->blend = 1;
-		lerpdata->pose1 = posenum;
-		lerpdata->pose2 = posenum;
-	}
-
 
 	if (paliashdr->numboneposes)
 	{
@@ -1002,7 +1046,7 @@ void R_DrawAliasModel (entity_t *e)
 	// setup pose/lerp data -- do it first so we don't miss updates due to culling
 	//
 	paliashdr = (aliashdr_t *)Mod_Extradata (e->model);
-	R_SetupAliasFrame (paliashdr, e->frame, &lerpdata);
+	R_SetupAliasFrame (paliashdr, e, &lerpdata);
 	R_SetupEntityTransform (e, &lerpdata);
 
 	glsl = &r_alias_glsl[(paliashdr->poseverttype==PV_IQM)?ALIAS_GLSL_SKELETAL:ALIAS_GLSL_BASIC];
@@ -1322,7 +1366,7 @@ void GL_DrawAliasShadow (entity_t *e)
 	if (entalpha == 0) return;
 
 	paliashdr = (aliashdr_t *)Mod_Extradata (e->model);
-	R_SetupAliasFrame (paliashdr, e->frame, &lerpdata);
+	R_SetupAliasFrame (paliashdr, e, &lerpdata);
 	R_SetupEntityTransform (e, &lerpdata);
 	R_LightPoint (e->origin);
 	lheight = currententity->origin[2] - lightspot[2];
@@ -1369,7 +1413,7 @@ void R_DrawAliasModel_ShowTris (entity_t *e)
 		return;
 
 	paliashdr = (aliashdr_t *)Mod_Extradata (e->model);
-	R_SetupAliasFrame (paliashdr, e->frame, &lerpdata);
+	R_SetupAliasFrame (paliashdr, e, &lerpdata);
 	R_SetupEntityTransform (e, &lerpdata);
 
 	glPushMatrix ();
