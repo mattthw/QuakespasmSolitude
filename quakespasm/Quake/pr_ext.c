@@ -4845,7 +4845,7 @@ static void PF_cl_stringwidth(void)
 	struct markup_s mu;
 	int r = 0;
 
-	if (usecolours)
+	if (!usecolours)
 		r = strlen(text);
 	else
 	{
@@ -6578,8 +6578,8 @@ static void PF_checkbuiltin (void)
 						{	//but it will be defined if its actually executed.
 							if (extensionbuiltins[i].desc && !strncmp(extensionbuiltins[i].desc, "stub.", 5))
 								G_FLOAT(OFS_RETURN) = false;	//pretend it won't work if it probably won't be useful
-							else if ((qcvm == &cl.qcvm && !extensionbuiltins[i].ssqcfunc)
-								 || (qcvm == &sv.qcvm && !extensionbuiltins[i].csqcfunc))
+							else if ((qcvm == &cl.qcvm && !extensionbuiltins[i].csqcfunc)
+								 || (qcvm == &sv.qcvm && !extensionbuiltins[i].ssqcfunc))
 								G_FLOAT(OFS_RETURN) = false;	//works, but not in this module
 							else
 								G_FLOAT(OFS_RETURN) = true;
