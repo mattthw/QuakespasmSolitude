@@ -1122,7 +1122,8 @@ static qboolean R_SkyroomWasVisible(void)
 	qmodel_t *model = cl.worldmodel;
 	texture_t *t;
 	size_t i;
-	if (!skyroom_enabled)
+	extern cvar_t r_fastsky;
+	if (!skyroom_enabled || r_fastsky.value)
 		return false;
 	for (i=0 ; i<model->numtextures ; i++)
 	{
