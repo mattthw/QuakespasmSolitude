@@ -32,6 +32,8 @@ typedef struct
 	struct client_s	*clients;		// [maxclients]
 	int			serverflags;		// episode completion information
 	qboolean	changelevel_issued;	// cleared when at SV_SpawnServer
+
+	char serverinfo[8192];
 } server_static_t;
 
 //=============================================================================
@@ -183,6 +185,7 @@ typedef struct client_s
 	int lastacksequence;
 	int lastmovemessage;
 
+	char userinfo[1024];	//spike -- for csqc to (ab)use.
 	client_voip_t voip;	//spike -- for voip
 	struct
 	{

@@ -669,8 +669,8 @@ void M_Menu_Setup_f (void)
 	m_entersound = true;
 	Q_strcpy(setup_myname, cl_name.string);
 	Q_strcpy(setup_hostname, hostname.string);
-	setup_top = setup_oldtop = ((int)cl_color.value) >> 4;
-	setup_bottom = setup_oldbottom = ((int)cl_color.value) & 15;
+	setup_top = setup_oldtop = ((int)cl_topcolor.value) >> 4;
+	setup_bottom = setup_oldbottom = ((int)cl_bottomcolor.value) & 15;
 
 	IN_UpdateGrabs();
 }

@@ -26,6 +26,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static cvar_t	*cvar_vars;
 static char	cvar_null_string[] = "";
 
+static struct cvaralias_s
+{	//spike -- tbh mostly for _cl_name -> name, but useful for future reasons too. can't handle different values though.
+	const char			*name;
+	cvar_t				*cvar;
+	struct cvaralias_s	*next;
+} *cvar_aliases;
+
 //==============================================================================
 //
 //  USER COMMANDS
@@ -284,11 +291,18 @@ Cvar_FindVar
 cvar_t *Cvar_FindVar (const char *var_name)
 {
 	cvar_t	*var;
+	struct cvaralias_s	*varalias;
 
 	for (var = cvar_vars ; var ; var = var->next)
 	{
 		if (!Q_strcmp(var_name, var->name))
 			return var;
+	}
+
+	for (varalias = cvar_aliases ; varalias ; varalias = varalias->next)
+	{
+		if (!Q_strcmp(var_name, varalias->name))
+			return varalias->cvar;
 	}
 
 	return NULL;
@@ -387,6 +401,7 @@ Cvar_CompleteVariable
 const char *Cvar_CompleteVariable (const char *partial)
 {
 	cvar_t	*cvar;
+	struct cvaralias_s	*cvaralias;
 	int	len;
 
 	len = Q_strlen(partial);
@@ -398,6 +413,12 @@ const char *Cvar_CompleteVariable (const char *partial)
 	{
 		if (!Q_strncmp(partial, cvar->name, len))
 			return cvar->name;
+	}
+
+	for (cvaralias = cvar_aliases ; cvaralias ; cvaralias = cvaralias->next)
+	{
+		if (!Q_strncmp(partial, cvaralias->name, len))
+			return cvaralias->name;
 	}
 
 	return NULL;
@@ -464,6 +485,35 @@ void Cvar_SetQuick (cvar_t *var, const char *value)
 		var->callback (var);
 	if (var->flags & CVAR_AUTOCVAR)
 		PR_AutoCvarChanged(var);
+	if (var->flags & CVAR_SERVERINFO)
+	{	//replicate the cvar change into the serverinfo string and let clients know.
+		client_t *cl;
+		Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo), var->name, var->string);
+		for (cl = svs.clients; cl < svs.clients+svs.maxclients; cl++)
+		{
+			if (cl->active)
+			{
+				MSG_WriteByte (&cl->message, svc_stufftext);
+				MSG_WriteString (&cl->message, va("%s \"%s\" \"%s\"\n", "//svi", var->name, var->string));
+			}
+		}
+	}
+	if (var->flags & CVAR_USERINFO)
+	{	//replicate the cvar change into the userinfo.
+		Info_SetKey(cls.userinfo, sizeof(cls.userinfo), var->name, var->string);
+
+		//let the server know.
+		if (cls.state == ca_connected)
+		{
+			MSG_WriteByte (&cls.message, clc_stringcmd);
+			if (var == &cl_name)	//some hacks for legacy settings.
+				MSG_WriteString(&cls.message,va("name \"%s\"\n", var->string));
+			else if (var == &cl_topcolor || var == &cl_bottomcolor)
+				MSG_WriteString(&cls.message,va("color \"%s\" \"%s\"\n", cl_topcolor.string, cl_bottomcolor.string));
+			else
+				MSG_WriteString(&cls.message,va("setinfo \"%s\" \"%s\"\n", var->name, var->string));
+		}
+	}
 }
 
 void Cvar_SetValueQuick (cvar_t *var, const float value)
@@ -558,6 +608,44 @@ void Cvar_SetValueROM (const char *var_name, const float value)
 		Cvar_SetValueQuick (var, value);
 		var->flags |= CVAR_ROM;
 	}
+}
+
+/*
+============
+Cvar_RegisterAlias
+
+Adds a special alias for an existing cvar. this allows for cfg/gamecode compat with other engines.
+============
+*/
+void Cvar_RegisterAlias(cvar_t *variable, const char *newname)
+{
+	struct cvaralias_s *alias;
+	//no dupes/conflicts please.
+	if (Cvar_FindVar (newname))
+	{
+		Con_Printf ("Can't register variable %s, already defined\n", newname);
+		return;
+	}
+	if (Cvar_FindVar (variable->name) != variable)
+	{
+		Con_Printf ("Can't register pseudo-variable %s, variable %s not registered properly\n", newname, variable->name);
+		return;
+	}
+	if (Cmd_Exists (newname))
+	{
+		Con_Printf ("Cvar_RegisterAlias: %s is a command\n", newname);
+		return;
+	}
+
+	//create it
+	alias = Z_Malloc(sizeof(*alias) + strlen(newname)+1);
+	alias->cvar = variable;
+	alias->name = (char*)(alias+1);
+	strcpy((char*)(alias+1), newname);
+
+	//link it in.
+	alias->next = cvar_aliases;
+	cvar_aliases = alias;
 }
 
 /*

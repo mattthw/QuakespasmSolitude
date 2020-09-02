@@ -432,7 +432,7 @@ void Host_Status_f (void)
 	qhostaddr_t addresses[32];
 	int numaddresses;
 
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		if (!sv.active)
 		{
@@ -504,7 +504,7 @@ void Host_Status_f (void)
 		else
 			hours = 0;
 		print_fn ("#%-2u %-16.16s  %3i  %2i:%02i:%02i\n", j+1, client->name, (int)client->edict->v.frags, hours, minutes, seconds);
-		if (cmd_source == src_command)
+		if (cmd_source != src_client)
 			print_fn ("   %s\n", client->netconnection?NET_QSocketGetTrueAddressString(client->netconnection):"botclient");
 		else
 			print_fn ("   %s\n", client->netconnection?NET_QSocketGetMaskedAddressString(client->netconnection):"botclient");
@@ -520,7 +520,7 @@ Sets client to godmode
 */
 void Host_God_f (void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -565,7 +565,7 @@ Host_Notarget_f
 */
 void Host_Notarget_f (void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -612,7 +612,7 @@ Host_Noclip_f
 */
 void Host_Noclip_f (void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -668,7 +668,7 @@ adapted from fteqw, originally by Alex Shadowalker
 */
 void Host_SetPos_f(void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -729,7 +729,7 @@ Sets client to flymode
 */
 void Host_Fly_f (void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -785,7 +785,7 @@ void Host_Ping_f (void)
 	float		total;
 	client_t	*client;
 
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -1476,29 +1476,14 @@ void Host_Name_f (void)
 		q_strlcpy(newName, Cmd_Args(), sizeof(newName));
 	newName[15] = 0;	// client_t structure actually says name[32].
 
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		if (Q_strcmp(cl_name.string, newName) == 0)
 			return;
-		Cvar_Set ("_cl_name", newName);
-		if (cls.state == ca_connected)
-			Cmd_ForwardToServer ();
-		return;
+		Cvar_Set ("name", newName);
 	}
-
-	if (host_client->name[0] && strcmp(host_client->name, "unconnected") )
-	{
-		if (Q_strcmp(host_client->name, newName) != 0)
-			Con_Printf ("%s renamed to %s\n", host_client->name, newName);
-	}
-	Q_strcpy (host_client->name, newName);
-	host_client->edict->v.netname = PR_SetEngineString(host_client->name);
-
-// send notification to all clients
-
-	MSG_WriteByte (&sv.reliable_datagram, svc_updatename);
-	MSG_WriteByte (&sv.reliable_datagram, host_client - svs.clients);
-	MSG_WriteString (&sv.reliable_datagram, host_client->name);
+	else
+		SV_UpdateInfo((host_client-svs.clients)+1, "name", newName);
 }
 
 void Host_Say(qboolean teamonly)
@@ -1600,7 +1585,7 @@ void Host_Tell_f(void)
 	char		text[MAXCMDLINE], *p2;
 	qboolean	quoted;
 
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -1663,48 +1648,34 @@ Host_Color_f
 */
 void Host_Color_f(void)
 {
-	int		top, bottom;
-	int		playercolor;
+	const char *top, *bottom;
 
 	if (Cmd_Argc() == 1)
 	{
-		Con_Printf ("\"color\" is \"%i %i\"\n", ((int)cl_color.value) >> 4, ((int)cl_color.value) & 0x0f);
+		Con_Printf ("\"%s\" is \"%i %i\"\n", Cmd_Argv(0), ((int)cl_topcolor.value), ((int)cl_bottomcolor.value));
 		Con_Printf ("color <0-13> [0-13]\n");
 		return;
 	}
 
 	if (Cmd_Argc() == 2)
-		top = bottom = atoi(Cmd_Argv(1));
+		top = bottom = Cmd_Argv(1);
 	else
 	{
-		top = atoi(Cmd_Argv(1));
-		bottom = atoi(Cmd_Argv(2));
+		top = Cmd_Argv(1);
+		bottom = Cmd_Argv(2);
 	}
 
-	top &= 15;
-	if (top > 13)
-		top = 13;
-	bottom &= 15;
-	if (bottom > 13)
-		bottom = 13;
-
-	playercolor = top*16 + bottom;
-
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
-		Cvar_SetValue ("_cl_color", playercolor);
+		Cvar_Set ("topcolor", top);
+		Cvar_Set ("bottomcolor", bottom);
 		if (cls.state == ca_connected)
 			Cmd_ForwardToServer ();
 		return;
 	}
 
-	host_client->colors = playercolor;
-	host_client->edict->v.team = bottom + 1;
-
-// send notification to all clients
-	MSG_WriteByte (&sv.reliable_datagram, svc_updatecolors);
-	MSG_WriteByte (&sv.reliable_datagram, host_client - svs.clients);
-	MSG_WriteByte (&sv.reliable_datagram, host_client->colors);
+	SV_UpdateInfo((host_client - svs.clients)+1, "topcolor", top);
+	SV_UpdateInfo((host_client - svs.clients)+1, "bottomcolor", bottom);
 }
 
 /*
@@ -1714,7 +1685,7 @@ Host_Kill_f
 */
 void Host_Kill_f (void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -1747,7 +1718,7 @@ void Host_Pause_f (void)
 		return;
 	}
 
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -1783,7 +1754,7 @@ Host_PreSpawn_f
 */
 void Host_PreSpawn_f (void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Con_Printf ("prespawn is not valid from the console\n");
 		return;
@@ -1811,7 +1782,7 @@ void Host_Spawn_f (void)
 	client_t	*client;
 	edict_t	*ent;
 
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Con_Printf ("spawn is not valid from the console\n");
 		return;
@@ -1877,15 +1848,24 @@ void Host_Spawn_f (void)
 	{
 		if (!client->knowntoqc)
 			continue;
-		MSG_WriteByte (&host_client->message, svc_updatename);
-		MSG_WriteByte (&host_client->message, i);
-		MSG_WriteString (&host_client->message, client->name);
+		if (host_client->protocol_pext2 & PEXT2_PREDINFO)
+		{
+			MSG_WriteByte (&host_client->message, svc_stufftext);
+			MSG_WriteString (&host_client->message, va("//fui %i \"%s\"\n", i, client->userinfo));
+		}
+		else
+		{
+			MSG_WriteByte (&host_client->message, svc_updatename);
+			MSG_WriteByte (&host_client->message, i);
+			MSG_WriteString (&host_client->message, client->name);
+			MSG_WriteByte (&host_client->message, svc_updatecolors);
+			MSG_WriteByte (&host_client->message, i);
+			MSG_WriteByte (&host_client->message, client->colors);
+		}
+
 		MSG_WriteByte (&host_client->message, svc_updatefrags);
 		MSG_WriteByte (&host_client->message, i);
 		MSG_WriteShort (&host_client->message, client->old_frags);
-		MSG_WriteByte (&host_client->message, svc_updatecolors);
-		MSG_WriteByte (&host_client->message, i);
-		MSG_WriteByte (&host_client->message, client->colors);
 	}
 
 // send all current light styles
@@ -1954,7 +1934,7 @@ Host_Begin_f
 */
 void Host_Begin_f (void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Con_Printf ("begin is not valid from the console\n");
 		return;
@@ -1981,7 +1961,7 @@ void Host_Kick_f (void)
 	int		i;
 	qboolean	byNumber = false;
 
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		if (!sv.active)
 		{
@@ -2017,7 +1997,7 @@ void Host_Kick_f (void)
 
 	if (i < svs.maxclients)
 	{
-		if (cmd_source == src_command)
+		if (cmd_source != src_client)
 			if (cls.state == ca_dedicated)
 				who = "Console";
 			else
@@ -2071,7 +2051,7 @@ void Host_Give_f (void)
 	int	v;
 	eval_t	*val;
 
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cmd_ForwardToServer ();
 		return;
@@ -2683,6 +2663,134 @@ void Host_DownloadAck(client_t *client)
 	}
 }
 
+static void Info_ClientPrint_Callback(void *ctx, const char *key, const char *val)
+{
+	SV_ClientPrintf("%20s: %s\n", key, val);
+}
+void Host_Serverinfo_f(void)
+{	//serverinfo command
+	if (cmd_source == src_client)
+	{
+		Info_Enumerate(svs.serverinfo, Info_ClientPrint_Callback, NULL);
+		return;
+	}
+	if (Cmd_Argc() != 3)
+	{
+		Con_Printf("Serverinfo:\n");
+		if (cls.state >= ca_connected && cmd_source != src_client)
+			Info_Print(cl.serverinfo);
+		else
+			Info_Print(svs.serverinfo);
+	}
+	else if (cmd_source == src_command)
+	{
+		const char *key = Cmd_Argv(1);
+		const char *val = Cmd_Argv(2);
+		if (*key == '*')
+		{
+			Con_Printf("Refusing to set key \"%s\"\n", key);
+			return;
+		}
+		SV_UpdateInfo(0, key, val);
+	}
+	else
+		Con_Printf("Serverinfo may not be changed here\n");
+}
+
+void Host_Setinfo_f(void)
+{
+	const char *key = Cmd_Argv(1);
+	const char *val = Cmd_Argv(2);
+
+	if (cmd_source == src_client)
+	{	//clc_stringcmd version
+		if (Cmd_Argc() != 3)
+		{
+			SV_ClientPrintf("Your Serverside User Info:\n");
+			Info_Enumerate(host_client->userinfo, Info_ClientPrint_Callback, NULL);
+		}
+		else
+		{
+			if (*key == '*')
+				return;	//users may not change * keys (beyond initial connection anyway).
+			SV_UpdateInfo((host_client - svs.clients)+1, key, val);
+		}
+	}
+	else
+	{	//console version
+		if (Cmd_Argc() != 3)
+		{
+			Con_Printf("User Info:\n");
+			Info_Print(cls.userinfo);
+		}
+		else
+		{
+			cvar_t *var = Cvar_FindVar(key);
+			if (var && var->flags & CVAR_USERINFO)
+				Cvar_Set(key, val);
+			else
+			{
+				Info_SetKey(cls.userinfo, sizeof(cls.userinfo), key, val);
+				if (cls.state == ca_connected)
+					Cmd_ForwardToServer();
+			}
+		}
+	}
+}
+void Host_User_f(void)
+{
+	/*if (sv.active)
+	{
+		int i;
+		if (Cmd_Argc() == 2)
+		{
+			i = atoi(Cmd_Argv(1));
+
+			if (i >= cl.maxclients)
+				return;	//not a valid slot.
+
+			Con_Printf("User %i (%s):\n", i, svs.clients[i].name);
+			Info_Print(svs.clients[i].userinfo);
+		}
+		else
+		{
+			for (i = 0; i < svs.maxclients; i++)
+			{
+				if (*svs.clients[i].name)
+				{
+					Con_Printf("User %i (%s):\n", i, svs.clients[i].name);
+					Info_Print(svs.clients[i].userinfo);
+				}
+			}
+		}
+	}
+	else*/ if (cls.state == ca_connected)
+	{
+		int i;
+		if (Cmd_Argc() == 2)
+		{
+			i = atoi(Cmd_Argv(1));
+
+			if (i >= cl.maxclients)
+				return;	//not a valid slot.
+
+			Con_Printf("User %i (%s):\n", i, cl.scores[i].name);
+			Info_Print(cl.scores[i].userinfo);
+		}
+		else
+		{
+			for (i = 0; i < cl.maxclients; i++)
+			{
+				if (*cl.scores[i].name)
+				{
+					Con_Printf("User %i (%s):\n", i, cl.scores[i].name);
+					Info_Print(cl.scores[i].userinfo);
+				}
+			}
+		}
+	}
+}
+
 //=============================================================================
 
 /*
@@ -2697,6 +2805,10 @@ void Host_InitCommands (void)
 	Cmd_AddCommand ("games", Host_Mods_f); // as an alias to "mods" -- S.A. / QuakeSpasm
 	Cmd_AddCommand ("mapname", Host_Mapname_f); //johnfitz
 	Cmd_AddCommand ("randmap", Host_Randmap_f); //ericw
+
+	Cmd_AddCommand_ClientCommand ("serverinfo", Host_Serverinfo_f); //spike
+	Cmd_AddCommand_ClientCommand ("setinfo", Host_Setinfo_f); //spike
+	Cmd_AddCommand ("user", Host_User_f); //spike
 
 	Cmd_AddCommand_ClientCommand ("status", Host_Status_f);
 	Cmd_AddCommand ("quit", Host_Quit_f);

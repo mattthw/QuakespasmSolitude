@@ -644,6 +644,156 @@ int wildcmp(const char *wild, const char *string)
 	return !*wild;
 }
 
+void Info_RemoveKey(char *info, const char *key)
+{	//only shrinks, so no need for max size.
+	size_t keylen = strlen(key);
+
+	while(*info)
+	{
+		char *l = info;
+		if (*info++ != '\\')
+			break;	//error / end-of-string
+
+		if (!strncmp(info, key, keylen) && info[keylen] == '\\')
+		{
+			//skip the key name
+			info += keylen+1;
+			//this is the old value for the key. skip over it
+			while (*info && *info != '\\')
+				info++;
+
+			//okay, we found it. strip it out now.
+			memmove(l, info, strlen(info)+1);
+			return;
+		}
+		else
+		{
+			//skip the key
+			while (*info && *info != '\\')
+				info++;
+
+			//validate that its a value now
+			if (*info++ != '\\')
+				break;	//error
+			//skip the value
+			while (*info && *info != '\\')
+				info++;
+		}
+	}
+}
+void Info_SetKey(char *info, size_t infosize, const char *key, const char *val)
+{
+	size_t keylen = strlen(key);
+	size_t vallen = strlen(val);
+
+	Info_RemoveKey(info, key);
+
+	if (vallen)
+	{
+		char *o = info + strlen(info);
+		char *e = info + infosize-1;
+
+		if (!*key || strchr(key, '\\') || strchr(val, '\\'))
+			Con_Warning("Info_SetKey(%s): invalid key/value\n", key);
+		else if (o + 2 + keylen + vallen >= e)
+			Con_Warning("Info_SetKey(%s): length exceeds max\n", key);
+		else
+		{
+			*o++ = '\\';
+			memcpy(o, key, keylen);
+			o += keylen;
+			*o++ = '\\';
+			memcpy(o, val, vallen);
+			o += vallen;
+
+			*o = 0;
+		}
+	}
+}
+const char *Info_GetKey(const char *info, const char *key, char *out, size_t outsize)
+{
+	const char *r = out;
+	size_t keylen = strlen(key);
+
+	outsize--;
+
+	while(*info)
+	{
+		if (*info++ != '\\')
+			break;	//error / end-of-string
+
+		if (!strncmp(info, key, keylen) && info[keylen] == '\\')
+		{
+			//skip the key name
+			info += keylen+1;
+			//this is the value for the key. copy it out
+			while (*info && *info != '\\' && outsize-->0)
+				*out++ = *info++;
+			break;
+		}
+		else
+		{
+			//skip the key
+			while (*info && *info != '\\')
+				info++;
+
+			//validate that its a value now
+			if (*info++ != '\\')
+				break;	//error
+			//skip the value
+			while (*info && *info != '\\')
+				info++;
+		}
+	}
+	*out = 0;
+	return r;
+}
+
+void Info_Enumerate(const char *info, void(*cb)(void *ctx, const char *key, const char *value), void *cbctx)
+{
+	char key[1024];
+	char val[1024];
+	size_t kl, vl;
+	while(*info)
+	{
+		kl=vl=0;
+		if (*info++ != '\\')
+			break;	//error / end-of-string
+
+		//skip the key
+		while (*info && *info != '\\')
+		{
+			if (kl < sizeof(key)-1)
+				key[kl++] = *info;
+			info++;
+		}
+
+		//validate that its a value now
+		if (*info++ != '\\')
+			break;	//error
+		//skip the value
+		while (*info && *info != '\\')
+		{
+			if (vl < sizeof(val)-1)
+				val[vl++] = *info;
+			info++;
+		}
+
+		key[kl] = 0;
+		val[vl] = 0;
+		cb(cbctx, key, val);
+	}
+}
+static void Info_Print_Callback(void *ctx, const char *key, const char *val)
+{
+	Con_Printf("%20s: %s\n", key, val);
+}
+void Info_Print(const char *info)
+{
+	Info_Enumerate(info, Info_Print_Callback, NULL);
+}
+
+
 /*
 ============================================================================
 

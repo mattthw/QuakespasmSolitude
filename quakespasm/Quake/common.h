@@ -142,6 +142,11 @@ int	Q_atoi (const char *str);
 float Q_atof (const char *str);
 void Q_ftoa(char *str, float in);
 int wildcmp(const char *wild, const char *string);
+void Info_RemoveKey(char *info, const char *key);
+void Info_SetKey(char *info, size_t infosize, const char *key, const char *val);
+const char *Info_GetKey(const char *info, const char *key, char *out, size_t outsize);
+void Info_Print(const char *info);
+void Info_Enumerate(const char *info, void(*cb)(void *ctx, const char *key, const char *value), void *cbctx);
 
 
 #include "strl_fn.h"

@@ -41,6 +41,8 @@ typedef struct
 	int		colors;			// two 4 bit fields
 	int		ping;
 	byte	translations[VID_GRADES*256];
+
+	char	userinfo[8192];
 } scoreboard_t;
 
 typedef struct
@@ -145,6 +147,7 @@ typedef struct
 		float	starttime;
 	} download;
 
+	char userinfo[8192];
 //Spike -- menuqc stuff.
 	qcvm_t menu_qcvm;
 } client_static_t;
@@ -294,6 +297,8 @@ typedef struct
 
 	qcvm_t	qcvm;	//for csqc.
 	float	csqc_sensitivity;	//scaler for sensitivity
+
+	char serverinfo[8192];	// \key\value infostring data.
 } client_state_t;
 
 
@@ -301,7 +306,7 @@ typedef struct
 // cvars
 //
 extern	cvar_t	cl_name;
-extern	cvar_t	cl_color;
+extern	cvar_t	cl_topcolor, cl_bottomcolor;
 
 extern	cvar_t	cl_upspeed;
 extern	cvar_t	cl_forwardspeed;
@@ -368,6 +373,8 @@ void CL_Signon4 (void);
 void CL_Disconnect (void);
 void CL_Disconnect_f (void);
 void CL_NextDemo (void);
+
+void SV_UpdateInfo(int edict, const char *keyname, const char *value);
 
 //
 // cl_input

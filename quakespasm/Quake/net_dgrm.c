@@ -102,7 +102,7 @@ static void NET_Ban_f (void)
 	char	maskStr [32];
 	void	(*print_fn)(const char *fmt, ...) FUNCP_PRINTF(1,2);
 
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		if (!sv.active)
 		{

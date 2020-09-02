@@ -2177,16 +2177,9 @@ static void PF_setcolors(void)
 		Con_Printf ("tried to setcolor a non-client\n");
 		return;
 	}
-	//FIXME: should we allow this for inactive players?
 
-//update it
-	svs.clients[i].colors = newcol;
-	svs.clients[i].edict->v.team = (newcol&15) + 1;
-
-// send notification to all clients
-	MSG_WriteByte (&sv.reliable_datagram, svc_updatecolors);
-	MSG_WriteByte (&sv.reliable_datagram, i);
-	MSG_WriteByte (&sv.reliable_datagram, newcol);
+	SV_UpdateInfo(i+1, "topcolor",    va("%i", (newcol>>4)&0xf));
+	SV_UpdateInfo(i+1, "bottomcolor", va("%i", (newcol>>0)&0xf));
 }
 static void PF_clientcommand(void)
 {
@@ -3927,9 +3920,9 @@ static void PF_infokey_internal(qboolean returnfloat)
 	unsigned int ent = G_EDICTNUM(OFS_PARM0);
 	const char *key = G_STRING(OFS_PARM1);
 	const char *r;
-	char buf[64];
+	char buf[1024];
 	if (!ent)
-	{	//nq doesn't really do serverinfo. it just has some cvars.
+	{
 		if (!strcmp(key, "*version"))
 		{
 			q_snprintf(buf, sizeof(buf), ENGINE_NAME_AND_VER);
@@ -3937,25 +3930,23 @@ static void PF_infokey_internal(qboolean returnfloat)
 		}
 		else
 		{
-			cvar_t *var = Cvar_FindVar(key);
-			if (var && (var->flags & CVAR_SERVERINFO))
-				r = var->string;
-			else
+			r = Info_GetKey(svs.serverinfo, key, buf, sizeof(buf));
+			if (!*r)
 				r = NULL;
 		}
 	}
 	else if (ent <= (unsigned int)svs.maxclients && svs.clients[ent-1].active)
 	{
-		ent--;
+		client_t *cl = &svs.clients[ent-1];
 		r = buf;
 		if (!strcmp(key, "ip"))
-			r = NET_QSocketGetTrueAddressString(svs.clients[ent].netconnection);
+			r = NET_QSocketGetTrueAddressString(cl->netconnection);
 		else if (!strcmp(key, "ping"))
 		{
 			float total = 0;
 			unsigned int j;
 			for (j = 0; j < NUM_PING_TIMES; j++)
-				total+=svs.clients[ent].ping_times[j];
+				total+=cl->ping_times[j];
 			total /= NUM_PING_TIMES;
 			q_snprintf(buf, sizeof(buf), "%f", total);
 		}
@@ -3978,25 +3969,26 @@ static void PF_infokey_internal(qboolean returnfloat)
 			}
 		}
 		else if (!strcmp(key, "name"))
-			r = svs.clients[ent].name;
+			r = cl->name;
 		else if (!strcmp(key, "topcolor"))
-			q_snprintf(buf, sizeof(buf), "%u", svs.clients[ent].colors>>4);
+			q_snprintf(buf, sizeof(buf), "%u", cl->colors>>4);
 		else if (!strcmp(key, "bottomcolor"))
-			q_snprintf(buf, sizeof(buf), "%u", svs.clients[ent].colors&15);
+			q_snprintf(buf, sizeof(buf), "%u", cl->colors&15);
 		else if (!strcmp(key, "team"))	//nq doesn't really do teams. qw does though. yay compat?
-			q_snprintf(buf, sizeof(buf), "t%u", (svs.clients[ent].colors&15)+1);
+			q_snprintf(buf, sizeof(buf), "t%u", (cl->colors&15)+1);
 		else if (!strcmp(key, "*VIP"))
 			r = "";
 		else if (!strcmp(key, "*spectator"))
 			r = "";
-		else if (!strcmp(key, "skin"))
-			r = "";
 		else if (!strcmp(key, "csqcactive"))
 			r = "";
-		else if (!strcmp(key, "rate"))
-			r = "0";
 		else
+		{
+			r = Info_GetKey(cl->userinfo, key, buf, sizeof(buf));
+			if (!*r)
+				r = NULL;
 			r = NULL;
+		}
 	}
 	else r = NULL;
 
@@ -4092,11 +4084,12 @@ static void SV_Multicast(multicast_t to, float *org, int msg_entity, unsigned in
 		break;
 	case MULTICAST_ALL_R:
 	case MULTICAST_ALL_U:
-		PF_multicast_internal(to==MULTICAST_PHS_R, NULL, requireext2);
+		PF_multicast_internal(to==MULTICAST_ALL_R, NULL, requireext2);
 		break;
 	case MULTICAST_PHS_R:
 	case MULTICAST_PHS_U:
-		PF_multicast_internal(to==MULTICAST_PHS_R, NULL/*Mod_LeafPHS(Mod_PointInLeaf(org, qcvm->worldmodel), qcvm->worldmodel)*/, requireext2);	//we don't support phs, that would require lots of pvs decompression+merging stuff, and many q1bsps have a LOT of leafs.
+		//we don't support phs, that would require lots of pvs decompression+merging stuff, and many q1bsps have a LOT of leafs.
+		PF_multicast_internal(to==MULTICAST_PHS_R, NULL/*Mod_LeafPHS(Mod_PointInLeaf(org, qcvm->worldmodel), qcvm->worldmodel)*/, requireext2);
 		break;
 	case MULTICAST_PVS_R:
 	case MULTICAST_PVS_U:
@@ -5180,14 +5173,14 @@ static void PF_cl_setsensitivity(void)
 }
 void PF_cl_playerkey_internal(int player, const char *key, qboolean retfloat)
 {
-	char buf[64];
-	char *ret = buf;
+	char buf[1024];
+	const char *ret = buf;
 	extern int	fragsort[MAX_SCOREBOARD];
 	extern int	scoreboardlines;
 	extern int	Sbar_ColorForMap (int m);
 	if (player < 0 && player >= -scoreboardlines)
 		player = fragsort[-1-player];
-	if (player < 0 || player > MAX_SCOREBOARD)
+	if (player < 0 || player >= MAX_SCOREBOARD)
 		ret = NULL;
 	else if (!strcmp(key, "viewentity"))
 		q_snprintf(buf, sizeof(buf), "%i", player+1);	//hack for DP compat. always returned even when the slot is empty (so long as its valid).
@@ -5218,7 +5211,7 @@ void PF_cl_playerkey_internal(int player, const char *key, qboolean retfloat)
 	else if (!strcmp(key, "bottomcolor"))
 		q_snprintf(buf, sizeof(buf), "%i", cl.scores[player].colors&0xf);
 	else if (!strcmp(key, "team"))	//quakeworld uses team infokeys to decide teams (instead of colours). but NQ never did, so that's fun. Lets allow mods to use either so that they can favour QW and let the engine hide differences .
-		q_snprintf(buf, sizeof(buf), "%i", cl.scores[player].colors&0xf);
+		q_snprintf(buf, sizeof(buf), "%i", (cl.scores[player].colors&0xf)+1);
 	else if (!strcmp(key, "userid"))
 		ret = NULL;	//unknown
 //	else if (!strcmp(key, "vignored"))	//checks to see this player's voicechat is ignored.
@@ -5232,9 +5225,12 @@ void PF_cl_playerkey_internal(int player, const char *key, qboolean retfloat)
 		else
 			ret = NULL;
 	}
-
 	else
-		ret = NULL;	//no idea.
+	{
+		ret = Info_GetKey(cl.scores[player].userinfo, key, buf, sizeof(buf));
+		if (!*ret)
+			ret = NULL;
+	}
 
 	if (retfloat)
 		G_FLOAT(OFS_RETURN) = ret?atof(ret):0;
@@ -5274,6 +5270,7 @@ static void PF_cl_registercommand(void)
 }
 void PF_cl_serverkey_internal(const char *key, qboolean retfloat)
 {
+	char buf[1024];
 	const char *ret;
 	if (!strcmp(key, "constate"))
 	{
@@ -5286,8 +5283,7 @@ void PF_cl_serverkey_internal(const char *key, qboolean retfloat)
 	}
 	else
 	{
-		//FIXME
-		ret = "";
+		ret = Info_GetKey(cl.serverinfo, key, buf, sizeof(buf));
 	}
 
 	if (retfloat)
@@ -5304,6 +5300,14 @@ static void PF_cl_serverkey_f(void)
 {
 	const char *keyname = G_STRING(OFS_PARM0);
 	PF_cl_serverkey_internal(keyname, true);
+}
+
+static void PF_sv_forceinfokey(void)
+{
+	int edict = G_EDICTNUM(OFS_PARM0);
+	const char *keyname = G_STRING(OFS_PARM1);
+	const char *value = G_STRING(OFS_PARM2);
+	SV_UpdateInfo(edict, keyname, value);
 }
 
 static void PF_cl_readbyte(void)
@@ -6070,7 +6074,7 @@ static struct
 //	{"fork",			PF_Fork,			PF_Fork,			210,	PF_NoMenu, D("float(optional float sleeptime)", "When called, this builtin simply returns. Twice.\nThe current 'thread' will return instantly with a return value of 0. The new 'thread' will return after sleeptime seconds with a return value of 1. See documentation for the 'sleep' builtin for limitations/requirements concerning the new thread. Note that QC should probably call abort in the new thread, as otherwise the function will return to the calling qc function twice also.")},
 //	{"abort",			PF_Abort,			PF_Abort,			211,	PF_NoMenu, D("void(optional __variant ret)", "QC execution is aborted. Parent QC functions on the stack will be skipped, effectively this forces all QC functions to 'return ret' until execution returns to the engine. If ret is ommited, it is assumed to be 0.")},
 //	{"sleep",			PF_Sleep,			PF_Sleep,			212,	PF_NoMenu, D("void(float sleeptime)", "Suspends the current QC execution thread for 'sleeptime' seconds.\nOther QC functions can and will be executed in the interim, including changing globals and field state (but not simultaneously).\nThe self and other globals will be restored when the thread wakes up (or set to world if they were removed since the thread started sleeping). Locals will be preserved, but will not be protected from remove calls.\nIf the engine is expecting the QC to return a value (even in the parent/root function), the value 0 shall be used instead of waiting for the qc to resume.")},
-//	{"forceinfokey",	PF_ForceInfoKey,	PF_NoCSQC,			213,	PF_NoMenu, D("void(entity player, string key, string value)", "Directly changes a user's info without pinging off the client. Also allows explicitly setting * keys, including *spectator. Does not affect the user's config or other servers.")},
+	{"forceinfokey",	PF_sv_forceinfokey,	PF_NoCSQC,			213,	PF_NoMenu, D("void(entity player, string key, string value)", "Directly changes a user's info without pinging off the client. Also allows explicitly setting * keys, including *spectator. Does not affect the user's config or other servers.")},
 //	{"chat",			PF_chat,			PF_NoCSQC,			214,	PF_NoMenu, "void(string filename, float starttag, entity edict)"}, //(FTE_NPCCHAT)
 //	{"particle2",		PF_sv_particle2,	PF_cl_particle2,	215,	PF_NoMenu, "void(vector org, vector dmin, vector dmax, float colour, float effect, float count)"},
 //	{"particle3",		PF_sv_particle3,	PF_cl_particle3,	216,	PF_NoMenu, "void(vector org, vector box, float colour, float effect, float count)"},

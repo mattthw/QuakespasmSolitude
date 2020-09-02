@@ -92,6 +92,7 @@ typedef struct cvar_s
 } cvar_t;
 
 void	Cvar_RegisterVariable (cvar_t *variable);
+void	Cvar_RegisterAlias (cvar_t *variable, const char *altname);
 // registers a cvar that already has the name, string, and optionally
 // the archive elements set.
 

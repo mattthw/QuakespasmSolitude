@@ -70,11 +70,11 @@ cvar_t	serverprofile = {"serverprofile","0",CVAR_NONE};
 cvar_t	fraglimit = {"fraglimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	timelimit = {"timelimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	teamplay = {"teamplay","0",CVAR_NOTIFY|CVAR_SERVERINFO};
-cvar_t	samelevel = {"samelevel","0",CVAR_NONE};
+cvar_t	samelevel = {"samelevel","0",CVAR_SERVERINFO};
 cvar_t	noexit = {"noexit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
-cvar_t	skill = {"skill","1",CVAR_NONE};			// 0 - 3
-cvar_t	deathmatch = {"deathmatch","0",CVAR_NONE};	// 0, 1, or 2
-cvar_t	coop = {"coop","0",CVAR_NONE};			// 0 or 1
+cvar_t	skill = {"skill","1",CVAR_SERVERINFO};			// 0 - 3
+cvar_t	deathmatch = {"deathmatch","0",CVAR_SERVERINFO};	// 0, 1, or 2
+cvar_t	coop = {"coop","0",CVAR_SERVERINFO};			// 0 or 1
 
 cvar_t	pausable = {"pausable","1",CVAR_NONE};
 
@@ -489,15 +489,23 @@ void SV_DropClient (qboolean crash)
 	{
 		if (!client->knowntoqc)
 			continue;
-		MSG_WriteByte (&client->message, svc_updatename);
-		MSG_WriteByte (&client->message, host_client - svs.clients);
-		MSG_WriteString (&client->message, "");
+		if (host_client->protocol_pext2 & PEXT2_REPLACEMENTDELTAS)
+		{
+			MSG_WriteByte (&client->message, svc_stufftext);
+			MSG_WriteString (&client->message, va("//fui %u \"\"\n", (unsigned)(host_client - svs.clients)));
+		}
+		else
+		{
+			MSG_WriteByte (&client->message, svc_updatename);
+			MSG_WriteByte (&client->message, host_client - svs.clients);
+			MSG_WriteString (&client->message, "");
+			MSG_WriteByte (&client->message, svc_updatecolors);
+			MSG_WriteByte (&client->message, host_client - svs.clients);
+			MSG_WriteByte (&client->message, 0);
+		}
 		MSG_WriteByte (&client->message, svc_updatefrags);
 		MSG_WriteByte (&client->message, host_client - svs.clients);
 		MSG_WriteShort (&client->message, 0);
-		MSG_WriteByte (&client->message, svc_updatecolors);
-		MSG_WriteByte (&client->message, host_client - svs.clients);
-		MSG_WriteByte (&client->message, 0);
 	}
 }
 

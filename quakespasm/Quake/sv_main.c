@@ -1675,6 +1675,15 @@ retry:
 	MSG_WriteByte (&client->message, 0);
 	//johnfitz
 
+	if (svs.serverinfo)
+	{
+		const char *pre = "//fullserverinfo \"";
+		MSG_WriteByte (&client->message, svc_stufftext);
+		SZ_Write (&client->message, pre, Q_strlen(pre));
+		SZ_Write (&client->message, svs.serverinfo, Q_strlen(svs.serverinfo));
+		MSG_WriteString(&client->message, "\"\n");
+	}
+
 // send music
 	MSG_WriteByte (&client->message, svc_cdtrack);
 	MSG_WriteByte (&client->message, qcvm->edicts->v.sounds);
@@ -1746,7 +1755,7 @@ retry:
 void SV_Pext_f(void)
 {
 	//this only makes sense on the server. the clientside part only takes the form of 'cmd pext', for compat with clients that don't support this.
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		if (!cls.state)
 		{
