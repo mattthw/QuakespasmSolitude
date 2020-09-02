@@ -32,8 +32,6 @@ ALIAS MODEL DISPLAY LIST GENERATION
 =================================================================
 */
 
-#define countof(x) (sizeof(x)/sizeof((x)[0]))
-
 /*
 ================
 GL_MakeAliasModelDisplayLists

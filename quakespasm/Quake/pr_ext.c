@@ -27,7 +27,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "q_ctype.h"
 
-#define countof(x) (sizeof(x)/sizeof((x)[0]))
+static float PR_GetVMScale(void)
+{	//sigh, this is horrible (divides glwidth)
+	float s;
+	if (qcvm == &cls.menu_qcvm)
+	{
+		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
+		s = CLAMP (1.0, scr_menuscale.value, s);
+	}
+	else
+		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+	return s;
+}
 
 //there's a few different aproaches to tempstrings...
 //the lame way is to just have a single one (vanilla).
@@ -4856,14 +4867,7 @@ static void PF_cl_stringwidth(void)
 
 static void PF_cl_drawsetclip(void)
 {
-	float s;
-	if (qcvm == &cls.menu_qcvm)
-	{
-		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
-		s = CLAMP (1.0, scr_menuscale.value, s);
-	}
-	else
-		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+	float s = PR_GetVMScale();
 
 	float x = G_FLOAT(OFS_PARM0)*s;
 	float y = G_FLOAT(OFS_PARM1)*s;
@@ -5430,15 +5434,7 @@ static void PF_m_getkeydest(void)
 }
 static void PF_m_getmousepos(void)
 {
-	float s;
-	if (qcvm == &cls.menu_qcvm)
-	{
-		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
-		s = CLAMP (1.0, scr_menuscale.value, s);
-	}
-	else
-		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
-
+	float s = PR_GetVMScale();
 	G_FLOAT(OFS_RETURN+0) = vid.cursorpos[0]/s;
 	G_FLOAT(OFS_RETURN+1) = vid.cursorpos[1]/s;
 	G_FLOAT(OFS_RETURN+2) = 0;
@@ -5947,14 +5943,7 @@ void R_RenderScene (void);
 float CalcFovy (float fov_x, float width, float height);
 static void PF_m_renderscene(void)
 {
-	float s;
-	if (qcvm == &cls.menu_qcvm)
-	{
-		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
-		s = CLAMP (1.0, scr_menuscale.value, s);
-	}
-	else
-		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+	float s = PR_GetVMScale();
 
 	VectorCopy(viewprops.origin, r_refdef.vieworg);
 	VectorCopy(viewprops.angles, r_refdef.viewangles);
