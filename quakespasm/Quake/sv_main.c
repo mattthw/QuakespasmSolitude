@@ -1628,7 +1628,7 @@ void SV_SendServerinfo (client_t *client)
 retry:
 	MSG_WriteByte (&client->message, svc_print);
 //	sprintf (message, "%c\nFITZQUAKE %1.2f SERVER (%i CRC)\n", 2, FITZQUAKE_VERSION, pr_crc); //johnfitz -- include fitzquake version
-	sprintf (message, "%c\n"ENGINE_NAME_AND_VER" Server (%i CRC)\n", 2, qcvm->crc); //spike -- quakespasm has moved on, and has its own server capabilities now. Advertising = good, right?
+	sprintf (message, "%c\n"ENGINE_NAME_AND_VER" Server (%i CRC)\n", 2, qcvm->progscrc); //spike -- quakespasm has moved on, and has its own server capabilities now. Advertising = good, right?
 	MSG_WriteString (&client->message,message);
 
 //	lack of serverinfo means any csqc info might as well be sent the lame dp way
@@ -3040,6 +3040,7 @@ void SV_SpawnServer (const char *server)
 	static char	dummy[8] = { 0,0,0,0,0,0,0,0 };
 	edict_t		*ent;
 	int			i;
+	qcvm_t *vm = qcvm;
 
 	// let's not have any servers with no name
 	if (hostname.string[0] == 0)
@@ -3049,15 +3050,13 @@ void SV_SpawnServer (const char *server)
 	Con_DPrintf ("SpawnServer: %s\n",server);
 	svs.changelevel_issued = false;		// now safe to issue another
 
+	PR_SwitchQCVM(NULL);
+
 //
 // tell all connected clients that we are going to a new level
 //
 	if (sv.active)
-	{
-		PR_SwitchQCVM(NULL);
 		SV_SendReconnect ();
-		PR_SwitchQCVM(&sv.qcvm);
-	}
 
 //
 // make cvars consistant
@@ -3093,6 +3092,22 @@ void SV_SpawnServer (const char *server)
 	}
 	else sv.protocolflags = 0;
 
+	{	//update the serverinfo so that clients can know which csprogs they're allowed to use.
+		void *csprogs = (void *)COM_LoadMallocFile("csprogs.dat", NULL);
+		if (csprogs)
+		{
+			Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo), "*csprogs", va("%#x", Com_BlockChecksum(csprogs, com_filesize)));
+			Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo), "*csprogssize", va("%#x", com_filesize));
+			free(csprogs);
+		}
+		else
+		{
+			Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo), "*csprogs", "");
+			Info_SetKey(svs.serverinfo, sizeof(svs.serverinfo), "*csprogssize", "");
+		}
+	}
+
+	PR_SwitchQCVM(vm);
 // load progs to get entity field count
 	PR_LoadProgs ("progs.dat", true, PROGHEADER_CRC, pr_ssqcbuiltins, pr_ssqcnumbuiltins);
 

@@ -221,6 +221,7 @@ typedef struct
 // information that is static for the entire time connected to a server
 //
 	struct qmodel_s		*model_precache[MAX_MODELS];
+	struct qmodel_s		*model_precache_csqc[MAX_MODELS];
 	struct sfx_s		*sound_precache[MAX_SOUNDS];
 
 	char		mapname[128];
@@ -291,6 +292,7 @@ typedef struct
 	int		model_count;
 	int		model_download;
 	char	model_name[MAX_MODELS][MAX_QPATH];
+	char	model_name_csqc[MAX_MODELS][MAX_QPATH];	//negative indexes in the csqc are csqc ones.
 	int		sound_count;
 	int		sound_download;
 	char	sound_name[MAX_SOUNDS][MAX_QPATH];

@@ -1878,6 +1878,21 @@ static void PF_cl_precache_sound (void)
 	S_PrecacheSound(s);
 }
 
+qmodel_t *PR_CSQC_GetModel(int idx)
+{
+	if (idx < 0)
+	{
+		idx = -idx;
+		if (idx < MAX_MODELS)
+			return cl.model_precache_csqc[idx];
+	}
+	else
+	{
+		if (idx < MAX_MODELS)
+			return cl.model_precache[idx];
+	}
+	return NULL;
+}
 int CL_Precache_Model(const char *name)
 {
 	int		i;
@@ -1892,37 +1907,43 @@ int CL_Precache_Model(const char *name)
 		if (!strcmp(cl.model_name[i], name))
 			return i;
 	}
+
+	//check if the client precached one, and if not then do it.
+	for (i = 1; i < MAX_MODELS; i++)
+	{
+		if (!*cl.model_name_csqc[i])
+			break;	//no more
+		if (!strcmp(cl.model_name_csqc[i], name))
+			return -i;
+	}
+
+	if (i < MAX_MODELS && strlen(name) < sizeof(cl.model_name_csqc[i]))
+	{
+		strcpy(cl.model_name_csqc[i], name);
+		cl.model_precache_csqc[i] = Mod_ForName (name, false);
+		if (cl.model_precache_csqc[i])
+			GL_BuildModel(cl.model_precache_csqc[i]);
+		return -i;
+	}
+
 	PR_RunError ("CL_Precache_Model: implementme");
 	return 0;
 }
 static void PF_cl_precache_model (void)
 {
-	const char	*s;
-	int		i;
-
-	s = G_STRING(OFS_PARM0);
+	const char *s = G_STRING(OFS_PARM0);
 	G_INT(OFS_RETURN) = G_INT(OFS_PARM0);
 	PR_CheckEmptyString (s);
-
-	//if the server precached the model then we don't need to do anything.
-	for (i = 1; i < MAX_MODELS; i++)
-	{
-		if (!*cl.model_name[i])
-			break;	//no more
-		if (!strcmp(cl.model_name[i], s))
-			return;
-	}
-	PR_RunError ("PF_cl_precache_model: implementme");
+	CL_Precache_Model(s);
 }
 static void PF_cl_setmodel (void)
 {
-	int		i;
-	const char	*m;
-	qmodel_t	*mod;
-	edict_t		*e;
+	edict_t *e = G_EDICT(OFS_PARM0);
+	const char *m = G_STRING(OFS_PARM1);
 
-	e = G_EDICT(OFS_PARM0);
-	m = G_STRING(OFS_PARM1);
+	int		i;
+	qmodel_t	*mod;
+	eval_t		*modelflags = GetEdictFieldValue(e, qcvm->extfields.modelflags);
 
 	i = CL_Precache_Model(m);
 
@@ -1966,10 +1987,26 @@ static void PF_cl_setmodel (void)
 			SetMinMaxSize (e, mod->clipmins, mod->clipmaxs, true);
 		else
 			SetMinMaxSize (e, mod->mins, mod->maxs, true);
+
+		if (modelflags)
+			modelflags->_float= (mod?mod->flags:0) & (0xff|MF_HOLEY);
 	}
 	//johnfitz
 	else
+	{
 		SetMinMaxSize (e, vec3_origin, vec3_origin, true);
+		if (modelflags)
+			modelflags->_float = 0;
+	}
+
+	if (e == qcvm->edicts)
+	{
+		if (mod && cl.worldmodel != mod)
+		{
+			qcvm->worldmodel = cl.worldmodel = mod;
+			R_NewMap ();
+		}
+	}
 }
 
 #define PF_NoCSQC PF_Fixme

@@ -144,7 +144,7 @@ hull_t *SV_HullForEntity (edict_t *ent, vec3_t mins, vec3_t maxs, vec3_t offset)
 			Con_Warning ("SOLID_BSP without MOVETYPE_PUSH (%s at %f %f %f)\n",
 				    PR_GetString(ent->v.classname), ent->v.origin[0], ent->v.origin[1], ent->v.origin[2]);
 
-		model = sv.models[ (int)ent->v.modelindex ];
+		model = qcvm->GetModel(ent->v.modelindex);
 
 		if (!model || model->type != mod_brush)
 		{

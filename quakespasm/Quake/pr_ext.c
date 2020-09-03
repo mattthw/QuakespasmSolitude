@@ -6010,8 +6010,8 @@ static struct
 #define PF_FullCSQCOnly NULL
 #define PF_NoMenu NULL,0
 {
-	{"setmodel",		PF_NoSSQC,			PF_FullCSQCOnly,	3,		PF_m_setmodel,		90, "void(entity ent, string modelname)", ""},
-	{"precache_model",	PF_NoSSQC,			PF_FullCSQCOnly,	20,		PF_m_precache_model,91, "string(string modelname)", ""},
+	{"setmodel",		PF_NoSSQC,			PF_NoCSQC,			3,	PF_m_setmodel,		90, "void(entity ent, string modelname)", ""},
+	{"precache_model",	PF_NoSSQC,			PF_NoCSQC,			20,	PF_m_precache_model,91, "string(string modelname)", ""},
 
 	{"vectoangles2",	PF_ext_vectoangles,	PF_ext_vectoangles,	51,	PF_NoMenu, D("vector(vector fwd, optional vector up)", "Returns the angles (+x=UP) required to orient an entity to look in the given direction. The 'up' argument is required if you wish to set a roll angle, otherwise it will be limited to just monster-style turning.")},
 	{"sin",				PF_Sin,				PF_Sin,				60,	PF_Sin,38, "float(float angle)"},	//60

@@ -935,10 +935,13 @@ const char *ED_ParseEdict (const char *data, edict_t *ent)
 		if (keyname[0] == '_')
 		{
 			//spike -- hacks to support func_illusionary with all sorts of mdls, and various particle effects
-			if (!strcmp(keyname, "_precache_model") && sv.state == ss_loading)
-				SV_Precache_Model(PR_GetString(ED_NewString(com_token)));
-			else if (!strcmp(keyname, "_precache_sound") && sv.state == ss_loading)
-				SV_Precache_Sound(PR_GetString(ED_NewString(com_token)));
+			if (qcvm == &sv.qcvm)
+			{
+				if (!strcmp(keyname, "_precache_model") && sv.state == ss_loading)
+					SV_Precache_Model(PR_GetString(ED_NewString(com_token)));
+				else if (!strcmp(keyname, "_precache_sound") && sv.state == ss_loading)
+					SV_Precache_Sound(PR_GetString(ED_NewString(com_token)));
+			}
 			//spike
 			continue;
 		}
@@ -949,7 +952,7 @@ const char *ED_ParseEdict (const char *data, edict_t *ent)
 		//johnfitz
 
 		//spike -- hacks to support func_illusionary/info_notnull with all sorts of mdls, and various particle effects
-		if (!strcmp(keyname, "modelindex") && sv.state == ss_loading)
+		if (!strcmp(keyname, "modelindex") && qcvm == &sv.qcvm && sv.state == ss_loading)
 		{
 			//"model" "progs/foobar.mdl"
 			//"modelindex" "progs/foobar.mdl"
@@ -967,12 +970,12 @@ const char *ED_ParseEdict (const char *data, edict_t *ent)
 		{
 #ifdef PSET_SCRIPT
 			eval_t *val;
-			if (!strcmp(keyname, "traileffect") && sv.state == ss_loading)
+			if (!strcmp(keyname, "traileffect") && qcvm == &sv.qcvm && sv.state == ss_loading)
 			{
 				if ((val = GetEdictFieldValue(ent, qcvm->extfields.traileffectnum)))
 					val->_float = PF_SV_ForceParticlePrecache(com_token);
 			}
-			else if (!strcmp(keyname, "emiteffect") && sv.state == ss_loading)
+			else if (!strcmp(keyname, "emiteffect") && qcvm == &sv.qcvm && sv.state == ss_loading)
 			{
 				if ((val = GetEdictFieldValue(ent, qcvm->extfields.emiteffectnum)))
 					val->_float = PF_SV_ForceParticlePrecache(com_token);
@@ -992,7 +995,7 @@ const char *ED_ParseEdict (const char *data, edict_t *ent)
 			sprintf (com_token, "0 %s 0", temp);
 		}
 
-		if (!ED_ParseEpair ((void *)&ent->v, key, com_token, false))
+		if (!ED_ParseEpair ((void *)&ent->v, key, com_token, qcvm != &sv.qcvm))
 			Host_Error ("ED_ParseEdict: parse error");
 	}
 
@@ -1156,9 +1159,11 @@ qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcr
 	if (!qcvm->progs)
 		return false;
 
-	CRC_Init (&qcvm->crc);
+	qcvm->progssize = com_filesize;
+	CRC_Init (&qcvm->progscrc);
 	for (i = 0; i < com_filesize; i++)
-		CRC_ProcessByte (&qcvm->crc, ((byte *)qcvm->progs)[i]);
+		CRC_ProcessByte (&qcvm->progscrc, ((byte *)qcvm->progs)[i]);
+	qcvm->progshash = Com_BlockChecksum(qcvm->progs, com_filesize);
 
 	// byte swap the header
 	for (i = 0; i < (int) sizeof(*qcvm->progs) / 4; i++)

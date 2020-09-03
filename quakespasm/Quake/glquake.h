@@ -402,6 +402,7 @@ void R_DrawSpriteModel (entity_t *e);
 void R_DrawTextureChains_Water (qmodel_t *model, entity_t *ent, texchain_t chain);
 
 void R_RenderDlights (void);
+void GL_BuildModel (qmodel_t *m);
 void GL_BuildLightmaps (void);
 void GL_DeleteBModelVertexBuffer (void);
 void GL_BuildBModelVertexBuffer (void);

@@ -60,9 +60,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //#define PEXT1_SHOWPIC				0x04000000
 //#define PEXT1_CHUNKEDDOWNLOADS		0x20000000
 #define PEXT1_CSQC					0x40000000	//(full)csqc additions, required for csqc ents+events.
-#define PEXT1_ACCEPTED_CLIENT		(/*PEXT1_SUPPORTED_CLIENT|*/PEXT1_CSQC|PEXT1_Q3BSP|PEXT1_Q2BSP|PEXT1_HLBSP)	//pext1 flags that we can accept from a server (aka: partial support)
-#define PEXT1_SUPPORTED_CLIENT		(0)	//pext1 flags that we advertise to servers (aka: full support)
-#define PEXT1_SUPPORTED_SERVER		(0)	//pext1 flags that we accept from clients.
+#define PEXT1_ACCEPTED_CLIENT		(PEXT1_SUPPORTED_CLIENT|PEXT1_Q3BSP|PEXT1_Q2BSP|PEXT1_HLBSP)	//pext1 flags that we can accept from a server (aka: partial support)
+#define PEXT1_SUPPORTED_CLIENT		(PEXT1_CSQC)	//pext1 flags that we advertise to servers (aka: full support)
+#define PEXT1_SUPPORTED_SERVER		(PEXT1_CSQC)	//pext1 flags that we accept from clients.
 
 // PROTOCOL_FTE_PEXT2 flags
 #define PEXT2_PRYDONCURSOR			0x00000001	//a mouse cursor exposed to ssqc

@@ -351,7 +351,9 @@ struct qcvm_s
 	dfunction_t	*xfunction;
 	int			xstatement;
 
-	unsigned short	crc;
+	unsigned short	progscrc;	//crc16 of the entire file
+	unsigned int	progshash;	//folded file md4
+	unsigned int	progssize;	//file size (bytes)
 
 	struct pr_extglobals_s extglobals;
 	struct pr_extfuncs_s extfuncs;
@@ -359,6 +361,7 @@ struct qcvm_s
 
 	qboolean cursorforced;
 	void *cursorhandle;	//video code.
+	qboolean nogameaccess;	//simplecsqc isn't allowed to poke properties of the actual game (to prevent cheats when there's no restrictions on what it can access)
 
 	//was static inside pr_edict
 	char		*strings;

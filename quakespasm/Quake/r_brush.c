@@ -868,6 +868,29 @@ void BuildSurfaceDisplayList (msurface_t *fa)
 }
 
 /*
+   Makes sure the model is good to go.
+*/
+void GL_BuildModel (qmodel_t *m)
+{
+	int i;
+	if (m->name[0] == '*')
+		return;
+	r_pcurrentvertbase = m->vertexes;
+	currentmodel = m;
+	for (i=0 ; i<m->numsurfaces ; i++)
+	{
+		//johnfitz -- rewritten to use SURF_DRAWTILED instead of the sky/water flags
+		if (m->surfaces[i].flags & SURF_DRAWTILED)
+			continue;
+		GL_CreateSurfaceLightmap (m, m->surfaces + i);
+		BuildSurfaceDisplayList (m->surfaces + i);
+		//johnfitz
+	}
+
+//	GL_BuildBModelVertexBuffer();
+}
+
+/*
 ==================
 GL_BuildLightmaps -- called at level load time
 
@@ -911,19 +934,14 @@ void GL_BuildLightmaps (void)
 		m = cl.model_precache[j];
 		if (!m)
 			break;
-		if (m->name[0] == '*')
-			continue;
-		r_pcurrentvertbase = m->vertexes;
-		currentmodel = m;
-		for (i=0 ; i<m->numsurfaces ; i++)
-		{
-			//johnfitz -- rewritten to use SURF_DRAWTILED instead of the sky/water flags
-			if (m->surfaces[i].flags & SURF_DRAWTILED)
-				continue;
-			GL_CreateSurfaceLightmap (m, m->surfaces + i);
-			BuildSurfaceDisplayList (m->surfaces + i);
-			//johnfitz
-		}
+		GL_BuildModel(m);
+	}
+	for (j=1 ; j<MAX_MODELS ; j++)
+	{
+		m = cl.model_precache_csqc[j];
+		if (!m)
+			break;
+		GL_BuildModel(m);
 	}
 
 	//
@@ -1010,6 +1028,17 @@ void GL_BuildBModelVertexBuffer (void)
 			numverts += m->surfaces[i].numedges;
 		}
 	}
+	for (j=1 ; j<MAX_MODELS ; j++)
+	{
+		m = cl.model_precache_csqc[j];
+		if (!m || m->name[0] == '*' || m->type != mod_brush)
+			continue;
+
+		for (i=0 ; i<m->numsurfaces ; i++)
+		{
+			numverts += m->surfaces[i].numedges;
+		}
+	}
 	
 // build vertex array
 	varray_bytes = VERTEXSIZE * sizeof(float) * numverts;
@@ -1019,6 +1048,20 @@ void GL_BuildBModelVertexBuffer (void)
 	for (j=1 ; j<MAX_MODELS ; j++)
 	{
 		m = cl.model_precache[j];
+		if (!m || m->name[0] == '*' || m->type != mod_brush)
+			continue;
+
+		for (i=0 ; i<m->numsurfaces ; i++)
+		{
+			msurface_t *s = &m->surfaces[i];
+			s->vbo_firstvert = varray_index;
+			memcpy (&varray[VERTEXSIZE * varray_index], s->polys->verts, VERTEXSIZE * sizeof(float) * s->numedges);
+			varray_index += s->numedges;
+		}
+	}
+	for (j=1 ; j<MAX_MODELS ; j++)
+	{
+		m = cl.model_precache_csqc[j];
 		if (!m || m->name[0] == '*' || m->type != mod_brush)
 			continue;
 
