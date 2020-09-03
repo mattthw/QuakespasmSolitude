@@ -30,6 +30,7 @@ server_static_t	svs;
 static char	localmodels[MAX_MODELS][8];	// inline model names for precache
 
 int				sv_protocol = PROTOCOL_RMQ;//spike -- enough maps need this now that we can probably afford incompatibility with engines that still don't support 999 (vanilla was already broken) -- PROTOCOL_FITZQUAKE; //johnfitz
+unsigned int	sv_protocol_pext1 = PEXT1_SUPPORTED_SERVER; //spike
 unsigned int	sv_protocol_pext2 = PEXT2_SUPPORTED_SERVER; //spike
 
 //============================================================================
@@ -1199,9 +1200,10 @@ static void SV_Protocol_f (void)
 {
 	int i;
 	const char *s;
-	int prot, pext2;
+	int prot, pext1, pext2;
 
 	prot = sv_protocol;
+	pext1 = sv_protocol_pext1;
 	pext2 = sv_protocol_pext2;
 
 	switch (Cmd_Argc())
@@ -1217,11 +1219,13 @@ static void SV_Protocol_f (void)
 			s += 3;
 			if (*s == '+' || *s == '-')
 				s++;
+			pext1 = PEXT1_SUPPORTED_SERVER;
 			pext2 = PEXT2_SUPPORTED_SERVER;
 		}
 		else if (!q_strncasecmp(s, "+", 3))
 		{
 			s += 1;
+			pext1 = PEXT1_SUPPORTED_SERVER;
 			pext2 = PEXT2_SUPPORTED_SERVER;
 		}
 		else if (!q_strncasecmp(s, "Base", 4))
@@ -1229,29 +1233,38 @@ static void SV_Protocol_f (void)
 			s+= 4;
 			if (*s == '+' || *s == '-')
 				s++;
+			pext1 = 0;
 			pext2 = 0;
 		}
 		else if (*s == '-')
 		{
 			s++;
+			pext1 = 0;
 			pext2 = 0;
 		}
 
 		i = strtol(s, (char**)&s, 0);
 		if (*s == '-')
+		{
+			pext1 = 0;
 			pext2 = 0;
+		}
 		else if (*s == '+')
+		{
+			pext1 = PEXT1_SUPPORTED_SERVER;
 			pext2 = PEXT2_SUPPORTED_SERVER;
+		}
 
 		if (i != PROTOCOL_NETQUAKE && i != PROTOCOL_FITZQUAKE && i != PROTOCOL_RMQ && i != PROTOCOL_VERSION_BJP3)
 			Con_Printf ("sv_protocol must be %i or %i or %i or %i.\nProtocol may be prefixed with FTE+ or Base- to enable/disable FTE extensions.\n", PROTOCOL_NETQUAKE, PROTOCOL_FITZQUAKE, PROTOCOL_RMQ, PROTOCOL_VERSION_BJP3);
 		else
 		{
 			sv_protocol = i;
+			sv_protocol_pext1 = pext1;
 			sv_protocol_pext2 = pext2;
 			if (sv.active)
 			{
-				if (prot == sv_protocol && pext2 == sv_protocol_pext2)
+				if (prot == sv_protocol && pext1 == sv_protocol_pext1 && pext2 == sv_protocol_pext2)
 					Con_Printf ("specified protocol already active.\n");
 				else
 					Con_Printf ("changes will not take effect until the next level load.\n");
@@ -1551,7 +1564,7 @@ void SV_SendServerinfo (client_t *client)
 	client->limit_models = 0;
 	client->limit_sounds = 0;
 
-	if (!sv_protocol_pext2)
+	if (!sv_protocol_pext1 && !sv_protocol_pext2)
 	{	//server disabled pext completely, don't bother trying.
 		//make sure we try reenabling it again on the next map though. mwahaha.
 		client->pextknown = false;
@@ -1563,6 +1576,7 @@ void SV_SendServerinfo (client_t *client)
 		client->sendsignon = true;
 		return;
 	}
+	client->protocol_pext1 &= sv_protocol_pext1;
 	client->protocol_pext2 &= sv_protocol_pext2;
 
 	if (!(client->protocol_pext2 & PEXT2_REPLACEMENTDELTAS))
@@ -1636,6 +1650,11 @@ retry:
 
 	MSG_WriteByte (&client->message, svc_serverinfo);
 
+	if (client->protocol_pext1)
+	{	//pext stuff takes the form of modifiers to an underlaying protocol
+		MSG_WriteLong (&client->message, PROTOCOL_FTE_PEXT1);
+		MSG_WriteLong (&client->message, client->protocol_pext1);	//active extensions that the client needs to look out for
+	}
 	if (client->protocol_pext2)
 	{	//pext stuff takes the form of modifiers to an underlaying protocol
 		MSG_WriteLong (&client->message, PROTOCOL_FTE_PEXT2);
@@ -1788,7 +1807,9 @@ void SV_Pext_f(void)
 			key = strtoul(Cmd_Argv(i), NULL, 0);
 			value = strtoul(Cmd_Argv(i+1), NULL, 0);
 
-			if (key == PROTOCOL_FTE_PEXT2)
+			if (key == PROTOCOL_FTE_PEXT1)
+				host_client->protocol_pext1 = value & PEXT1_SUPPORTED_SERVER;
+			else if (key == PROTOCOL_FTE_PEXT2)
 				host_client->protocol_pext2 = value & PEXT2_SUPPORTED_SERVER;
 			//else some other extension that we don't know
 		}

@@ -1232,9 +1232,9 @@ static void CL_ParseServerInfo (void)
 		i = MSG_ReadLong ();
 		if (i == PROTOCOL_FTE_PEXT1)
 		{
-			i = MSG_ReadLong();
-			if (i & ~PEXT1_ACCEPTED_CLIENT)
-				Host_Error ("Server returned FTE1 protocol extensions that are not supported (%#x)", i);
+			cl.protocol_pext1 = MSG_ReadLong();
+			if (cl.protocol_pext1& ~PEXT1_ACCEPTED_CLIENT)
+				Host_Error ("Server returned FTE1 protocol extensions that are not supported (%#x)", cl.protocol_pext1 & ~PEXT1_SUPPORTED_CLIENT);
 			continue;
 		}
 		if (i == PROTOCOL_FTE_PEXT2)
@@ -2695,6 +2695,8 @@ void CL_ParseServerMessage (void)
 			break;
 
 		case svcfte_cgamepacket:
+			if (!(cl.protocol_pext1 & PEXT1_CSQC))
+				Host_Error ("Received svcfte_cgamepacket but extension not active");
 			if (cl.qcvm.extfuncs.CSQC_Parse_Event)
 			{
 				PR_SwitchQCVM(&cl.qcvm);

@@ -252,6 +252,7 @@ typedef struct
 
 	unsigned	protocol; //johnfitz
 	unsigned	protocolflags;
+	unsigned	protocol_pext1;	//spike -- flag of fte protocol extensions
 	unsigned	protocol_pext2;	//spike -- flag of fte protocol extensions
 	qboolean	protocol_dpdownload;
 
