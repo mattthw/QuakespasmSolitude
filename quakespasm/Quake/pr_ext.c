@@ -5535,19 +5535,19 @@ static size_t hostCacheSortCount;
 static size_t hostCacheSort[HOSTCACHESIZE];
 static enum hostfield_e serversort_field;
 static int serversort_descending;
-static void PF_gethostcachevalue(void)
-{
-	enum{
+enum hostcacheprop_e {
 		SLIST_HOSTCACHEVIEWCOUNT,
 		SLIST_HOSTCACHETOTALCOUNT,
-		SLIST_MASTERQUERYCOUNT,
-		SLIST_MASTERREPLYCOUNT,
-		SLIST_SERVERQUERYCOUNT,
-		SLIST_SERVERREPLYCOUNT,
+		SLIST_MASTERQUERYCOUNT_DP,
+		SLIST_MASTERREPLYCOUNT_DP,
+		SLIST_SERVERQUERYCOUNT_DP,
+		SLIST_SERVERREPLYCOUNT_DP,
 		SLIST_SORTFIELD,
 		SLIST_SORTDESCENDING
-	} fld = G_FLOAT(OFS_PARM0);
-	switch(fld)
+};
+static void PF_gethostcachevalue(void)
+{
+	switch((enum hostcacheprop_e)G_FLOAT(OFS_PARM0))
 	{
 	case SLIST_HOSTCACHEVIEWCOUNT:
 		G_FLOAT(OFS_RETURN) = hostCacheSortCount?hostCacheSortCount:hostCacheCount;
@@ -5555,10 +5555,10 @@ static void PF_gethostcachevalue(void)
 	case SLIST_HOSTCACHETOTALCOUNT:
 		G_FLOAT(OFS_RETURN) = hostCacheCount;
 		break;
-	case SLIST_MASTERQUERYCOUNT:
-	case SLIST_MASTERREPLYCOUNT:
-	case SLIST_SERVERQUERYCOUNT:
-	case SLIST_SERVERREPLYCOUNT:
+	case SLIST_MASTERQUERYCOUNT_DP:
+	case SLIST_MASTERREPLYCOUNT_DP:
+	case SLIST_SERVERQUERYCOUNT_DP:
+	case SLIST_SERVERREPLYCOUNT_DP:
 		G_FLOAT(OFS_RETURN) = 0;
 		break;
 	case SLIST_SORTFIELD:
@@ -6758,9 +6758,12 @@ void PR_EnableExtensions(ddef_t *pr_globaldefs)
 		return;
 	}
 
-	//replace standard builtins with new replacement extended ones.
+#define QCEXTFUNC(n,t) qcvm->extfuncs.n = PR_FindExtFunction(#n);
+	QCEXTFUNCS_COMMON
+
+	//replace standard builtins with new replacement extended ones and selectively populate references to module-specific entrypoints.
 	if (qcvm == &cl.qcvm)
-	{
+	{	//csqc
 		for (i = 0; i < sizeof(extensionbuiltins) / sizeof(extensionbuiltins[0]); i++)
 		{
 			int num = (extensionbuiltins[i].documentednumber);
@@ -6768,17 +6771,11 @@ void PR_EnableExtensions(ddef_t *pr_globaldefs)
 				qcvm->builtins[num] = extensionbuiltins[i].csqcfunc;
 		}
 
-		//csqc entrypoints
-		qcvm->extfuncs.CSQC_Init = PR_FindExtFunction("CSQC_Init");
-		qcvm->extfuncs.CSQC_DrawHud = PR_FindExtFunction("CSQC_DrawHud");
-		qcvm->extfuncs.CSQC_DrawScores = PR_FindExtFunction("CSQC_DrawScores");
-		qcvm->extfuncs.CSQC_InputEvent = PR_FindExtFunction("CSQC_InputEvent");
-		qcvm->extfuncs.CSQC_ConsoleCommand = PR_FindExtFunction("CSQC_ConsoleCommand");
-		qcvm->extfuncs.CSQC_Parse_Event = PR_FindExtFunction("CSQC_Parse_Event");
-		qcvm->extfuncs.CSQC_Parse_Damage = PR_FindExtFunction("CSQC_Parse_Damage");
+		QCEXTFUNCS_GAME
+		QCEXTFUNCS_CS
 	}
 	else if (qcvm == &sv.qcvm)
-	{
+	{	//ssqc
 		for (i = 0; i < sizeof(extensionbuiltins) / sizeof(extensionbuiltins[0]); i++)
 		{
 			int num = (extensionbuiltins[i].documentednumber);
@@ -6786,12 +6783,11 @@ void PR_EnableExtensions(ddef_t *pr_globaldefs)
 				qcvm->builtins[num] = extensionbuiltins[i].ssqcfunc;
 		}
 
-		//ssqc entrypoints
-		qcvm->extfuncs.SV_ParseClientCommand = PR_FindExtFunction("SV_ParseClientCommand");
-		qcvm->extfuncs.EndFrame = PR_FindExtFunction("EndFrame");
+		QCEXTFUNCS_GAME
+		QCEXTFUNCS_SV
 	}
 	else if (qcvm == &cls.menu_qcvm)
-	{
+	{	//menuqc
 		for (i = 0; i < sizeof(extensionbuiltins) / sizeof(extensionbuiltins[0]); i++)
 		{
 			int num = (extensionbuiltins[i].documentednumber_menuqc);
@@ -6799,27 +6795,16 @@ void PR_EnableExtensions(ddef_t *pr_globaldefs)
 				qcvm->builtins[num] = extensionbuiltins[i].menufunc;
 		}
 
-		//menuqc entrypoints
-		qcvm->extfuncs.m_init = PR_FindExtFunction("m_init");
-		qcvm->extfuncs.m_toggle = PR_FindExtFunction("m_toggle");
-		qcvm->extfuncs.m_draw = PR_FindExtFunction("m_draw");
-		qcvm->extfuncs.m_keydown = PR_FindExtFunction("m_keydown");
-		qcvm->extfuncs.m_keyup = PR_FindExtFunction("m_keyup");
-		qcvm->extfuncs.m_consolecommand = PR_FindExtFunction("m_consolecommand");
-		qcvm->extfuncs.Menu_InputEvent = PR_FindExtFunction("Menu_InputEvent");
+		QCEXTFUNCS_MENU
 	}
+#undef QCEXTFUNC
 
-	//general entrypoints
-	qcvm->extfuncs.GameCommand = PR_FindExtFunction("GameCommand");
 
-	qcvm->extglobals.time = PR_FindExtGlobal(ev_float, "time");
-	qcvm->extglobals.frametime = PR_FindExtGlobal(ev_float, "frametime");
-	qcvm->extglobals.cltime = PR_FindExtGlobal(ev_float, "cltime");
-	qcvm->extglobals.maxclients = PR_FindExtGlobal(ev_float, "maxclients");
-	qcvm->extglobals.intermission = PR_FindExtGlobal(ev_float, "intermission");
-	qcvm->extglobals.intermission_time = PR_FindExtGlobal(ev_float, "intermission_time");
-	qcvm->extglobals.player_localnum = PR_FindExtGlobal(ev_float, "player_localnum");
-	qcvm->extglobals.player_localentnum = PR_FindExtGlobal(ev_float, "player_localentnum");
+#define QCEXTGLOBAL_FLOAT(n) qcvm->extglobals.n = PR_FindExtGlobal(ev_float, #n);
+	QCEXTGLOBALS_COMMON
+	QCEXTGLOBALS_GAME
+	QCEXTGLOBALS_CSQC
+#undef QCEXTGLOBAL_FLOAT
 
 	//any #0 functions are remapped to their builtins here, so we don't have to tweak the VM in an obscure potentially-breaking way.
 	for (i = 0; i < (unsigned int)qcvm->progs->numfunctions; i++)

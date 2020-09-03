@@ -34,13 +34,6 @@ char *PR_GetTempString (void)
 
 #define	RETURN_EDICT(e) (((int *)qcvm->globals)[OFS_RETURN] = EDICT_TO_PROG(e))
 
-#define	MSG_BROADCAST		0	// unreliable to all
-#define	MSG_ONE				1	// reliable to one (msg_entity)
-#define	MSG_ALL				2	// reliable to all
-#define	MSG_INIT			3	// write to the init string
-#define MSG_EXT_MULTICAST	4	// temporary buffer that can be splurged more reliably / with more control.
-#define MSG_EXT_ENTITY		5	// for csqc networking. we don't actually support this. I'm just defining it for completeness.
-
 /*
 ===============================================================================
 

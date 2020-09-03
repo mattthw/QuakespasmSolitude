@@ -149,6 +149,8 @@ void ED_PrintNum (int ent);
 eval_t *GetEdictFieldValue(edict_t *ed, int fldofs);	//handles invalid offsets with a null
 int ED_FindFieldOffset (const char *name);
 
+#define GetEdictFieldValid(fld) (qcvm->extfields.fld>=0)
+#define GetEdictFieldEval(ed,fld) ((eval_t *)((char *)&ed->v + qcvm->extfields.fld*4)) //caller must validate the field first
 
 //from pr_cmds, no longer static so that pr_ext can use them.
 sizebuf_t *WriteDest (void);
@@ -160,80 +162,147 @@ char *PF_VarString (int	first);
 void PF_Fixme(void);	//the 'unimplemented' builtin. woot.
 
 struct pr_extfuncs_s
-{	//various global ssqc entry points that might be called by the engine, if set.
-	func_t		EndFrame;
-	func_t		SV_ParseClientCommand;
+{
+/*all vms*/
+#define QCEXTFUNCS_COMMON \
+	QCEXTFUNC(GameCommand,				"void(string cmdtext)")												/*obsoleted by m_consolecommand, included for dp compat.*/	\
+/*csqc+ssqc*/
+#define QCEXTFUNCS_GAME \
+	QCEXTFUNC(EndFrame,					"void()")				\
+/*ssqc*/
+#define QCEXTFUNCS_SV \
+	QCEXTFUNC(SV_ParseClientCommand,		"void(string cmd)")		\
+	QCEXTFUNC(SV_RunClientCommand,		"void()")		\
+/*csqc*/
+#define QCEXTFUNCS_CS \
+	QCEXTFUNC(CSQC_Init,					"void(float apilevel, string enginename, float engineversion)")	\
+	QCEXTFUNC(CSQC_Shutdown,				"void()")	\
+	QCEXTFUNC(CSQC_DrawHud,				"void(vector virtsize, float showscores)")							/*simple: for the simple(+limited) hud-only csqc interface.*/	\
+	QCEXTFUNC(CSQC_DrawScores,			"void(vector virtsize, float showscores)")							/*simple: (optional) for the simple hud-only csqc interface.*/		\
+	QCEXTFUNC(CSQC_InputEvent,			"float(float evtype, float scanx, float chary, float devid)")		\
+	QCEXTFUNC(CSQC_ConsoleCommand,		"float(string cmdstr)")												\
+	QCEXTFUNC(CSQC_Parse_Event,			"void()")															\
+	QCEXTFUNC(CSQC_Parse_Damage,			"float(float save, float take, vector dir)")						\
+	QCEXTFUNC(CSQC_UpdateView,			"void(float vwidth, float vheight, float notmenu)")					/*full only: for the full csqc-draws-entire-screen interface*/	\
+	QCEXTFUNC(CSQC_Input_Frame,			"void()")															/*full only: input angles stuff.*/	\
+	QCEXTFUNC(CSQC_Parse_CenterPrint,	"float(string msg)")												\
+	QCEXTFUNC(CSQC_Parse_Print,			"void(string printmsg, float printlvl)")							\
+	QCEXTFUNC(CSQC_Ent_Update,			"void(float isnew)")												/*full: lots of reads needed to interpret the bytestream*/	\
+	QCEXTFUNC(CSQC_Ent_Remove,			"void()")															/*full: basically just remove(self)*/\
+	QCEXTFUNC(CSQC_Parse_TempEntity,		"float()")															/*full: evil... This is the bane of all protocol compatibility. Die.*/	\
+	QCEXTFUNC(CSQC_Parse_StuffCmd,		"void(string msg)")													/*full only: not in simple. Too easy to make cheats by ignoring server messages.*/	\
+/*menucsqc*/
+#define QCEXTFUNCS_MENU \
+	QCEXTFUNC(m_init,					"void()")															\
+	QCEXTFUNC(m_toggle,					"void(float wantmode)")												/*-1: toggle, 0: clear, 1: force*/	\
+	QCEXTFUNC(m_draw,					"void(vector screensize)")											\
+	QCEXTFUNC(m_keydown,					"void(float scan, float chr)")										/*obsoleted by Menu_InputEvent, included for dp compat.*/	\
+	QCEXTFUNC(m_keyup,					"void(float scan, float chr)")										/*obsoleted by Menu_InputEvent, included for dp compat.*/	\
+	QCEXTFUNC(m_consolecommand,			"float(string cmd)")												\
+	QCEXTFUNC(Menu_InputEvent,			"float(float evtype, float scanx, float chary, float devid)")		\
 
-	//csqc-specific entry points
-	func_t		CSQC_Init;
-	func_t		CSQC_DrawHud;		//for the simple hud-only csqc interface.
-	func_t		CSQC_DrawScores;	//(optional) for the simple hud-only csqc interface.
-	func_t		CSQC_InputEvent;
-	func_t		CSQC_ConsoleCommand;
-	func_t		CSQC_Parse_Event;
-	func_t		CSQC_Parse_Damage;
-	//todo...
-//	func_t		CSQC_Parse_CenterPrint;
-//	func_t		CSQC_Parse_Print;
-
-//	func_t		CSQC_Parse_TempEntity;	//evil... This is the bane of all protocol compatibility. Die.
-//	func_t		CSQC_Parse_StuffCmd; //not in simple. Too easy to make cheats by ignoring server messages.
-
-	//menuqc-specific entry points
-	func_t		m_init;
-	func_t		m_toggle;	//-1: toggle, 0: clear, 1: force
-	func_t		m_draw;
-	func_t		m_keydown;	//obsoleted by Menu_InputEvent, included for dp compat.
-	func_t		m_keyup;	//obsoleted by Menu_InputEvent, included for dp compat.
-	func_t		m_consolecommand;
-	func_t		Menu_InputEvent;
-
-	//generic entry points, albeit not necessarily implemented for more than one module.
-	func_t		GameCommand;//obsoleted by m_consolecommand, included for dp compat.
+#define QCEXTFUNC(n,t) func_t n;
+	QCEXTFUNCS_COMMON
+	QCEXTFUNCS_GAME
+	QCEXTFUNCS_SV
+	QCEXTFUNCS_CS
+	QCEXTFUNCS_MENU
+#undef QCEXTFUNC
 };
 extern	cvar_t	pr_checkextension;	//if 0, extensions are disabled (unless they'd be fatal, but they're still spammy)
 
 struct pr_extglobals_s
 {
-	//menuqc things...
-	float	*time;
-	float	*frametime;
-	//csqc-specific globals...
-	float	*cltime;
-	float	*maxclients;
-	float	*intermission;
-	float	*intermission_time;
-	float	*player_localnum;
-	float	*player_localentnum;
-
-	//float	*clientcommandframe;	//we don't have prediction.
-	//float	*servercommandframe;	//we don't have prediction.
+#define QCEXTGLOBALS_COMMON \
+	QCEXTGLOBAL_FLOAT(time)\
+	QCEXTGLOBAL_FLOAT(frametime)\
+	//end
+#define QCEXTGLOBALS_GAME \
+	QCEXTGLOBAL_FLOAT(input_timelength)\
+	QCEXTGLOBAL_FLOAT(input_movevalues)\
+	QCEXTGLOBAL_FLOAT(input_angles)\
+	QCEXTGLOBAL_FLOAT(input_buttons)\
+	QCEXTGLOBAL_FLOAT(input_impulse)\
+	QCEXTGLOBAL_FLOAT(physics_mode)\
+	//end
+#define QCEXTGLOBALS_CSQC \
+	QCEXTGLOBAL_FLOAT(cltime)\
+	QCEXTGLOBAL_FLOAT(maxclients)\
+	QCEXTGLOBAL_FLOAT(intermission)\
+	QCEXTGLOBAL_FLOAT(intermission_time)\
+	QCEXTGLOBAL_FLOAT(player_localnum)\
+	QCEXTGLOBAL_FLOAT(player_localentnum)\
+	QCEXTGLOBAL_FLOAT(view_angles)\
+	QCEXTGLOBAL_FLOAT(clientcommandframe)\
+	QCEXTGLOBAL_FLOAT(servercommandframe)\
+	//end
+#define QCEXTGLOBAL_FLOAT(n) float *n;
+	QCEXTGLOBALS_COMMON
+	QCEXTGLOBALS_GAME
+	QCEXTGLOBALS_CSQC
+#undef QCEXTGLOBAL_FLOAT
 };
 
 struct pr_extfields_s
 {	//various fields that might be wanted by the engine. -1 == invalid
-	//I should probably use preprocessor magic for this list or something
-	int		items2;				//float
-	int		gravity;			//float
-	int		alpha;				//float
-	int		movement;			//vector
-	int		viewmodelforclient;	//entity
-	int		exteriormodeltoclient;	//entity
-	int		traileffectnum;		//float
-	int		emiteffectnum;		//float
-	int		scale;				//float
-	int		colormod;			//vector
-	int		tag_entity;			//entity
-	int		tag_index;			//float
-	int		button3;			//float
-	int		button4;			//float
-	int		button5;			//float
-	int		button6;			//float
-	int		button7;			//float
-	int		button8;			//float
-	int		viewzoom;			//float
-	int		modelflags;			//float, the upper 8 bits of .effects
-	//REMEMBER TO ADD THESE TO qsextensions.qc AND pr_edict.c
+
+#define QCEXTFIELDS_ALL	\
+	/*renderscene means we need a number of fields here*/	\
+	QCEXTFIELD(alpha,					".float")				/*float*/	\
+	QCEXTFIELD(scale,					".float")				/*float*/	\
+	QCEXTFIELD(colormod,				".vector")			/*vector*/	\
+	QCEXTFIELD(tag_entity,				".entity")			/*entity*/	\
+	QCEXTFIELD(tag_index,				".float")			/*float*/	\
+	QCEXTFIELD(modelflags,				".float")			/*float, the upper 8 bits of .effects*/	\
+	QCEXTFIELD(origin,					".vector")				/*for menuqc's addentity builtin.*/	\
+	QCEXTFIELD(angles,					".vector")				/*for menuqc's addentity builtin.*/	\
+	QCEXTFIELD(frame,					".float")				/*for menuqc's addentity builtin.*/	\
+	QCEXTFIELD(skin,					".float")				/*for menuqc's addentity builtin.*/	\
+	/*end of list*/
+#define QCEXTFIELDS_GAME	\
+	/*stuff used by csqc+ssqc, but not menu*/	\
+	QCEXTFIELD(customphysics,			".void()")/*function*/	\
+	QCEXTFIELD(gravity,					".float")			/*float*/	\
+	//end of list
+#define QCEXTFIELDS_CL	\
+	QCEXTFIELD(frame2,					".float")				/*for csqc's addentity builtin.*/	\
+	QCEXTFIELD(lerpfrac,				".float")			/*for csqc's addentity builtin.*/	\
+	QCEXTFIELD(frame1time,				".float")			/*for csqc's addentity builtin.*/	\
+	QCEXTFIELD(frame2time,				".float")			/*for csqc's addentity builtin.*/	\
+	QCEXTFIELD(renderflags,				".float")		/*for csqc's addentity builtin.*/	\
+	//end of list
+#define QCEXTFIELDS_CS	\
+	/*csqc-only*/	\
+	QCEXTFIELD(entnum,					".float")				/*for csqc.*/	\
+	QCEXTFIELD(drawmask,				".float")			/*for csqc's addentities builtin.*/	\
+	QCEXTFIELD(predraw,					".float()")			/*for csqc's addentities builtin.*/	\
+	//end of list
+#define QCEXTFIELDS_SS	\
+	/*ssqc-only*/	\
+	QCEXTFIELD(items2,					"//.float")				/*float*/	\
+	QCEXTFIELD(movement,				".vector")			/*vector*/	\
+	QCEXTFIELD(viewmodelforclient,		".entity")	/*entity*/	\
+	QCEXTFIELD(exteriormodeltoclient,	".entity")	/*entity*/	\
+	QCEXTFIELD(traileffectnum,			".float")		/*float*/	\
+	QCEXTFIELD(emiteffectnum,			".float")		/*float*/	\
+	QCEXTFIELD(button3,					".float")			/*float*/	\
+	QCEXTFIELD(button4,					".float")			/*float*/	\
+	QCEXTFIELD(button5,					".float")			/*float*/	\
+	QCEXTFIELD(button6,					".float")			/*float*/	\
+	QCEXTFIELD(button7,					".float")			/*float*/	\
+	QCEXTFIELD(button8,					".float")			/*float*/	\
+	QCEXTFIELD(viewzoom,				".float")			/*float*/	\
+	QCEXTFIELD(SendEntity,				".float(entity to, float changedflags)")			/*function*/	\
+	QCEXTFIELD(SendFlags,				".float")			/*float. :( */	\
+	//end of list
+
+#define QCEXTFIELD(n,t) int n;
+	QCEXTFIELDS_ALL
+	QCEXTFIELDS_GAME
+	QCEXTFIELDS_CL
+	QCEXTFIELDS_CS
+	QCEXTFIELDS_SS
+#undef QCEXTFIELD
 };
 
 typedef struct

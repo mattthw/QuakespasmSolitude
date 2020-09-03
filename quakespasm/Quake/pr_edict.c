@@ -1273,26 +1273,13 @@ qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcr
 	qcvm->numbuiltins = numbuiltins;
 
 	//spike: detect extended fields from progs
-	qcvm->extfields.items2 = ED_FindFieldOffset("items2");
-	qcvm->extfields.gravity = ED_FindFieldOffset("gravity");
-	qcvm->extfields.alpha = ED_FindFieldOffset("alpha");
-	qcvm->extfields.movement = ED_FindFieldOffset("movement");
-	qcvm->extfields.traileffectnum = ED_FindFieldOffset("traileffectnum");
-	qcvm->extfields.emiteffectnum = ED_FindFieldOffset("emiteffectnum");
-	qcvm->extfields.viewmodelforclient = ED_FindFieldOffset("viewmodelforclient");
-	qcvm->extfields.exteriormodeltoclient = ED_FindFieldOffset("exteriormodeltoclient");
-	qcvm->extfields.scale = ED_FindFieldOffset("scale");
-	qcvm->extfields.colormod = ED_FindFieldOffset("colormod");
-	qcvm->extfields.tag_entity = ED_FindFieldOffset("tag_entity");
-	qcvm->extfields.tag_index = ED_FindFieldOffset("tag_index");
-	qcvm->extfields.button3 = ED_FindFieldOffset("button3");
-	qcvm->extfields.button4 = ED_FindFieldOffset("button4");
-	qcvm->extfields.button5 = ED_FindFieldOffset("button5");
-	qcvm->extfields.button6 = ED_FindFieldOffset("button6");
-	qcvm->extfields.button7 = ED_FindFieldOffset("button7");
-	qcvm->extfields.button8 = ED_FindFieldOffset("button8");
-	qcvm->extfields.viewzoom = ED_FindFieldOffset("viewzoom");
-	qcvm->extfields.modelflags = ED_FindFieldOffset("modelflags");
+#define QCEXTFIELD(n,t) qcvm->extfields.n = ED_FindFieldOffset(#n);
+	QCEXTFIELDS_ALL
+	QCEXTFIELDS_GAME
+	QCEXTFIELDS_CL
+	QCEXTFIELDS_CS
+	QCEXTFIELDS_SS
+#undef QCEXTFIELD
 
 	i = qcvm->progs->entityfields;
 	if (qcvm->extfields.emiteffectnum < 0)
