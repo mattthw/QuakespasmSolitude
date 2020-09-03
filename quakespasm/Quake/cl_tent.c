@@ -520,7 +520,7 @@ entity_t *CL_NewTempEntity (void)
 
 	ent->netstate.scale = 16;
 	ent->netstate.colormod[0] = ent->netstate.colormod[1] = ent->netstate.colormod[2] = 32;
-	ent->colormap = vid.colormap;
+	ent->netstate.colormap = 0;
 	return ent;
 }
 

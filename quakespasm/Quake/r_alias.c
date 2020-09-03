@@ -1131,7 +1131,7 @@ void R_DrawAliasModel (entity_t *e)
 			tx = paliashdr->gltextures[e->skinnum][anim];
 			fb = paliashdr->fbtextures[e->skinnum][anim];
 		} 
-		if (e->colormap != vid.colormap && !gl_nocolors.value)
+		if (e->netstate.colormap && !gl_nocolors.value)
 		{
 			i = e - cl.entities;
 			if (i >= 1 && i<=cl.maxclients /* && !strcmp (currententity->model->name, "progs/player.mdl") */)

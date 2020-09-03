@@ -196,7 +196,6 @@ entity_t	*CL_EntityNum (int num)
 		while (cl.num_entities<=num)
 		{
 			cl.entities[cl.num_entities].baseline = nullentitystate;
-			cl.entities[cl.num_entities].colormap = vid.colormap;
 			cl.entities[cl.num_entities].lerpflags |= LERP_RESETMOVE|LERP_RESETANIM; //johnfitz
 			cl.num_entities++;
 		}
@@ -531,7 +530,7 @@ static void CLFTE_ParseBaseline(entity_state_t *es)
 //called with both fte+dp deltas
 static void CL_EntitiesDeltaed(void)
 {
-	int			i, newnum;
+	int			newnum;
 	qmodel_t	*model;
 	qboolean	forcelink;
 	entity_t	*ent;
@@ -554,15 +553,6 @@ static void CL_EntitiesDeltaed(void)
 
 		ent->msgtime = cl.mtime[0];
 
-		i = ent->netstate.colormap;
-		if (!i)
-			ent->colormap = vid.colormap;
-		else
-		{
-			if (i > cl.maxclients)
-				Sys_Error ("i >= cl.maxclients");
-			ent->colormap = cl.scores[i-1].translations;
-		}
 		skin = ent->netstate.skin;
 		if (skin != ent->skinnum)
 		{
@@ -1506,17 +1496,7 @@ static void CL_ParseUpdate (int bits)
 		ent->frame = ent->baseline.frame;
 
 	if (bits & U_COLORMAP)
-		i = MSG_ReadByte();
-	else
-		i = ent->baseline.colormap;
-	if (!i)
-		ent->colormap = vid.colormap;
-	else
-	{
-		if (i > cl.maxclients)
-			Sys_Error ("i >= cl.maxclients");
-		ent->colormap = cl.scores[i-1].translations;
-	}
+		ent->netstate.colormap = MSG_ReadByte();
 	if (bits & U_SKIN)
 		skin = MSG_ReadByte();
 	else
@@ -1886,37 +1866,9 @@ CL_NewTranslation
 */
 static void CL_NewTranslation (int slot)
 {
-	int		i, j;
-	int		top, bottom;
-	byte	*dest, *source;
-
 	if (slot > cl.maxclients)
 		Sys_Error ("CL_NewTranslation: slot > cl.maxclients");
-	dest = cl.scores[slot].translations;
-	source = vid.colormap;
-	memcpy (dest, vid.colormap, sizeof(cl.scores[slot].translations));
-	top = cl.scores[slot].colors & 0xf0;
-	bottom = (cl.scores[slot].colors &15)<<4;
 	R_TranslatePlayerSkin (slot);
-
-	for (i = 0; i < VID_GRADES; i++, dest += 256, source+=256)
-	{
-		if (top < 128)	// the artists made some backwards ranges.  sigh.
-			memcpy (dest + TOP_RANGE, source + top, 16);
-		else
-		{
-			for (j = 0; j < 16; j++)
-				dest[TOP_RANGE+j] = source[top+15-j];
-		}
-
-		if (bottom < 128)
-			memcpy (dest + BOTTOM_RANGE, source + bottom, 16);
-		else
-		{
-			for (j = 0; j < 16; j++)
-				dest[BOTTOM_RANGE+j] = source[bottom+15-j];
-		}
-	}
 }
 
 /*
@@ -1957,7 +1909,6 @@ static void CL_ParseStatic (int version) //johnfitz -- added a parameter
 	ent->lerpflags |= LERP_RESETANIM; //johnfitz -- lerping
 	ent->frame = ent->baseline.frame;
 
-	ent->colormap = vid.colormap;
 	ent->skinnum = ent->baseline.skin;
 	ent->effects = ent->baseline.effects;
 	ent->alpha = ent->baseline.alpha; //johnfitz -- alpha
