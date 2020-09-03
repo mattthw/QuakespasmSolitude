@@ -4245,6 +4245,11 @@ static void PF_digest_hex(void)
 		hashdata[1] = (crc>>8)&0xff;
 		len = 2;
 	}
+	else if (!strcmp(hashtype, "MD4"))
+	{
+		Com_BlockFullChecksum((void*)data, len, hashdata);
+		len = 16;
+	}
 	else
 	{
 		Con_Printf("PF_digest_hex: Unsupported digest %s\n", hashtype);
