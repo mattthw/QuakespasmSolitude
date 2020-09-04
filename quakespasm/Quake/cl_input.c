@@ -308,10 +308,12 @@ Send the intended movement message to the server
 */
 void CL_BaseMove (usercmd_t *cmd)
 {
+	Q_memset (cmd, 0, sizeof(*cmd));
+
+	VectorCopy(cl.viewangles, cmd->viewangles);
+
 	if (cls.signon != SIGNONS)
 		return;
-
-	Q_memset (cmd, 0, sizeof(*cmd));
 
 	if (in_strafe.state & 1)
 	{
@@ -342,6 +344,51 @@ void CL_BaseMove (usercmd_t *cmd)
 	}
 }
 
+void CL_FinishMove(usercmd_t *cmd)
+{
+	unsigned int bits;
+	//
+	// send button bits
+	//
+	bits = 0;
+
+	if ( in_attack.state & 3 )
+		bits |= 1;
+	in_attack.state &= ~2;
+
+	if (in_jump.state & 3)
+		bits |= 2;
+	in_jump.state &= ~2;
+
+	if (in_button3.state & 3)
+		bits |= 4;
+	in_button3.state &= ~2;
+
+	if (in_button4.state & 3)
+		bits |= 8;
+	in_button4.state &= ~2;
+
+	if (in_button5.state & 3)
+		bits |= 16;
+	in_button5.state &= ~2;
+
+	if (in_button6.state & 3)
+		bits |= 32;
+	in_button6.state &= ~2;
+
+	if (in_button7.state & 3)
+		bits |= 64;
+	in_button7.state &= ~2;
+
+	if (in_button8.state & 3)
+		bits |= 128;
+	in_button8.state &= ~2;
+
+	cmd->buttons = bits;
+	cmd->impulse = in_impulse;
+
+	in_impulse = 0;
+}
 
 /*
 ==============
@@ -351,7 +398,6 @@ CL_SendMove
 void CL_SendMove (const usercmd_t *cmd)
 {
 	unsigned int	i;
-	int				bits;
 	sizebuf_t		buf;
 	byte			data[1024];
 
@@ -369,7 +415,6 @@ void CL_SendMove (const usercmd_t *cmd)
 	if (cmd)
 	{
 		int dump = buf.cursize;
-		cl.cmd = *cmd;
 
 	//
 	// send the movement message
@@ -378,14 +423,24 @@ void CL_SendMove (const usercmd_t *cmd)
 
 		if (cl.protocol == PROTOCOL_VERSION_DP7)
 		{
-			if (1)
+			if (0)
+			{
 				MSG_WriteLong(&buf, 0);
+				MSG_WriteFloat (&buf, cl.mtime[0]);	// so server can get ping times
+			}
 			else
+			{
 				MSG_WriteLong(&buf, cl.movemessages);
+				MSG_WriteFloat (&buf, cmd->servertime);	// for input timing
+			}
 		}
 		else if (cl.protocol_pext2 & PEXT2_PREDINFO)
+		{
 			MSG_WriteShort(&buf, cl.movemessages&0xffff);	//server will ack this once it has been applied to the player's entity state
-		MSG_WriteFloat (&buf, cl.mtime[0]);	// so server can get ping times
+			MSG_WriteFloat (&buf, cmd->servertime);	// so server can get cmd timing (pings will be calculated by entframe acks).
+		}
+		else
+			MSG_WriteFloat (&buf, cl.mtime[0]);	// so server can get ping times
 
 		for (i=0 ; i<3 ; i++)
 			//johnfitz -- 16-bit angles for PROTOCOL_FITZQUAKE
@@ -402,47 +457,11 @@ void CL_SendMove (const usercmd_t *cmd)
 		MSG_WriteShort (&buf, cmd->sidemove);
 		MSG_WriteShort (&buf, cmd->upmove);
 
-	//
-	// send button bits
-	//
-		bits = 0;
-
-		if ( in_attack.state & 3 )
-			bits |= 1;
-		in_attack.state &= ~2;
-
-		if (in_jump.state & 3)
-			bits |= 2;
-		in_jump.state &= ~2;
-
-		if (in_button3.state & 3)
-			bits |= 4;
-		in_button3.state &= ~2;
-
-		if (in_button4.state & 3)
-			bits |= 8;
-		in_button4.state &= ~2;
-
-		if (in_button5.state & 3)
-			bits |= 16;
-		in_button5.state &= ~2;
-		
-		if (in_button6.state & 3)
-			bits |= 32;
-		in_button6.state &= ~2;
-
-		if (in_button7.state & 3)
-			bits |= 64;
-		in_button7.state &= ~2;
-
-		if (in_button8.state & 3)
-			bits |= 128;
-		in_button8.state &= ~2;
 
 		if (cl.protocol == PROTOCOL_VERSION_DP7)
 		{
-			MSG_WriteLong (&buf, bits);
-			MSG_WriteByte (&buf, in_impulse);
+			MSG_WriteLong (&buf, cmd->buttons);
+			MSG_WriteByte (&buf, cmd->impulse);
 			MSG_WriteShort(&buf, 32767);//cursor x
 			MSG_WriteShort(&buf, 32767);//cursor y
 			MSG_WriteFloat(&buf, r_refdef.vieworg[0]);	//start (view pos)
@@ -455,10 +474,12 @@ void CL_SendMove (const usercmd_t *cmd)
 		}
 		else
 		{
-			MSG_WriteByte (&buf, bits);
-			MSG_WriteByte (&buf, in_impulse);
+			MSG_WriteByte (&buf, cmd->buttons);
+			MSG_WriteByte (&buf, cmd->impulse);
 		}
 		in_impulse = 0;
+
+		cl.movecmds[cl.movemessages&MOVECMDS_MASK] = *cmd;
 
 	//
 	// allways dump the first two message, because it may contain leftover inputs

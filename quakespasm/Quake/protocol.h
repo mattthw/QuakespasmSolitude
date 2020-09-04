@@ -461,12 +461,19 @@ extern entity_state_t nullentitystate;	//note: not all null.
 
 typedef struct
 {
+	float	servertime;
+	float	seconds;	//servertime-previous->servertime
 	vec3_t	viewangles;
 
 // intended velocities
 	float	forwardmove;
 	float	sidemove;
 	float	upmove;
+
+	unsigned int	buttons;
+	unsigned int	impulse;
+
+	unsigned int	sequence;
 } usercmd_t;
 
 #endif	/* _QUAKE_PROTOCOL_H */

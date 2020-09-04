@@ -164,7 +164,9 @@ typedef struct
 								// throw out the first couple, so the player
 								// doesn't accidentally do something the
 								// first frame
-	usercmd_t	cmd;			// last command sent to the server
+	int			ackedmovemessages;	// echo of movemessages from the server.
+	usercmd_t	movecmds[64];	// ringbuffer of previous movement commands (journal for prediction)
+#define MOVECMDS_MASK (countof(cl.movecmds)-1)
 	usercmd_t	pendingcmd;		// accumulated state from mice+joysticks.
 
 // information for local display
@@ -406,6 +408,7 @@ void CL_SendMove (const usercmd_t *cmd);
 int  CL_ReadFromServer (void);
 void CL_AdjustAngles (void);
 void CL_BaseMove (usercmd_t *cmd);
+void CL_FinishMove(usercmd_t *cmd);
 
 void CL_Download_Data(void);
 qboolean CL_CheckDownloads(void);

@@ -6407,6 +6407,38 @@ static void PF_cs_setlistener(void)
 	VectorCopy(up, cl.listener_axis[2]);
 }
 
+void CL_CSQC_SetInputs(usercmd_t *cmd, qboolean set);
+static void PF_cs_getinputstate(void)
+{
+	unsigned int seq = G_FLOAT(OFS_PARM0);
+	if (seq == cl.movemessages)
+	{	//the partial/pending frame!
+		G_FLOAT(OFS_RETURN) = 1;
+		CL_CSQC_SetInputs(&cl.pendingcmd, true);
+	}
+	else if (cl.movecmds[seq&MOVECMDS_MASK].sequence == seq)
+	{	//valid sequence slot.
+		G_FLOAT(OFS_RETURN) = 1;
+		CL_CSQC_SetInputs(&cl.movecmds[seq&MOVECMDS_MASK], true);
+	}
+	else
+		G_FLOAT(OFS_RETURN) = 0; //invalid
+}
+
+static void PF_touchtriggers (void)
+{
+	edict_t	*e;
+	float	*org;
+
+	e = (qcvm->argc > 0)?G_EDICT(OFS_PARM0):G_EDICT(pr_global_struct->self);
+	if (qcvm->argc > 1)
+	{
+		org = G_VECTOR(OFS_PARM1);
+		VectorCopy (org, e->v.origin);
+	}
+	SV_LinkEdict (e, true);
+}
+
 //A quick note on number ranges.
 //0: automatically assigned. more complicated, but no conflicts over numbers, just names...
 //   NOTE: #0 is potentially ambiguous - vanilla will interpret it as instruction 0 (which is normally reserved) rather than a builtin.
@@ -6556,7 +6588,7 @@ static struct
 //	{"processmodelevents",PF_processmodelevents,PF_processmodelevents,0,PF_NoMenu, D("void(float modidx, float framenum, __inout float basetime, float targettime, void(float timestamp, int code, string data) callback)", "Calls a callback for each event that has been reached. Basetime is set to targettime.")},
 //	{"getnextmodelevent",PF_getnextmodelevent,PF_getnextmodelevent,0,	PF_NoMenu, D("float(float modidx, float framenum, __inout float basetime, float targettime, __out int code, __out string data)", "Reports the next event within a model's animation. Returns a boolean if an event was found between basetime and targettime. Writes to basetime,code,data arguments (if an event was found, basetime is set to the event's time, otherwise to targettime).\nWARNING: this builtin cannot deal with multiple events with the same timestamp (only the first will be reported).")},
 //	{"getmodeleventidx",PF_getmodeleventidx,PF_getmodeleventidx,0,		PF_NoMenu, D("float(float modidx, float framenum, int eventidx, __out float timestamp, __out int code, __out string data)", "Reports an indexed event within a model's animation. Writes to timestamp,code,data arguments on success. Returns false if the animation/event/model was out of range/invalid. Does not consider looping animations (retry from index 0 if it fails and you know that its a looping animation). This builtin is more annoying to use than getnextmodelevent, but can be made to deal with multiple events with the exact same timestamp.")},
-///	{"touchtriggers",	PF_touchtriggers,	PF_touchtriggers,	279,	PF_NoMenu, D("void(optional entity ent, optional vector neworigin)", "Triggers a touch events between self and every SOLID_TRIGGER entity that it is in contact with. This should typically just be the triggers touch functions. Also optionally updates the origin of the moved entity.")},//
+	{"touchtriggers",	PF_touchtriggers,	PF_touchtriggers,	279,	PF_NoMenu, D("void(optional entity ent, optional vector neworigin)", "Triggers a touch events between self and every SOLID_TRIGGER entity that it is in contact with. This should typically just be the triggers touch functions. Also optionally updates the origin of the moved entity.")},//
 	{"WriteFloat",		PF_WriteFloat,		PF_NoCSQC,			280,	PF_NoMenu, "void(float buf, float fl)"},
 //	{"skel_ragupdate",	PF_skel_ragedit,	PF_skel_ragedit,	281,	PF_NoMenu, D("float(entity skelent, string dollcmd, float animskel)", "Updates the skeletal object attached to the entity according to its origin and other properties.\nif animskel is non-zero, the ragdoll will animate towards the bone state in the animskel skeletal object, otherwise they will pick up the model's base pose which may not give nice results.\nIf dollcmd is not set, the ragdoll will update (this should be done each frame).\nIf the doll is updated without having a valid doll, the model's default .doll will be instanciated.\ncommands:\n doll foo.doll : sets up the entity to use the named doll file\n dollstring TEXT : uses the doll file directly embedded within qc, with that extra prefix.\n cleardoll : uninstanciates the doll without destroying the skeletal object.\n animate 0.5 : specifies the strength of the ragdoll as a whole \n animatebody somebody 0.5 : specifies the strength of the ragdoll on a specific body (0 will disable ragdoll animations on that body).\n enablejoint somejoint 1 : enables (or disables) a joint. Disabling joints will allow the doll to shatter.")}, // (FTE_CSQC_RAGDOLL)
 //	{"skel_mmap",		PF_skel_mmap,		PF_skel_mmap,		282,	PF_NoMenu, D("float*(float skel)", "Map the bones in VM memory. They can then be accessed via pointers. Each bone is 12 floats, the four vectors interleaved (sadly).")},// (FTE_QC_RAGDOLL)
@@ -6628,7 +6660,7 @@ static struct
 	{"setcursormode",	PF_NoSSQC,			PF_cl_setcursormode,343,	PF_cl_setcursormode,343, D("void(float usecursor, optional string cursorimage, optional vector hotspot, optional float scale)", "Pass TRUE if you want the engine to release the mouse cursor (absolute input events + touchscreen mode). Pass FALSE if you want the engine to grab the cursor (relative input events + standard looking). If the image name is specified, the engine will use that image for a cursor (use an empty string to clear it again), in a way that will not conflict with the console. Images specified this way will be hardware accelerated, if supported by the platform/port.")},
 	{"getcursormode",	PF_NoSSQC,			PF_cl_getcursormode,0,		PF_cl_getcursormode,0, D("float(float effective)", "Reports the cursor mode this module previously attempted to use. If 'effective' is true, reports the cursor mode currently active (if was overriden by a different module which has precidence, for instance, or if there is only a touchscreen and no mouse).")},
 	{"getmousepos",		PF_NoSSQC,			PF_NoCSQC,	344,	PF_m_getmousepos,66, D("vector()", "Nasty convoluted DP extension. Typically returns deltas instead of positions. Use CSQC_InputEvent for such things in csqc mods.")},	// #344 This is a DP extension
-//	{"getinputstate",	PF_NoSSQC,			PF_FullCSQCOnly,	345,	PF_NoMenu, D("float(float inputsequencenum)", "Looks up an input frame from the log, setting the input_* globals accordingly.\nThe sequence number range used for prediction should normally be servercommandframe < sequence <= clientcommandframe.\nThe sequence equal to clientcommandframe will change between input frames.")},// (EXT_CSQC)
+	{"getinputstate",	PF_NoSSQC,			PF_cs_getinputstate,345,	PF_NoMenu, D("float(float inputsequencenum)", "Looks up an input frame from the log, setting the input_* globals accordingly.\nThe sequence number range used for prediction should normally be servercommandframe < sequence <= clientcommandframe.\nThe sequence equal to clientcommandframe will change between input frames.")},// (EXT_CSQC)
 	{"setsensitivityscaler",PF_NoSSQC,		PF_cl_setsensitivity,346,	PF_NoMenu, D("void(float sens)", "Temporarily scales the player's mouse sensitivity based upon something like zoom, avoiding potential cvar saving and thus corruption.")},// (EXT_CSQC)
 //	{"runstandardplayerphysics",NULL,		PF_FullCSQCOnly,	347,	PF_NoMenu, D("void(entity ent)", "Perform the engine's standard player movement prediction upon the given entity using the input_* globals to describe movement.")},
 	{"getplayerkeyvalue",NULL,				PF_cl_playerkey_s,	348,	PF_NoMenu, D("string(float playernum, string keyname)", "Look up a player's userinfo, to discover things like their name, topcolor, bottomcolor, skin, team, *ver.\nAlso includes scoreboard info like frags, ping, pl, userid, entertime, as well as voipspeaking and voiploudness.")},// (EXT_CSQC)

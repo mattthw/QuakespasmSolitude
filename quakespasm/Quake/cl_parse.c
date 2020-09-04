@@ -652,7 +652,15 @@ static void CLFTE_ParseEntitiesUpdate(void)
 		cl.ackframes[cl.ackframes_count++] = NET_QSocketGetSequenceIn(cls.netcon);
 
 	if (cl.protocol_pext2 & PEXT2_PREDINFO)
-		MSG_ReadShort();	//an ack from our input sequences. strictly ascending-or-equal
+	{
+		int seq = (cl.movemessages&0xffff0000) | (unsigned short)MSG_ReadShort();	//an ack from our input sequences. strictly ascending-or-equal
+		if (seq > cl.movemessages)
+			seq -= 0x10000;	//check for cl.movemessages overflowing the low 16 bits, and compensate.
+		cl.ackedmovemessages = seq;
+
+		if (cl.qcvm.extglobals.servercommandframe)
+			*cl.qcvm.extglobals.servercommandframe = cl.ackedmovemessages;
+	}
 
 	newtime = MSG_ReadFloat ();
 	if (newtime != cl.mtime[0])
@@ -1065,7 +1073,9 @@ static void CLDP_ParseEntitiesUpdate(void)
 	ack = MSG_ReadLong();	//delta sequence number (must be acked)
 	if (cl.ackframes_count < sizeof(cl.ackframes)/sizeof(cl.ackframes[0]))
 		cl.ackframes[cl.ackframes_count++] = ack;
-	MSG_ReadLong();	//input sequence ack
+	cl.ackedmovemessages = MSG_ReadLong();	//input sequence ack
+	if (cl.qcvm.extglobals.servercommandframe)
+		*cl.qcvm.extglobals.servercommandframe = cl.ackedmovemessages;
 
 	for(;;)
 	{

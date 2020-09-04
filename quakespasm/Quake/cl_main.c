@@ -417,6 +417,8 @@ void CL_DecayLights (void)
 	float		time;
 
 	time = cl.time - cl.oldtime;
+	if (time < 0)
+		return;
 
 	dl = cl_dlights;
 	for (i=0 ; i<MAX_DLIGHTS ; i++, dl++)
@@ -1175,6 +1177,46 @@ void CL_AccumulateCmd (void)
 		//accumulate movement from other devices
 		IN_Move (&cl.pendingcmd);
 	}
+
+	cl.pendingcmd.seconds		= cl.mtime[0] - cl.pendingcmd.servertime;
+}
+
+void CL_CSQC_SetInputs(usercmd_t *cmd, qboolean set)
+{
+	if (set)
+	{
+		if (qcvm->extglobals.input_timelength)
+			*qcvm->extglobals.input_timelength = cmd->seconds;
+		if (qcvm->extglobals.input_angles)
+			VectorCopy(cmd->viewangles, qcvm->extglobals.input_angles);
+		if (qcvm->extglobals.input_movevalues)
+		{
+			qcvm->extglobals.input_movevalues[0] = cmd->forwardmove;
+			qcvm->extglobals.input_movevalues[1] = cmd->sidemove;
+			qcvm->extglobals.input_movevalues[2] = cmd->upmove;
+		}
+		if (qcvm->extglobals.input_buttons)
+			*qcvm->extglobals.input_buttons = cmd->buttons;
+		if (qcvm->extglobals.input_impulse)
+			*qcvm->extglobals.input_impulse = cmd->impulse;
+	}
+	else
+	{
+		if (qcvm->extglobals.input_timelength)
+			cmd->seconds = *qcvm->extglobals.input_timelength;
+		if (qcvm->extglobals.input_angles)
+			VectorCopy(qcvm->extglobals.input_angles, cmd->viewangles);
+		if (qcvm->extglobals.input_movevalues)
+		{
+			cmd->forwardmove = qcvm->extglobals.input_movevalues[0];
+			cmd->sidemove = qcvm->extglobals.input_movevalues[1];
+			cmd->upmove = qcvm->extglobals.input_movevalues[2];
+		}
+		if (qcvm->extglobals.input_buttons)
+			cmd->buttons = *qcvm->extglobals.input_buttons;
+		if (qcvm->extglobals.input_impulse)
+			cmd->impulse = *qcvm->extglobals.input_impulse;
+	}
 }
 
 /*
@@ -1189,22 +1231,34 @@ void CL_SendCmd (void)
 	if (cls.state != ca_connected)
 		return;
 
-	if (cls.signon == SIGNONS)
-	{
 	// get basic movement from keyboard
-		CL_BaseMove (&cmd);
+	CL_BaseMove (&cmd);
 
 	// allow mice or other external controllers to add to the move
-		cmd.forwardmove	+= cl.pendingcmd.forwardmove;
-		cmd.sidemove	+= cl.pendingcmd.sidemove;
-		cmd.upmove		+= cl.pendingcmd.upmove;
+	cmd.forwardmove	+= cl.pendingcmd.forwardmove;
+	cmd.sidemove	+= cl.pendingcmd.sidemove;
+	cmd.upmove		+= cl.pendingcmd.upmove;
+	cmd.sequence	= cl.movemessages;
+	cmd.servertime	= cl.time;
+	cmd.seconds		= cmd.servertime - cl.pendingcmd.servertime;
 
-	// send the unreliable message
-		CL_SendMove (&cmd);
+	CL_FinishMove(&cmd);
+
+	if (cl.qcvm.extfuncs.CSQC_Input_Frame && !cl.qcvm.nogameaccess)
+	{
+		PR_SwitchQCVM(&cl.qcvm);
+		CL_CSQC_SetInputs(&cmd, true);
+		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Input_Frame);
+//		CL_CSQC_SetInputs(&cmd, false);
+		PR_SwitchQCVM(NULL);
 	}
+
+	if (cls.signon == SIGNONS)
+		CL_SendMove (&cmd);	// send the unreliable message
 	else
 		CL_SendMove (NULL);
 	memset(&cl.pendingcmd, 0, sizeof(cl.pendingcmd));
+	cl.pendingcmd.servertime = cmd.servertime;
 
 	if (cls.demoplayback)
 	{
