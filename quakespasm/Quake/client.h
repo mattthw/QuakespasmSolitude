@@ -275,6 +275,7 @@ typedef struct
 	qboolean requestresend;
 
 	char stuffcmdbuf[1024];	//comment-extensions are a thing with certain servers, make sure we can handle them properly without further hacks/breakages. there's also some server->client only console commands that we might as well try to handle a bit better, like reconnect
+	char printbuffer[1024];
 	enum
 	{
 		PRINT_NONE,
@@ -300,6 +301,8 @@ typedef struct
 
 	qcvm_t	qcvm;	//for csqc.
 	float	csqc_sensitivity;	//scaler for sensitivity
+	size_t	ssqc_to_csqc_max;
+	edict_t **ssqc_to_csqc;		//to find the csqc ent for an ssqc index.
 
 	char serverinfo[8192];	// \key\value infostring data.
 } client_state_t;

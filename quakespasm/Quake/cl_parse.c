@@ -724,16 +724,75 @@ static void CLFTE_ParseEntitiesUpdate(void)
 	}
 }
 
+static void CSQC_ClearCsEdictForSSQC(size_t entnum)
+{
+	edict_t *ed;
+	if (entnum >= cl.ssqc_to_csqc_max)
+		return;	//invalid...
+
+	ed = cl.ssqc_to_csqc[entnum];
+	if (ed)
+	{
+		cl.ssqc_to_csqc[entnum] = NULL;
+
+		//let the csqc know.
+		pr_global_struct->self = EDICT_TO_PROG(ed);
+		if (qcvm->extfuncs.CSQC_Ent_Remove)
+			PR_ExecuteProgram(qcvm->extfuncs.CSQC_Ent_Remove);
+		else
+			ED_Free(ed);
+	}
+}
+static void CSQC_UpdateCsEdictForSSQC(size_t entnum)
+{
+	edict_t *ed;
+	eval_t *ev;
+	qboolean isnew;
+	if (entnum >= cl.ssqc_to_csqc_max)
+	{
+		size_t nc = q_min(MAX_EDICTS, entnum+64);
+		void *nptr;
+		if (entnum >= nc)
+			Host_EndGame("entnum > MAX_EDICTS");
+		nptr = realloc(cl.ssqc_to_csqc, nc * sizeof(*cl.ssqc_to_csqc));
+		if (!nptr)
+			Sys_Error("realloc failure");
+		cl.ssqc_to_csqc = nptr;
+		memset(cl.ssqc_to_csqc+cl.ssqc_to_csqc_max, 0, (nc-cl.ssqc_to_csqc_max)*sizeof(*cl.ssqc_to_csqc));
+		cl.ssqc_to_csqc_max = nc;
+	}
+
+	ed = cl.ssqc_to_csqc[entnum];
+	if (!ed)
+	{
+		//allocate our new ent.
+		ed = cl.ssqc_to_csqc[entnum] = ED_Alloc();
+
+		//fill its entnum field too.
+		ev = GetEdictFieldValue(ed, qcvm->extfields.entnum);
+		if (ev)
+			ev->_float = entnum;
+		isnew = true;
+	}
+	else
+		isnew = false;
+
+	G_FLOAT(OFS_PARM0) = isnew;
+	pr_global_struct->self = EDICT_TO_PROG(ed);
+	PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Ent_Update);
+}
+
 //csqc entities protocol, payload is identical in both fte+dp. just the svcs differ.
 void CLFTE_ParseCSQCEntitiesUpdate(void)
 {
-	/*if (cl.qcvm.extfuncs.CSQC_Ent_Update)
+	if (qcvm->extfuncs.CSQC_Ent_Update)
 	{
-		edict_t *ed;
+		unsigned int entnum;
+		qboolean removeflag;
 		for(;;)
 		{
 			//replacement deltas now also includes 22bit entity num indicies.
-			if (cls.fteprotocolextensions2 & PEXT2_REPLACEMENTDELTAS)
+			if (cl.protocol_pext2 & PEXT2_REPLACEMENTDELTAS)
 			{
 				entnum = (unsigned short)MSG_ReadShort();
 				removeflag = !!(entnum & 0x8000);
@@ -753,36 +812,31 @@ void CLFTE_ParseCSQCEntitiesUpdate(void)
 
 			if (removeflag)
 			{
-				ed = cl.ssqc_to_csqc[entnum];
-				if (ed)
-				{
-					pr_global_struct->self = EDICT_TO_PROG(ed);
-					if (cl.qcvm.extfuncs.CSQC_Ent_Remove)
-						PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Ent_Remove);
-					else
-						ED_Free(ed);
-				}
+				if (cl_shownet.value >= 3)
+					Con_SafePrintf("%3i:     Remove %i\n", msg_readcount, entnum);
+				CSQC_ClearCsEdictForSSQC(entnum);
 			}
 			else
 			{
-//				if (cl.csqcdebug)
-//					packetsize = MSG_ReadShort();
-
-				ed = cl.ssqc_to_csqc[entnum];
-				if (!ed)
+/*				if (sized)
 				{
-					cl.ssqc_to_csqc[entnum] = ed = ED_Alloc();
-					ed->v.entnum = entnum;
-					G_FLOAT(OFS_PARM0) = true;
+					packetsize = MSG_ReadShort();
+					if (cl_shownet.value >= 3)
+						Con_SafePrintf("%3i - %3i:     Update %i\n", msg_readcount, msg_readcount+packetsize-1, entnum);
 				}
 				else
-					G_FLOAT(OFS_PARM0) = false;
-				pr_global_struct->self = EDICT_TO_PROG(ed);
-				PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Ent_Update);
+*/				{
+					if (cl_shownet.value >= 3)
+						Con_SafePrintf("%3i:     Update %i\n", msg_readcount, entnum);
+				}
+
+				CSQC_UpdateCsEdictForSSQC(entnum);
+//				if (sized)
+//					;//TODO make sure we read the right size...
 			}
 		}
 	}
-	else*/
+	else
 		Host_Error ("Received svc_csqcentities but unable to parse");
 }
 
@@ -2128,30 +2182,46 @@ static void CL_ParseStuffText(const char *msg)
 {
 	const char *str;
 	q_strlcat(cl.stuffcmdbuf, msg, sizeof(cl.stuffcmdbuf));
-	while ((str = strchr(cl.stuffcmdbuf, '\n')))
+	for (; (str = strchr(cl.stuffcmdbuf, '\n')); memmove(cl.stuffcmdbuf, str, Q_strlen(str)+1))
 	{
-		qboolean handled;
+		qboolean handled = false;
+
+		str++;//skip past the \n
+
 		if (*cl.stuffcmdbuf == 0x01 && cl.protocol == PROTOCOL_NETQUAKE) //proquake message, just strip this and try again (doesn't necessarily have a trailing \n straight away)
 		{
 			for (str = cl.stuffcmdbuf+1; *str >= 0x01 && *str <= 0x1f; str++)
 				;//FIXME: parse properly
-			memmove(cl.stuffcmdbuf, str, Q_strlen(str)+1);
 			continue;
 		}
-		str++;//skip past the \n
 
-		//handle //prefixed commands
+		//handle special commands
 		if (cl.stuffcmdbuf[0] == '/' && cl.stuffcmdbuf[1] == '/')
 		{
 			handled = Cmd_ExecuteString(cl.stuffcmdbuf+2, src_server);
 			if (!handled)
-				Con_DPrintf("Server sent unknown command %s\n", Cmd_Argv(1));
+				Con_DPrintf("Server sent unknown command %s\n", Cmd_Argv(0));
 		}
 		else
 			handled = Cmd_ExecuteString(cl.stuffcmdbuf, src_server);
+
+		//give the csqc a chance to handle them
+		if (!handled && cl.qcvm.extfuncs.CSQC_Parse_StuffCmd && str-cl.stuffcmdbuf<STRINGTEMP_LENGTH)
+		{
+			char *tmp;
+			PR_SwitchQCVM(&cl.qcvm);
+			tmp = PR_GetTempString();
+			memcpy(tmp, cl.stuffcmdbuf, str-cl.stuffcmdbuf);
+			tmp[str-cl.stuffcmdbuf] = 0;	//null terminate it.
+			G_INT(OFS_PARM0) = PR_SetEngineString(tmp);
+			PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Parse_StuffCmd);
+			handled = true;	//unfortunately the mod is expected to localcmd unknown things.
+			PR_SwitchQCVM(NULL);
+		}
+
+		//let the server exec general user commands (massive security hole)
 		if (!handled)
 			Cbuf_AddTextLen(cl.stuffcmdbuf, str-cl.stuffcmdbuf);
-		memmove(cl.stuffcmdbuf, str, Q_strlen(str)+1);
 	}
 }
 
@@ -2227,6 +2297,66 @@ static qboolean CL_ParseSpecialPrints(const char *printtext)
 	}
 
 	return false;
+}
+
+static void CL_ParsePrint(const char *msg)
+{
+	const char *str;
+	char *tmp;
+	if (CL_ParseSpecialPrints(msg))
+		return;
+
+	if (cl.qcvm.extfuncs.CSQC_Parse_Print)
+	{
+		q_strlcat(cl.printbuffer, msg, sizeof(cl.printbuffer));
+		for (; *cl.printbuffer; memmove(cl.printbuffer, str, Q_strlen(str)+1))
+		{
+			for (str = cl.printbuffer; str < cl.printbuffer+STRINGTEMP_LENGTH-1; str++)
+			{
+				if (*str == '\r' || *str == '\n')
+				{
+					str++;
+					break;
+				}
+				if (!*str)
+					return;
+			}
+			PR_SwitchQCVM(&cl.qcvm);
+			tmp = PR_GetTempString();
+			memcpy(tmp, cl.printbuffer, str-cl.printbuffer);
+			tmp[str-cl.printbuffer] = 0;
+			G_INT(OFS_PARM0) = PR_SetEngineString(tmp);
+			G_FLOAT(OFS_PARM1) = ((*tmp=='\1')?3:2);	//guess at the print level. we don't really have them in NQ.
+			PR_ExecuteProgram(qcvm->extfuncs.CSQC_Parse_Print);
+			PR_SwitchQCVM(NULL);
+		}
+	}
+	else
+	{
+		if (*cl.printbuffer)
+		{
+			Con_Printf ("%s", cl.printbuffer);
+			*cl.printbuffer = 0;
+		}
+		Con_Printf ("%s", msg);
+	}
+}
+
+static void CL_ParseCenterPrint(const char *msg)
+{
+	char *tmp;
+	if (cl.qcvm.extfuncs.CSQC_Parse_CenterPrint)
+	{	//let the csqc do it.
+		PR_SwitchQCVM(&cl.qcvm);
+		tmp = PR_GetTempString();
+		q_strlcpy(tmp, msg, STRINGTEMP_LENGTH);
+		G_INT(OFS_PARM0) = PR_SetEngineString(tmp);
+		PR_ExecuteProgram(qcvm->extfuncs.CSQC_Parse_CenterPrint);
+		//qc calls cprint if it wants the legacy behaviour...
+		PR_SwitchQCVM(NULL);
+	}
+	else
+		SCR_CenterPrint(msg);
 }
 
 /*
@@ -2328,15 +2458,12 @@ void CL_ParseServerMessage (void)
 			Host_EndGame ("Server disconnected\n");
 
 		case svc_print:
-			str = MSG_ReadString();
-			if (!CL_ParseSpecialPrints(str))
-				Con_Printf ("%s", str);
+			CL_ParsePrint(MSG_ReadString());
 			break;
 
 		case svc_centerprint:
 			//johnfitz -- log centerprints to console
-			str = MSG_ReadString ();
-			SCR_CenterPrint (str);
+			CL_ParseCenterPrint (MSG_ReadString());
 			//johnfitz
 			break;
 
@@ -2493,8 +2620,7 @@ void CL_ParseServerMessage (void)
 			cl.completed_time = cl.time;
 			vid.recalc_refdef = true;	// go to full screen
 			//johnfitz -- log centerprints to console
-			str = MSG_ReadString ();
-			SCR_CenterPrint (str);
+			CL_ParseCenterPrint (MSG_ReadString());
 			//johnfitz
 			break;
 
@@ -2503,8 +2629,7 @@ void CL_ParseServerMessage (void)
 			cl.completed_time = cl.time;
 			vid.recalc_refdef = true;	// go to full screen
 			//johnfitz -- log centerprints to console
-			str = MSG_ReadString ();
-			SCR_CenterPrint (str);
+			CL_ParseCenterPrint (MSG_ReadString ());
 			//johnfitz
 			break;
 
@@ -2574,7 +2699,9 @@ void CL_ParseServerMessage (void)
 		case svcdp_csqcentities:	//FTE uses DP's svc number for nq, because compat (despite fte's svc being first). same payload either way.
 			if (!(cl.protocol_pext2 & PEXT2_REPLACEMENTDELTAS) && cl.protocol != PROTOCOL_VERSION_DP7)
 				Host_Error ("Received svcdp_csqcentities but extension not active");
+			PR_SwitchQCVM(&cl.qcvm);
 			CLFTE_ParseCSQCEntitiesUpdate();
+			PR_SwitchQCVM(NULL);
 			break;
 		case svcdp_spawnbaseline2:	//limited to a handful of extra properties.
 			if (cl.protocol != PROTOCOL_VERSION_DP7)

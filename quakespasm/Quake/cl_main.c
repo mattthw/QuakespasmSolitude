@@ -97,6 +97,7 @@ void CL_FreeState(void)
 	CL_ClearTrailStates();
 	PR_ClearProgs(&cl.qcvm);
 	free(cl.static_entities);
+	free(cl.ssqc_to_csqc);
 	memset (&cl, 0, sizeof(cl));
 }
 
