@@ -603,6 +603,11 @@ void SVFTE_DestroyFrames(client_t *client)
 	client->pendingentities_bits = NULL;
 	client->numpendingentities = 0;
 
+	if (client->pendingcsqcentities_bits)
+		free(client->pendingcsqcentities_bits);
+	client->pendingcsqcentities_bits = NULL;
+	client->numpendingcsqcentities = 0;
+
 	while(client->numframes > 0)
 	{
 		client->numframes--;
@@ -641,6 +646,10 @@ static void SVFTE_SetupFrames(client_t *client)
 	client->pendingentities_bits = calloc(client->numpendingentities, sizeof(*client->pendingentities_bits));
 
 	client->pendingentities_bits[0] = UF_REMOVE;
+
+
+	client->numpendingcsqcentities = qcvm->num_edicts;
+	client->pendingcsqcentities_bits = calloc(client->numpendingcsqcentities, sizeof(*client->pendingcsqcentities_bits));
 }
 static void SVFTE_DroppedFrame(client_t *client, int sequence)
 {
@@ -873,7 +882,7 @@ static void SVFTE_WriteEntitiesToClient(client_t *client, sizebuf_t *msg, size_t
 	frame->numents = 0;
 	if (client->protocol_pext2 & PEXT2_PREDINFO)
 		MSG_WriteShort(msg, (client->lastmovemessage&0xffff));
-	MSG_WriteFloat(msg, qcvm->time);	//should be the time the last physics frame was run.
+	MSG_WriteFloat(msg, frame->timestamp);	//should be the time the last physics frame was run.
 	for (entnum = client->snapshotresume; entnum < client->numpendingentities; entnum++)
 	{
 		bits = client->pendingentities_bits[entnum];
@@ -888,7 +897,7 @@ static void SVFTE_WriteEntitiesToClient(client_t *client, sizebuf_t *msg, size_t
 			if (entnum > 0x3fff)
 			{
 				MSG_WriteShort(msg, 0xc000|(entnum&0x3fff));
-				MSG_WriteShort(msg, entnum>>14);
+				MSG_WriteByte(msg, entnum>>14);
 			}
 			else
 				MSG_WriteShort(msg, 0x8000|entnum);
@@ -921,7 +930,7 @@ static void SVFTE_WriteEntitiesToClient(client_t *client, sizebuf_t *msg, size_t
 				if (entnum >= 0x4000)
 				{
 					MSG_WriteShort(msg, 0x4000|(entnum&0x3fff));
-					MSG_WriteShort(msg, entnum>>14);
+					MSG_WriteByte(msg, entnum>>14);
 				}
 				else
 					MSG_WriteShort(msg, entnum);
@@ -943,14 +952,136 @@ static void SVFTE_WriteEntitiesToClient(client_t *client, sizebuf_t *msg, size_t
 		}
 		frame->ents[frame->numents].num = entnum;
 		frame->ents[frame->numents].bits = logbits;
+		frame->ents[frame->numents].csqcbits = 0;
 		frame->numents++;
 	}
 	msg->maxsize = origmaxsize;
 	MSG_WriteShort(msg, 0);	//eom
 
 	//remember how far we got, so we can keep things flushed, instead of only updating the first N entities.
-	client->snapshotresume = (entnum<client->numpendingentities?entnum:0);
+	client->snapshotresume = entnum;
 
+
+	if (msg->cursize > 1024 && dev_peakstats.packetsize <= 1024)
+		Con_DWarning ("%i byte packet exceeds standard limit of 1024.\n", msg->cursize);
+	dev_stats.packetsize = msg->cursize;
+	dev_peakstats.packetsize = q_max(msg->cursize, dev_peakstats.packetsize);
+}
+
+static void SVFTE_WriteCSQCEntitiesToClient(client_t *client, sizebuf_t *msg, size_t overflowsize)
+{
+	edict_t *ed;
+	unsigned int bits, logbits;
+	size_t entnum;
+	int sequence = NET_QSocketGetSequenceOut(client->netconnection);
+	size_t origmaxsize = msg->maxsize;
+	size_t rollbacksize;	//I'm too lazy to figure out sizes (especially if someone updates this for bone states or whatever)
+	struct deltaframe_s *frame = &client->frames[sequence&(client->numframes-1)];
+
+	qboolean wroteheader = false;
+
+	if (!GetEdictFieldValid(SendEntity) || !GetEdictFieldValid(SendFlags))
+		return;	//mod does not participate in csqc entity networking.
+
+	msg->maxsize = overflowsize;
+
+	for (entnum = 1; entnum < client->numpendingcsqcentities; entnum++)
+	{
+		bits = client->pendingcsqcentities_bits[entnum];
+		if (!(bits & ~SENDFLAG_PRESENT))
+			continue;	//nothing to send (if reset2 is still set, then leave it pending until there's more data
+
+		rollbacksize = msg->cursize;
+		logbits = 0;
+		if (bits & SENDFLAG_REMOVE)
+		{
+sendremove:
+//			if (GetEdictFieldValid(pvsflags) && (int)GetEdictFieldEval(EDICT_NUM(entnum), pvsflags)->_float & 0x80)
+//				continue;
+			if (!wroteheader)
+			{
+				MSG_WriteByte(msg, svcdp_csqcentities);
+				wroteheader = true;
+			}
+			if (entnum > 0x3fff)
+			{
+				MSG_WriteShort(msg, 0xc000|(entnum&0x3fff));
+				MSG_WriteByte(msg, entnum>>14);
+			}
+			else
+				MSG_WriteShort(msg, 0x8000|entnum);
+			logbits = SENDFLAG_REMOVE;
+			bits = 0;
+		}
+		else
+		{
+			ed = EDICT_NUM(entnum);
+			if (ed->free)
+			{
+				if (bits & SENDFLAG_PRESENT)
+					goto sendremove;
+			}
+			else
+			{
+				sv.multicast.cursize = 0;	//just in case
+
+				pr_global_struct->self = EDICT_TO_PROG(ed);
+				G_INT(OFS_PARM0) = EDICT_TO_PROG(client->edict);
+				G_FLOAT(OFS_PARM1) = bits & SENDFLAG_USABLE;
+				PR_ExecuteProgram(GetEdictFieldEval(ed, SendEntity)->function);
+				if (G_FLOAT(OFS_RETURN))
+				{
+					if (!wroteheader)
+					{
+						MSG_WriteByte(msg, svcdp_csqcentities);
+						wroteheader = true;
+					}
+					if (entnum >= 0x4000)
+					{
+						MSG_WriteShort(msg, 0x4000|(entnum&0x3fff));
+						MSG_WriteByte(msg, entnum>>14);
+					}
+					else
+						MSG_WriteShort(msg, entnum);
+
+					//we're just borrowing the multicast buffer...
+					SZ_Write(msg, sv.multicast.data, sv.multicast.cursize);
+
+					logbits = bits;
+					bits = SENDFLAG_PRESENT;
+				}
+				else if (bits & SENDFLAG_PRESENT)
+					goto sendremove;
+				else
+					logbits = bits = 0;
+			}
+		}
+		client->pendingcsqcentities_bits[entnum] = bits;
+
+		if ((size_t)msg->cursize + 2 > origmaxsize)
+		{
+			msg->cursize = rollbacksize;	//roll back
+			client->pendingentities_bits[entnum] |= logbits;	//make sure those bits get re-applied later.
+			break;
+		}
+
+		if (logbits)
+		{
+			if (frame->numents == frame->maxents)
+			{
+				frame->maxents += 64;
+				frame->ents = realloc(frame->ents, sizeof(*frame->ents)*frame->maxents);
+			}
+			frame->ents[frame->numents].num = entnum;
+			frame->ents[frame->numents].bits = 0;
+			frame->ents[frame->numents].csqcbits = logbits;
+			frame->numents++;
+		}
+	}
+	msg->maxsize = origmaxsize;
+	if (wroteheader)
+		MSG_WriteShort(msg, 0);	//eom
+	sv.multicast.cursize = 0;
 
 	if (msg->cursize > 1024 && dev_peakstats.packetsize <= 1024)
 		Con_DWarning ("%i byte packet exceeds standard limit of 1024.\n", msg->cursize);
@@ -1026,6 +1157,8 @@ static void SVFTE_BuildSnapshotForClient (client_t *client)
 	size_t numents = 0;
 	size_t maxents = snapshot_maxents;
 	int emiteffect;
+	int iscsqc;
+	qboolean cancsqc = GetEdictFieldValid(SendEntity) && GetEdictFieldValid(SendFlags) && client->csqcactive;
 
 // find the client's PVS
 	VectorAdd (clent->v.origin, clent->v.view_ofs, org);
@@ -1033,6 +1166,14 @@ static void SVFTE_BuildSnapshotForClient (client_t *client)
 
 	if (maxentities > (unsigned int)qcvm->num_edicts)
 		maxentities = (unsigned int)qcvm->num_edicts;
+
+	if ((int)client->numpendingcsqcentities < maxentities)
+	{	//this is the problem with dynamic memory allocations.
+		int newmax = maxentities+64;
+		client->pendingcsqcentities_bits = realloc(client->pendingcsqcentities_bits, sizeof(*client->pendingcsqcentities_bits) * newmax);
+		memset(client->pendingcsqcentities_bits+client->numpendingcsqcentities, 0, sizeof(*client->pendingcsqcentities_bits)*(newmax-client->numpendingcsqcentities));
+		client->numpendingcsqcentities = newmax;
+	}
 	
 // send over all entities (excpet the client) that touch the pvs
 	ent = NEXT_EDICT(qcvm->edicts);
@@ -1040,17 +1181,23 @@ static void SVFTE_BuildSnapshotForClient (client_t *client)
 	{
 		eflags = 0;
 		emiteffect = GetEdictFieldValue(ent, qcvm->extfields.emiteffectnum)->_float;
+		iscsqc = cancsqc && GetEdictFieldEval(ent, SendEntity)->function;
 		if (ent != clent)	// clent is ALLWAYS sent
 		{
 			// ignore ents without visible models
-			if ((!ent->v.modelindex || !PR_GetString(ent->v.model)[0]) && !emiteffect)
+			if ((!ent->v.modelindex || !PR_GetString(ent->v.model)[0]) && !emiteffect && !iscsqc)
+			{
+invisible:
+				if (client->pendingcsqcentities_bits[e] /*&& !((int)GetEdictFieldEval(ent, pvsflags)->_float & PVFS_NOREMOVE)*/)
+					client->pendingcsqcentities_bits[e] |= SENDFLAG_REMOVE;
 				continue;
+			}
 
 			val = GetEdictFieldValue(ent, qcvm->extfields.viewmodelforclient);
 			if (val && val->edict == proged)
 				eflags |= EFLAGS_VIEWMODEL;
 			else if (val && val->edict)
-				continue;
+				goto invisible;
 			else
 			{
 				//attached entities should use the pvs of the parent rather than the child (because the child will typically be bugging out around '0 0 0', so won't be useful)
@@ -1071,12 +1218,23 @@ static void SVFTE_BuildSnapshotForClient (client_t *client)
 					// this commonly happens with rotators, because they often have huge bboxes
 					// spanning the entire map, or really tall lifts, etc.
 					if (i == parent->num_leafs && parent->num_leafs < MAX_ENT_LEAFS)
-						continue;		// not visible
+						goto invisible;		// not visible
 				}
 			}
 		}
 
 		//okay, we care about this entity.
+
+		if (iscsqc)
+		{
+			if (!(client->pendingcsqcentities_bits[e] & SENDFLAG_PRESENT))
+				client->pendingcsqcentities_bits[e] |= SENDFLAG_USABLE;	//this ent is new. be sure to flag ALL bits.
+			else
+				client->pendingcsqcentities_bits[e] |= (int)GetEdictFieldEval(ent, SendFlags)->_float & SENDFLAG_USABLE;	//let the SendEntity function know which fields need to be updated.
+			continue;
+		}
+		if (client->pendingcsqcentities_bits[e])
+			client->pendingcsqcentities_bits[e] |= SENDFLAG_REMOVE;
 
 		if (numents == maxents)
 		{
@@ -2296,9 +2454,21 @@ void SV_CleanupEnts (void)
 	edict_t	*ent;
 
 	ent = NEXT_EDICT(qcvm->edicts);
-	for (e=1 ; e<qcvm->num_edicts ; e++, ent = NEXT_EDICT(ent))
+
+	if (GetEdictFieldValid(SendFlags))
 	{
-		ent->v.effects = (int)ent->v.effects & ~EF_MUZZLEFLASH;
+		for (e=1 ; e<qcvm->num_edicts ; e++, ent = NEXT_EDICT(ent))
+		{
+			ent->v.effects = (int)ent->v.effects & ~EF_MUZZLEFLASH;
+			GetEdictFieldEval(ent, SendFlags)->_float = 0;
+		}
+	}
+	else
+	{
+		for (e=1 ; e<qcvm->num_edicts ; e++, ent = NEXT_EDICT(ent))
+		{
+			ent->v.effects = (int)ent->v.effects & ~EF_MUZZLEFLASH;
+		}
 	}
 }
 
@@ -2505,6 +2675,20 @@ void SV_WriteClientdataToMessage (client_t *client, sizebuf_t *msg)
 	//johnfitz
 }
 
+
+void SV_PresendClientDatagram (client_t *client)
+{
+	if (!client->netconnection)
+		return;	//botclient
+	if (!client->spawned)
+		return;	//not ready yet.
+	if (!(client->protocol_pext2 & PEXT2_REPLACEMENTDELTAS))
+		return; //brute force networking.
+	SVFTE_BuildSnapshotForClient(client);
+	SVFTE_CalcEntityDeltas(client);
+	client->snapshotresume = 0;
+}
+
 /*
 =======================
 SV_SendClientDatagram
@@ -2541,21 +2725,18 @@ qboolean SV_SendClientDatagram (client_t *client)
 				SV_WriteClientdataToMessage (client, &msg);
 			else
 				SVFTE_WriteStats(client, &msg);
-			if (!client->snapshotresume)
-			{
-				SVFTE_BuildSnapshotForClient(client);
-				SVFTE_CalcEntityDeltas(client);
-			}
 			SVFTE_WriteEntitiesToClient(client, &msg, sizeof(buf));	//must always write some data, or the stats will break
+			SVFTE_WriteCSQCEntitiesToClient(client, &msg, sizeof(buf));
 
 			//this delta protocol doesn't wipe old state just because there's a new packet.
 			//the server isn't required to sync with the client frames either
 			//so we can just spam multiple packets to keep our udp data under the MTU
-			while (client->snapshotresume)
+			while (client->snapshotresume < client->numpendingentities)
 			{
 				NET_SendUnreliableMessage (client->netconnection, &msg);
 				SZ_Clear(&msg);
 				SVFTE_WriteEntitiesToClient(client, &msg, sizeof(buf));
+				SVFTE_WriteCSQCEntitiesToClient(client, &msg, sizeof(buf));
 			}
 		}
 		else
@@ -2771,6 +2952,14 @@ void SV_SendClientMessages (void)
 
 // update frags, names, etc
 	SV_UpdateToReliableMessages ();
+
+	for (i=0, host_client = svs.clients ; i<svs.maxclients ; i++, host_client++)
+	{
+		if (!host_client->active)
+			continue;
+
+		SV_PresendClientDatagram (host_client);	//generates client snapshots (and updates csqc pending flags)
+	}
 
 // build individual updates
 	for (i=0, host_client = svs.clients ; i<svs.maxclients ; i++, host_client++)

@@ -4138,7 +4138,7 @@ static void PF_infokey_internal(qboolean returnfloat)
 		else if (!strcmp(key, "*spectator"))
 			r = "";
 		else if (!strcmp(key, "csqcactive"))
-			r = "";
+			r = (cl->csqcactive?"1":"0");
 		else
 		{
 			r = Info_GetKey(cl->userinfo, key, buf, sizeof(buf));

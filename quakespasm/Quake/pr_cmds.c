@@ -1591,6 +1591,7 @@ sizebuf_t *WriteDest (void)
 		return &sv.signon;
 
 	case MSG_EXT_MULTICAST:
+	case MSG_EXT_ENTITY:	//just reuse it...
 		return &sv.multicast;
 
 	default:

@@ -164,6 +164,11 @@ typedef struct client_s
 	unsigned int snapshotresume;
 	unsigned int *pendingentities_bits;	//UF_ flags for each entity
 	size_t numpendingentities;	//realloc if too small
+	unsigned int *pendingcsqcentities_bits;	//SendFlags bitflags for each entity
+					#define	SENDFLAG_PRESENT	0x80000000u	//tracks that we previously sent one of these ents (resulting in a remove if the ent gets remove()d).
+					#define	SENDFLAG_REMOVE		0x40000000u	//for packetloss to signal that we need to resend a remove.
+					#define	SENDFLAG_USABLE		0x00ffffffu	//SendFlags bits that the qc is actually able to use (don't get confused if the mod uses SendFlags=-1).
+	size_t numpendingcsqcentities;	//realloc if too small
 	struct deltaframe_s
 	{	//quick overview of how this stuff actually works:
 		//when the server notices a gap in the ack sequence, we walk through the dropped frames and reflag everything that was dropped.
@@ -178,6 +183,7 @@ typedef struct client_s
 		{
 			unsigned int num;
 			unsigned int bits;
+			unsigned int csqcbits;
 		} *ents;
 		int numents;	//doesn't contain an entry for every entity, just ones that were sent this frame. no 0 bits
 		int maxents;
@@ -201,6 +207,7 @@ typedef struct client_s
 		//for more speed, the server should build a collection of blocks to track which parts were actually acked, thereby avoiding redundant resends, but in the intererest of simplicity...
 	} download;
 	qboolean		knowntoqc;			// putclientinserver was called
+	qboolean		csqcactive;			// its prepared to accept csqc entities.
 } client_t;
 
 
