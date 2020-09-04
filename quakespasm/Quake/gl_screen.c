@@ -391,7 +391,7 @@ static void SCR_CalcRefdef (void)
 	size = scr_viewsize.value;
 	scale = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 
-	if (size >= 120 || cl.intermission || (scr_sbaralpha.value < 1 || cl.qcvm.extfuncs.CSQC_DrawHud)) //johnfitz -- scr_sbaralpha.value. Spike -- simple csqc assumes fullscreen video the same way.
+	if (size >= 120 || cl.intermission || (scr_sbaralpha.value < 1 || cl.qcvm.extfuncs.CSQC_DrawHud || cl.qcvm.extfuncs.CSQC_UpdateView)) //johnfitz -- scr_sbaralpha.value. Spike -- simple csqc assumes fullscreen video the same way.
 		sb_lines = 0;
 	else if (size >= 110)
 		sb_lines = 24 * scale;
@@ -1152,38 +1152,79 @@ void SCR_UpdateScreen (void)
 
 	GL_BeginRendering (&glx, &gly, &glwidth, &glheight);
 
-	//
-	// determine size of refresh window
-	//
-	r_refdef.drawworld = true;
-	if (vid.recalc_refdef)
-		SCR_CalcRefdef ();
+	if (cl.worldmodel && cl.qcvm.worldmodel && cl.qcvm.extfuncs.CSQC_UpdateView)
+	{
+		float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+		SCR_SetUpToDrawConsole ();
+		GL_SetCanvas (CANVAS_CSQC);
+
+		PR_SwitchQCVM(&cl.qcvm);
+
+		if (qcvm->extglobals.cltime)
+			*qcvm->extglobals.cltime = realtime;
+		if (qcvm->extglobals.player_localentnum)
+			*qcvm->extglobals.player_localentnum = cl.viewentity;
+		if (qcvm->extglobals.intermission)
+			*qcvm->extglobals.intermission = cl.intermission;
+		if (qcvm->extglobals.intermission_time)
+			*qcvm->extglobals.intermission_time = cl.completed_time;
+		if (qcvm->extglobals.view_angles)
+			VectorCopy(cl.viewangles, qcvm->extglobals.view_angles);
+		if (qcvm->extglobals.clientcommandframe)
+			*qcvm->extglobals.clientcommandframe = cl.movemessages;
+		if (qcvm->extglobals.servercommandframe)
+			*qcvm->extglobals.servercommandframe = cl.ackedmovemessages;
+//		Sbar_SortFrags ();
+
+		pr_global_struct->time = qcvm->time;
+		pr_global_struct->frametime = host_frametime;
+		G_FLOAT(OFS_PARM0) = glwidth/s;
+		G_FLOAT(OFS_PARM1) = glheight/s;
+		G_FLOAT(OFS_PARM2) = true;
+		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_UpdateView);
+		PR_SwitchQCVM(NULL);
+
+		GL_Set2D ();
+	}
+	else
+	{
+		//
+		// determine size of refresh window
+		//
+		r_refdef.drawworld = true;
+		if (vid.recalc_refdef)
+			SCR_CalcRefdef ();
 
 //
 // do 3D refresh drawing, and then update the screen
 //
-	SCR_SetUpToDrawConsole ();
+		SCR_SetUpToDrawConsole ();
 
-	V_RenderView ();
+		V_RenderView ();
 
-	GL_Set2D ();
+		GL_Set2D ();
 
-	//FIXME: only call this when needed
-	SCR_TileClear ();
+		//FIXME: only call this when needed
+		SCR_TileClear ();
+
+		if (!cl.intermission)
+		{
+			Sbar_Draw ();
+			if (!scr_drawloading && !con_forcedup)
+				SCR_DrawCrosshair (); //johnfitz
+		}
+	}
 
 	if (scr_drawdialog) //new game confirm
 	{
 		if (con_forcedup)
 			Draw_ConsoleBackground ();
-		else
-			Sbar_Draw ();
 		Draw_FadeScreen ();
 		SCR_DrawNotifyString ();
 	}
 	else if (scr_drawloading) //loading
 	{
 		SCR_DrawLoading ();
-		Sbar_Draw ();
 	}
 	else if (cl.intermission == 1 && key_dest == key_game) //end of level
 	{
@@ -1196,13 +1237,11 @@ void SCR_UpdateScreen (void)
 	}
 	else
 	{
-		SCR_DrawCrosshair (); //johnfitz
 		SCR_DrawRam ();
 		SCR_DrawNet ();
 		SCR_DrawTurtle ();
 		SCR_DrawPause ();
 		SCR_CheckDrawCenterString ();
-		Sbar_Draw ();
 		SCR_DrawDevStats (); //johnfitz
 		SCR_DrawFPS (); //johnfitz
 		SCR_DrawClock (); //johnfitz

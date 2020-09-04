@@ -942,6 +942,7 @@ void _Host_Frame (double time)
 	}
 	else
 		S_Update (vec3_origin, vec3_origin, vec3_origin, vec3_origin);
+	CL_DecayLights ();
 
 	CDAudio_Update();
 
