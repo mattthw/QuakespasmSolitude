@@ -453,7 +453,7 @@ typedef struct entity_state_s
 #define EFLAGS_VIEWMODEL		4	//does not appear in reflections/third person. attached to the view.
 #define EFLAGS_EXTERIORMODEL	8	//only appears in reflections/third person
 //#define EFLAGS_				16
-//#define EFLAGS_COLOURMAPPED	32	//.colormap=1024|(top<<4)|bottom), instead of a player number
+#define EFLAGS_COLOURMAPPED		32	//.colormap=1024|(top<<4)|bottom), instead of a player number
 //#define EFLAGS_				64
 #define EFLAGS_ONGROUND			128	//for bobbing more than anything else. *sigh*.
 

@@ -6585,6 +6585,132 @@ static void PF_touchtriggers (void)
 	SV_LinkEdict (e, true);
 }
 
+enum getrenderentityfield_e
+{
+	GE_MAXENTS			= -1,
+	GE_ACTIVE			= 0,
+	GE_ORIGIN			= 1,
+	GE_FORWARD			= 2,
+	GE_RIGHT			= 3,
+	GE_UP				= 4,
+	GE_SCALE			= 5,
+	GE_ORIGINANDVECTORS	= 6,
+	GE_ALPHA			= 7,
+	GE_COLORMOD			= 8,
+	GE_PANTSCOLOR		= 9,
+	GE_SHIRTCOLOR		= 10,
+	GE_SKIN				= 11,
+//	GE_MINS				= 12,
+//	GE_MAXS				= 13,
+//	GE_ABSMIN			= 14,
+//	GE_ABSMAX			= 15,
+//	GE_LIGHT			= 16,
+};
+static void PF_cl_getrenderentity(void)
+{
+	extern int	Sbar_ColorForMap (int m);
+	vec3_t tmp;
+	size_t entnum = G_FLOAT(OFS_PARM0);
+	enum getrenderentityfield_e fldnum = G_FLOAT(OFS_PARM1);
+	if (qcvm->nogameaccess)
+	{
+		G_FLOAT(OFS_RETURN+0) = 0;
+		G_FLOAT(OFS_RETURN+1) = 0;
+		G_FLOAT(OFS_RETURN+2) = 0;
+		Con_Printf("PF_getrenderentity: not permitted\n");
+		return;
+	}
+	if (fldnum == GE_MAXENTS)
+		G_FLOAT(OFS_RETURN+0) = cl.num_entities;
+	else if (entnum >= cl.num_entities || !cl.entities[entnum].model)
+	{
+		G_FLOAT(OFS_RETURN+0) = 0;
+		G_FLOAT(OFS_RETURN+1) = 0;
+		G_FLOAT(OFS_RETURN+2) = 0;
+	}
+	else switch(fldnum)
+	{
+	case GE_ACTIVE:
+		G_FLOAT(OFS_RETURN+0) = true;
+		break;
+	case GE_ORIGIN:
+		VectorCopy(cl.entities[entnum].origin, G_VECTOR(OFS_RETURN));
+		break;
+	case GE_ORIGINANDVECTORS:
+		VectorCopy(cl.entities[entnum].origin, G_VECTOR(OFS_RETURN));
+		VectorCopy(cl.entities[entnum].angles, tmp);
+		if (cl.entities[entnum].model->type == mod_alias)
+			tmp[0] *= -1;
+		AngleVectors(tmp, pr_global_struct->v_forward, pr_global_struct->v_right, pr_global_struct->v_up);
+		break;
+	case GE_FORWARD:
+		VectorCopy(cl.entities[entnum].angles, tmp);
+		if (cl.entities[entnum].model->type == mod_alias)
+			tmp[0] *= -1;
+		AngleVectors(tmp, G_VECTOR(OFS_RETURN), tmp, tmp);
+		break;
+	case GE_RIGHT:
+		VectorCopy(cl.entities[entnum].angles, tmp);
+		if (cl.entities[entnum].model->type == mod_alias)
+			tmp[0] *= -1;
+		AngleVectors(tmp, tmp, G_VECTOR(OFS_RETURN), tmp);
+		break;
+	case GE_UP:
+		VectorCopy(cl.entities[entnum].angles, tmp);
+		if (cl.entities[entnum].model->type == mod_alias)
+			tmp[0] *= -1;
+		AngleVectors(tmp, tmp, tmp, G_VECTOR(OFS_RETURN));
+		break;
+	case GE_SCALE:
+		G_FLOAT(OFS_RETURN+0) = cl.entities[entnum].netstate.scale/16.0;
+		break;
+	case GE_ALPHA:
+		G_FLOAT(OFS_RETURN+0) = ENTALPHA_DECODE(cl.entities[entnum].alpha);
+		break;
+	case GE_COLORMOD:
+		G_FLOAT(OFS_RETURN+0) = cl.entities[entnum].netstate.colormod[0] / 32.0;
+		G_FLOAT(OFS_RETURN+1) = cl.entities[entnum].netstate.colormod[1] / 32.0;
+		G_FLOAT(OFS_RETURN+2) = cl.entities[entnum].netstate.colormod[2] / 32.0;
+		break;
+	case GE_PANTSCOLOR:
+		{
+			int palidx = cl.entities[entnum].netstate.colormap;
+			byte *pal;
+			if (!(cl.entities[entnum].netstate.eflags & EFLAGS_COLOURMAPPED))
+				palidx = cl.scores[palidx].colors;
+			pal = (byte *)d_8to24table + 4*Sbar_ColorForMap(palidx&0x0f);
+			G_FLOAT(OFS_RETURN+0) = pal[0] / 255.0;
+			G_FLOAT(OFS_RETURN+1) = pal[1] / 255.0;
+			G_FLOAT(OFS_RETURN+2) = pal[2] / 255.0;
+		}
+		break;
+	case GE_SHIRTCOLOR:
+		{
+			int palidx = cl.entities[entnum].netstate.colormap;
+			byte *pal;
+			if (!(cl.entities[entnum].netstate.eflags & EFLAGS_COLOURMAPPED))
+				palidx = cl.scores[palidx].colors;
+			pal = (byte *)d_8to24table + 4*Sbar_ColorForMap(palidx&0xf0);
+			G_FLOAT(OFS_RETURN+0) = pal[0] / 255.0;
+			G_FLOAT(OFS_RETURN+1) = pal[1] / 255.0;
+			G_FLOAT(OFS_RETURN+2) = pal[2] / 255.0;
+		}
+		break;
+	case GE_SKIN:
+		G_FLOAT(OFS_RETURN+0) = cl.entities[entnum].skinnum;
+		break;
+//	case GE_MINS:
+//	case GE_MAXS:
+//	case GE_ABSMIN:
+//	case GE_ABSMAX:
+//	case GE_LIGHT:
+	case GE_MAXENTS:
+//	default:
+		Con_Printf("PF_cl_getrenderentity(,%i): not implemented\n", fldnum);
+		break;
+	}
+}
+
 //A quick note on number ranges.
 //0: automatically assigned. more complicated, but no conflicts over numbers, just names...
 //   NOTE: #0 is potentially ambiguous - vanilla will interpret it as instruction 0 (which is normally reserved) rather than a builtin.
@@ -6953,6 +7079,7 @@ static struct
 	{"getentityfieldstring",PF_getentfldstr,PF_getentfldstr,	499,	PF_getentfldstr,499, "string(float fieldnum, entity ent)"},//DP_QC_ENTITYDATA
 	{"putentityfieldstring",PF_putentfldstr,PF_putentfldstr,	500,	PF_putentfldstr,500, "float(float fieldnum, entity ent, string s)"},//DP_QC_ENTITYDATA
 	{"whichpack",		PF_whichpack,		PF_whichpack,		503,	PF_whichpack,503, D("string(string filename, optional float makereferenced)", "Returns the pak file name that contains the file specified. progs/player.mdl will generally return something like 'pak0.pak'. If makereferenced is true, clients will automatically be told that the returned package should be pre-downloaded and used, even if allow_download_refpackages is not set.")},//DP_QC_WHICHPACK
+	{"getentity",		PF_NoSSQC,			PF_cl_getrenderentity,504,	PF_NoMenu, D("__variant(float entnum, float fieldnum)", "Looks up fields from non-csqc-visible entities. The entity will need to be within the player's pvs. fieldnum should be one of the GE_ constants.")},//DP_CSQC_QUERYRENDERENTITY
 	{"uri_escape",		PF_uri_escape,		PF_uri_escape,		510,	PF_uri_escape,510, "string(string in)"},//DP_QC_URI_ESCAPE
 	{"uri_unescape",	PF_uri_unescape,	PF_uri_unescape,	511,	PF_uri_unescape,511, "string(string in)"},//DP_QC_URI_ESCAPE
 	{"num_for_edict",	PF_num_for_edict,	PF_num_for_edict,	512,	PF_num_for_edict,512, "float(entity ent)"},//DP_QC_NUM_FOR_EDICT
@@ -7012,6 +7139,7 @@ static const char *extnames[] =
 {
 	"DP_CON_SET",
 	"DP_CON_SETA",
+	"DP_CSQC_QUERYRENDERENTITY",
 	"DP_EF_NOSHADOW",
 	"DP_ENT_ALPHA",	//already in quakespasm, supposedly.
 	"DP_ENT_COLORMOD",
