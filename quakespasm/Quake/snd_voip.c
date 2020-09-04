@@ -2762,7 +2762,7 @@ void SV_VoiceSendPacket(client_t *client, sizebuf_t *buf)
 
 static void SV_Voice_Ignore_f(void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		if (cls.state == ca_connected)
 			Cmd_ForwardToServer ();
@@ -2804,7 +2804,7 @@ static void SV_Voice_Ignore_f(void)
 }
 static void SV_Voice_Target_f(void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		if (cls.state == ca_connected)
 			Cmd_ForwardToServer ();
@@ -2835,7 +2835,7 @@ static void SV_Voice_Target_f(void)
 }
 static void SV_Voice_MuteAll_f(void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cvar_Set("cl_voip_play", "0");
 		if (cls.state == ca_connected)
@@ -2848,7 +2848,7 @@ static void SV_Voice_MuteAll_f(void)
 }
 static void SV_Voice_UnmuteAll_f(void)
 {
-	if (cmd_source == src_command)
+	if (cmd_source != src_client)
 	{
 		Cvar_Set("cl_voip_play", "1");
 		if (cls.state == ca_connected)
