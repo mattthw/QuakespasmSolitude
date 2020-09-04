@@ -347,10 +347,12 @@ static void Sky_SkyRoomCommand_f (void)
 		else
 			Con_Printf("\"skyroom\" is \"\"\n");
 		break;
-	case 4:
-	case 5:
-	case 6:
-		Sky_LoadSkyBox(Cmd_Argv(1));
+	case 4:	//xyz
+	case 5:	//xyz paralax
+	case 6:	//+speed
+	case 7:	//+axis_x
+	case 8:	//+axis_y
+	case 9:	//+axis_z
 		skyroom_enabled = true;
 		skyroom_origin[0] = atof(Cmd_Argv(1));
 		skyroom_origin[1] = atof(Cmd_Argv(2));
@@ -362,7 +364,14 @@ static void Sky_SkyRoomCommand_f (void)
 		skyroom_orientation[1] = atof(Cmd_Argv(7));
 		skyroom_orientation[2] = atof(Cmd_Argv(8));
 		break;
-	case 2:
+	case 2:	//x
+		if (!*Cmd_Argv(1) || !q_strcasecmp(Cmd_Argv(1), "off"))
+		{
+			skyroom_enabled = false;
+			break;
+		}
+		//fallthrough
+	case 3:	//xy
 	default:
 		Con_Printf("usage: skyroom origin_x origin_y origin_z paralax_scale speed axis_x axis_y axis_z\n");
 	}
