@@ -935,11 +935,13 @@ void _Host_Frame (double time)
 
 // update audio
 	BGM_Update();	// adds music raw samples and/or advances midi driver
-	if (cls.signon == SIGNONS)
+	if (cl.listener_defined)
 	{
-		S_Update (r_origin, vpn, vright, vup);
-		CL_DecayLights ();
+		cl.listener_defined = false;
+		S_Update (cl.listener_origin, cl.listener_axis[0], cl.listener_axis[1], cl.listener_axis[2]);
 	}
+	else if (cls.signon == SIGNONS)
+		S_Update (r_origin, vpn, vright, vup);
 	else
 		S_Update (vec3_origin, vec3_origin, vec3_origin, vec3_origin);
 	CL_DecayLights ();

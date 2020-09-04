@@ -6392,6 +6392,21 @@ static void PF_m_renderscene(void)
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 }
 
+static void PF_cs_setlistener(void)
+{
+	float *origin = G_VECTOR(OFS_PARM0);
+	float *forward = G_VECTOR(OFS_PARM1);
+	float *right = G_VECTOR(OFS_PARM2);
+	float *up = G_VECTOR(OFS_PARM3);
+//	int reverbtype = (qcvm->argc <= 4)?0:G_FLOAT(OFS_PARM4);
+
+	cl.listener_defined = true;	//lasts until the next video frame.
+	VectorCopy(origin, cl.listener_origin);
+	VectorCopy(forward, cl.listener_axis[0]);
+	VectorCopy(right, cl.listener_axis[1]);
+	VectorCopy(up, cl.listener_axis[2]);
+}
+
 //A quick note on number ranges.
 //0: automatically assigned. more complicated, but no conflicts over numbers, just names...
 //   NOTE: #0 is potentially ambiguous - vanilla will interpret it as instruction 0 (which is normally reserved) rather than a builtin.
@@ -6620,7 +6635,7 @@ static struct
 	{"getplayerkeyfloat",NULL,				PF_cl_playerkey_f,	0,		PF_NoMenu, D("float(float playernum, string keyname, optional float assumevalue)", "Cheaper version of getplayerkeyvalue that avoids the need for so many tempstrings.")},
 	{"isdemo",			PF_NoSSQC,			PF_cl_isdemo,		349,	PF_cl_isdemo,349, D("float()", "Returns if the client is currently playing a demo or not")},// (EXT_CSQC)
 	{"isserver",		PF_NoSSQC,			PF_cl_isserver,		350,	PF_cl_isserver,60, D("float()", "Returns if the client is acting as the server (aka: listen server)")},//(EXT_CSQC)
-//	{"SetListener",		NULL,				PF_FullCSQCOnly,	351,	PF_NoMenu, D("void(vector origin, vector forward, vector right, vector up, optional float reverbtype)", "Sets the position of the view, as far as the audio subsystem is concerned. This should be called once per CSQC_UpdateView as it will otherwise revert to default. For reverbtype, see setup_reverb or treat as 'underwater'.")},// (EXT_CSQC)
+	{"SetListener",		NULL,				PF_cs_setlistener,	351,	PF_NoMenu, D("void(vector origin, vector forward, vector right, vector up, optional float reverbtype)", "Sets the position of the view, as far as the audio subsystem is concerned. This should be called once per CSQC_UpdateView as it will otherwise revert to default. For reverbtype, see setup_reverb or treat as 'underwater'.")},// (EXT_CSQC)
 //	{"setup_reverb",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("typedef struct {\n\tfloat flDensity;\n\tfloat flDiffusion;\n\tfloat flGain;\n\tfloat flGainHF;\n\tfloat flGainLF;\n\tfloat flDecayTime;\n\tfloat flDecayHFRatio;\n\tfloat flDecayLFRatio;\n\tfloat flReflectionsGain;\n\tfloat flReflectionsDelay;\n\tvector flReflectionsPan;\n\tfloat flLateReverbGain;\n\tfloat flLateReverbDelay;\n\tvector flLateReverbPan;\n\tfloat flEchoTime;\n\tfloat flEchoDepth;\n\tfloat flModulationTime;\n\tfloat flModulationDepth;\n\tfloat flAirAbsorptionGainHF;\n\tfloat flHFReference;\n\tfloat flLFReference;\n\tfloat flRoomRolloffFactor;\n\tint   iDecayHFLimit;\n} reverbinfo_t;\nvoid(float reverbslot, reverbinfo_t *reverbinfo, int sizeofreverinfo_t)", "Reconfigures a reverb slot for weird effects. Slot 0 is reserved for no effects. Slot 1 is reserved for underwater effects. Reserved slots will be reinitialised on snd_restart, but can otherwise be changed. These reverb slots can be activated with SetListener. Note that reverb will currently only work when using OpenAL.")},
 	{"registercommand",	NULL,				PF_cl_registercommand,352,	PF_cl_registercommand,352, D("void(string cmdname)", "Register the given console command, for easy console use.\nConsole commands that are later used will invoke CSQC_ConsoleCommand.")},//(EXT_CSQC)
 	{"wasfreed",		PF_WasFreed,		PF_WasFreed,		353,	PF_WasFreed,353, D("float(entity ent)", "Quickly check to see if the entity is currently free. This function is only valid during the two-second non-reuse window, after that it may give bad results. Try one second to make it more robust.")},//(EXT_CSQC) (should be availabe on server too)

@@ -304,6 +304,10 @@ typedef struct
 	size_t	ssqc_to_csqc_max;
 	edict_t **ssqc_to_csqc;		//to find the csqc ent for an ssqc index.
 
+	qboolean	listener_defined;
+	vec3_t		listener_origin;
+	vec3_t		listener_axis[3];
+
 	char serverinfo[8192];	// \key\value infostring data.
 } client_state_t;
 
