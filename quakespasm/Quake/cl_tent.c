@@ -27,13 +27,13 @@ int			num_temp_entities;
 entity_t	cl_temp_entities[MAX_TEMP_ENTITIES];
 beam_t		cl_beams[MAX_BEAMS];
 
-sfx_t			*cl_sfx_wizhit;
-sfx_t			*cl_sfx_knighthit;
-sfx_t			*cl_sfx_tink1;
-sfx_t			*cl_sfx_ric1;
-sfx_t			*cl_sfx_ric2;
-sfx_t			*cl_sfx_ric3;
-sfx_t			*cl_sfx_r_exp3;
+static sfx_t			*cl_sfx_wizhit;
+static sfx_t			*cl_sfx_knighthit;
+static sfx_t			*cl_sfx_tink1;
+static sfx_t			*cl_sfx_ric1;
+static sfx_t			*cl_sfx_ric2;
+static sfx_t			*cl_sfx_ric3;
+static sfx_t			*cl_sfx_r_exp3;
 
 /*
 =================
@@ -56,22 +56,10 @@ void CL_InitTEnts (void)
 CL_ParseBeam
 =================
 */
-void CL_ParseBeam (qmodel_t *m, const char *trailname, const char *impactname)
+void CL_UpdateBeam (qmodel_t *m, const char *trailname, const char *impactname, int ent, float *start, float *end)
 {
-	int		ent;
-	vec3_t	start, end;
 	beam_t	*b;
 	int		i;
-
-	ent = MSG_ReadEntity (cl.protocol_pext2);
-
-	start[0] = MSG_ReadCoord (cl.protocolflags);
-	start[1] = MSG_ReadCoord (cl.protocolflags);
-	start[2] = MSG_ReadCoord (cl.protocolflags);
-
-	end[0] = MSG_ReadCoord (cl.protocolflags);
-	end[1] = MSG_ReadCoord (cl.protocolflags);
-	end[2] = MSG_ReadCoord (cl.protocolflags);
 
 #ifdef PSET_SCRIPT
 	{
@@ -121,6 +109,24 @@ void CL_ParseBeam (qmodel_t *m, const char *trailname, const char *impactname)
 	//johnfitz
 }
 
+static void CL_ParseBeam (qmodel_t *m, const char *trailname, const char *impactname)
+{
+	int		ent;
+	vec3_t	start, end;
+
+	ent = MSG_ReadEntity (cl.protocol_pext2);
+
+	start[0] = MSG_ReadCoord (cl.protocolflags);
+	start[1] = MSG_ReadCoord (cl.protocolflags);
+	start[2] = MSG_ReadCoord (cl.protocolflags);
+
+	end[0] = MSG_ReadCoord (cl.protocolflags);
+	end[1] = MSG_ReadCoord (cl.protocolflags);
+	end[2] = MSG_ReadCoord (cl.protocolflags);
+
+	CL_UpdateBeam (m, trailname, impactname, ent, start, end);
+}
+
 void CL_SpawnSpriteEffect(vec3_t org/*, vec3_t dir, vec3_t orientationup*/, qmodel_t *model, int startframe, int framecount, float framerate/*, float alpha, float scale, float randspin, float gravity, int traileffect, unsigned int renderflags, int skinnum*/)
 {
 	if (startframe < 0)
@@ -142,6 +148,23 @@ void CL_ParseTEnt (void)
 	dlight_t	*dl;
 	int		rnd;
 	int		colorStart, colorLength;
+
+	if (cl.qcvm.extfuncs.CSQC_Parse_TempEntity && !cl.qcvm.nogameaccess)
+	{	//this is likely to be misused, but I'm implementing it anyway because DP doesn't allow anything better and consistency is generally easier than simplicity. You should generally be using CSQC_Parse_Event instead, for custom messages.
+		//FTE *REQUIRES* use of multicast for custom messages, otherwise its serverside protocol translation logic cannot guage sizes properly.
+		qboolean ret;
+		int start = msg_readcount;
+
+		PR_SwitchQCVM(&cl.qcvm);
+		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Parse_TempEntity);
+		ret = G_FLOAT(OFS_RETURN);
+		PR_SwitchQCVM(NULL);
+
+		if (ret)
+			return;	//it handled it okay.
+		//rewind, so we can actually read the 'type' byte that the qc will no doubt have already read...
+		msg_readcount = start;
+	}
 
 	type = MSG_ReadByte ();
 	switch (type)

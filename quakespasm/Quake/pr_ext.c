@@ -2376,6 +2376,25 @@ static void PF_sv_te_spike(void)
 	MSG_WriteCoord(&sv.datagram, org[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PVS_U, org, 0, 0);
 }
+static void PF_cl_te_spike(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+
+	if (PScript_RunParticleEffectTypeString(pos, NULL, 1, "TE_SPIKE"))
+		R_RunParticleEffect (pos, vec3_origin, 0, 10);
+	if ( rand() % 5 )
+		S_StartSound (-1, 0, S_PrecacheSound ("weapons/tink1.wav"), pos, 1, 1);
+	else
+	{
+		int rnd = rand() & 3;
+		if (rnd == 1)
+			S_StartSound (-1, 0, S_PrecacheSound ("weapons/ric1.wav"), pos, 1, 1);
+		else if (rnd == 2)
+			S_StartSound (-1, 0, S_PrecacheSound ("weapons/ric2.wav"), pos, 1, 1);
+		else
+			S_StartSound (-1, 0, S_PrecacheSound ("weapons/ric3.wav"), pos, 1, 1);
+	}
+}
 static void PF_sv_te_superspike(void)
 {
 	float *org = G_VECTOR(OFS_PARM0);
@@ -2385,6 +2404,26 @@ static void PF_sv_te_superspike(void)
 	MSG_WriteCoord(&sv.datagram, org[1], sv.protocolflags);
 	MSG_WriteCoord(&sv.datagram, org[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PVS_U, org, 0, 0);
+}
+static void PF_cl_te_superspike(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+
+	if (PScript_RunParticleEffectTypeString(pos, NULL, 1, "TE_SUPERSPIKE"))
+		R_RunParticleEffect (pos, vec3_origin, 0, 20);
+
+	if ( rand() % 5 )
+		S_StartSound (-1, 0, S_PrecacheSound ("weapons/tink1.wav"), pos, 1, 1);
+	else
+	{
+		int rnd = rand() & 3;
+		if (rnd == 1)
+			S_StartSound (-1, 0, S_PrecacheSound ("weapons/ric1.wav"), pos, 1, 1);
+		else if (rnd == 2)
+			S_StartSound (-1, 0, S_PrecacheSound ("weapons/ric2.wav"), pos, 1, 1);
+		else
+			S_StartSound (-1, 0, S_PrecacheSound ("weapons/ric3.wav"), pos, 1, 1);
+	}
 }
 static void PF_sv_te_gunshot(void)
 {
@@ -2397,6 +2436,14 @@ static void PF_sv_te_gunshot(void)
 	MSG_WriteCoord(&sv.datagram, org[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PVS_U, org, 0, 0);
 }
+static void PF_cl_te_gunshot(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+
+	int rnd = 20;
+	if (PScript_RunParticleEffectTypeString(pos, NULL, rnd, "TE_GUNSHOT"))
+		R_RunParticleEffect (pos, vec3_origin, 0, rnd);
+}
 static void PF_sv_te_explosion(void)
 {
 	float *org = G_VECTOR(OFS_PARM0);
@@ -2407,6 +2454,20 @@ static void PF_sv_te_explosion(void)
 	MSG_WriteCoord(&sv.datagram, org[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, org, 0, 0);
 }
+static void PF_cl_te_explosion(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+
+	dlight_t *dl;
+	if (PScript_RunParticleEffectTypeString(pos, NULL, 1, "TE_EXPLOSION"))
+		R_ParticleExplosion (pos);
+	dl = CL_AllocDlight (0);
+	VectorCopy (pos, dl->origin);
+	dl->radius = 350;
+	dl->die = cl.time + 0.5;
+	dl->decay = 300;
+	S_StartSound (-1, 0, S_PrecacheSound ("weapons/r_exp3.wav"), pos, 1, 1);
+}
 static void PF_sv_te_tarexplosion(void)
 {
 	float *org = G_VECTOR(OFS_PARM0);
@@ -2416,6 +2477,14 @@ static void PF_sv_te_tarexplosion(void)
 	MSG_WriteCoord(&sv.datagram, org[1], sv.protocolflags);
 	MSG_WriteCoord(&sv.datagram, org[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, org, 0, 0);
+}
+static void PF_cl_te_tarexplosion(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+
+	if (PScript_RunParticleEffectTypeString(pos, NULL, 1, "TE_TAREXPLOSION"))
+		R_BlobExplosion (pos);
+	S_StartSound (-1, 0, S_PrecacheSound ("weapons/r_exp3.wav"), pos, 1, 1);
 }
 static void PF_sv_te_lightning1(void)
 {
@@ -2433,6 +2502,14 @@ static void PF_sv_te_lightning1(void)
 	MSG_WriteCoord(&sv.datagram, end[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, start, 0, 0);
 }
+static void PF_cl_te_lightning1(void)
+{
+	edict_t *ed = G_EDICT(OFS_PARM0);
+	float *start = G_VECTOR(OFS_PARM1);
+	float *end = G_VECTOR(OFS_PARM2);
+
+	CL_UpdateBeam (Mod_ForName("progs/bolt.mdl", true), "TE_LIGHTNING1", "TE_LIGHTNING1_END", -NUM_FOR_EDICT(ed), start, end);
+}
 static void PF_sv_te_lightning2(void)
 {
 	edict_t *ed = G_EDICT(OFS_PARM0);
@@ -2449,6 +2526,14 @@ static void PF_sv_te_lightning2(void)
 	MSG_WriteCoord(&sv.datagram, end[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, start, 0, 0);
 }
+static void PF_cl_te_lightning2(void)
+{
+	edict_t *ed = G_EDICT(OFS_PARM0);
+	float *start = G_VECTOR(OFS_PARM1);
+	float *end = G_VECTOR(OFS_PARM2);
+
+	CL_UpdateBeam (Mod_ForName("progs/bolt2.mdl", true), "TE_LIGHTNING2", "TE_LIGHTNING2_END", -NUM_FOR_EDICT(ed), start, end);
+}
 static void PF_sv_te_wizspike(void)
 {
 	float *org = G_VECTOR(OFS_PARM0);
@@ -2459,6 +2544,14 @@ static void PF_sv_te_wizspike(void)
 	MSG_WriteCoord(&sv.datagram, org[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, org, 0, 0);
 }
+static void PF_cl_te_wizspike(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+
+	if (PScript_RunParticleEffectTypeString(pos, NULL, 1, "TE_WIZSPIKE"))
+		R_RunParticleEffect (pos, vec3_origin, 20, 30);
+	S_StartSound (-1, 0, S_PrecacheSound ("wizard/hit.wav"), pos, 1, 1);
+}
 static void PF_sv_te_knightspike(void)
 {
 	float *org = G_VECTOR(OFS_PARM0);
@@ -2468,6 +2561,14 @@ static void PF_sv_te_knightspike(void)
 	MSG_WriteCoord(&sv.datagram, org[1], sv.protocolflags);
 	MSG_WriteCoord(&sv.datagram, org[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, org, 0, 0);
+}
+static void PF_cl_te_knightspike(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+
+	if (PScript_RunParticleEffectTypeString(pos, NULL, 1, "TE_KNIGHTSPIKE"))
+		R_RunParticleEffect (pos, vec3_origin, 226, 20);
+	S_StartSound (-1, 0, S_PrecacheSound ("hknight/hit.wav"), pos, 1, 1);
 }
 static void PF_sv_te_lightning3(void)
 {
@@ -2485,6 +2586,14 @@ static void PF_sv_te_lightning3(void)
 	MSG_WriteCoord(&sv.datagram, end[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, start, 0, 0);
 }
+static void PF_cl_te_lightning3(void)
+{
+	edict_t *ed = G_EDICT(OFS_PARM0);
+	float *start = G_VECTOR(OFS_PARM1);
+	float *end = G_VECTOR(OFS_PARM2);
+
+	CL_UpdateBeam (Mod_ForName("progs/bolt3.mdl", true), "TE_LIGHTNING3", "TE_LIGHTNING3_END", -NUM_FOR_EDICT(ed), start, end);
+}
 static void PF_sv_te_lavasplash(void)
 {
 	float *org = G_VECTOR(OFS_PARM0);
@@ -2495,6 +2604,13 @@ static void PF_sv_te_lavasplash(void)
 	MSG_WriteCoord(&sv.datagram, org[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, org, 0, 0);
 }
+static void PF_cl_te_lavasplash(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+
+	if (PScript_RunParticleEffectTypeString(pos, NULL, 1, "TE_LAVASPLASH"))
+		R_LavaSplash (pos);
+}
 static void PF_sv_te_teleport(void)
 {
 	float *org = G_VECTOR(OFS_PARM0);
@@ -2504,6 +2620,12 @@ static void PF_sv_te_teleport(void)
 	MSG_WriteCoord(&sv.multicast, org[1], sv.protocolflags);
 	MSG_WriteCoord(&sv.multicast, org[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, org, 0, 0);
+}
+static void PF_cl_te_teleport(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+	if (PScript_RunParticleEffectTypeString(pos, NULL, 1, "TE_TELEPORT"))
+		R_TeleportSplash (pos);
 }
 static void PF_sv_te_explosion2(void)
 {
@@ -2518,6 +2640,22 @@ static void PF_sv_te_explosion2(void)
 	MSG_WriteByte(&sv.multicast, palstart);
 	MSG_WriteByte(&sv.multicast, palcount);
 	SV_Multicast(MULTICAST_PHS_U, org, 0, 0);
+}
+static void PF_cl_te_explosion2(void)
+{
+	float *pos = G_VECTOR(OFS_PARM0);
+	int colorStart = G_FLOAT(OFS_PARM1);
+	int colorLength = G_FLOAT(OFS_PARM1);
+	dlight_t *dl;
+
+	if (PScript_RunParticleEffectTypeString(pos, NULL, 1, va("TE_EXPLOSION2_%i_%i", colorStart, colorLength)))
+		R_ParticleExplosion2 (pos, colorStart, colorLength);
+	dl = CL_AllocDlight (0);
+	VectorCopy (pos, dl->origin);
+	dl->radius = 350;
+	dl->die = cl.time + 0.5;
+	dl->decay = 300;
+	S_StartSound (-1, 0, S_PrecacheSound ("weapons/r_exp3.wav"), pos, 1, 1);
 }
 static void PF_sv_te_beam(void)
 {
@@ -2534,6 +2672,14 @@ static void PF_sv_te_beam(void)
 	MSG_WriteCoord(&sv.multicast, end[1], sv.protocolflags);
 	MSG_WriteCoord(&sv.multicast, end[2], sv.protocolflags);
 	SV_Multicast(MULTICAST_PHS_U, start, 0, 0);
+}
+static void PF_cl_te_beam(void)
+{
+	edict_t *ed = G_EDICT(OFS_PARM0);
+	float *start = G_VECTOR(OFS_PARM1);
+	float *end = G_VECTOR(OFS_PARM2);
+
+	CL_UpdateBeam (Mod_ForName("progs/beam.mdl", true), "TE_BEAM", "TE_BEAM_END", -NUM_FOR_EDICT(ed), start, end);
 }
 #ifdef PSET_SCRIPT
 static void PF_sv_te_particlerain(void)
@@ -6727,20 +6873,20 @@ static struct
 	{"te_explosionquad",PF_sv_te_explosionquad,NULL,			415,	PF_NoMenu, "void(vector org)", "stub."},// (DP_TE_QUADEFFECTS1)
 	{"te_smallflash",	PF_sv_te_smallflash,NULL,				416,	PF_NoMenu, "void(vector org)", "stub."},// (DP_TE_SMALLFLASH)
 	{"te_customflash",	PF_sv_te_customflash,NULL,				417,	PF_NoMenu, "void(vector org, float radius, float lifetime, vector color)", "stub."},// (DP_TE_CUSTOMFLASH)
-	{"te_gunshot",		PF_sv_te_gunshot,	NULL,				418,	PF_NoMenu, "void(vector org, optional float count)"},// #418 te_gunshot
-	{"te_spike",		PF_sv_te_spike,		NULL,				419,	PF_NoMenu, "void(vector org)"},// #419 te_spike
-	{"te_superspike",	PF_sv_te_superspike,NULL,				420,	PF_NoMenu, "void(vector org)"},// #420 te_superspike
-	{"te_explosion",	PF_sv_te_explosion,	NULL,				421,	PF_NoMenu, "void(vector org)"},// #421 te_explosion
-	{"te_tarexplosion",	PF_sv_te_tarexplosion,NULL,				422,	PF_NoMenu, "void(vector org)"},// #422 te_tarexplosion
-	{"te_wizspike",		PF_sv_te_wizspike,	NULL,				423,	PF_NoMenu, "void(vector org)"},// #423 te_wizspike
-	{"te_knightspike",	PF_sv_te_knightspike,NULL,				424,	PF_NoMenu, "void(vector org)"},// #424 te_knightspike
-	{"te_lavasplash",	PF_sv_te_lavasplash,NULL,				425,	PF_NoMenu, "void(vector org)"},// #425 te_lavasplash
-	{"te_teleport",		PF_sv_te_teleport,	NULL,				426,	PF_NoMenu, "void(vector org)"},// #426 te_teleport
-	{"te_explosion2",	PF_sv_te_explosion2,NULL,				427,	PF_NoMenu, "void(vector org, float color, float colorlength)"},// #427 te_explosion2
-	{"te_lightning1",	PF_sv_te_lightning1,NULL,				428,	PF_NoMenu, "void(entity own, vector start, vector end)"},// #428 te_lightning1
-	{"te_lightning2",	PF_sv_te_lightning2,NULL,				429,	PF_NoMenu, "void(entity own, vector start, vector end)"},// #429 te_lightning2
-	{"te_lightning3",	PF_sv_te_lightning3,NULL,				430,	PF_NoMenu, "void(entity own, vector start, vector end)"},// #430 te_lightning3
-	{"te_beam",			PF_sv_te_beam,		NULL,				431,	PF_NoMenu, "void(entity own, vector start, vector end)"},// #431 te_beam
+	{"te_gunshot",		PF_sv_te_gunshot,	PF_cl_te_gunshot,	418,	PF_NoMenu, "void(vector org, optional float count)"},// #418 te_gunshot
+	{"te_spike",		PF_sv_te_spike,		PF_cl_te_spike,		419,	PF_NoMenu, "void(vector org)"},// #419 te_spike
+	{"te_superspike",	PF_sv_te_superspike,PF_cl_te_superspike,420,	PF_NoMenu, "void(vector org)"},// #420 te_superspike
+	{"te_explosion",	PF_sv_te_explosion,	PF_cl_te_explosion,	421,	PF_NoMenu, "void(vector org)"},// #421 te_explosion
+	{"te_tarexplosion",	PF_sv_te_tarexplosion,PF_cl_te_tarexplosion,422,PF_NoMenu, "void(vector org)"},// #422 te_tarexplosion
+	{"te_wizspike",		PF_sv_te_wizspike,	PF_cl_te_wizspike,	423,	PF_NoMenu, "void(vector org)"},// #423 te_wizspike
+	{"te_knightspike",	PF_sv_te_knightspike,PF_cl_te_knightspike,424,	PF_NoMenu, "void(vector org)"},// #424 te_knightspike
+	{"te_lavasplash",	PF_sv_te_lavasplash,PF_cl_te_lavasplash,425,	PF_NoMenu, "void(vector org)"},// #425 te_lavasplash
+	{"te_teleport",		PF_sv_te_teleport,	PF_cl_te_teleport,	426,	PF_NoMenu, "void(vector org)"},// #426 te_teleport
+	{"te_explosion2",	PF_sv_te_explosion2,PF_cl_te_explosion2,427,	PF_NoMenu, "void(vector org, float color, float colorlength)"},// #427 te_explosion2
+	{"te_lightning1",	PF_sv_te_lightning1,PF_cl_te_lightning1,428,	PF_NoMenu, "void(entity own, vector start, vector end)"},// #428 te_lightning1
+	{"te_lightning2",	PF_sv_te_lightning2,PF_cl_te_lightning2,429,	PF_NoMenu, "void(entity own, vector start, vector end)"},// #429 te_lightning2
+	{"te_lightning3",	PF_sv_te_lightning3,PF_cl_te_lightning3,430,	PF_NoMenu, "void(entity own, vector start, vector end)"},// #430 te_lightning3
+	{"te_beam",			PF_sv_te_beam,		PF_cl_te_beam,		431,	PF_NoMenu, "void(entity own, vector start, vector end)"},// #431 te_beam
 	{"vectorvectors",	PF_vectorvectors,	PF_vectorvectors,	432,	PF_NoMenu, "void(vector dir)"},// (DP_QC_VECTORVECTORS)
 	{"te_plasmaburn",	PF_sv_te_plasmaburn,NULL,				433,	PF_NoMenu, "void(vector org)", "stub."},// (DP_TE_PLASMABURN)
 	{"getsurfacenumpoints",PF_getsurfacenumpoints,PF_getsurfacenumpoints,434,PF_NoMenu, "float(entity e, float s)"},// (DP_QC_GETSURFACE)
