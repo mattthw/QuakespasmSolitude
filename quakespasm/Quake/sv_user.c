@@ -43,6 +43,8 @@ usercmd_t	cmd;
 cvar_t	sv_idealpitchscale = {"sv_idealpitchscale","0.8",CVAR_NONE};
 cvar_t	sv_altnoclip = {"sv_altnoclip","1",CVAR_ARCHIVE}; //johnfitz
 
+qboolean SV_RunThink (edict_t *ent);
+
 /*
 ===============
 SV_SetIdealPitch
@@ -532,6 +534,49 @@ void SV_ReadClientMove (usercmd_t *move)
 	}
 
 	//FIXME: attempt to apply physics command now, if the mod has custom physics+csqc-prediction
+
+
+	if (qcvm->extfuncs.SV_RunClientCommand)
+	{
+		pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
+		PR_ExecuteProgram(pr_global_struct->PlayerPreThink);
+
+		if (!SV_RunThink (host_client->edict))
+			return;	//ent was removed? o.O
+
+		if (timestamp > qcvm->time)
+			timestamp = qcvm->time;					//don't let the client exceed the current time
+		if (timestamp < qcvm->time-0.5)
+			timestamp = qcvm->time-0.5;				//don't let the client bank too much time for bursts...
+		if (timestamp < host_client->lastmovetime)
+			timestamp = host_client->lastmovetime;	//don't let the client report times in the past (to get extra time with the next clc_move)
+		if (qcvm->extglobals.input_timelength)
+			*qcvm->extglobals.input_timelength = timestamp - host_client->lastmovetime;
+		host_client->lastmovetime = timestamp;
+
+		if (qcvm->extglobals.input_buttons)
+			*qcvm->extglobals.input_buttons = buttonbits;
+		if (qcvm->extglobals.input_impulse)
+			*qcvm->extglobals.input_impulse = newimpulse;
+		if (qcvm->extglobals.input_movevalues)
+		{
+			qcvm->extglobals.input_movevalues[0] = movevalues[0];
+			qcvm->extglobals.input_movevalues[1] = movevalues[1];
+			qcvm->extglobals.input_movevalues[2] = movevalues[2];
+		}
+		if (qcvm->extglobals.input_angles)
+		{
+			qcvm->extglobals.input_angles[0] = angle[0];
+			qcvm->extglobals.input_angles[1] = angle[1];
+			qcvm->extglobals.input_angles[2] = angle[2];
+		}
+		pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
+		PR_ExecuteProgram(qcvm->extfuncs.SV_RunClientCommand);
+
+
+		pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
+		PR_ExecuteProgram(pr_global_struct->PlayerPostThink);
+	}
 }
 
 void SV_ReadQCRequest(void)

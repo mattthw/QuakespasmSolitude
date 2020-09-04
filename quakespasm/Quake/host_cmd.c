@@ -1795,6 +1795,7 @@ void Host_Spawn_f (void)
 	}
 
 	host_client->knowntoqc = true;
+	host_client->lastmovetime = qcvm->time;
 // run the entrance script
 	if (sv.loadgame)
 	{	// loaded games are fully inited allready

@@ -185,6 +185,7 @@ typedef struct client_s
 	size_t numframes;	//preallocated power-of-two
 	int lastacksequence;
 	int lastmovemessage;
+	double lastmovetime;
 
 	char userinfo[1024];	//spike -- for csqc to (ab)use.
 	client_voip_t voip;	//spike -- for voip

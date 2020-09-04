@@ -1192,6 +1192,8 @@ void SV_Physics_Client (edict_t	*ent, int num)
 	if ( ! svs.clients[num-1].active )
 		return;		// unconnected slot
 
+	if (qcvm->extfuncs.SV_RunClientCommand)
+		return;	//we're doing independant player physics with this mod, so clientside prediction can do its thing.
 	if (!svs.clients[num-1].knowntoqc && sv_gameplayfix_spawnbeforethinks.value)
 		return;	//don't spam prethinks before we called putclientinserver.
 
