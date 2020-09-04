@@ -3801,12 +3801,16 @@ static void PF_findchain(void)
 	edict_t	*ent, *chain;
 	int	i, f;
 	const char *s, *t;
+	int cfld;
 
 	chain = (edict_t *)qcvm->edicts;
 
 	f = G_INT(OFS_PARM0);
 	s = G_STRING(OFS_PARM1);
-	//FIXME: cfld = G_INT(OFS_PARM2);
+	if (qcvm->argc > 2)
+		cfld = G_INT(OFS_PARM2);
+	else
+		cfld = &ent->v.chain - (int*)&ent->v;
 
 	ent = NEXT_EDICT(qcvm->edicts);
 	for (i = 1; i < qcvm->num_edicts; i++, ent = NEXT_EDICT(ent))
@@ -3816,7 +3820,7 @@ static void PF_findchain(void)
 		t = E_STRING(ent,f);
 		if (strcmp(s, t))
 			continue;
-		ent->v.chain = EDICT_TO_PROG(chain);
+		((int*)&ent->v)[cfld] = EDICT_TO_PROG(chain);
 		chain = ent;
 	}
 
@@ -3853,12 +3857,16 @@ static void PF_findchainfloat(void)
 	edict_t	*ent, *chain;
 	int	i, f;
 	float s, t;
+	int cfld;
 
 	chain = (edict_t *)qcvm->edicts;
 
 	f = G_INT(OFS_PARM0);
 	s = G_FLOAT(OFS_PARM1);
-	//FIXME: cfld = G_INT(OFS_PARM2);
+	if (qcvm->argc > 2)
+		cfld = G_INT(OFS_PARM2);
+	else
+		cfld = &ent->v.chain - (int*)&ent->v;
 
 	ent = NEXT_EDICT(qcvm->edicts);
 	for (i = 1; i < qcvm->num_edicts; i++, ent = NEXT_EDICT(ent))
@@ -3868,7 +3876,7 @@ static void PF_findchainfloat(void)
 		t = E_FLOAT(ent,f);
 		if (s != t)
 			continue;
-		ent->v.chain = EDICT_TO_PROG(chain);
+		((int*)&ent->v)[cfld] = EDICT_TO_PROG(chain);
 		chain = ent;
 	}
 
@@ -3905,12 +3913,16 @@ static void PF_findchainflags(void)
 	edict_t	*ent, *chain;
 	int	i, f;
 	int s, t;
+	int cfld;
 
 	chain = (edict_t *)qcvm->edicts;
 
 	f = G_INT(OFS_PARM0);
 	s = G_FLOAT(OFS_PARM1);
-	//FIXME: cfld = G_INT(OFS_PARM2);
+	if (qcvm->argc > 2)
+		cfld = G_INT(OFS_PARM2);
+	else
+		cfld = &ent->v.chain - (int*)&ent->v;
 
 	ent = NEXT_EDICT(qcvm->edicts);
 	for (i = 1; i < qcvm->num_edicts; i++, ent = NEXT_EDICT(ent))
@@ -3920,7 +3932,7 @@ static void PF_findchainflags(void)
 		t = E_FLOAT(ent,f);
 		if (!(s & t))
 			continue;
-		ent->v.chain = EDICT_TO_PROG(chain);
+		((int*)&ent->v)[cfld] = EDICT_TO_PROG(chain);
 		chain = ent;
 	}
 
@@ -5212,6 +5224,9 @@ static void PF_cl_setkeybind(void)
 	int keynum = Key_QCToNative(G_FLOAT(OFS_PARM0));
 	const char *binding = G_STRING(OFS_PARM1);
 	int bindmap = (qcvm->argc<=1)?0:G_FLOAT(OFS_PARM2);
+	int modifier = (qcvm->argc<=2)?0:G_FLOAT(OFS_PARM3);	//shift,alt,ctrl bitmask.
+	if (modifier != 0)	//we don't support modifiers.
+		return;
 	if (bindmap < 0 || bindmap >= MAX_BINDMAPS)
 		bindmap = 0;
 	if (keynum >= 0 && keynum < MAX_KEYS)
@@ -5283,7 +5298,7 @@ static void PF_cl_findkeysforcommand(void)
 static void PF_cl_findkeysforcommandex(void)
 {
 	const char *command = G_STRING(OFS_PARM0);
-	int bindmap = G_FLOAT(OFS_PARM1);
+	int bindmap = (qcvm->argc<=1)?0:G_FLOAT(OFS_PARM1);
 	int keys[16];
 	char *s = PR_GetTempString();
 	int		count = 0;
@@ -7057,8 +7072,8 @@ static struct
 
 	{"copyentity",		PF_copyentity,		PF_copyentity,		400,	PF_copyentity,47, D("entity(entity from, optional entity to)", "Copies all fields from one entity to another.")},// (DP_QC_COPYENTITY)
 	{"setcolors",		PF_setcolors,		PF_NoCSQC,			401,	PF_NoMenu, D("void(entity ent, float colours)", "Changes a player's colours. The bits 0-3 are the lower/trouser colour, bits 4-7 are the upper/shirt colours.")},//DP_SV_SETCOLOR
-	{"findchain",		PF_findchain,		PF_findchain,		402,	PF_findchain,26, "entity(.string field, string match)"},// (DP_QC_FINDCHAIN)
-	{"findchainfloat",	PF_findchainfloat,	PF_findchainfloat,	403,	PF_findchainfloat,27, "entity(.float fld, float match)"},// (DP_QC_FINDCHAINFLOAT)
+	{"findchain",		PF_findchain,		PF_findchain,		402,	PF_findchain,26, "entity(.string field, string match, optional .entity chainfield)"},// (DP_QC_FINDCHAIN)
+	{"findchainfloat",	PF_findchainfloat,	PF_findchainfloat,	403,	PF_findchainfloat,27, "entity(.float fld, float match, optional .entity chainfield)"},// (DP_QC_FINDCHAINFLOAT)
 	{"effect",			PF_sv_effect,		NULL,				404,	PF_NoMenu, D("void(vector org, string modelname, float startframe, float endframe, float framerate)", "stub. Spawns a self-animating sprite")},// (DP_SV_EFFECT)
 	{"te_blood",		PF_sv_te_blooddp,	NULL,				405,	PF_NoMenu, "void(vector org, vector dir, float count)"},// #405 te_blood
 	{"te_bloodshower",	PF_sv_te_bloodshower,NULL,				406,	PF_NoMenu, "void(vector mincorner, vector maxcorner, float explosionspeed, float howmany)", "stub."},// (DP_TE_BLOODSHOWER)
@@ -7109,7 +7124,7 @@ static struct
 	{"search_getpackagename",PF_search_getpackagename,PF_search_getpackagename,0,PF_search_getpackagename,0, "string(searchhandle handle, float num)", "Retrieves the name of the package the file was found inside."},
 	{"cvar_string",		PF_cvar_string,		PF_cvar_string,		448,	PF_cvar_string,71, "string(string cvarname)"},//DP_QC_CVAR_STRING
 	{"findflags",		PF_findflags,		PF_findflags,		449,	PF_findflags,0, "entity(entity start, .float fld, float match)"},//DP_QC_FINDFLAGS
-	{"findchainflags",	PF_findchainflags,	PF_findchainflags,	450,	PF_NoMenu, "entity(.float fld, float match)"},//DP_QC_FINDCHAINFLAGS
+	{"findchainflags",	PF_findchainflags,	PF_findchainflags,	450,	PF_NoMenu, "entity(.float fld, float match, optional .entity chainfield)"},//DP_QC_FINDCHAINFLAGS
 	{"dropclient",		PF_dropclient,		PF_NoCSQC,			453,	PF_NoMenu, "void(entity player)"},//DP_SV_BOTCLIENT
 	{"spawnclient",		PF_spawnclient,		PF_NoCSQC,			454,	PF_NoMenu, "entity()", "Spawns a dummy player entity.\nNote that such dummy players will be carried from one map to the next.\nWarning: DP_SV_CLIENTCOLORS DP_SV_CLIENTNAME are not implemented in quakespasm, so use KRIMZON_SV_PARSECLIENTCOMMAND's clientcommand builtin to change the bot's name/colours/skin/team/etc, in the same way that clients would ask."},//DP_SV_BOTCLIENT
 	{"clienttype",		PF_clienttype,		PF_NoCSQC,			455,	PF_NoMenu, "float(entity client)"},//botclient
