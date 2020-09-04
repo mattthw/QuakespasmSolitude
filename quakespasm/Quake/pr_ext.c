@@ -7580,11 +7580,17 @@ void PR_DumpPlatform_f(void)
 	FILE *f;
 	const char *outname = NULL;
 	unsigned int i, j;
-	int targs = 0;
+	enum
+	{
+		SS=1,
+		CS=2,
+		MN=4,
+	};
+	unsigned int targs = 0;
 	for (i = 1; i < (unsigned)Cmd_Argc(); )
 	{
 		const char *arg = Cmd_Argv(i++);
-		if (!strcmp(arg, "-O"))
+		if (!strncmp(arg, "-O", 2))
 		{
 			if (arg[2])
 				outname = arg+2;
@@ -7592,9 +7598,11 @@ void PR_DumpPlatform_f(void)
 				outname = Cmd_Argv(i++);
 		}
 		else if (!q_strcasecmp(arg, "-Tcs"))
-			targs |= 2;
+			targs |= CS;
 		else if (!q_strcasecmp(arg, "-Tss"))
-			targs |= 1;
+			targs |= SS;
+		else if (!q_strcasecmp(arg, "-Tmenu"))
+			targs |= MN;
 		else
 		{
 			Con_Printf("%s: Unknown argument\n", Cmd_Argv(0));
@@ -7604,7 +7612,7 @@ void PR_DumpPlatform_f(void)
 	if (!outname)
 		outname = ((targs==2)?"qscsextensions":"qsextensions");
 	if (!targs)
-		targs = 3;
+		targs = SS|CS;
 
 	if (strstr(outname, ".."))
 		return;
@@ -7627,18 +7635,39 @@ void PR_DumpPlatform_f(void)
 		"*/\n"
 		,Cmd_Argv(0), Cmd_Args()?Cmd_Args():"with no args");
 
-	fprintf(f, 
+	fprintf(f,
 		"\n\n//This file only supports csqc, so including this file in some other situation is a user error\n"
 		"#if defined(QUAKEWORLD) || defined(MENU)\n"
 		"#error Mixed up module defs\n"
 		"#endif\n"
-		"#ifndef CSQC\n"
-		"#define CSQC\n"
-		"#endif\n"
-		"#ifndef CSQC_SIMPLE\n"	//quakespasm's csqc implementation is simplified, and can do huds+menus, but that's about it.
-		"#define CSQC_SIMPLE\n"
-		"#endif\n"
 		);
+	if (targs & CS)
+	{
+		fprintf(f,
+			"#if !defined(CSQC) && !defined(SSQC) && !defined(MENU)\n"
+				"#define CSQC\n"
+				"#ifndef CSQC_SIMPLE\n"	//quakespasm's csqc implementation is simplified, and can do huds+menus, but that's about it.
+					"#define CSQC_SIMPLE\n"
+				"#endif\n"
+			"#endif\n"
+			);
+	}
+	else if (targs & SS)
+	{
+		fprintf(f,
+			"#if !defined(CSQC) && !defined(SSQC) && !defined(MENU)\n"
+				"#define SSQC\n"
+			"#endif\n"
+			);
+	}
+	else if (targs & MN)
+	{
+		fprintf(f,
+			"#if !defined(CSQC) && !defined(SSQC) && !defined(MENU)\n"
+				"#define MENU\n"
+			"#endif\n"
+			);
+	}
 
 	fprintf(f, "\n\n//List of advertised extensions\n");
 	for (i = 0; i < sizeof(extnames)/sizeof(extnames[0]); i++)
@@ -7647,8 +7676,9 @@ void PR_DumpPlatform_f(void)
 	fprintf(f, "\n\n//Explicitly flag this stuff as probably-not-referenced, meaning fteqcc will shut up about it and silently strip what it can.\n");
 	fprintf(f, "#pragma noref 1\n");
 
-	if (targs & 2)
+	if (targs & (SS|CS))	//qss uses the same system defs for both ssqc and csqc, as a simplification.
 	{	//I really hope that fteqcc's unused variable logic is up to scratch
+		fprintf(f, "#if defined(CSQC_SIMPLE) || defined(SSQC)\n");
 		fprintf(f, "entity		self,other,world;\n");
 		fprintf(f, "float		time,frametime,force_retouch;\n");
 		fprintf(f, "string		mapname;\n");
@@ -7661,7 +7691,7 @@ void PR_DumpPlatform_f(void)
 		fprintf(f, "float		trace_inopen,trace_inwater;\n");
 		fprintf(f, "entity		msg_entity;\n");
 		fprintf(f, "void() 		main,StartFrame,PlayerPreThink,PlayerPostThink,ClientKill,ClientConnect,PutClientInServer,ClientDisconnect,SetNewParms,SetChangeParms;\n");
-		fprintf(f, "void		end_sys_globals;\n");
+		fprintf(f, "void		end_sys_globals;\n\n");
 		fprintf(f, ".float		modelindex;\n");
 		fprintf(f, ".vector		absmin, absmax;\n");
 		fprintf(f, ".float		ltime,movetype,solid;\n");
@@ -7694,6 +7724,15 @@ void PR_DumpPlatform_f(void)
 		fprintf(f, ".float		sounds;\n");
 		fprintf(f, ".string		noise, noise1, noise2, noise3;\n");
 		fprintf(f, "void		end_sys_fields;\n");
+		fprintf(f, "#endif\n");
+	}
+	if (targs & MN)
+	{
+		fprintf(f, "#if defined(MENU)\n");
+		fprintf(f, "entity		self;\n");
+		fprintf(f, "void		end_sys_globals;\n\n");
+		fprintf(f, "void		end_sys_fields;\n");
+		fprintf(f, "#endif\n");
 	}
 
 	fprintf(f, "\n\n//Some custom types (that might be redefined as accessors by fteextensions.qc, although we don't define any methods here)\n");
@@ -7712,44 +7751,67 @@ void PR_DumpPlatform_f(void)
 	fprintf(f, "#endif\n");
 
 
-	if (targs & 1)
+	fprintf(f, "\n\n//Common entry points\n");
+#define QCEXTFUNC(n,t) fprintf(f, t " " #n "\n");
+	QCEXTFUNCS_COMMON
+	if (targs & (SS|CS))
 	{
-		fprintf(f, "void(string cmd) SV_ParseClientCommand;\n");
-		fprintf(f, "void() EndFrame;\n");
+		QCEXTFUNCS_GAME
 	}
 
-	if (targs & 2)
+	if (targs & SS)
 	{
-		fprintf(f, "void(float apilevel, string enginename, float engineversion) CSQC_Init;\n");
-		fprintf(f, "float(string cmdstr) CSQC_ConsoleCommand;\n");
-		fprintf(f, "void(vector virtsize, float showscores) CSQC_DrawHud;\n");
-		fprintf(f, "void(vector virtsize, float showscores) CSQC_DrawScores;\n");
-		fprintf(f, "float(float evtype, float scanx, float chary, float devid) CSQC_InputEvent;\n");
-		fprintf(f, "void() CSQC_Parse_Event;\n");
-		fprintf(f, "float(float save, float take, vector dir) CSQC_Parse_Damage;\n");
+		fprintf(f, "\n\n//Serverside entry points\n");
+		QCEXTFUNCS_SV
 	}
+	if (targs & CS)
+	{
+		fprintf(f, "\n\n//CSQC entry points\n");
+		QCEXTFUNCS_CS
+	}
+	if (targs & MN)
+	{
+		fprintf(f, "\n\n//MenuQC entry points\n");
+		QCEXTFUNCS_MENU
+	}
+#undef QCEXTFUNC
 
-	if (targs & 2)
+#define QCEXTGLOBAL_FLOAT(n) fprintf(f, "float " #n ";\n");
+	QCEXTGLOBALS_COMMON
+	if (targs & (CS|SS))
 	{
-		fprintf(f, "float cltime;				/* increases regardless of pause state or game speed */\n");
-		fprintf(f, "float maxclients;			/* maximum number of players possible on this server */\n");
-		fprintf(f, "float intermission;			/* in intermission */\n");
-		fprintf(f, "float intermission_time;	/* when the intermission started */\n");
-		fprintf(f, "float player_localnum;		/* the player slot that is believed to be assigned to us*/\n");
-		fprintf(f, "float player_localentnum;	/* the entity number that the view is attached to */\n");
+		QCEXTGLOBALS_GAME
 	}
+	if (targs & CS)
+	{
+		QCEXTGLOBALS_CSQC
+	}
+#undef QCEXTGLOBAL
 
 	fprintf(f, "const float FALSE		= 0;\n");
 	fprintf(f, "const float TRUE		= 1;\n");
 
-	if (targs & 2)
+	if (targs & CS)
 	{
-		fprintf(f, "const float IE_KEYDOWN		= %i;\n", CSIE_KEYDOWN);
-		fprintf(f, "const float IE_KEYUP		= %i;\n", CSIE_KEYUP);
-		fprintf(f, "const float IE_MOUSEDELTA	= %i;\n", CSIE_MOUSEDELTA);
-		fprintf(f, "const float IE_MOUSEABS		= %i;\n", CSIE_MOUSEABS);
-		fprintf(f, "const float IE_JOYAXIS		= %i;\n", CSIE_JOYAXIS);
+		fprintf(f, "const float MASK_ENGINE = %i;\n", MASK_ENGINE);
+		fprintf(f, "const float MASK_VIEWMODEL = %i;\n", MASK_VIEWMODEL);
 
+		fprintf(f, "const float GE_MAXENTS = %i;\n", GE_MAXENTS);
+		fprintf(f, "const float GE_ACTIVE = %i;\n", GE_ACTIVE);
+		fprintf(f, "const float GE_ORIGIN = %i;\n", GE_ORIGIN);
+		fprintf(f, "const float GE_FORWARD = %i;\n", GE_FORWARD);
+		fprintf(f, "const float GE_RIGHT = %i;\n", GE_RIGHT);
+		fprintf(f, "const float GE_UP = %i;\n", GE_UP);
+		fprintf(f, "const float GE_SCALE = %i;\n", GE_SCALE);
+		fprintf(f, "const float GE_ORIGINANDVECTORS = %i;\n", GE_ORIGINANDVECTORS);
+		fprintf(f, "const float GE_ALPHA = %i;\n", GE_ALPHA);
+		fprintf(f, "const float GE_COLORMOD = %i;\n", GE_COLORMOD);
+		fprintf(f, "const float GE_PANTSCOLOR = %i;\n", GE_PANTSCOLOR);
+		fprintf(f, "const float GE_SHIRTCOLOR = %i;\n", GE_SHIRTCOLOR);
+		fprintf(f, "const float GE_SKIN = %i;\n", GE_SKIN);
+	}
+	if (targs & (CS|SS))
+	{
 		fprintf(f, "const float STAT_HEALTH = 0;		/* Player's health. */\n");
 //		fprintf(f, "const float STAT_FRAGS = 1;			/* unused */\n");
 		fprintf(f, "const float STAT_WEAPONMODELI = 2;	/* This is the modelindex of the current viewmodel (renamed from the original name 'STAT_WEAPON' due to confusions). */\n");
@@ -7778,10 +7840,154 @@ void PR_DumpPlatform_f(void)
 		fprintf(f, "const float STAT_IDEALPITCH = 25;\n");
 		fprintf(f, "const float STAT_PUNCHANGLE_X = 26;\n");
 		fprintf(f, "const float STAT_PUNCHANGLE_Y = 27;\n");
-		fprintf(f, "const float STAT_PUNCHANGLE_Y = 28;\n");
+		fprintf(f, "const float STAT_PUNCHANGLE_Z = 28;\n");
 //		fprintf(f, "const float STAT_PUNCHVECTOR_X = 29;\n");
 //		fprintf(f, "const float STAT_PUNCHVECTOR_Y = 30;\n");
 //		fprintf(f, "const float STAT_PUNCHVECTOR_Z = 31;\n");
+
+		fprintf(f, "const float SOLID_BBOX = %i;\n", SOLID_BBOX);
+		fprintf(f, "const float SOLID_BSP = %i;\n", SOLID_BSP);
+		fprintf(f, "const float SOLID_NOT = %i;\n", SOLID_NOT);
+		fprintf(f, "const float SOLID_SLIDEBOX = %i;\n", SOLID_SLIDEBOX);
+		fprintf(f, "const float SOLID_TRIGGER = %i;\n", SOLID_TRIGGER);
+
+		fprintf(f, "const float MOVETYPE_NONE = %i;\n", MOVETYPE_NONE);
+		fprintf(f, "const float MOVETYPE_WALK = %i;\n", MOVETYPE_WALK);
+		fprintf(f, "const float MOVETYPE_STEP = %i;\n", MOVETYPE_STEP);
+		fprintf(f, "const float MOVETYPE_FLY = %i;\n", MOVETYPE_FLY);
+		fprintf(f, "const float MOVETYPE_TOSS = %i;\n", MOVETYPE_TOSS);
+		fprintf(f, "const float MOVETYPE_PUSH = %i;\n", MOVETYPE_PUSH);
+		fprintf(f, "const float MOVETYPE_NOCLIP = %i;\n", MOVETYPE_NOCLIP);
+		fprintf(f, "const float MOVETYPE_FLYMISSILE = %i;\n", MOVETYPE_FLYMISSILE);
+		fprintf(f, "const float MOVETYPE_BOUNCE = %i;\n", MOVETYPE_BOUNCE);
+		fprintf(f, "const float MOVETYPE_FOLLOW = %i;\n", MOVETYPE_EXT_FOLLOW);
+
+		fprintf(f, "const float CONTENT_EMPTY = %i;\n", CONTENTS_EMPTY);
+		fprintf(f, "const float CONTENT_SOLID = %i;\n", CONTENTS_SOLID);
+		fprintf(f, "const float CONTENT_WATER = %i;\n", CONTENTS_WATER);
+		fprintf(f, "const float CONTENT_SLIME = %i;\n", CONTENTS_SLIME);
+		fprintf(f, "const float CONTENT_LAVA = %i;\n", CONTENTS_LAVA);
+		fprintf(f, "const float CONTENT_SKY = %i;\n", CONTENTS_SKY);
+		fprintf(f, "const float CONTENT_LADDER = %i;\n", CONTENTS_LADDER);
+
+		fprintf(f, "__used var float physics_mode = 2;\n");
+
+		fprintf(f, "const float TE_SPIKE = %i;\n", TE_SPIKE);
+		fprintf(f, "const float TE_SUPERSPIKE = %i;\n", TE_SUPERSPIKE);
+		fprintf(f, "const float TE_GUNSHOT = %i;\n", TE_GUNSHOT);
+		fprintf(f, "const float TE_EXPLOSION = %i;\n", TE_EXPLOSION);
+		fprintf(f, "const float TE_TAREXPLOSION = %i;\n", TE_TAREXPLOSION);
+		fprintf(f, "const float TE_LIGHTNING1 = %i;\n", TE_LIGHTNING1);
+		fprintf(f, "const float TE_LIGHTNING2 = %i;\n", TE_LIGHTNING2);
+		fprintf(f, "const float TE_WIZSPIKE = %i;\n", TE_WIZSPIKE);
+		fprintf(f, "const float TE_KNIGHTSPIKE = %i;\n", TE_KNIGHTSPIKE);
+		fprintf(f, "const float TE_LIGHTNING3 = %i;\n", TE_LIGHTNING3);
+		fprintf(f, "const float TE_LAVASPLASH = %i;\n", TE_LAVASPLASH);
+		fprintf(f, "const float TE_TELEPORT = %i;\n", TE_TELEPORT);
+		fprintf(f, "const float TE_EXPLOSION2 = %i;\n", TE_EXPLOSION2);
+		fprintf(f, "const float TE_BEAM = %i;\n", TE_BEAM);
+
+
+		fprintf(f, "const float MF_ROCKET			= %#x;\n", EF_ROCKET);
+		fprintf(f, "const float MF_GRENADE			= %#x;\n", EF_GRENADE);
+		fprintf(f, "const float MF_GIB				= %#x;\n", EF_GIB);
+		fprintf(f, "const float MF_ROTATE			= %#x;\n", EF_ROTATE);
+		fprintf(f, "const float MF_TRACER			= %#x;\n", EF_TRACER);
+		fprintf(f, "const float MF_ZOMGIB			= %#x;\n", EF_ZOMGIB);
+		fprintf(f, "const float MF_TRACER2			= %#x;\n", EF_TRACER2);
+		fprintf(f, "const float MF_TRACER3			= %#x;\n", EF_TRACER3);
+
+
+		fprintf(f, "const float EF_BRIGHTFIELD = %i;\n", EF_BRIGHTFIELD);
+		fprintf(f, "const float EF_MUZZLEFLASH = %i;\n", EF_MUZZLEFLASH);
+		fprintf(f, "const float EF_BRIGHTLIGHT = %i;\n", EF_BRIGHTLIGHT);
+		fprintf(f, "const float EF_DIMLIGHT = %i;\n", EF_DIMLIGHT);
+		fprintf(f, "const float EF_FULLBRIGHT = %i;\n", EF_FULLBRIGHT);
+		fprintf(f, "const float EF_NOSHADOW = %i;\n", EF_NOSHADOW);
+		fprintf(f, "const float EF_NOMODELFLAGS = %i;\n", EF_NOMODELFLAGS);
+
+		fprintf(f, "const float FL_FLY = %i;\n", FL_FLY);
+		fprintf(f, "const float FL_SWIM = %i;\n", FL_SWIM);
+		fprintf(f, "const float FL_CLIENT = %i;\n", FL_CLIENT);
+		fprintf(f, "const float FL_INWATER = %i;\n", FL_INWATER);
+		fprintf(f, "const float FL_MONSTER = %i;\n", FL_MONSTER);
+		fprintf(f, "const float FL_GODMODE = %i;\n", FL_GODMODE);
+		fprintf(f, "const float FL_NOTARGET = %i;\n", FL_NOTARGET);
+		fprintf(f, "const float FL_ITEM = %i;\n", FL_ITEM);
+		fprintf(f, "const float FL_ONGROUND = %i;\n", FL_ONGROUND);
+		fprintf(f, "const float FL_PARTIALGROUND = %i;\n", FL_PARTIALGROUND);
+		fprintf(f, "const float FL_WATERJUMP = %i;\n", FL_WATERJUMP);
+		fprintf(f, "const float FL_JUMPRELEASED = %i;\n", FL_JUMPRELEASED);
+
+		fprintf(f, "const float ATTN_NONE = %i;\n", 0);
+		fprintf(f, "const float ATTN_NORM = %i;\n", 1);
+		fprintf(f, "const float ATTN_IDLE = %i;\n", 2);
+		fprintf(f, "const float ATTN_STATIC = %i;\n", 3);
+
+		fprintf(f, "const float CHAN_AUTO = %i;\n", 0);
+		fprintf(f, "const float CHAN_WEAPON = %i;\n", 1);
+		fprintf(f, "const float CHAN_VOICE = %i;\n", 2);
+		fprintf(f, "const float CHAN_ITEM = %i;\n", 3);
+		fprintf(f, "const float CHAN_BODY = %i;\n", 4);
+	}
+
+	if (targs & (CS|MN))
+	{
+		fprintf(f, "const float IE_KEYDOWN		= %i;\n", CSIE_KEYDOWN);
+		fprintf(f, "const float IE_KEYUP		= %i;\n", CSIE_KEYUP);
+		fprintf(f, "const float IE_MOUSEDELTA	= %i;\n", CSIE_MOUSEDELTA);
+		fprintf(f, "const float IE_MOUSEABS		= %i;\n", CSIE_MOUSEABS);
+		fprintf(f, "const float IE_JOYAXIS		= %i;\n", CSIE_JOYAXIS);
+
+		fprintf(f, "const float VF_MIN = %i;", VF_MIN);
+		fprintf(f, "const float VF_MIN_X = %i;", VF_MIN_X);
+		fprintf(f, "const float VF_MIN_Y = %i;", VF_MIN_Y);
+		fprintf(f, "const float VF_SIZE = %i;", VF_SIZE);
+		fprintf(f, "const float VF_SIZE_X = %i;", VF_SIZE_X);
+		fprintf(f, "const float VF_SIZE_Y = %i;", VF_SIZE_Y);
+		fprintf(f, "const float VF_VIEWPORT = %i;", VF_VIEWPORT);
+		fprintf(f, "const float VF_FOV = %i;", VF_FOV);
+		fprintf(f, "const float VF_FOV_X = %i;", VF_FOV_X);
+		fprintf(f, "const float VF_FOV_Y = %i;", VF_FOV_Y);
+		fprintf(f, "const float VF_ORIGIN = %i;", VF_ORIGIN);
+		fprintf(f, "const float VF_ORIGIN_X = %i;", VF_ORIGIN_X);
+		fprintf(f, "const float VF_ORIGIN_Y = %i;", VF_ORIGIN_Y);
+		fprintf(f, "const float VF_ORIGIN_Z = %i;", VF_ORIGIN_Z);
+		fprintf(f, "const float VF_ANGLES = %i;", VF_ANGLES);
+		fprintf(f, "const float VF_ANGLES_X = %i;", VF_ANGLES_X);
+		fprintf(f, "const float VF_ANGLES_Y = %i;", VF_ANGLES_Y);
+		fprintf(f, "const float VF_ANGLES_Z = %i;", VF_ANGLES_Z);
+		fprintf(f, "const float VF_DRAWWORLD = %i;", VF_DRAWWORLD);
+		fprintf(f, "const float VF_DRAWENGINESBAR = %i;", VF_DRAWENGINESBAR);
+		fprintf(f, "const float VF_DRAWCROSSHAIR = %i;", VF_DRAWCROSSHAIR);
+		fprintf(f, "const float VF_CL_VIEWANGLES = %i;", VF_CL_VIEWANGLES);
+		fprintf(f, "const float VF_CL_VIEWANGLES_X = %i;", VF_CL_VIEWANGLES_X);
+		fprintf(f, "const float VF_CL_VIEWANGLES_Y = %i;", VF_CL_VIEWANGLES_Y);
+		fprintf(f, "const float VF_CL_VIEWANGLES_Z = %i;", VF_CL_VIEWANGLES_Z);
+		fprintf(f, "const float VF_ACTIVESEAT = %i; //stub", VF_ACTIVESEAT);
+		fprintf(f, "const float VF_AFOV = %i;", VF_AFOV);
+		fprintf(f, "const float VF_SCREENVSIZE = %i;", VF_SCREENVSIZE);
+		fprintf(f, "const float VF_SCREENPSIZE = %i;", VF_SCREENPSIZE);
+
+		fprintf(f, "const float RF_VIEWMODEL = %i;", RF_VIEWMODEL);
+		fprintf(f, "const float RF_EXTERNALMODEL = %i;", RF_EXTERNALMODEL);
+		fprintf(f, "const float RF_DEPTHHACK = %i;", RF_DEPTHHACK);
+		fprintf(f, "const float RF_ADDITIVE = %i;", RF_ADDITIVE);
+		fprintf(f, "const float RF_USEAXIS = %i;", RF_USEAXIS);
+		fprintf(f, "const float RF_NOSHADOW = %i;", RF_NOSHADOW);
+		fprintf(f, "const float RF_WEIRDFRAMETIMES = %i;", RF_WEIRDFRAMETIMES);
+
+		fprintf(f, "const float SLIST_HOSTCACHEVIEWCOUNT = %i;", SLIST_HOSTCACHEVIEWCOUNT);
+		fprintf(f, "const float SLIST_HOSTCACHETOTALCOUNT = %i;", SLIST_HOSTCACHETOTALCOUNT);
+		fprintf(f, "const float SLIST_SORTFIELD = %i;", SLIST_SORTFIELD);
+		fprintf(f, "const float SLIST_SORTDESCENDING = %i;", SLIST_SORTDESCENDING);
+
+		fprintf(f, "const float GGDI_GAMEDIR = %i;", GGDI_GAMEDIR);
+		//fprintf(f, "const float GGDI_DESCRIPTION = %i;", GGDI_DESCRIPTION);
+		//fprintf(f, "const float GGDI_OVERRIDES = %i;", GGDI_OVERRIDES);
+		fprintf(f, "const float GGDI_LOADCOMMAND = %i;", GGDI_LOADCOMMAND);
+		//fprintf(f, "const float GGDI_ICON = %i;", GGDI_ICON);
+		//fprintf(f, "const float GGDI_GAMEDIRLIST = %i;", GGDI_GAMEDIRLIST);
 	}
 	fprintf(f, "const float STAT_USER = 32;			/* Custom user stats start here (lower values are reserved for engine use). */\n");
 	//these can be used for both custom stats and for reflection
@@ -7795,30 +8001,20 @@ void PR_DumpPlatform_f(void)
 	fprintf(f, "const float EV_POINTER = %i;\n", ev_pointer);
 	fprintf(f, "const float EV_INTEGER = %i;\n", ev_ext_integer);
 
-	if (targs & 1)
+#define QCEXTFIELD(n,t) fprintf(f, "%s %s;\n", t, #n);
+	//extra fields
+	fprintf(f, "\n\n//Supported Extension fields\n");
+	QCEXTFIELDS_ALL
+	if (targs & (SS|CS)) {QCEXTFIELDS_GAME}
+	if (targs & (CS|MN)) {QCEXTFIELDS_CL}
+	if (targs & (CS)) {QCEXTFIELDS_CS}
+	if (targs & (SS)) {QCEXTFIELDS_SS}
+#undef QCEXTFIELD
+
+	if (targs & SS)
 	{
-		//extra fields
-		fprintf(f, "\n\n//Supported Extension fields\n");
-		fprintf(f, ".float gravity;\n");	//used by hipnotic
-		fprintf(f, "//.float items2;			/*if defined, overrides serverflags for displaying runes on the hud*/\n");	//used by both mission packs. *REPLACES* serverflags if defined, so lets try not to define it.
-		fprintf(f, ".float traileffectnum;		/*can also be set with 'traileffect' from a map editor*/\n");
-		fprintf(f, ".float emiteffectnum;		/*can also be set with 'traileffect' from a map editor*/\n");
-		fprintf(f, ".vector movement;			/*describes which forward/right/up keys the player is holidng*/\n");
-		fprintf(f, ".entity viewmodelforclient;	/*attaches this entity to the specified player's view. invisible to other players*/\n");
-		fprintf(f, ".entity exteriormodeltoclient;/*hides the entity in the specified player's main view. it will remain visible in mirrors etc.*/\n");
-		fprintf(f, ".float scale;				/*rescales the etntiy*/\n");
-		fprintf(f, ".float alpha;				/*entity opacity*/\n");		//entity alpha. woot.
-		fprintf(f, ".vector colormod;			/*tints the entity's colours*/\n");
-		fprintf(f, ".entity tag_entity;\n");
-		fprintf(f, ".float tag_index;\n");
-		fprintf(f, ".float button3;\n");
-		fprintf(f, ".float button4;\n");
-		fprintf(f, ".float button5;\n");
-		fprintf(f, ".float button6;\n");
-		fprintf(f, ".float button7;\n");
-		fprintf(f, ".float button8;\n");
-		fprintf(f, ".float viewzoom;			/*rescales the user's fov*/\n");
-		fprintf(f, ".float modelflags;			/*provides additional modelflags to use (effects&EF_NOMODELFLAGS to replace the original model's)*/\n");
+		fprintf(f, ".float style;\n");		//not used by the engine, but is used by tools etc.
+		fprintf(f, ".float light_lev;\n");	//ditto.
 
 		//extra constants
 		fprintf(f, "\n\n//Supported Extension Constants\n");
@@ -7833,14 +8029,16 @@ void PR_DumpPlatform_f(void)
 		fprintf(f, "const float EF_NOSHADOW			= %#x;\n", EF_NOSHADOW);
 		fprintf(f, "const float EF_NOMODELFLAGS		= %#x; /*the standard modelflags from the model are ignored*/\n", EF_NOMODELFLAGS);
 
-		fprintf(f, "const float MF_ROCKET			= %#x;\n", EF_ROCKET);
-		fprintf(f, "const float MF_GRENADE			= %#x;\n", EF_GRENADE);
-		fprintf(f, "const float MF_GIB				= %#x;\n", EF_GIB);
-		fprintf(f, "const float MF_ROTATE			= %#x;\n", EF_ROTATE);
-		fprintf(f, "const float MF_TRACER			= %#x;\n", EF_TRACER);
-		fprintf(f, "const float MF_ZOMGIB			= %#x;\n", EF_ZOMGIB);
-		fprintf(f, "const float MF_TRACER2			= %#x;\n", EF_TRACER2);
-		fprintf(f, "const float MF_TRACER3			= %#x;\n", EF_TRACER3);
+		fprintf(f, "const float DAMAGE_AIM = %i;\n", DAMAGE_AIM);
+		fprintf(f, "const float DAMAGE_NO = %i;\n", DAMAGE_NO);
+		fprintf(f, "const float DAMAGE_YES = %i;\n", DAMAGE_YES);
+
+		fprintf(f, "const float MSG_BROADCAST = %i;\n", MSG_BROADCAST);
+		fprintf(f, "const float MSG_ONE = %i;\n", MSG_ONE);
+		fprintf(f, "const float MSG_ALL = %i;\n", MSG_ALL);
+		fprintf(f, "const float MSG_INIT = %i;\n", MSG_INIT);
+		fprintf(f, "const float MSG_MULTICAST = %i;\n", MSG_EXT_MULTICAST);
+		fprintf(f, "const float MSG_ENTITY = %i;\n", MSG_EXT_ENTITY);
 
 		fprintf(f, "const float MSG_MULTICAST	= %i;\n", 4);
 		fprintf(f, "const float MULTICAST_ALL	= %i;\n", MULTICAST_ALL_U);
@@ -7858,32 +8056,109 @@ void PR_DumpPlatform_f(void)
 	fprintf(f, "const float FILE_APPEND		= "STRINGIFY(1)";\n");
 	fprintf(f, "const float FILE_WRITE		= "STRINGIFY(2)";\n");
 
-	if (targs & 2)
+	//this is annoying. builtins from pr_cmds.c are not known here.
+	if (targs & (CS|SS))
 	{
+		const char *conflictprefix = "";//(targs&CS)?"":"//";
 		fprintf(f, "\n\n//Vanilla Builtin list (reduced, so as to avoid conflicts)\n");
 		fprintf(f, "void(vector) makevectors = #1;\n");
 		fprintf(f, "void(entity,vector) setorigin = #2;\n");
 		fprintf(f, "void(entity,string) setmodel = #3;\n");
 		fprintf(f, "void(entity,vector,vector) setsize = #4;\n");
 		fprintf(f, "float() random = #7;\n");
-		//sound = #8
+		fprintf(f, "%svoid(entity e, float chan, string samp, float vol, float atten, optional float speedpct, optional float flags, optional float timeofs) sound = #8;\n", conflictprefix);
 		fprintf(f, "vector(vector) normalize = #9;\n");
 		fprintf(f, "void(string e) error = #10;\n");
 		fprintf(f, "void(string n) objerror = #11;\n");
 		fprintf(f, "float(vector) vlen = #12;\n");
+		fprintf(f, "float(vector fwd) vectoyaw = #13;\n");
 		fprintf(f, "entity() spawn = #14;\n");
 		fprintf(f, "void(entity e) remove = #15;\n");
+		fprintf(f, "void(vector v1, vector v2, float flags, entity ent) traceline = #16;\n");
+		if (targs&SS)
+			fprintf(f, "entity() checkclient = #17;\n");
+		fprintf(f, "entity(entity start, .string fld, string match) find = #18;\n");
+		fprintf(f, "string(string s) precache_sound = #19;\n");
+		fprintf(f, "string(string s) precache_model = #20;\n");
+		if (targs&SS)
+			fprintf(f, "%svoid(entity client, string s) stuffcmd = #21;\n", conflictprefix);
+		fprintf(f, "%sentity(vector org, float rad, optional .entity chainfield) findradius = #22;\n", conflictprefix);
+		if (targs&SS)
+		{
+			fprintf(f, "%svoid(string s, optional string s2, optional string s3, optional string s4, optional string s5, optional string s6, optional string s7, optional string s8) bprint = #23;\n", conflictprefix);
+			fprintf(f, "%svoid(entity pl, string s, optional string s2, optional string s3, optional string s4, optional string s5, optional string s6, optional string s7) sprint = #24;\n", conflictprefix);
+		}
 		fprintf(f, "void(string,...) dprint = #25;\n");
 		fprintf(f, "string(float) ftos = #26;\n");
 		fprintf(f, "string(vector) vtos = #27;\n");
+		fprintf(f, "%sfloat(float yaw, float dist, optional float settraceglobals) walkmove = #32;\n", conflictprefix);
+		fprintf(f, "float() droptofloor = #34;\n");
+		fprintf(f, "%svoid(float lightstyle, string stylestring, optional vector rgb) lightstyle = #35;\n", conflictprefix);
 		fprintf(f, "float(float n) rint = #36;\n");
 		fprintf(f, "float(float n) floor = #37;\n");
 		fprintf(f, "float(float n) ceil = #38;\n");
+		fprintf(f, "float(entity e) checkbottom = #40;\n");
+		fprintf(f, "float(vector point) pointcontents = #41;\n");
 		fprintf(f, "float(float n) fabs = #43;\n");
+		if (targs&SS)
+			fprintf(f, "vector(entity e, float speed) aim = #44;\n");
 		fprintf(f, "float(string) cvar = #45;\n");
 		fprintf(f, "void(string,...) localcmd = #46;\n");
 		fprintf(f, "entity(entity) nextent = #47;\n");
+		fprintf(f, "void(vector o, vector d, float color, float count) particle = #48;\n");
+		fprintf(f, "void() changeyaw = #49;\n");
+		fprintf(f, "%svector(vector fwd, optional vector up) vectoangles = #51;\n", conflictprefix);
+		if (targs&SS)
+		{
+			fprintf(f, "void(float to, float val) WriteByte = #52;\n");
+			fprintf(f, "void(float to, float val) WriteChar = #53;\n");
+			fprintf(f, "void(float to, float val) WriteShort = #54;\n");
+			fprintf(f, "void(float to, float val) WriteLong = #55;\n");
+			fprintf(f, "void(float to, float val) WriteCoord = #56;\n");
+			fprintf(f, "void(float to, float val) WriteAngle = #57;\n");
+			fprintf(f, "void(float to, string val) WriteString = #58;\n");
+			fprintf(f, "void(float to, entity val) WriteEntity = #59;\n");
+		}
+		fprintf(f, "void(float step) movetogoal = #67;\n");
+		fprintf(f, "string(string s) precache_file = #68;\n");
+		fprintf(f, "void(entity e) makestatic = #69;\n");
+		if (targs&SS)
+			fprintf(f, "void(string mapname, optional string newmapstartspot) changelevel = #70;\n");
 		fprintf(f, "void(string var, string val) cvar_set = #72;\n");
+		if (targs&SS)
+			fprintf(f, "void(entity ent, string text, optional string text2, optional string text3, optional string text4, optional string text5, optional string text6, optional string text7) centerprint = #73;\n");
+		fprintf(f, "void (vector pos, string samp, float vol, float atten) ambientsound = #74;\n");
+		fprintf(f, "string(string str) precache_model2 = #75;\n");
+		fprintf(f, "string(string str) precache_sound2 = #76;\n");
+		fprintf(f, "string(string str) precache_file2 = #77;\n");
+		if (targs&SS)
+			fprintf(f, "void(entity player) setspawnparms = #78;\n");
+	}
+	if (targs & MN)
+	{
+		fprintf(f, "void(string e) error = #2;\n");
+		fprintf(f, "void(string n) objerror = #3;\n");
+		fprintf(f, "float(vector) vlen = #9;\n");
+		fprintf(f, "float(vector fwd) vectoyaw = #10;\n");
+		fprintf(f, "vector(vector fwd, optional vector up) vectoangles = #11;\n");
+		fprintf(f, "float() random = #12;\n");
+		fprintf(f, "void(string,...) localcmd = #13;\n");
+		fprintf(f, "float(string) cvar = #14;\n");
+		fprintf(f, "void(string var, string val) cvar_set = #15;\n");
+		fprintf(f, "void(string,...) dprint = #16;\n");
+		fprintf(f, "string(float) ftos = #17;\n");
+		fprintf(f, "float(float n) fabs = #18;\n");
+		fprintf(f, "string(vector) vtos = #19;\n");
+		fprintf(f, "entity() spawn = #22;\n");
+		fprintf(f, "void(entity e) remove = #23;\n");
+		fprintf(f, "entity(entity start, .string fld, string match) find = #24;\n");
+		fprintf(f, "string(string s) precache_file = #28;\n");
+		fprintf(f, "string(string s) precache_sound = #29;\n");
+		fprintf(f, "float(float n) rint = #34;\n");
+		fprintf(f, "float(float n) floor = #35;\n");
+		fprintf(f, "float(float n) ceil = #36;\n");
+		fprintf(f, "entity(entity) nextent = #37;\n");
+		fprintf(f, "float() clientstate = #62;\n");
 	}
 
 	for (j = 0; j < 2; j++)
@@ -7894,9 +8169,11 @@ void PR_DumpPlatform_f(void)
 			fprintf(f, "\n\n//Builtin list\n");
 		for (i = 0; i < sizeof(extensionbuiltins)/sizeof(extensionbuiltins[0]); i++)
 		{
-			if ((targs & 2) && extensionbuiltins[i].csqcfunc)
+			if ((targs & CS) && extensionbuiltins[i].csqcfunc)
 				;
-			else if ((targs & 1) && extensionbuiltins[i].ssqcfunc)
+			else if ((targs & SS) && extensionbuiltins[i].ssqcfunc)
+				;
+			else if ((targs & MN) && extensionbuiltins[i].menufunc)
 				;
 			else
 				continue;
