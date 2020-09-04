@@ -918,6 +918,14 @@ void _Host_Frame (double time)
 		Cbuf_Waited();
 	}
 
+	if (cl.qcvm.progs)
+	{
+		PR_SwitchQCVM(&cl.qcvm);
+		pr_global_struct->frametime = host_frametime;
+		SV_Physics();
+		PR_SwitchQCVM(NULL);
+	}
+
 // fetch results from server
 	if (cls.state == ca_connected)
 		CL_ReadFromServer ();
