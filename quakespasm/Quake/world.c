@@ -875,7 +875,7 @@ SV_ClipToLinks
 Mins and maxs enclose the entire area swept by the move
 ====================
 */
-void SV_ClipToLinks ( areanode_t *node, moveclip_t *clip )
+static void SV_ClipToLinks ( areanode_t *node, moveclip_t *clip )
 {
 	link_t		*l, *next;
 	edict_t		*touch;
@@ -963,6 +963,154 @@ void SV_ClipToLinks ( areanode_t *node, moveclip_t *clip )
 		SV_ClipToLinks ( node->children[1], clip );
 }
 
+static void World_ClipToNetwork ( moveclip_t *clip )
+{
+	entity_t	*touch;
+	trace_t		trace;
+	int i;
+
+	for (i=1,touch=cl.entities+1 ; i<cl.num_entities ; i++,touch++)
+	{
+		if (!touch->model)
+			continue;
+
+		if (touch->netstate.solidsize == ES_SOLID_NOT)
+			continue;
+//		if (touch == clip->passedict)
+//			continue;
+
+		if (clip->type == MOVE_NOMONSTERS && touch->netstate.solidsize != ES_SOLID_BSP)
+			continue;
+
+/*		if (clip->boxmins[0] > touch->v.absmax[0]
+		|| clip->boxmins[1] > touch->v.absmax[1]
+		|| clip->boxmins[2] > touch->v.absmax[2]
+		|| clip->boxmaxs[0] < touch->v.absmin[0]
+		|| clip->boxmaxs[1] < touch->v.absmin[1]
+		|| clip->boxmaxs[2] < touch->v.absmin[2] )
+			continue;
+*/
+
+	// might intersect, so do an exact clip
+		if (clip->trace.allsolid)
+			return;
+/*		if (clip->passedict)
+		{
+			if (PROG_TO_EDICT(touch->v.owner) == clip->passedict)
+				continue;	// don't clip against own missiles
+			if (PROG_TO_EDICT(clip->passedict->v.owner) == touch)
+				continue;	// don't clip against owner
+		}
+*/
+
+		//:: trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins, clip->maxs, clip->end);
+		{
+			vec3_t		offset;
+			vec3_t		start_l, end_l;
+			hull_t		*hull;
+
+		// fill in a default trace
+			memset (&trace, 0, sizeof(trace_t));
+			trace.fraction = 1;
+			trace.allsolid = true;
+			VectorCopy (clip->end, trace.endpos);
+
+		// get the clipping hull
+			//:: hull = SV_HullForEntity (ent, clip->mins, clip->maxs, offset);
+			{
+				vec3_t		size;
+				if (touch->netstate.solidsize == ES_SOLID_BSP && touch->model && touch->model->type == mod_brush)
+				{	// explicit hulls in the BSP model
+					VectorSubtract (clip->maxs, clip->mins, size);
+					if (size[0] < 3)
+						hull = &touch->model->hulls[0];
+					else if (size[0] <= 32)
+						hull = &touch->model->hulls[1];
+					else
+						hull = &touch->model->hulls[2];
+
+			// calculate an offset value to center the origin
+					VectorSubtract (hull->clip_mins, clip->mins, offset);
+					VectorAdd (offset, touch->origin, offset);
+				}
+				else
+				{	// create a temp hull from bounding box sizes
+					vec3_t		hullmins, hullmaxs;
+					vec3_t		touch_mins, touch_maxs;
+
+					touch_maxs[0] = touch_maxs[1] = touch->netstate.solidsize & 255;
+					touch_mins[0] = touch_mins[1] = -touch_maxs[0];
+					touch_mins[2] = -((touch->netstate.solidsize >>8) & 255);
+					touch_maxs[2] = ((touch->netstate.solidsize>>16) & 65535) - 32768;
+
+					VectorSubtract (touch_mins, clip->maxs, hullmins);
+					VectorSubtract (touch_maxs, clip->mins, hullmaxs);
+					hull = SV_HullForBox (hullmins, hullmaxs);
+
+					VectorCopy (touch->origin, offset);
+				}
+			}
+
+			VectorSubtract (clip->start, offset, start_l);
+			VectorSubtract (clip->end, offset, end_l);
+
+		// trace a line through the apropriate clipping hull
+			if (touch->netstate.solidsize == ES_SOLID_BSP && (touch->angles[0]||touch->angles[1]||touch->angles[2]) && pr_checkextension.value)	//don't rotate the world entity's collisions (its not networked, and some maps are buggy, resulting in screwed collisions)
+			{
+		#define DotProductTranspose(v,m,a) ((v)[0]*(m)[0][a] + (v)[1]*(m)[1][a] + (v)[2]*(m)[2][a])
+				vec3_t axis[3], start_r, end_r, tmp;
+				AngleVectors(touch->angles, axis[0], axis[1], axis[2]);
+				VectorInverse(axis[1]);
+				start_r[0] = DotProduct(start_l, axis[0]);
+				start_r[1] = DotProduct(start_l, axis[1]);
+				start_r[2] = DotProduct(start_l, axis[2]);
+				end_r[0] = DotProduct(end_l, axis[0]);
+				end_r[1] = DotProduct(end_l, axis[1]);
+				end_r[2] = DotProduct(end_l, axis[2]);
+				SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_r, end_r, &trace);
+				VectorCopy(trace.endpos, tmp);
+				trace.endpos[0] = DotProductTranspose(tmp,axis,0);
+				trace.endpos[1] = DotProductTranspose(tmp,axis,1);
+				trace.endpos[2] = DotProductTranspose(tmp,axis,2);
+				VectorCopy(trace.plane.normal, tmp);
+				trace.plane.normal[0] = DotProductTranspose(tmp,axis,0);
+				trace.plane.normal[1] = DotProductTranspose(tmp,axis,1);
+				trace.plane.normal[2] = DotProductTranspose(tmp,axis,2);
+			}
+			else
+				SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_l, end_l, &trace);
+
+		// fix trace up by the offset
+			if (trace.fraction != 1)
+				VectorAdd (trace.endpos, offset, trace.endpos);
+
+		// did we clip the move?
+			if (trace.fraction < 1 || trace.startsolid)
+				trace.ent = qcvm->edicts;
+
+		}
+
+		if (trace.contents == CONTENTS_SOLID && touch->skinnum < 0)
+			trace.contents = touch->skinnum;
+		if (!((1<<(-trace.contents)) & clip->hitcontents))
+			continue;
+
+		if (trace.allsolid || trace.startsolid ||
+		trace.fraction < clip->trace.fraction)
+		{
+			trace.ent = qcvm->edicts;	//no real way to return entity number.
+			if (clip->trace.startsolid)
+			{
+				clip->trace = trace;
+				clip->trace.startsolid = true;
+			}
+			else
+				clip->trace = trace;
+		}
+		else if (trace.startsolid)
+			clip->trace.startsolid = true;
+	}
+}
 
 /*
 ==================
@@ -1039,6 +1187,9 @@ trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, e
 
 // clip to entities
 	SV_ClipToLinks ( qcvm->areanodes, &clip );
+
+	if (qcvm == &cl.qcvm)
+		World_ClipToNetwork(&clip);
 
 	return clip.trace;
 }

@@ -204,6 +204,19 @@ entity_t	*CL_EntityNum (int num)
 	return &cl.entities[num];
 }
 
+static int MSG_ReadSize16 (sizebuf_t *sb)
+{
+	unsigned short ssolid = MSG_ReadShort();
+	if (ssolid == ES_SOLID_BSP)
+		return ssolid;
+	else
+	{
+		int solid = (((ssolid>>7) & 0x1F8) - 32+32768)<<16;	/*up can be negative*/
+		solid|= ((ssolid & 0x1F)<<3);
+		solid|= ((ssolid & 0x3E0)<<10);
+		return solid;
+	}
+}
 static unsigned int CLFTE_ReadDelta(unsigned int entnum, entity_state_t *news, const entity_state_t *olds, const entity_state_t *baseline)
 {
 	unsigned int predbits = 0;
@@ -386,23 +399,22 @@ static unsigned int CLFTE_ReadDelta(unsigned int entnum, entity_state_t *news, c
 		{
 			byte enc = MSG_ReadByte();
 			if (enc == 0)
-				/*solidsize = ES_SOLID_NOT*/;
+				news->solidsize = ES_SOLID_NOT;
 			else if (enc == 1)
-				/*solidsize = ES_SOLID_BSP*/;
+				news->solidsize = ES_SOLID_BSP;
 			else if (enc == 2)
-				/*solidsize = ES_SOLID_HULL1*/;
+				news->solidsize = ES_SOLID_HULL1;
 			else if (enc == 3)
-				/*solidsize = ES_SOLID_HULL2*/;
+				news->solidsize = ES_SOLID_HULL2;
 			else if (enc == 16)
-				/*solidsize = */MSG_ReadShort();//MSG_ReadSize16(&net_message);
+				news->solidsize = MSG_ReadSize16(&net_message);
 			else if (enc == 32)
-				/*solidsize = */MSG_ReadLong();
+				news->solidsize = MSG_ReadLong();
 			else
 				Sys_Error("Solid+Size encoding not known");
 		}
 		else
-			/*solidsize =*/ MSG_ReadShort();//MSG_ReadSize16(&net_message);
-//		news->solidsize = solidsize;
+			news->solidsize = MSG_ReadSize16(&net_message);
 	}
 
 	if (bits & UF_FLAGS)
