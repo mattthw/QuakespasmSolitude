@@ -5777,27 +5777,88 @@ static void PF_m_precache_model(void)
 }
 entity_t *CL_NewTempEntity (void);
 extern int num_temp_entities;
-static void PF_m_addentity(void)
+enum
 {
-	edict_t *ed = G_EDICT(OFS_PARM0);
-
-	eval_t *emodel = GetEdictFieldValue(ed, ED_FindFieldOffset("model"));
-	qmodel_t *model = emodel?Mod_ForName(PR_GetString(emodel->_int), false):NULL;
+	RF_VIEWMODEL		= 1u<<0,	//uses a different view matrix, hidden from mirrors.
+	RF_EXTERNALMODEL	= 1u<<1,	//hidden except in mirrors.
+	RF_DEPTHHACK		= 1u<<2,	//uses a different projection matrix (with depth squished by a third, optionally also using separate viewmodel fov)
+	RF_ADDITIVE			= 1u<<3,	//additive blend mode, because .effects was meant to be handled by the csqc.
+	RF_USEAXIS			= 1u<<4,	//explicit matrix defined in v_forward/v_right/v_up/.origin instead of calculating from angles (yay skew+scale)
+	RF_NOSHADOW			= 1u<<5,	//disable shadows, because .effects was meant to be handled by the csqc.
+	RF_WEIRDFRAMETIMES	= 1u<<6,	//change frame*time fields to need to be translated as realframeNtime='time-frameNtime' to determine which pose to use.
+						//CONSULT OTHER ENGINES BEFORE ADDING NEW FLAGS.
+};
+static void PR_addentity_internal(edict_t *ed)	//adds a csqc entity into the scene.
+{
+	qmodel_t *model = qcvm->GetModel(ed->v.modelindex);
 
 	if (model)
 	{
 		entity_t *e = CL_NewTempEntity();
 		if (e)
 		{
-			eval_t *origin = GetEdictFieldValue(ed, ED_FindFieldOffset("origin"));
-			eval_t *angles = GetEdictFieldValue(ed, ED_FindFieldOffset("angles"));
-			eval_t *frame = GetEdictFieldValue(ed, ED_FindFieldOffset("frame"));
-			eval_t *frame2 = GetEdictFieldValue(ed, ED_FindFieldOffset("frame2"));
-			eval_t *lerpfrac = GetEdictFieldValue(ed, ED_FindFieldOffset("lerpfrac"));
-			eval_t *frame1time = GetEdictFieldValue(ed, ED_FindFieldOffset("frame1time"));
-			eval_t *frame2time = GetEdictFieldValue(ed, ED_FindFieldOffset("frame2time"));
-			eval_t *skin = GetEdictFieldValue(ed, ED_FindFieldOffset("skin"));
-			eval_t *alpha = GetEdictFieldValue(ed, ED_FindFieldOffset("alpha"));
+			eval_t *frame2 = GetEdictFieldValue(ed, qcvm->extfields.frame2);
+			eval_t *lerpfrac = GetEdictFieldValue(ed, qcvm->extfields.lerpfrac);
+			eval_t *frame1time = GetEdictFieldValue(ed, qcvm->extfields.frame1time);
+			eval_t *frame2time = GetEdictFieldValue(ed, qcvm->extfields.frame2time);
+			eval_t *alpha = GetEdictFieldValue(ed, qcvm->extfields.alpha);
+			eval_t *renderflags = GetEdictFieldValue(ed, qcvm->extfields.renderflags);
+			int rf = renderflags?renderflags->_float:0;
+
+			VectorCopy(ed->v.origin, e->origin);
+			VectorCopy(ed->v.angles, e->angles);
+			e->model = model;
+			e->skinnum = ed->v.skin;
+			e->alpha = alpha?ENTALPHA_ENCODE(alpha->_float):ENTALPHA_DEFAULT;
+
+			//can't exactly use currentpose/previous pose, as we don't know them.
+			e->lerpflags = LERP_EXPLICIT|LERP_RESETANIM|LERP_RESETMOVE;
+			e->frame = ed->v.frame;
+			e->lerp.snap.frame2 = frame2?frame2->_float:0;
+			e->lerp.snap.lerpfrac = lerpfrac?lerpfrac->_float:0;
+			e->lerp.snap.lerpfrac = q_max(0.f, e->lerp.snap.lerpfrac);
+			e->lerp.snap.lerpfrac = q_min(1.f, e->lerp.snap.lerpfrac);
+			e->lerp.snap.time[0] = frame1time?frame1time->_float:0;
+			e->lerp.snap.time[1] = frame2time?frame2time->_float:0;
+
+			if (rf & RF_VIEWMODEL)
+				e->eflags |= EFLAGS_VIEWMODEL;
+			if (rf & RF_EXTERNALMODEL)
+				e->eflags |= EFLAGS_EXTERIORMODEL;
+			if (rf & RF_WEIRDFRAMETIMES)
+			{
+				e->lerp.snap.time[0] = qcvm->time - e->lerp.snap.time[0];
+				e->lerp.snap.time[1] = qcvm->time - e->lerp.snap.time[1];
+			}
+		}
+	}
+}
+static void PF_cs_addentity(void)
+{
+	PR_addentity_internal(G_EDICT(OFS_PARM0));
+}
+static void PF_m_addentity(void)
+{
+	edict_t *ed = G_EDICT(OFS_PARM0);
+
+	eval_t *emodel = GetEdictFieldValue(ed, ED_FindFieldOffset("model"));
+	const char *modelname = emodel?PR_GetString(emodel->_int):"";
+	qmodel_t *model = *modelname?Mod_ForName(modelname, false):NULL;
+
+	if (model)
+	{
+		entity_t *e = CL_NewTempEntity();
+		if (e)
+		{
+			eval_t *origin = GetEdictFieldValue(ed, qcvm->extfields.origin);
+			eval_t *angles = GetEdictFieldValue(ed, qcvm->extfields.angles);
+			eval_t *frame = GetEdictFieldValue(ed, qcvm->extfields.frame);
+			eval_t *frame2 = GetEdictFieldValue(ed, qcvm->extfields.frame2);
+			eval_t *lerpfrac = GetEdictFieldValue(ed, qcvm->extfields.lerpfrac);
+			eval_t *frame1time = GetEdictFieldValue(ed, qcvm->extfields.frame1time);
+			eval_t *frame2time = GetEdictFieldValue(ed, qcvm->extfields.frame2time);
+			eval_t *skin = GetEdictFieldValue(ed, qcvm->extfields.skin);
+			eval_t *alpha = GetEdictFieldValue(ed, qcvm->extfields.alpha);
 
 			if (origin)
 				VectorCopy(origin->vector, e->origin);
@@ -5817,6 +5878,89 @@ static void PF_m_addentity(void)
 		}
 	}
 }
+enum
+{
+	MASK_ENGINE		= 1<<0,
+	MASK_VIEWMODEL	= 1<<1,
+};
+static void PF_cs_addentities(void)
+{
+	int mask = G_FLOAT(OFS_PARM0);
+	int i;
+	size_t count;
+
+	edict_t		*ed;
+	entity_t	*ent;	//spike -- moved into here
+	eval_t		*ev;
+
+	if (!mask)
+		return;	//o.O
+
+	if ((mask & MASK_ENGINE) && qcvm->worldmodel)
+	{
+		for (i=1,ent=cl.entities+1 ; i<cl.num_entities ; i++,ent++)
+		{
+			if (!ent->model)
+				continue;
+
+			if (i == cl.viewentity && !chase_active.value)
+				continue;
+
+			if (cl_numvisedicts < cl_maxvisedicts)
+			{
+				cl_visedicts[cl_numvisedicts] = ent;
+				cl_numvisedicts++;
+			}
+		}
+	}
+
+	if (qcvm->extfields.drawmask >= 0)
+	{	//walk the csqc entities to add those to the scene (if their drawmask matches our arg)
+		for (count = qcvm->num_edicts-1, ed = EDICT_NUM(1); count --> 0; ed = NEXT_EDICT(ed))
+		{
+			if (ed->free)
+				continue;
+			ev = GetEdictFieldValue(ed, qcvm->extfields.drawmask);
+			if ((int)ev->_float & mask)
+			{	//its a candidate!
+				ev = GetEdictFieldValue(ed, qcvm->extfields.predraw);
+				if (ev && ev->function)
+				{
+					pr_global_struct->self = EDICT_TO_PROG(ed);
+					PR_ExecuteProgram(ev->function);
+					if (ed->free || G_FLOAT(OFS_RETURN))
+						continue;	//bummer...
+				}
+				PR_addentity_internal(ed);
+			}
+		}
+	}
+
+	if (mask & MASK_VIEWMODEL)
+	{
+		//default viewmodel.
+	}
+
+
+}
+static void PF_cs_addlight(void)
+{
+	float *org = G_VECTOR(OFS_PARM0);
+	float radius = G_FLOAT(OFS_PARM1);
+	float *rgb = G_VECTOR(OFS_PARM2);
+//	float style = G_FLOAT(OFS_PARM3);
+//	const char *cubename = G_STRING(OFS_PARM4);
+//	float pflags = G_FLOAT(OFS_PARM5);
+
+	int key = 0;
+	dlight_t *dl = CL_AllocDlight (key);
+	VectorCopy(rgb, dl->color);
+	VectorCopy (org,  dl->origin);
+	dl->radius = radius;
+	dl->minlight = 32;
+	dl->die = 0;
+	dl->decay = 0;
+}
 static struct
 {
 	float rect_pos[2];
@@ -5826,8 +5970,12 @@ static struct
 	float fov_y;
 	vec3_t origin;
 	vec3_t angles;
+
+	qboolean drawsbar;
+	qboolean drawcrosshair;
 } viewprops;
 
+void V_CalcRefdef (void);
 static void PF_m_clearscene(void)
 {
 	if (cl_numvisedicts + 64 > cl_maxvisedicts)
@@ -5842,101 +5990,350 @@ static void PF_m_clearscene(void)
 	memset(&viewprops, 0, sizeof(viewprops));
 	viewprops.rect_size[0] = vid.width;
 	viewprops.rect_size[1] = vid.height;
+
+	if (qcvm == &cl.qcvm)
+	{
+		r_refdef.drawworld = true;
+		V_CalcRefdef();
+		VectorCopy(r_refdef.vieworg, viewprops.origin);
+		VectorCopy(r_refdef.viewangles, viewprops.angles);
+	}
+	else	//menuqc has different defaults, with the assumption that the world will never be drawn etc.
+		r_refdef.drawworld = false;
 }
 
+enum
+{
+//the basic range.
+	VF_MIN					= 1,
+	VF_MIN_X				= 2,
+	VF_MIN_Y				= 3,
+	VF_SIZE					= 4,
+	VF_SIZE_X				= 5,
+	VF_SIZE_Y				= 6,
+	VF_VIEWPORT				= 7,
+	VF_FOV					= 8,
+	VF_FOV_X				= 9,
+	VF_FOV_Y				= 10,
+	VF_ORIGIN				= 11,
+	VF_ORIGIN_X				= 12,
+	VF_ORIGIN_Y				= 13,
+	VF_ORIGIN_Z				= 14,
+	VF_ANGLES				= 15,
+	VF_ANGLES_X				= 16,
+	VF_ANGLES_Y				= 17,
+	VF_ANGLES_Z				= 18,
+	VF_DRAWWORLD			= 19,
+	VF_DRAWENGINESBAR		= 20,
+	VF_DRAWCROSSHAIR		= 21,
+//	VF_						= 22,
+	VF_MINDIST				= 23,
+	VF_MAXDIST				= 24,
+//	VF_						= 25,
+//	VF_						= 26,
+//	VF_						= 27,
+//	VF_						= 28,
+//	VF_						= 29,
+//	VF_						= 30,
+//	VF_						= 31,
+//	VF_						= 32,
+
+//the weird DP hacks range.
+	VF_CL_VIEWANGLES		= 33,
+	VF_CL_VIEWANGLES_X		= 34,
+	VF_CL_VIEWANGLES_Y		= 35,
+	VF_CL_VIEWANGLES_Z		= 36,
+
+//the FTE range.
+	//VF_PERSPECTIVE		= 200,
+	//VF_DP_CLEARSCREEN		= 201,
+	VF_ACTIVESEAT			= 202,
+	VF_AFOV					= 203,
+	VF_SCREENVSIZE			= 204,
+	VF_SCREENPSIZE			= 205,
+	//VF_VIEWENTITY			= 206,
+	//VF_STATSENTITY		= 207,	//the player number for the stats.
+	//VF_SCREENVOFFSET		= 208,
+	//VF_RT_SOURCECOLOUR	= 209,
+	//VF_RT_DEPTH			= 210,
+	//VF_RT_RIPPLE			= 211,	/**/
+	//VF_RT_DESTCOLOUR0		= 212,
+	//VF_RT_DESTCOLOUR1		= 213,
+	//VF_RT_DESTCOLOUR2		= 214,
+	//VF_RT_DESTCOLOUR3		= 215,
+	//VF_RT_DESTCOLOUR4		= 216,
+	//VF_RT_DESTCOLOUR5		= 217,
+	//VF_RT_DESTCOLOUR6		= 218,
+	//VF_RT_DESTCOLOUR7		= 219,
+	//VF_ENVMAP				= 220,	//cubemap image for reflectcube
+	//VF_USERDATA			= 221,	//data for glsl
+	//VF_SKYROOM_CAMERA		= 222,	//vec origin
+	//VF_PIXELPSCALE		= 223,	//[dpi_x, dpi_y, dpi_y/dpi_x]
+	//VF_PROJECTIONOFFSET	= 224,	//allows for off-axis projections.
+
+//DP's range
+	//VF_DP_MAINVIEW		= 400, // defective. should be a viewid instead, allowing for per-view motionblur instead of disabling it outright
+	//VF_DP_MINFPS_QUALITY	= 401, //multiplier for lod and culling to try to reduce costs.
+};
+static void PF_m_getproperty(void)
+{
+	float s;
+	int prop = G_FLOAT(OFS_PARM0);
+	G_FLOAT(OFS_RETURN+0) =
+	G_FLOAT(OFS_RETURN+1) =
+	G_FLOAT(OFS_RETURN+2) = 0;
+	switch(prop)
+	{	//NOTE: These indexes are shared between engines. whoever thought THAT would be a good idea...
+	case VF_MIN:		//min
+		G_FLOAT(OFS_RETURN+0) = viewprops.rect_pos[0];
+		G_FLOAT(OFS_RETURN+1) = viewprops.rect_pos[1];
+		break;
+	case VF_MIN_X:
+		G_FLOAT(OFS_RETURN+0) = viewprops.rect_pos[0];
+		break;
+	case VF_MIN_Y:
+		G_FLOAT(OFS_RETURN+0) = viewprops.rect_pos[1];
+		break;
+	case VF_SIZE:		//size
+		G_FLOAT(OFS_RETURN+0) = viewprops.rect_size[0];
+		G_FLOAT(OFS_RETURN+1) = viewprops.rect_size[1];
+		break;
+	case VF_SIZE_X:
+		G_FLOAT(OFS_RETURN+0) = viewprops.rect_size[0];
+		break;
+	case VF_SIZE_Y:
+		G_FLOAT(OFS_RETURN+0) = viewprops.rect_size[1];
+		break;
+	//case VF_VIEWPORT:	//viewport. doesn't make sense for a single vector return.
+	case VF_FOV:
+		G_FLOAT(OFS_RETURN+0) = viewprops.fov_x;
+		G_FLOAT(OFS_RETURN+1) = viewprops.fov_y;
+		break;
+	case VF_FOV_X:
+		G_FLOAT(OFS_RETURN+0) = viewprops.fov_x;
+		break;
+	case VF_FOV_Y:
+		G_FLOAT(OFS_RETURN+0) = viewprops.fov_y;
+		break;
+	case VF_ORIGIN:	//vieworigin
+		if (qcvm->nogameaccess)
+			goto accessblocked;
+		VectorCopy(viewprops.origin, G_VECTOR(OFS_PARM1));
+		break;
+	case VF_ORIGIN_X:
+	case VF_ORIGIN_Y:
+	case VF_ORIGIN_Z:
+		if (qcvm->nogameaccess)
+			goto accessblocked;
+		G_FLOAT(OFS_RETURN+0) = viewprops.origin[prop-VF_ORIGIN_X];
+		break;
+	case VF_ANGLES:	//viewangles
+		if (qcvm->nogameaccess)
+			goto accessblocked;
+		VectorCopy(viewprops.angles, G_VECTOR(OFS_PARM1));
+		break;
+	case VF_ANGLES_X:
+	case VF_ANGLES_Y:
+	case VF_ANGLES_Z:
+		if (qcvm->nogameaccess)
+			goto accessblocked;
+		G_FLOAT(OFS_RETURN+0) = viewprops.angles[prop-VF_ANGLES_X];
+		break;
+	case VF_DRAWWORLD: //drawworld
+		G_FLOAT(OFS_RETURN+0) = r_refdef.drawworld;
+		break;
+	case VF_DRAWENGINESBAR: //engine sbar
+		G_FLOAT(OFS_RETURN+0) = viewprops.drawsbar;
+		break;
+	case VF_DRAWCROSSHAIR: //crosshair
+		G_FLOAT(OFS_RETURN+0) = viewprops.drawcrosshair;
+		break;
+	case VF_MINDIST:
+		#define NEARCLIP 4
+		G_FLOAT(OFS_RETURN+0) = NEARCLIP;
+		break;
+	case VF_MAXDIST: //maxdist
+		{
+			extern cvar_t gl_farclip;
+			G_FLOAT(OFS_RETURN+0) = gl_farclip.value;
+		}
+		break;
+
+	case VF_CL_VIEWANGLES:	//viewangles hack
+		if (qcvm->nogameaccess)
+			goto accessblocked;
+		VectorCopy(cl.viewangles, G_VECTOR(OFS_RETURN));
+		break;
+	case VF_CL_VIEWANGLES_X:
+	case VF_CL_VIEWANGLES_Y:
+	case VF_CL_VIEWANGLES_Z:
+		if (qcvm->nogameaccess)
+			goto accessblocked;
+		G_FLOAT(OFS_RETURN+0) = cl.viewangles[prop-VF_CL_VIEWANGLES_X];
+		break;
+
+	//fte's range
+//	case VF_PERSPECTIVE:	//useperspective (0 for isometric)
+//	case VF_DP_CLEARSCREEN:
+	case VF_ACTIVESEAT:		//active seat
+		G_FLOAT(OFS_RETURN+0) = 0;
+		break;
+	case VF_AFOV:	//aproximate fov
+		G_FLOAT(OFS_RETURN+0) = viewprops.afov;
+		break;
+	case VF_SCREENVSIZE:	//virtual size (readonly)
+		s = PR_GetVMScale();
+		G_FLOAT(OFS_RETURN+0) = glwidth/s;
+		G_FLOAT(OFS_RETURN+1) = glheight/s;
+		break;
+	case VF_SCREENPSIZE:	//physical size (readonly)
+		G_FLOAT(OFS_RETURN+0) = glwidth;
+		G_FLOAT(OFS_RETURN+1) = glheight;
+		break;
+//	case VF_VIEWENTITY:	//viewentity
+//	case VF_STATSENTITY:	//stats entity
+//	case VF_SCREENVOFFSET:
+//	case VF_RT_SOURCECOLOUR:	//sourcecolour
+//	case VF_RT_DEPTH:	//depth
+//	case VF_RT_RIPPLE:	//ripplemap
+//	case VF_RT_DESTCOLOUR0:	//destcolour0
+//	case VF_RT_DESTCOLOUR1:	//destcolour1
+//	case VF_RT_DESTCOLOUR2:	//destcolour2
+//	case VF_RT_DESTCOLOUR3:	//destcolour3
+//	case VF_RT_DESTCOLOUR4:	//destcolour4
+//	case VF_RT_DESTCOLOUR5:	//destcolour5
+//	case VF_RT_DESTCOLOUR6:	//destcolour6
+//	case VF_RT_DESTCOLOUR7:	//destcolour7
+//	case VF_ENVMAP:	//envmap
+//	case VF_USERDATA:	//userdata (glsl uniform vec4 array)
+//	case VF_SKYROOM_CAMERA:	//skyroom camera
+//	case VF_PIXELPSCALE:	//dots-per-inch x,y
+//	case VF_PROJECTIONOFFSET:	//projection offset
+
+	//dp's range
+//	case VF_DP_MAINVIEW: //mainview
+//	case VF_DP_MINFPS_QUALITY: //lodquality
+	default:
+		Con_Printf("PF_getproperty(%i): unsupported property\n", prop);
+		break;
+	accessblocked:
+		Con_Printf("PF_getproperty(%i): not allowed to access game properties\n", prop);
+		break;
+	}
+}
 static void PF_m_setproperty(void)
 {
 	int prop = G_FLOAT(OFS_PARM0);
 	switch(prop)
 	{	//NOTE: These indexes are shared between engines. whoever thought THAT would be a good idea...
-	case 1:		//min
+	case VF_MIN:		//min
 		viewprops.rect_pos[0] = G_FLOAT(OFS_PARM1+0);
 		viewprops.rect_pos[1] = G_FLOAT(OFS_PARM1+1);
 		break;
-	case 2:
+	case VF_MIN_X:
 		viewprops.rect_pos[0] = G_FLOAT(OFS_PARM1);
 		break;
-	case 3:
+	case VF_MIN_Y:
 		viewprops.rect_pos[1] = G_FLOAT(OFS_PARM1);
 		break;
-	case 4:		//size
+	case VF_SIZE:		//size
 		viewprops.rect_size[0] = G_FLOAT(OFS_PARM1+0);
 		viewprops.rect_size[1] = G_FLOAT(OFS_PARM1+1);
 		break;
-	case 5:
+	case VF_SIZE_X:
 		viewprops.rect_size[0] = G_FLOAT(OFS_PARM1);
 		break;
-	case 6:
+	case VF_SIZE_Y:
 		viewprops.rect_size[1] = G_FLOAT(OFS_PARM1);
 		break;
-	case 7:
+	case VF_VIEWPORT:
 		viewprops.rect_pos[0] = G_FLOAT(OFS_PARM1+0);
 		viewprops.rect_pos[1] = G_FLOAT(OFS_PARM1+1);
 		viewprops.rect_size[0] = G_FLOAT(OFS_PARM2+0);
 		viewprops.rect_size[1] = G_FLOAT(OFS_PARM2+1);
 		break;
-	case 8:
+	case VF_FOV:
 		viewprops.fov_x = G_FLOAT(OFS_PARM1+0);
 		viewprops.fov_y = G_FLOAT(OFS_PARM1+1);
 		break;
-	case 9:
+	case VF_FOV_X:
 		viewprops.fov_x = G_FLOAT(OFS_PARM1);
 		break;
-	case 10:
+	case VF_FOV_Y:
 		viewprops.fov_y = G_FLOAT(OFS_PARM1);
 		break;
-	case 11:	//vieworigin
+	case VF_ORIGIN:	//vieworigin
 		VectorCopy(G_VECTOR(OFS_PARM1), viewprops.origin);
 		break;
-	case 12:
-	case 13:
-	case 14:
-		viewprops.origin[prop-12] = G_FLOAT(OFS_PARM1);
+	case VF_ORIGIN_X:
+	case VF_ORIGIN_Y:
+	case VF_ORIGIN_Z:
+		viewprops.origin[prop-VF_ORIGIN_X] = G_FLOAT(OFS_PARM1);
 		break;
-	case 15:	//viewangles
+	case VF_ANGLES:	//viewangles
 		VectorCopy(G_VECTOR(OFS_PARM1), viewprops.angles);
 		break;
-	case 16:
-	case 17:
-	case 18:
-		viewprops.angles[prop-16] = G_FLOAT(OFS_PARM1);
+	case VF_ANGLES_X:
+	case VF_ANGLES_Y:
+	case VF_ANGLES_Z:
+		viewprops.angles[prop-VF_ANGLES_X] = G_FLOAT(OFS_PARM1);
 		break;
-	//case 19: //drawworld
-	//case 20: //engine sbar
-	//case 21: //crosshair
-	//case 23: //mindist
-	//case 24: //maxdist
+	case VF_DRAWWORLD: //drawworld
+		r_refdef.drawworld = G_FLOAT(OFS_PARM1);
+		break;
+	case VF_DRAWENGINESBAR: //engine sbar
+		viewprops.drawsbar = G_FLOAT(OFS_PARM1);
+		break;
+	case VF_DRAWCROSSHAIR: //crosshair
+		viewprops.drawcrosshair = G_FLOAT(OFS_PARM1);
+		break;
+//	case VF_MINDIST: //mindist
+//	case VF_MAXDIST: //maxdist
+
+	case VF_CL_VIEWANGLES:	//viewangles hack
+		VectorCopy(G_VECTOR(OFS_PARM1), cl.viewangles);
+		break;
+	case VF_CL_VIEWANGLES_X:
+	case VF_CL_VIEWANGLES_Y:
+	case VF_CL_VIEWANGLES_Z:
+		cl.viewangles[prop-VF_CL_VIEWANGLES_X] = G_FLOAT(OFS_PARM1);
+		break;
 
 	//fte's range
-//	case 200:	//useperspective (0 for isometric)
-//	case 202:	//active seat
-	case 203:	//aproximate fov
+//	case VF_PERSPECTIVE:	//useperspective (0 for isometric)
+//	case VF_DP_CLEARSCREEN:	//active seat
+	case VF_ACTIVESEAT:		//active seat
+		if (G_FLOAT(OFS_PARM1))
+			Con_Printf("VF_ACTIVESEAT: splitscreen not supported\n");
+		break;
+	case VF_AFOV:	//aproximate fov
 		viewprops.afov = G_FLOAT(OFS_PARM1);
 		break;
-//	case 204:	//virtual size (readonly)
-//	case 205:	//physical size (readonly)
-//	case 206:	//viewentity
-//	case 207:	//stats entity
-//	case 209:	//sourcecolour
-//	case 210:	//depth
-//	case 211:	//ripplemap
-//	case 210:	//destcolour0
-//	case 211:	//destcolour1
-//	case 212:	//destcolour2
-//	case 213:	//destcolour3
-//	case 214:	//destcolour4
-//	case 215:	//destcolour5
-//	case 216:	//destcolour6
-//	case 217:	//destcolour7
-//	case 220:	//envmap
-//	case 221:	//userdata (glsl uniform vec4 array)
-//	case 222:	//skyroom camera
-//	case 223:	//dots-per-inch x,y
-//	case 224:	//projection offset
+//	case VF_SCREENVSIZE:	//virtual size (readonly)
+//	case VF_SCREENPSIZE:	//physical size (readonly)
+//	case VF_VIEWENTITY:	//viewentity
+//	case VF_STATSENTITY:	//stats entity
+//	case VF_SCREENVOFFSET:
+//	case VF_RT_SOURCECOLOUR:	//sourcecolour
+//	case VF_RT_DEPTH:	//depth
+//	case VF_RT_RIPPLE:	//ripplemap
+//	case VF_RT_DESTCOLOUR0:	//destcolour0
+//	case VF_RT_DESTCOLOUR1:	//destcolour1
+//	case VF_RT_DESTCOLOUR2:	//destcolour2
+//	case VF_RT_DESTCOLOUR3:	//destcolour3
+//	case VF_RT_DESTCOLOUR4:	//destcolour4
+//	case VF_RT_DESTCOLOUR5:	//destcolour5
+//	case VF_RT_DESTCOLOUR6:	//destcolour6
+//	case VF_RT_DESTCOLOUR7:	//destcolour7
+//	case VF_ENVMAP:	//envmap
+//	case VF_USERDATA:	//userdata (glsl uniform vec4 array)
+//	case VF_SKYROOM_CAMERA:	//skyroom camera
+//	case VF_PIXELPSCALE:	//dots-per-inch x,y
+//	case VF_PROJECTIONOFFSET:	//projection offset
 
 	//dp's range
-//	case 400: //mainview
-//	case 401: //lodquality
+//	case VF_DP_MAINVIEW: //mainview
+//	case VF_DP_MINFPS_QUALITY: //lodquality
 	default:
 		Con_Printf("PF_m_setproperty: unsupported property %i\n", prop);
 		break;
@@ -5945,7 +6342,9 @@ static void PF_m_setproperty(void)
 
 void R_SetupView (void);
 void R_RenderScene (void);
+void SCR_DrawCrosshair (void);
 float CalcFovy (float fov_x, float width, float height);
+extern cvar_t scr_fov;
 static void PF_m_renderscene(void)
 {
 	float s = PR_GetVMScale();
@@ -5956,6 +6355,11 @@ static void PF_m_renderscene(void)
 	r_refdef.vrect.y = viewprops.rect_pos[1]*s;
 	r_refdef.vrect.width = viewprops.rect_size[0]*s;
 	r_refdef.vrect.height = viewprops.rect_size[1]*s;
+	if (r_refdef.vrect.width < 1 || r_refdef.vrect.height < 1)
+		return;	//can't draw nuffin...
+
+	if (!viewprops.afov)
+		viewprops.afov = scr_fov.value;
 	if (r_refdef.vrect.width/r_refdef.vrect.height < 4/3)
 	{
 		r_refdef.fov_y = viewprops.afov;
@@ -5968,12 +6372,17 @@ static void PF_m_renderscene(void)
 		r_refdef.fov_x = atan(r_refdef.fov_x) * (360.0 / M_PI);
 		r_refdef.fov_y = atan(r_refdef.fov_y) * (360.0 / M_PI);
 	}
-	r_refdef.drawworld = false;
 	R_SetupView ();
 	R_RenderScene ();
 
 	vid.recalc_refdef = true;
 	GL_Set2D();
+
+	if (!cl.intermission && viewprops.drawsbar)
+		Sbar_Draw ();
+	if (!cl.intermission && viewprops.drawcrosshair)
+		SCR_DrawCrosshair ();
+
 	if (qcvm == &cls.menu_qcvm)
 		GL_SetCanvas (CANVAS_MENUQC);
 	else
@@ -6153,20 +6562,20 @@ static struct
 //	{"clustertransfer",	PF_clustertransfer,	PF_NoCSQC,			0,		PF_NoMenu, D("string(entity player, optional string newnode)", "Only functions in mapcluster mode. Initiate transfer of the player to a different node. Can take some time. If dest is specified, returns null on error. Otherwise returns the current/new target node (or null if not transferring).")},
 //	{"modelframecount", PF_modelframecount, PF_modelframecount,	0,		PF_NoMenu, D("float(float mdlidx)", "Retrieves the number of frames in the specified model.")},
 
-	{"clearscene",		PF_NoSSQC,			PF_FullCSQCOnly,	300,	PF_m_clearscene,300, D("void()", "Forgets all rentities, polygons, and temporary dlights. Resets all view properties to their default values.")},// (EXT_CSQC)
-//	{"addentities",		PF_NoSSQC,			PF_FullCSQCOnly,	301,	PF_NoMenu, D("void(float mask)", "Walks through all entities effectively doing this:\n if (ent.drawmask&mask){ if (!ent.predaw()) addentity(ent); }\nIf mask&MASK_DELTA, non-csqc entities, particles, and related effects will also be added to the rentity list.\n If mask&MASK_STDVIEWMODEL then the default view model will also be added.")},// (EXT_CSQC)
-	{"addentity",		PF_NoSSQC,			PF_FullCSQCOnly,	302,	PF_m_addentity,302, D("void(entity ent)", "Copies the entity fields into a new rentity for later rendering via addscene.")},// (EXT_CSQC)
+	{"clearscene",		PF_NoSSQC,			PF_m_clearscene,	300,	PF_m_clearscene,300, D("void()", "Forgets all rentities, polygons, and temporary dlights. Resets all view properties to their default values.")},// (EXT_CSQC)
+	{"addentities",		PF_NoSSQC,			PF_cs_addentities,	301,	PF_NoMenu, D("void(float mask)", "Walks through all entities effectively doing this:\n if (ent.drawmask&mask){ if (!ent.predaw()) addentity(ent); }\nIf mask&MASK_DELTA, non-csqc entities, particles, and related effects will also be added to the rentity list.\n If mask&MASK_STDVIEWMODEL then the default view model will also be added.")},// (EXT_CSQC)
+	{"addentity",		PF_NoSSQC,			PF_cs_addentity,	302,	PF_m_addentity,302, D("void(entity ent)", "Copies the entity fields into a new rentity for later rendering via addscene.")},// (EXT_CSQC)
 //	{"removeentity",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("void(entity ent)", "Undoes all addentities added to the scene from the given entity, without removing ALL entities (useful for splitscreen/etc, readd modified versions as desired).")},// (EXT_CSQC)
 //	{"addtrisoup_simple",PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("typedef float vec2[2];\ntypedef float vec3[3];\ntypedef float vec4[4];\ntypedef struct trisoup_simple_vert_s {vec3 xyz;vec2 st;vec4 rgba;} trisoup_simple_vert_t;\nvoid(string texturename, int flags, struct trisoup_simple_vert_s *verts, int *indexes, int numindexes)", "Adds the specified trisoup into the scene as additional geometry. This permits caching geometry to reduce builtin spam. Indexes are a triangle list (so eg quads will need 6 indicies to form two triangles). NOTE: this is not going to be a speedup over polygons if you're still generating lots of new data every frame.")},
-	{"setproperty",		PF_NoSSQC,			PF_FullCSQCOnly,	303,	PF_m_setproperty,303, D("#define setviewprop setproperty\nfloat(float property, ...)", "Allows you to override default view properties like viewport, fov, and whether the engine hud will be drawn. Different VF_ values have slightly different arguments, some are vectors, some floats.")},// (EXT_CSQC)
-	{"renderscene",		PF_NoSSQC,			PF_FullCSQCOnly,	304,	PF_m_renderscene,304, D("void()", "Draws all entities, polygons, and particles on the rentity list (which were added via addentities or addentity), using the various view properties set via setproperty. There is no ordering dependancy.\nThe scene must generally be cleared again before more entities are added, as entities will persist even over to the next frame.\nYou may call this builtin multiple times per frame, but should only be called from CSQC_UpdateView.")},// (EXT_CSQC)
-//	{"dynamiclight_add",PF_NoSSQC,			PF_FullCSQCOnly,	305,	PF_NoMenu, D("float(vector org, float radius, vector lightcolours, optional float style, optional string cubemapname, optional float pflags)", "Adds a temporary dlight, ready to be drawn via addscene. Cubemap orientation will be read from v_forward/v_right/v_up.")},// (EXT_CSQC)
+	{"setproperty",		PF_NoSSQC,			PF_m_setproperty,	303,	PF_m_setproperty,303, D("#define setviewprop setproperty\nfloat(float property, ...)", "Allows you to override default view properties like viewport, fov, and whether the engine hud will be drawn. Different VF_ values have slightly different arguments, some are vectors, some floats.")},// (EXT_CSQC)
+	{"renderscene",		PF_NoSSQC,			PF_m_renderscene,	304,	PF_m_renderscene,304, D("void()", "Draws all entities, polygons, and particles on the rentity list (which were added via addentities or addentity), using the various view properties set via setproperty. There is no ordering dependancy.\nThe scene must generally be cleared again before more entities are added, as entities will persist even over to the next frame.\nYou may call this builtin multiple times per frame, but should only be called from CSQC_UpdateView.")},// (EXT_CSQC)
+	{"dynamiclight_add",PF_NoSSQC,			PF_cs_addlight,		305,	PF_NoMenu, D("float(vector org, float radius, vector lightcolours, optional float style, optional string cubemapname, optional float pflags)", "Adds a temporary dlight, ready to be drawn via addscene. Cubemap orientation will be read from v_forward/v_right/v_up.")},// (EXT_CSQC)
 	{"R_BeginPolygon",	PF_NoSSQC,			PF_R_PolygonBegin,	306,	PF_R_PolygonBegin,	306, D("void(string texturename, optional float flags, optional float is2d)", "Specifies the shader to use for the following polygons, along with optional flags.\nIf is2d, the polygon will be drawn as soon as the EndPolygon call is made, rather than waiting for renderscene. This allows complex 2d effects.")},// (EXT_CSQC_???)
 	{"R_PolygonVertex",	PF_NoSSQC,			PF_R_PolygonVertex,	307,	PF_R_PolygonVertex,	307, D("void(vector org, vector texcoords, vector rgb, float alpha)", "Specifies a polygon vertex with its various properties.")},// (EXT_CSQC_???)
 	{"R_EndPolygon",	PF_NoSSQC,			PF_R_PolygonEnd,	308,	PF_R_PolygonEnd,	308, D("void()", "Ends the current polygon. At least 3 verticies must have been specified. You do not need to call beginpolygon if you wish to draw another polygon with the same shader.")},
-//	{"getproperty",		PF_NoSSQC,			PF_FullCSQCOnly,	309,	PF_NoMenu, D("#define getviewprop getproperty\n__variant(float property)", "Retrieve a currently-set (typically view) property, allowing you to read the current viewport or other things. Due to cheat protection, certain values may be unretrievable.")},// (EXT_CSQC_1)
-//	{"unproject",		PF_NoSSQC,			PF_FullCSQCOnly,	310,	PF_NoMenu, D("vector (vector v)", "Transform a 2d screen-space point (with depth) into a 3d world-space point, according the various origin+angle+fov etc settings set via setproperty.")},// (EXT_CSQC)
-//	{"project",			PF_NoSSQC,			PF_FullCSQCOnly,	311,	PF_NoMenu, D("vector (vector v)", "Transform a 3d world-space point into a 2d screen-space point, according the various origin+angle+fov etc settings set via setproperty.")},// (EXT_CSQC)
+	{"getproperty",		PF_NoSSQC,			PF_m_getproperty,	309,	PF_m_getproperty,	309, D("#define getviewprop getproperty\n__variant(float property)", "Retrieve a currently-set (typically view) property, allowing you to read the current viewport or other things. Due to cheat protection, certain values may be unretrievable.")},// (EXT_CSQC_1)
+//	{"unproject",		PF_NoSSQC,			PF_cl_unproject,	310,	PF_NoMenu, D("vector (vector v)", "Transform a 2d screen-space point (with depth) into a 3d world-space point, according the various origin+angle+fov etc settings set via setproperty.")},// (EXT_CSQC)
+//	{"project",			PF_NoSSQC,			PF_cl_project,		311,	PF_NoMenu, D("vector (vector v)", "Transform a 3d world-space point into a 2d screen-space point, according the various origin+angle+fov etc settings set via setproperty.")},// (EXT_CSQC)
 //	{"drawtextfield",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("void(vector pos, vector size, float alignflags, string text)", "Draws a multi-line block of text, including word wrapping and alignment. alignflags bits are RTLB, typically 3.")},// (EXT_CSQC)
 //	{"drawline",		PF_NoSSQC,			PF_FullCSQCOnly,	315,	PF_NoMenu, D("void(float width, vector pos1, vector pos2, vector rgb, float alpha, optional float drawflag)", "Draws a 2d line between the two 2d points.")},// (EXT_CSQC)
 	{"iscachedpic",		PF_NoSSQC,			PF_cl_iscachedpic,	316,	PF_cl_iscachedpic,451,		D("float(string name)", "Checks to see if the image is currently loaded. Engines might lie, or cache between maps.")},// (EXT_CSQC)

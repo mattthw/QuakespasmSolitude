@@ -994,7 +994,7 @@ void Sbar_Draw (void)
 	if (scr_con_current == vid.height)
 		return;		// console is full screen
 
-	if (cl.qcvm.extfuncs.CSQC_DrawHud)
+	if (cl.qcvm.extfuncs.CSQC_DrawHud && !qcvm)
 	{
 		qboolean deathmatchoverlay = false;
 		float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
@@ -1392,7 +1392,7 @@ void Sbar_IntermissionOverlay (void)
 	int	dig;
 	int	num;
 
-	if (cl.qcvm.extfuncs.CSQC_DrawScores)
+	if (cl.qcvm.extfuncs.CSQC_DrawScores && !qcvm)
 	{
 		float s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 		GL_SetCanvas (CANVAS_CSQC);
