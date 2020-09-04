@@ -4010,6 +4010,19 @@ static void PF_putentfldstr(void)
 //{
 //fixme;
 //}
+static void PF_writetofile(void)
+{
+	size_t fileid = G_FLOAT(OFS_PARM0) - QC_FILE_BASE;
+	edict_t *ent = G_EDICT(OFS_PARM1);
+
+	G_INT(OFS_RETURN) = 0;
+	if (fileid >= qcfiles_max)
+		Con_Warning("PF_fwrite: invalid file handle\n");
+	else if (!qcfiles[fileid].file)
+		Con_Warning("PF_fwrite: file not open\n");
+	else
+		ED_Write(qcfiles[fileid].file, ent);
+}
 
 static void PF_parseentitydata(void)
 {
@@ -4026,10 +4039,30 @@ static void PF_parseentitydata(void)
 		G_FLOAT(OFS_RETURN) = 0;
 	else
 	{
-		end = ED_ParseEdict(data+offset, ed);
-		G_FLOAT(OFS_RETURN) = end - data;
+		end = COM_Parse(data+offset);
+		if (!strcmp(com_token, "{"))
+		{
+			end = ED_ParseEdict(end, ed);
+			G_FLOAT(OFS_RETURN) = end - data;
+		}
+		else
+			G_FLOAT(OFS_RETURN) = 0;	//doesn't look like an ent to me.
 	}
 }
+/*static void PF_generateentitydata(void)
+{
+	unsigned int fldidx = G_FLOAT(OFS_PARM0);
+	edict_t *ent = G_EDICT(OFS_PARM1);
+	if (fldidx < (unsigned int)qcvm->progs->numfielddefs)
+	{
+		char *ret = PR_GetTempString();
+		const char *val = PR_UglyValueString (qcvm->fielddefs[fldidx].type, (eval_t*)((float*)&ent->v + qcvm->fielddefs[fldidx].ofs));
+		q_strlcpy(ret, val, STRINGTEMP_LENGTH);
+		G_INT(OFS_RETURN) = PR_SetEngineString(ret);
+	}
+	else
+		G_INT(OFS_RETURN) = 0;
+}*/
 static void PF_callfunction(void)
 {
 	dfunction_t *fnc;
@@ -5632,12 +5665,23 @@ static void PF_cl_getresolution(void)
 	else
 		G_VECTORSET(OFS_RETURN, modes[mode].w,modes[mode].h,1);
 }
+
+enum
+{
+	GGDI_GAMEDIR = 0,   /* Used with getgamedirinfo to query the mod's public gamedir. There is often other info that cannot be expressed with just a gamedir name, resulting in dupes or other weirdness. */
+	GGDI_DESCRIPTION = 1,   /* The human-readable title of the mod. Empty when no data is known (ie: the gamedir just contains some maps). */
+	GGDI_OVERRIDES = 2, /* A list of settings overrides. */
+	GGDI_LOADCOMMAND = 3,   /* The console command needed to actually load the mod. */
+	GGDI_ICON = 4,  /* The mod's Icon path, ready for drawpic. */
+	GGDI_GAMEDIRLIST = 5,   /* A semi-colon delimited list of gamedirs that the mod's content can be loaded through. */
+};
 static void PF_getgamedirinfo(void)
 {
 	int diridx = G_FLOAT(OFS_PARM0);
 	int prop = G_FLOAT(OFS_PARM1);
 
 	struct filelist_item_s *mod = modlist;
+	char *s;
 
 	G_INT(OFS_RETURN) = 0;
 	if (diridx < 0)
@@ -5648,15 +5692,20 @@ static void PF_getgamedirinfo(void)
 
 	switch(prop)
 	{
-	case 0:	//gamedir name
+	case GGDI_GAMEDIR:	//gamedir name
 		G_INT(OFS_RETURN) = PR_SetEngineString(mod->name);
 		break;
-	case 1:	//gamedir description
-	case 2:	//custom overrides
-	case 3:	//loadcommand (localcmd it)
-	case 4:	//icon name (drawpic it)
-	case 5:	//id1;hipnotic;quoth type list
-//		G_INT(OFS_RETURN) = 0;
+	case GGDI_LOADCOMMAND:	//loadcommand (localcmd it)
+		s = PR_GetTempString();
+		q_snprintf(s, STRINGTEMP_LENGTH, "gamedir \"%s\"\n", mod->name);
+		G_INT(OFS_RETURN) = PR_SetEngineString(s);
+		break;
+	case GGDI_DESCRIPTION:	//gamedir description
+	case GGDI_OVERRIDES:	//custom overrides
+	case GGDI_ICON:	//icon name (drawpic it)
+	case GGDI_GAMEDIRLIST:	//id1;hipnotic;quoth type list
+	default:	//unknown
+		G_INT(OFS_RETURN) = 0;
 		break;
 	}
 }
@@ -5880,7 +5929,27 @@ static void PF_gethostcacheindexforkey(void)
 //static void PF_netaddress_resolve(void){G_VECTORSET(OFS_RETURN, 0,0,0);}
 static void PF_uri_get(void){G_VECTORSET(OFS_RETURN, 0,0,0);}
 
+static const char *csqcmapentitydata;
+static void PF_cs_getentitytoken(void)
+{
+	if (qcvm->argc)
+	{
+		csqcmapentitydata = cl.worldmodel->entities;
+		G_INT(OFS_RETURN) = 0;
+		return;
+	}
 
+	if (csqcmapentitydata)
+	{
+		csqcmapentitydata = COM_Parse(csqcmapentitydata);
+		if (!csqcmapentitydata)
+			G_INT(OFS_RETURN) = 0;
+		else
+			G_INT(OFS_RETURN) = PR_MakeTempString(com_token);
+	}
+	else
+		G_INT(OFS_RETURN) = 0;
+}
 static void PF_m_setmodel(void)
 {
 	edict_t *ed = G_EDICT(OFS_PARM0);
@@ -6585,6 +6654,27 @@ static void PF_touchtriggers (void)
 	SV_LinkEdict (e, true);
 }
 
+static void PF_checkpvs (void)
+{
+	float *org = G_VECTOR(OFS_PARM0);
+	edict_t *ed = G_EDICT(OFS_PARM1);
+
+	mleaf_t *leaf = Mod_PointInLeaf (org, qcvm->worldmodel);
+	byte *pvs = Mod_LeafPVS (leaf, qcvm->worldmodel); //johnfitz -- worldmodel as a parameter
+	int i;
+
+	for (i=0 ; i < ed->num_leafs ; i++)
+	{
+		if (pvs[ed->leafnums[i] >> 3] & (1 << (ed->leafnums[i]&7) ))
+		{
+			G_FLOAT(OFS_RETURN) = true;
+			return;
+		}
+	}
+
+	G_FLOAT(OFS_RETURN) = false;
+}
+
 enum getrenderentityfield_e
 {
 	GE_MAXENTS			= -1,
@@ -6827,7 +6917,7 @@ static struct
 //	{"shaderforname",	PF_Fixme,			PF_Fixme,			238,	PF_NoMenu, D("float(string shadername, optional string defaultshader, ...)", "Caches the named shader and returns a handle to it.\nIf the shader could not be loaded from disk (missing file or ruleset_allow_shaders 0), it will be created from the 'defaultshader' string if specified, or a 'skin shader' default will be used.\ndefaultshader if not empty should include the outer {} that you would ordinarily find in a shader.")},
 	{"te_bloodqw",		PF_sv_te_bloodqw,	NULL,				239,	PF_NoMenu, "void(vector org, float count)"},
 //	{"te_muzzleflash",	PF_te_muzzleflash,	PF_clte_muzzleflash,0,		PF_NoMenu, "void(entity ent)"},
-//	{"checkpvs",		PF_checkpvs,		PF_checkpvs,		240,	PF_NoMenu, "float(vector viewpos, entity entity)"},
+	{"checkpvs",		PF_checkpvs,		PF_checkpvs,		240,	PF_NoMenu, "float(vector viewpos, entity entity)"},
 //	{"matchclientname",	PF_matchclient,		PF_NoCSQC,			241,	PF_NoMenu, "entity(string match, optional float matchnum)"},
 //	{"sendpacket",		PF_SendPacket,		PF_SendPacket,		242,	PF_NoMenu, "void(string destaddress, string content)"},// (FTE_QC_SENDPACKET)
 //	{"rotatevectorsbytag",PF_Fixme,			PF_Fixme,			244,	PF_NoMenu, "vector(entity ent, float tagnum)"},
@@ -6945,7 +7035,7 @@ static struct
 	{"wasfreed",		PF_WasFreed,		PF_WasFreed,		353,	PF_WasFreed,353, D("float(entity ent)", "Quickly check to see if the entity is currently free. This function is only valid during the two-second non-reuse window, after that it may give bad results. Try one second to make it more robust.")},//(EXT_CSQC) (should be availabe on server too)
 	{"serverkey",		NULL,				PF_cl_serverkey_s,	354,	PF_NoMenu, D("string(string key)", "Look up a key in the server's public serverinfo string")},//
 	{"serverkeyfloat",	NULL,				PF_cl_serverkey_f,	0,		PF_NoMenu, D("float(string key, optional float assumevalue)", "Version of serverkey that returns the value as a float (which avoids tempstrings).")},//
-//	{"getentitytoken",	NULL,				PF_FullCSQCOnly,	355,	PF_NoMenu, D("string(optional string resetstring)", "Grab the next token in the map's entity lump.\nIf resetstring is not specified, the next token will be returned with no other sideeffects.\nIf empty, will reset from the map before returning the first token, probably {.\nIf not empty, will tokenize from that string instead.\nAlways returns tempstrings.")},//;
+	{"getentitytoken",	PF_NoSSQC,			PF_cs_getentitytoken,355,	PF_NoMenu, D("string(optional string resetstring)", "Grab the next token in the map's entity lump.\nIf resetstring is not specified, the next token will be returned with no other sideeffects.\nIf empty, will reset from the map before returning the first token, probably {.\nIf not empty, will tokenize from that string instead.\nAlways returns tempstrings.")},//;
 //	{"findfont",		PF_NoSSQC,			PF_FullCSQCOnly,	356,	PF_NoMenu, D("float(string s)", "Looks up a named font slot. Matches the actual font name as a last resort.")},//;
 //	{"loadfont",		PF_NoSSQC,			PF_FullCSQCOnly,	357,	PF_NoMenu, D("float(string fontname, string fontmaps, string sizes, float slot, optional float fix_scale, optional float fix_voffset)", "too convoluted for me to even try to explain correct usage. Try drawfont = loadfont(\"\", \"cour\", \"16\", -1, 0, 0); to switch to the courier font (optimised for 16 virtual pixels high), if you have the freetype2 library in windows..")},
 	{"sendevent",		PF_NoSSQC,			PF_cl_sendevent,	359,	PF_NoMenu, D("void(string evname, string evargs, ...)", "Invoke Cmd_evname_evargs in ssqc. evargs must be a string of initials refering to the types of the arguments to pass. v=vector, e=entity(.entnum field is sent), f=float, i=int. 6 arguments max - you can get more if you pack your floats into vectors.")},// (EXT_CSQC_1)
@@ -7106,11 +7196,13 @@ static struct
 	{"getmousetarget",	PF_NoSSQC,			PF_NoCSQC,			604,	PF_m_getmousetarget,604, D("float()", "Returns mouse focus")},
 
 	{"callfunction",	PF_callfunction,	PF_callfunction,			605,PF_callfunction,			605, D("void(.../*, string funcname*/)", "Invokes the named function. The function name is always passed as the last parameter and must always be present. The others are passed to the named function as-is")},
+	{"writetofile",		PF_writetofile,		PF_writetofile,				606,PF_writetofile,				606, D("void(filestream fh, entity e)", "Writes an entity's fields to a frik_file file handle.")},
 	{"isfunction",		PF_isfunction,		PF_isfunction,				607,PF_isfunction,				607, D("float(string s)", "Returns true if the named function exists and can be called with the callfunction builtin.")},
 	{"getresolution",			PF_NoSSQC,	PF_cl_getresolution,		608,PF_cl_getresolution,		608, D("vector(float mode, float forfullscreen)", "Returns available/common video modes.")},
 	{"gethostcachevalue",		PF_NoSSQC,	PF_gethostcachevalue,		611,PF_gethostcachevalue,		611, D("float(float type)", "Returns number of servers known")},
 	{"gethostcachestring",		PF_NoSSQC,	PF_gethostcachestring,		612,PF_gethostcachestring,		612, D("string(float type, float hostnr)", "Retrieves some specific type of info about the specified server.")},
-	{"parseentitydata",	PF_parseentitydata, NULL/*field hacks*/,		613,NULL,						613, D("float(entity e, string s, optional float offset)", "Reads a single entity's fields into an already-spawned entity. s should contain field pairs like in a saved game: {\"foo1\" \"bar\" \"foo2\" \"5\"}. Returns <=0 on failure, otherwise returns the offset in the string that was read to.")},
+	{"parseentitydata",	PF_parseentitydata, PF_parseentitydata,			613,PF_parseentitydata,			613, D("float(entity e, string s, optional float offset)", "Reads a single entity's fields into an already-spawned entity. s should contain field pairs like in a saved game: {\"foo1\" \"bar\" \"foo2\" \"5\"}. Returns <=0 on failure, otherwise returns the offset in the string that was read to.")},
+//	{"generateentitydata",PF_generateentitydata,PF_generateentitydata,	0,	PF_generateentitydata,		0,	 D("string(entity e)", "Dumps the entities fields into a string which can later be parsed with parseentitydata.")},
 	{"resethostcachemasks",		PF_NoSSQC,	PF_resethostcachemasks,		615,PF_resethostcachemasks,		615, D("void()", "Resets server listing filters.")},
 	{"sethostcachemaskstring",	PF_NoSSQC,	PF_sethostcachemaskstring,	616,PF_sethostcachemaskstring,	616, D("void(float mask, float fld, string str, float op)", "stub. Changes a serverlist filter (string comparisons).")},
 	{"sethostcachemasknumber",	PF_NoSSQC,	PF_sethostcachemasknumber,	617,PF_sethostcachemasknumber,	617, D("void(float mask, float fld, float num, float op)", "stub. Changes a serverlist filter (numeric comparisons).")},
