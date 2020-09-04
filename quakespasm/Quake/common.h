@@ -239,6 +239,7 @@ typedef struct searchpath_s
 					// Note that <install_dir>/game1 and
 					// <userdir>/game1 have the same id.
 	char	filename[MAX_OSPATH];
+	char	purename[MAX_OSPATH];	// 'gamedir[/foo.pak]'
 	pack_t	*pack;			// only one of filename / pack will be used
 	struct searchpath_s	*next;
 } searchpath_t;
@@ -253,7 +254,7 @@ extern	char	com_basedir[MAX_OSPATH];
 extern	char	com_gamedir[MAX_OSPATH];
 extern	int	file_from_pak;	// global indicating that file came from a pak
 
-void COM_ListAllFiles(void *ctx, const char *pattern, qboolean (*cb)(void *ctx, const char *fname, time_t mtime, size_t fsize, searchpath_t *spath));
+void COM_ListAllFiles(void *ctx, const char *pattern, qboolean (*cb)(void *ctx, const char *fname, time_t mtime, size_t fsize, searchpath_t *spath), unsigned int flags, const char *pkgfilter);
 const char *COM_GetGameNames(qboolean full);
 qboolean COM_GameDirMatches(const char *tdirs);
 

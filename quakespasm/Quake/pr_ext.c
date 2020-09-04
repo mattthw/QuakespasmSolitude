@@ -3146,14 +3146,14 @@ static void PF_search_begin(void)
 	const char *pattern = G_STRING(OFS_PARM0);
 	unsigned int flags = G_FLOAT(OFS_PARM1);
 //	qboolaen quiet = !!G_FLOAT(OFS_PARM2);
-//	const char *pkgfilter = G_STRING(OFS_PARM3);
+	const char *pkgfilter = (qcvm->argc>3)?G_STRING(OFS_PARM3):NULL;
 
 	for (i = 0; i < countof(searches); i++)
 	{
 		if (!searches[i].owner)
 		{
 			searches[i].flags = flags;
-			COM_ListAllFiles(&searches[i], pattern, PR_Search_AddFile);
+			COM_ListAllFiles(&searches[i], pattern, PR_Search_AddFile, flags, pkgfilter);
 			if (!searches[i].numfiles)
 				break;
 			searches[i].owner = qcvm;
@@ -3241,28 +3241,12 @@ static void PF_search_getpackagename(void)
 	{
 		if (searches[handle].flags & 2)
 		{	//gamedir/packagename. not necessarily fopenable.
-			if (spath->pack)
-			{
-				const char *pathname = spath->pack->filename;
-				const char *last = pathname, *last2 = "";
-				while (*pathname)
-				{
-					if (*pathname == '/')
-					{
-						last2 = last;
-						last = pathname + 1;
-					}
-					pathname++;
-				}
-				G_INT(OFS_RETURN) = PR_MakeTempString(last2);
-			}
-			else
-				G_INT(OFS_RETURN) = PR_MakeTempString(COM_SkipPath(spath->filename));
+			G_INT(OFS_RETURN) = PR_MakeTempString(spath->purename);
 		}
 		else
 		{	//like whichpack thus like frik_file. which sucks.
 			if (spath->pack)
-				G_INT(OFS_RETURN) = PR_MakeTempString(COM_SkipPath(spath->pack->filename));
+				G_INT(OFS_RETURN) = PR_MakeTempString(COM_SkipPath(spath->purename));
 			else
 				G_INT(OFS_RETURN) = 0;
 		}
@@ -7116,7 +7100,7 @@ static struct
 	{"argv",			PF_ArgV,			PF_ArgV,			442,	PF_ArgV,59, "string(float n)"},// (KRIMZON_SV_PARSECLIENTCOMMAND
 	{"argc",			PF_ArgC,			PF_ArgC,			0,		PF_ArgC,0, "float()"},
 	{"setattachment",	PF_setattachment,	PF_setattachment,	443,	PF_NoMenu, "void(entity e, entity tagentity, string tagname)", ""},// (DP_GFX_QUAKE3MODELTAGS)
-	{"search_begin",	PF_search_begin,	PF_search_begin,	444,	PF_search_begin,74, "searchhandle(string pattern, optional float caseinsensitive, optional float quiet)", "initiate a filesystem scan based upon filenames. Be sure to call search_end on the returned handle."},
+	{"search_begin",	PF_search_begin,	PF_search_begin,	444,	PF_search_begin,74, "searchhandle(string pattern, float flags, float quiet, optional string filterpackage)", "initiate a filesystem scan based upon filenames. Be sure to call search_end on the returned handle."},
 	{"search_end",		PF_search_end,		PF_search_end,		445,	PF_search_end,75, "void(searchhandle handle)", ""},
 	{"search_getsize",	PF_search_getsize,	PF_search_getsize,	446,	PF_search_getsize,76, "float(searchhandle handle)", " Retrieves the number of files that were found."},
 	{"search_getfilename",PF_search_getfilename,PF_search_getfilename,447,PF_search_getfilename,77, "string(searchhandle handle, float num)", "Retrieves name of one of the files that was found by the initial search."},
@@ -7217,17 +7201,17 @@ static struct
 
 
 //	{"generateentitydata",PF_generateentitydata,NULL,				0,	PF_NoMenu, D("string(entity e)", "Dumps the entities fields into a string which can later be parsed with parseentitydata."}),
-	{"getgamedirinfo",	PF_NoSSQC,			PF_NoCSQC,			626,	PF_getgamedirinfo,626, D("string(float n, float prop)", "Provides a way to enumerate available mod directories.")},
-	{"sprintf",			PF_sprintf,			PF_sprintf,			627,	PF_sprintf,627, "string(string fmt, ...)"},
+	{"getgamedirinfo",	PF_NoSSQC,			PF_getgamedirinfo,			626,	PF_getgamedirinfo,626, D("string(float n, float prop)", "Provides a way to enumerate available mod directories.")},
+	{"sprintf",			PF_sprintf,			PF_sprintf,					627,	PF_sprintf,627, "string(string fmt, ...)"},
 	{"getsurfacenumtriangles",PF_getsurfacenumtriangles,PF_getsurfacenumtriangles,628,PF_NoMenu, "float(entity e, float s)"},
-	{"getsurfacetriangle",PF_getsurfacetriangle,PF_getsurfacetriangle,629,PF_NoMenu, "vector(entity e, float s, float n)"},
-	{"setkeybind",		PF_NoSSQC,			PF_cl_setkeybind,	630,	PF_cl_setkeybind,630, "float(float key, string bind, optional float bindmap)", "Changes a key binding."},
-	{"getbindmaps",		PF_NoSSQC,			PF_cl_getbindmaps,	631,	PF_cl_getbindmaps,631, "vector()", "stub."},
-	{"setbindmaps",		PF_NoSSQC,			PF_cl_setbindmaps,	632,	PF_cl_setbindmaps,632, "float(vector bm)", "stub."},
-	{"digest_hex",		PF_digest_hex,		PF_digest_hex,		639,	PF_digest_hex, 639, "string(string digest, string data, ...)", "stub."},
+	{"getsurfacetriangle",PF_getsurfacetriangle,PF_getsurfacetriangle,	629,	PF_NoMenu, "vector(entity e, float s, float n)"},
+	{"setkeybind",		PF_NoSSQC,			PF_cl_setkeybind,			630,	PF_cl_setkeybind,630, "float(float key, string bind, optional float bindmap, optional float modifier)", "Changes a key binding."},
+	{"getbindmaps",		PF_NoSSQC,			PF_cl_getbindmaps,			631,	PF_cl_getbindmaps,631, "vector()", "stub."},
+	{"setbindmaps",		PF_NoSSQC,			PF_cl_setbindmaps,			632,	PF_cl_setbindmaps,632, "float(vector bm)", "stub."},
+	{"digest_hex",		PF_digest_hex,		PF_digest_hex,				639,	PF_digest_hex, 639, "string(string digest, string data, ...)"},
 };
 
-static const char *extnames[] = 
+static const char *extnames[] =
 {
 	"DP_CON_SET",
 	"DP_CON_SETA",
