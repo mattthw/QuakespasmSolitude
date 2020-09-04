@@ -935,12 +935,12 @@ qboolean SV_CheckWater (edict_t *ent)
 
 		tr = SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, point, 0, ent);
 		if (tr.fraction < 1)
-			sv_player->onladder = true;
+			ent->onladder = true;
 		else
-			sv_player->onladder = false;
+			ent->onladder = false;
 	}
 	else
-		sv_player->onladder = false;
+		ent->onladder = false;
 
 	point[0] = ent->v.origin[0];
 	point[1] = ent->v.origin[1];
@@ -1098,7 +1098,7 @@ void SV_WalkMove (edict_t *ent)
 	if (sv_nostep.value)
 		return;
 
-	if ( (int)sv_player->v.flags & FL_WATERJUMP )
+	if ( (int)ent->v.flags & FL_WATERJUMP )
 		return;
 
 	VectorCopy (ent->v.origin, nosteporg);
