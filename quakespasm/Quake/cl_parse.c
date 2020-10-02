@@ -684,7 +684,7 @@ static void CLFTE_ParseEntitiesUpdate(void)
 		ent = CL_EntityNum(newnum);
 
 		if (removeflag)
-		{
+		{	//removal.
 			if (cl_shownet.value >= 3)
 				Con_SafePrintf("%3i:     Remove %i\n", msg_readcount, newnum);
 
@@ -705,10 +705,17 @@ static void CLFTE_ParseEntitiesUpdate(void)
 			ent->model = NULL;
 			continue;
 		}
+		else if (ent->update_type)
+		{	//simple update
+			CLFTE_ReadDelta(newnum, &ent->netstate, &ent->netstate, &ent->baseline);
+		}
 		else
-		{
-			CLFTE_ReadDelta(newnum, &ent->netstate, ent->update_type?&ent->netstate:NULL, &ent->baseline);
+		{	//we had no previous copy of this entity...
 			ent->update_type = true;
+			CLFTE_ReadDelta(newnum, &ent->netstate, NULL, &ent->baseline);
+
+			//stupid interpolation junk.
+			ent->lerpflags |= LERP_RESETMOVE|LERP_RESETANIM;
 		}
 	}
 
