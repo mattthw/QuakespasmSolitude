@@ -1989,6 +1989,7 @@ void Mod_CheckWaterVis(void)
 	int contentfound = 0;
 	int contenttransparent = 0;
 	int contenttype;
+	unsigned hascontents = 0;
 
 	if (r_novis.value)
 	{	//all can be
@@ -2001,6 +2002,8 @@ void Mod_CheckWaterVis(void)
 	for (i=0,leaf=loadmodel->leafs+1 ; i<numclusters ; i++, leaf++)
 	{
 		byte *vis;
+		if (leaf->contents < 0)	//err... wtf?
+			hascontents |= 1u<<-leaf->contents;
 		if (leaf->contents == CONTENTS_WATER)
 		{
 			if ((contenttransparent & (SURF_DRAWWATER|SURF_DRAWTELE))==(SURF_DRAWWATER|SURF_DRAWTELE))
@@ -2052,19 +2055,25 @@ void Mod_CheckWaterVis(void)
 	}
 
 	if (!contenttransparent)
-		Con_DPrintf("%s is not watervised\n", loadmodel->name);
+	{	//no water leaf saw a non-water leaf
+		//but only warn when there's actually water somewhere there...
+		if (hascontents & ((1<<-CONTENTS_WATER)
+						|  (1<<-CONTENTS_SLIME)
+						|  (1<<-CONTENTS_LAVA)))
+			Con_DPrintf("%s is not watervised\n", loadmodel->name);
+	}
 	else
 	{
-		Con_DPrintf("%s is vised for transparent", loadmodel->name);
+		Con_DPrintf2("%s is vised for transparent", loadmodel->name);
 		if (contenttransparent & SURF_DRAWWATER)
-			Con_DPrintf(" water");
+			Con_DPrintf2(" water");
 		if (contenttransparent & SURF_DRAWTELE)
-			Con_DPrintf(" tele");
+			Con_DPrintf2(" tele");
 		if (contenttransparent & SURF_DRAWLAVA)
-			Con_DPrintf(" lava");
+			Con_DPrintf2(" lava");
 		if (contenttransparent & SURF_DRAWSLIME)
-			Con_DPrintf(" slime");
-		Con_DPrintf("\n");
+			Con_DPrintf2(" slime");
+		Con_DPrintf2("\n");
 	}
 	//any types that we didn't find are assumed to be transparent.
 	//this allows submodels to work okay (eg: ad uses func_illusionary teleporters for some reason).
