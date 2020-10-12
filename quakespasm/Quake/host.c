@@ -263,7 +263,11 @@ void Host_Version_f (void)
 #ifdef QSS_REVISION
 	Con_Printf ("QSS Git Revision " QS_STRINGIFY(QSS_REVISION) "\n");
 #endif
+#ifdef QSS_DATE
+	Con_Printf ("QuakeSpasm-Spiked Build " QS_STRINGIFY(QSS_DATE) "\n");
+#else
 	Con_Printf ("Exe: " __TIME__ " " __DATE__ "\n");
+#endif
 }
 
 /* cvar callback functions : */

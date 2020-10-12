@@ -50,9 +50,11 @@ STRIP = strip
 #CPUFLAGS= -march=pentium4
 CPUFLAGS=
 LDFLAGS = -m32 -mwindows -Wl,--large-address-aware
+LDFLAGS += $(QSS_LDFLAGS)
 DFLAGS ?=
 CFLAGS ?= -m32 -Wall -Wno-trigraphs
 CFLAGS += $(CPUFLAGS)
+CFLAGS += $(QSS_CFLAGS)
 
 ifneq ($(DEBUG),0)
 DFLAGS += -DDEBUG
