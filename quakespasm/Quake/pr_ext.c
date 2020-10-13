@@ -6112,6 +6112,7 @@ static void PF_cs_addentities(void)
 
 	if ((mask & MASK_ENGINE) && qcvm->worldmodel)
 	{
+		CL_UpdateTEnts();
 		for (i=1,ent=cl.entities+1 ; i<cl.num_entities ; i++,ent++)
 		{
 			if (!ent->model)
