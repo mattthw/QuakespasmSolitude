@@ -2939,11 +2939,7 @@ static void COM_Game_f (void)
 		Cache_Flush ();
 		Mod_ResetAll();
 		if (!isDedicated)
-		{
-			TexMgr_NewGame ();
-			Draw_NewGame ();
-			R_NewGame ();
-		}
+			Draw_ReloadTextures(true);
 		ExtraMaps_NewGame ();
 		DemoList_Rebuild ();
 

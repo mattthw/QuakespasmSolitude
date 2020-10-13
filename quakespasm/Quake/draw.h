@@ -39,10 +39,12 @@ void Draw_TileClear (int x, int y, int w, int h);
 void Draw_Fill (int x, int y, int w, int h, int c, float alpha); //johnfitz -- added alpha
 void Draw_FadeScreen (void);
 void Draw_String (int x, int y, const char *str);
+qpic_t *Draw_PicFromWad2 (const char *name, unsigned int texflags);
 qpic_t *Draw_PicFromWad (const char *name);
 qpic_t *Draw_CachePic (const char *path);
-qpic_t *Draw_TryCachePic (const char *path);
+qpic_t *Draw_TryCachePic (const char *path, unsigned int texflags);
 void Draw_NewGame (void);
+qboolean Draw_ReloadTextures(qboolean force);
 
 //Spike -- this is for csqc
 typedef struct

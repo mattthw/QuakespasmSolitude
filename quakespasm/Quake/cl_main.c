@@ -143,6 +143,9 @@ void CL_ClearState (void)
 #ifdef PSET_SCRIPT
 	PScript_Shutdown();
 #endif
+
+	if (!sv.active)
+		Draw_ReloadTextures(false);
 }
 
 /*

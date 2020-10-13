@@ -228,8 +228,8 @@ void Sbar_LoadPics (void)
 	sb_face_invis_invuln = Draw_PicFromWad ("face_inv2");
 	sb_face_quad = Draw_PicFromWad ("face_quad");
 
-	sb_sbar = Draw_PicFromWad ("sbar");
-	sb_ibar = Draw_PicFromWad ("ibar");
+	sb_sbar = Draw_PicFromWad2 ("sbar", TEXPREF_PAD|TEXPREF_NOPICMIP);
+	sb_ibar = Draw_PicFromWad2 ("ibar", TEXPREF_PAD|TEXPREF_NOPICMIP);
 	sb_scorebar = Draw_PicFromWad ("scorebar");
 
 	hudtype = 0;

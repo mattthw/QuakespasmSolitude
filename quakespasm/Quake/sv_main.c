@@ -3265,6 +3265,8 @@ void SV_SpawnServer (const char *server)
 //
 	//memset (&sv, 0, sizeof(sv));
 	Host_ClearMemory ();
+	if(!isDedicated)
+		Draw_ReloadTextures(false);
 
 	q_strlcpy (sv.name, server, sizeof(sv.name));
 

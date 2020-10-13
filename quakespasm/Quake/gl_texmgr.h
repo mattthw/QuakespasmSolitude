@@ -39,6 +39,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define TEXPREF_CONCHARS		0x0400	// use conchars palette
 #define TEXPREF_WARPIMAGE		0x0800	// resize this texture when warpimagesize changes
 #define TEXPREF_PREMULTIPLY		0x1000	// rgb = rgb*a; a=a;
+#define TEXPREF_ALLOWMISSING	0x2000	// TexMgr_LoadImage should return NULL if anything goes wrong (for use with SRC_EXTERNAL).
 
 enum srcformat {SRC_INDEXED, SRC_LIGHTMAP, SRC_RGBA, SRC_EXTERNAL, SRC_FIRSTCOMPRESSED};
 extern qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_texture_astc;

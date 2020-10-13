@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 //extern unsigned char d_15to8table[65536]; //johnfitz -- never used
 
+qboolean	draw_load24bit;
 qboolean	premul_hud = false;//true;
 cvar_t		scr_conalpha = {"scr_conalpha", "0.5", CVAR_ARCHIVE}; //johnfitz
 
@@ -214,7 +215,7 @@ void Scrap_Upload (void)
 Draw_PicFromWad
 ================
 */
-qpic_t *Draw_PicFromWad (const char *name)
+qpic_t *Draw_PicFromWad2 (const char *name, unsigned int texflags)
 {
 	int i;
 	cachepic_t *pic;
@@ -222,6 +223,8 @@ qpic_t *Draw_PicFromWad (const char *name)
 	glpic_t	gl;
 	src_offset_t offset; //johnfitz
 	lumpinfo_t *info;
+
+	texflags |= (premul_hud?TEXPREF_PREMULTIPLY:0);
 
 	//Spike -- added cachepic stuff here, to avoid glitches if the function is called multiple times with the same image.
 	for (pic=menu_cachepics, i=0 ; i<menu_numcachepics ; pic++, i++)
@@ -238,11 +241,19 @@ qpic_t *Draw_PicFromWad (const char *name)
 		Con_SafePrintf ("W_GetLumpName: %s not found\n", name);
 		return pic_nul; //johnfitz
 	}
-	if (info->size < sizeof(int)*2 || 8+p->width*p->height < info->size) Sys_Error ("Draw_PicFromWad: pic \"%s\" truncated", name);
 	if (info->type != TYP_QPIC) Sys_Error ("Draw_PicFromWad: lump \"%s\" is not a qpic", name);
+	if (info->size < sizeof(int)*2 || 8+p->width*p->height < info->size) Sys_Error ("Draw_PicFromWad: pic \"%s\" truncated", name);
 
+	//Spike -- if we're loading external images, and one exists, then use that instead.
+	if (draw_load24bit && (gl.gltexture=TexMgr_LoadImage (NULL, name, 0, 0, SRC_EXTERNAL, NULL, va("gfx/%s", name), 0, texflags|TEXPREF_MIPMAP|TEXPREF_ALLOWMISSING)))
+	{
+		gl.sl = 0;
+		gl.sh = (texflags&TEXPREF_PAD)?(float)gl.gltexture->source_width/(float)TexMgr_PadConditional(gl.gltexture->source_width):1;
+		gl.tl = 0;
+		gl.th = (texflags&TEXPREF_PAD)?(float)gl.gltexture->source_height/(float)TexMgr_PadConditional(gl.gltexture->source_height):1;
+	}
 	// load little ones into the scrap
-	if (p->width < 64 && p->height < 64)
+	else if (p->width < 64 && p->height < 64 && texflags==((premul_hud?TEXPREF_PREMULTIPLY:0)|TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP))
 	{
 		int		x, y;
 		int		i, j, k;
@@ -271,11 +282,11 @@ qpic_t *Draw_PicFromWad (const char *name)
 		offset = (src_offset_t)p - (src_offset_t)wad_base + sizeof(int)*2; //johnfitz
 
 		gl.gltexture = TexMgr_LoadImage (NULL, texturename, p->width, p->height, SRC_INDEXED, p->data, WADFILENAME,
-										  offset, (premul_hud?TEXPREF_PREMULTIPLY:0)|TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP); //johnfitz -- TexMgr
+										  offset, texflags); //johnfitz -- TexMgr
 		gl.sl = 0;
-		gl.sh = (float)p->width/(float)TexMgr_PadConditional(p->width); //johnfitz
+		gl.sh = (texflags&TEXPREF_PAD)?(float)p->width/(float)TexMgr_PadConditional(p->width):1; //johnfitz
 		gl.tl = 0;
-		gl.th = (float)p->height/(float)TexMgr_PadConditional(p->height); //johnfitz
+		gl.th = (texflags&TEXPREF_PAD)?(float)p->height/(float)TexMgr_PadConditional(p->height):1; //johnfitz
 	}
 
 	menu_numcachepics++;
@@ -284,6 +295,11 @@ qpic_t *Draw_PicFromWad (const char *name)
 	memcpy (pic->pic.data, &gl, sizeof(glpic_t));
 
 	return &pic->pic;
+}
+
+qpic_t *Draw_PicFromWad (const char *name)
+{
+	return Draw_PicFromWad2(name, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
 }
 
 qpic_t	*Draw_GetCachedPic (const char *path)
@@ -304,12 +320,15 @@ qpic_t	*Draw_GetCachedPic (const char *path)
 Draw_CachePic
 ================
 */
-qpic_t	*Draw_TryCachePic (const char *path)
+qpic_t	*Draw_TryCachePic (const char *path, unsigned int texflags)
 {
 	cachepic_t	*pic;
 	int			i;
 	qpic_t		*dat;
 	glpic_t		gl;
+	char newname[MAX_QPATH];
+
+	texflags |= (premul_hud?TEXPREF_PREMULTIPLY:0);
 
 	for (pic=menu_cachepics, i=0 ; i<menu_numcachepics ; pic++, i++)
 	{
@@ -325,15 +344,15 @@ qpic_t	*Draw_TryCachePic (const char *path)
 	{
 		char npath[MAX_QPATH];
 		COM_StripExtension(path, npath, sizeof(npath));
-		gl.gltexture = TexMgr_LoadImage (NULL, npath, 0, 0, SRC_EXTERNAL, NULL, npath, 0, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+		gl.gltexture = TexMgr_LoadImage (NULL, npath, 0, 0, SRC_EXTERNAL, NULL, npath, 0, texflags);
 
 		pic->pic.width = gl.gltexture->width;
 		pic->pic.height = gl.gltexture->height;
 
 		gl.sl = 0;
-		gl.sh = (float)pic->pic.width/(float)TexMgr_PadConditional(pic->pic.width); //johnfitz
+		gl.sh = (texflags&TEXPREF_PAD)?(float)pic->pic.width/(float)TexMgr_PadConditional(pic->pic.width):1; //johnfitz
 		gl.tl = 0;
-		gl.th = (float)pic->pic.height/(float)TexMgr_PadConditional(pic->pic.height); //johnfitz
+		gl.th = (texflags&TEXPREF_PAD)?(float)pic->pic.height/(float)TexMgr_PadConditional(pic->pic.height):1; //johnfitz
 		memcpy (pic->pic.data, &gl, sizeof(glpic_t));
 
 		return &pic->pic;
@@ -356,12 +375,24 @@ qpic_t	*Draw_TryCachePic (const char *path)
 	pic->pic.width = dat->width;
 	pic->pic.height = dat->height;
 
-	gl.gltexture = TexMgr_LoadImage (NULL, path, dat->width, dat->height, SRC_INDEXED, dat->data, path,
-									  sizeof(int)*2, (premul_hud?TEXPREF_PREMULTIPLY:0)|TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP); //johnfitz -- TexMgr
-	gl.sl = 0;
-	gl.sh = (float)dat->width/(float)TexMgr_PadConditional(dat->width); //johnfitz
-	gl.tl = 0;
-	gl.th = (float)dat->height/(float)TexMgr_PadConditional(dat->height); //johnfitz
+	//Spike -- if we're loading external images, and one exists, then use that instead (but with the sizes of the lmp).
+	COM_StripExtension(path, newname, sizeof(newname));
+	if (draw_load24bit && (gl.gltexture=TexMgr_LoadImage (NULL, path, 0, 0, SRC_EXTERNAL, NULL, newname, 0, texflags|TEXPREF_MIPMAP|TEXPREF_ALLOWMISSING)))
+	{
+		gl.sl = 0;
+		gl.sh = (texflags&TEXPREF_PAD)?(float)gl.gltexture->source_width/(float)TexMgr_PadConditional(gl.gltexture->source_width):1;
+		gl.tl = 0;
+		gl.th = (texflags&TEXPREF_PAD)?(float)gl.gltexture->source_height/(float)TexMgr_PadConditional(gl.gltexture->source_height):1;
+	}
+	else
+	{
+		gl.gltexture = TexMgr_LoadImage (NULL, path, dat->width, dat->height, SRC_INDEXED, dat->data, path,
+										  sizeof(int)*2, texflags | TEXPREF_NOPICMIP); //johnfitz -- TexMgr
+		gl.sl = 0;
+		gl.sh = (texflags&TEXPREF_PAD)?(float)dat->width/(float)TexMgr_PadConditional(dat->width):1; //johnfitz
+		gl.tl = 0;
+		gl.th = (texflags&TEXPREF_PAD)?(float)dat->height/(float)TexMgr_PadConditional(dat->height):1; //johnfitz
+	}
 	memcpy (pic->pic.data, &gl, sizeof(glpic_t));
 
 	return &pic->pic;
@@ -369,7 +400,7 @@ qpic_t	*Draw_TryCachePic (const char *path)
 
 qpic_t	*Draw_CachePic (const char *path)
 {
-	qpic_t *pic = Draw_TryCachePic(path);
+	qpic_t *pic = Draw_TryCachePic(path, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
 	if (!pic)
 		Sys_Error ("Draw_CachePic: failed to load %s", path);
 	return pic;
@@ -416,17 +447,33 @@ void Draw_LoadPics (void)
 	byte		*data;
 	src_offset_t	offset;
 	lumpinfo_t *info;
+	extern cvar_t gl_load24bit;
 
-	data = (byte *) W_GetLumpName ("conchars", &info);
-	if (!data || info->size < 128*128)	Sys_Error ("Draw_LoadPics: couldn't load conchars");
-	if (info->size != 128*128)			Con_Warning("Invalid size for gfx.wad conchars lump (%u, expected %u) - attempting to ignore for compat.\n", info->size, 128*128);
-	else if (info->type != TYP_MIPTEX)	Con_DWarning("Invalid type for gfx.wad conchars lump - attempting to ignore for compat.\n"); //not really a miptex, but certainly NOT a qpic.
-	offset = (src_offset_t)data - (src_offset_t)wad_base;
-	char_texture = TexMgr_LoadImage (NULL, WADFILENAME":conchars", 128, 128, SRC_INDEXED, data,
-		WADFILENAME, offset, (premul_hud?TEXPREF_PREMULTIPLY:0)|TEXPREF_ALPHA | TEXPREF_NEAREST | TEXPREF_NOPICMIP | TEXPREF_CONCHARS);
+	const unsigned int conchar_texflags = (premul_hud?TEXPREF_PREMULTIPLY:0)|TEXPREF_ALPHA | TEXPREF_NOPICMIP | TEXPREF_CONCHARS;	//Spike - we use nearest with 8bit, but not replacements. replacements also use mipmaps because they're just noise otherwise.
+
+	draw_load24bit = !!gl_load24bit.value;
+
+	char_texture = NULL;
+	//logical path
+	if (!char_texture)
+		char_texture = draw_load24bit?TexMgr_LoadImage (NULL, WADFILENAME":conchars", 0, 0, SRC_EXTERNAL, NULL, "gfx/conchars", 0, conchar_texflags | /*TEXPREF_MIPMAP |*/ TEXPREF_ALLOWMISSING):NULL;
+	//stupid quakeworldism
+	if (!char_texture)
+		char_texture = draw_load24bit?TexMgr_LoadImage (NULL, WADFILENAME":conchars", 0, 0, SRC_EXTERNAL, NULL, "charsets/conchars", 0, conchar_texflags | /*TEXPREF_MIPMAP |*/ TEXPREF_ALLOWMISSING):NULL;
+	//vanilla.
+	if (!char_texture)
+	{
+		data = (byte *) W_GetLumpName ("conchars", &info);
+		if (!data || info->size < 128*128)	Sys_Error ("Draw_LoadPics: couldn't load conchars");
+		if (info->size != 128*128)			Con_Warning("Invalid size for gfx.wad conchars lump (%u, expected %u) - attempting to ignore for compat.\n", info->size, 128*128);
+		else if (info->type != TYP_MIPTEX)	Con_DWarning("Invalid type for gfx.wad conchars lump - attempting to ignore for compat.\n"); //not really a miptex, but certainly NOT a qpic.
+		offset = (src_offset_t)data - (src_offset_t)wad_base;
+		char_texture = TexMgr_LoadImage (NULL, WADFILENAME":conchars", 128, 128, SRC_INDEXED, data,
+			WADFILENAME, offset, conchar_texflags | TEXPREF_NEAREST);
+	}
 
 	draw_disc = Draw_PicFromWad ("disc");
-	draw_backtile = Draw_PicFromWad ("backtile");
+	draw_backtile = Draw_PicFromWad2 ("backtile", TEXPREF_NOPICMIP);	//do NOT use PAD because that breaks wrapping. do NOT use alpha, because that could result in glitches.
 }
 
 /*
@@ -456,6 +503,26 @@ void Draw_NewGame (void)
 	SCR_LoadPics ();
 	Sbar_LoadPics ();
 	PR_ReloadPics(false);
+}
+
+qboolean Draw_ReloadTextures(qboolean force)
+{
+	extern cvar_t gl_load24bit;
+	if (draw_load24bit != !!gl_load24bit.value)
+		force = true;
+
+	if (force)
+	{
+		TexMgr_NewGame ();
+		Draw_NewGame ();
+		R_NewGame ();
+
+
+		Cache_Flush ();
+		Mod_ResetAll();
+		return true;
+	}
+	return false;
 }
 
 /*

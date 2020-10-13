@@ -1424,10 +1424,10 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 			       byte *data, const char *source_file, src_offset_t source_offset, unsigned flags)
 {
 	unsigned short crc;
-	gltexture_t *glt;
+	gltexture_t *glt = NULL;
 	int mark;
-	qboolean malloced;
-	enum srcformat fmt;
+	qboolean malloced = false;
+	enum srcformat fmt = format;
 
 	if (isDedicated)
 		return NULL;
@@ -1442,7 +1442,15 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 		if (glt->source_crc == crc)
 			return glt;
 	}
-	else
+
+	if (format == SRC_EXTERNAL)
+	{
+		data = Image_LoadImage (source_file, &width, &height, &fmt, &malloced); //simple file
+		if (!data && (flags & TEXPREF_ALLOWMISSING))
+			return NULL;	//don't allocate anything.
+	}
+
+	if (!glt)
 		glt = TexMgr_NewTexture ();
 
 	// copy data
@@ -1472,7 +1480,6 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 		TexMgr_LoadLightmap (glt, data);
 		break;
 	case SRC_EXTERNAL:
-		data = Image_LoadImage (glt->source_file, (int *)&glt->source_width, (int *)&glt->source_height, &fmt, &malloced); //simple file
 		if (!data)
 		{
 			glt->source_width = glt->source_height = 1;
