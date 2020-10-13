@@ -172,6 +172,7 @@ const char *svc_strings[128] =
 qboolean warn_about_nehahra_protocol; //johnfitz
 
 extern vec3_t	v_punchangles[2]; //johnfitz
+extern double	v_punchangles_times[2]; //spike -- don't assume 10fps...
 
 //=============================================================================
 
@@ -723,6 +724,7 @@ static void CLFTE_ParseEntitiesUpdate(void)
 
 	if (cl.protocol_pext2 & PEXT2_PREDINFO)
 	{	//stats should normally be sent before the entity data.
+		extern cvar_t v_gunkick;
 		VectorCopy (cl.mvelocity[0], cl.mvelocity[1]);
 		ent = CL_EntityNum(cl.viewentity);
 		cl.mvelocity[0][0] = ent->netstate.velocity[0]*(1/8.0);
@@ -731,11 +733,23 @@ static void CLFTE_ParseEntitiesUpdate(void)
 		cl.onground = (ent->netstate.eflags & EFLAGS_ONGROUND)?true:false;
 
 
-		cl.punchangle[0] = cl.statsf[STAT_PUNCHANGLE_X];
-		cl.punchangle[1] = cl.statsf[STAT_PUNCHANGLE_Y];
-		cl.punchangle[2] = cl.statsf[STAT_PUNCHANGLE_Z];
+		if (v_gunkick.value == 1)
+		{	//truncate away any extra precision, like vanilla/qs would.
+			cl.punchangle[0] = cl.stats[STAT_PUNCHANGLE_X];
+			cl.punchangle[1] = cl.stats[STAT_PUNCHANGLE_Y];
+			cl.punchangle[2] = cl.stats[STAT_PUNCHANGLE_Z];
+		}
+		else
+		{	//woo, more precision
+			cl.punchangle[0] = cl.statsf[STAT_PUNCHANGLE_X];
+			cl.punchangle[1] = cl.statsf[STAT_PUNCHANGLE_Y];
+			cl.punchangle[2] = cl.statsf[STAT_PUNCHANGLE_Z];
+		}
 		if (v_punchangles[0][0] != cl.punchangle[0] || v_punchangles[0][1] != cl.punchangle[1] || v_punchangles[0][2] != cl.punchangle[2])
 		{
+			v_punchangles_times[1] = v_punchangles_times[0];
+			v_punchangles_times[0] = newtime;
+
 			VectorCopy (v_punchangles[0], v_punchangles[1]);
 			VectorCopy (cl.punchangle, v_punchangles[0]);
 		}

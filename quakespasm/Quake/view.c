@@ -73,6 +73,7 @@ float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
 extern	int			in_forward, in_forward2, in_back;
 
 vec3_t	v_punchangles[2]; //johnfitz -- copied from cl.punchangle.  0 is current, 1 is previous value. never the same unless map just loaded
+double	v_punchangles_times[2]; //spike -- times, to avoid assumptions...
 
 /*
 ===============
@@ -867,8 +868,11 @@ void V_CalcRefdef (void)
 		for (i=0; i<3; i++)
 			if (punch[i] != v_punchangles[0][i])
 			{
+				double interval = v_punchangles_times[0] - v_punchangles_times[1];
+				if (interval > 0.1) interval = 0.1;
+
 				//speed determined by how far we need to lerp in 1/10th of a second
-				delta = (v_punchangles[0][i]-v_punchangles[1][i]) * host_frametime * 10;
+				delta = (v_punchangles[0][i]-v_punchangles[1][i]) * host_frametime / interval;
 
 				if (delta > 0)
 					punch[i] = q_min(punch[i]+delta, v_punchangles[0][i]);
