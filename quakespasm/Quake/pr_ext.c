@@ -6572,6 +6572,7 @@ static void PF_m_setproperty(void)
 }
 
 void R_SetupView (void);
+void V_PolyBlend (void);
 void R_RenderScene (void);
 void SCR_DrawCrosshair (void);
 float CalcFovy (float fov_x, float width, float height);
@@ -6605,6 +6606,8 @@ static void PF_m_renderscene(void)
 	}
 	R_SetupView ();
 	R_RenderScene ();
+	if (r_refdef.drawworld)
+		V_PolyBlend ();
 
 	vid.recalc_refdef = true;
 	GL_Set2D();
