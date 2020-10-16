@@ -798,6 +798,7 @@ void R_ShowBoundingBoxes (void)
 	glColor3f (1,1,1);
 
 	oldvm = qcvm;
+	PR_SwitchQCVM(NULL);
 	PR_SwitchQCVM(&sv.qcvm);
 	for (i=0, ed=NEXT_EDICT(qcvm->edicts) ; i<qcvm->num_edicts ; i++, ed=NEXT_EDICT(ed))
 	{
@@ -826,6 +827,7 @@ void R_ShowBoundingBoxes (void)
 			}
 		}
 	}
+	PR_SwitchQCVM(NULL);
 	PR_SwitchQCVM(oldvm);
 
 	glColor3f (1,1,1);
