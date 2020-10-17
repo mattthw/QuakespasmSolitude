@@ -293,6 +293,7 @@ void Cmd_Exec_f (void)
 	if (cmd_warncmd.value)
 		Con_Printf ("execing %s\n",Cmd_Argv(1));
 
+	Cbuf_InsertText ("\n");	//just in case there was no trailing \n.
 	Cbuf_InsertText (f);
 	Hunk_FreeToLowMark (mark);
 }
