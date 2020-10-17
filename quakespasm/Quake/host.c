@@ -1082,19 +1082,18 @@ void Host_Init (void)
 	host_initialized = true;
 	Con_Printf ("\n========= Quake Initialized =========\n\n");
 
-
+	if (setjmp (host_abortserver) )
+		return;			// something bad happened		
 	//okay... now we can do stuff that's allowed to Host_Error
-	if (setjmp (host_abortserver) )
-		return;			// something bad happened
-	if (cls.state != ca_dedicated)
-		M_Init ();
-	if (setjmp (host_abortserver) )
-		return;			// don't do the above twice if the following Cbuf_Execute does bad things.
-
 
 	//spike -- create these aliases, because they're useful.
 	Cbuf_AddText ("alias startmap_sp \"map start\"\n");
 	Cbuf_AddText ("alias startmap_dm \"map start\"\n");
+
+	if (cls.state != ca_dedicated)
+		M_Init ();
+	if (setjmp (host_abortserver) )
+		return;			// don't do the above twice if the following Cbuf_Execute does bad things.
 
 	if (cls.state != ca_dedicated)
 	{
@@ -1113,7 +1112,7 @@ void Host_Init (void)
 		Cbuf_AddText ("cl_warncmd 1\n");
 		Cbuf_AddText ("exec server.cfg\n");		//spike -- for people who want things explicit.
 		Cbuf_AddText ("exec autoexec.cfg\n");
-		Cbuf_AddText ("stuffcmds");
+		Cbuf_AddText ("stuffcmds\n");
 		Cbuf_Execute ();
 		if (!sv.active)
 			Cbuf_AddText ("startmap_dm\n");
