@@ -287,15 +287,10 @@ static void PF_sv_setmodel (void)
 	if (!*check)
 	{
 		if (pr_checkextension.value)
-		{	//Spike: so that func_illusionaries work with custom models even in vanilla.
-			if (sv.state == ss_loading)
-				Con_DWarning("PF_setmodel(\"%s\"): Model was not precached\n", m);
-			else
-			{
-//				PR_PrintStatement(pr_statements + pr_xstatement);
-//				PR_StackTrace();
-				Con_Warning("PF_setmodel(\"%s\"): Model was not precached\n", m);
-			}
+		{
+//			PR_PrintStatement(pr_statements + pr_xstatement);
+//			PR_StackTrace();
+			Con_Warning("PF_setmodel(\"%s\"): Model was not precached\n", m);
 			i = SV_Precache_Model(m);
 		}
 		else
