@@ -810,7 +810,7 @@ Handles selection or creation of a clipping hull, and offseting (and
 eventually rotation) of the end points
 ==================
 */
-trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end)
+trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, unsigned int hitcontents)
 {
 	trace_t		trace;
 	vec3_t		offset;
@@ -928,14 +928,24 @@ static void SV_ClipToLinks ( areanode_t *node, moveclip_t *clip )
 				continue;	// don't clip against owner
 		}
 
-		if ((int)touch->v.flags & FL_MONSTER)
-			trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins2, clip->maxs2, clip->end);
+		if (touch->v.skin < 0)
+		{
+			if (!(clip->hitcontents & (1<<-(int)touch->v.skin)))
+				continue;	//not solid, don't bother trying to clip.
+			if ((int)touch->v.flags & FL_MONSTER)
+				trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins2, clip->maxs2, clip->end, ~(1<<-CONTENTS_EMPTY));
+			else
+				trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins, clip->maxs, clip->end, ~(1<<-CONTENTS_EMPTY));
+			if (trace.contents != CONTENTS_EMPTY)
+				trace.contents = touch->v.skin;
+		}
 		else
-			trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins, clip->maxs, clip->end);
-		if (trace.contents == CONTENTS_SOLID && touch->v.skin < 0)
-			trace.contents = touch->v.skin;
-		if (!((1<<(-trace.contents)) & clip->hitcontents))
-			continue;
+		{
+			if ((int)touch->v.flags & FL_MONSTER)
+				trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins2, clip->maxs2, clip->end, clip->hitcontents);
+			else
+				trace = SV_ClipMoveToEntity (touch, clip->start, clip->mins, clip->maxs, clip->end, clip->hitcontents);
+		}
 
 		if (trace.allsolid || trace.startsolid ||
 		trace.fraction < clip->trace.fraction)
@@ -1154,8 +1164,13 @@ trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, e
 
 	memset ( &clip, 0, sizeof ( moveclip_t ) );
 
+	if (type & MOVE_HITALLCONTENTS)
+		clip.hitcontents = ~0u;
+	else
+		clip.hitcontents = CONTENTMASK_ANYSOLID;
+
 // clip to world
-	clip.trace = SV_ClipMoveToEntity ( qcvm->edicts, start, mins, maxs, end );
+	clip.trace = SV_ClipMoveToEntity ( qcvm->edicts, start, mins, maxs, end, clip.hitcontents );
 
 	clip.start = start;
 	clip.end = end;
@@ -1163,10 +1178,6 @@ trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, e
 	clip.maxs = maxs;
 	clip.type = type&3;
 	clip.passedict = passedict;
-	if (type & MOVE_HITALLCONTENTS)
-		clip.hitcontents = ~0u;
-	else
-		clip.hitcontents = (1<<(-CONTENTS_SOLID)) | (1<<(-CONTENTS_CLIP));
 
 	if (type == MOVE_MISSILE)
 	{

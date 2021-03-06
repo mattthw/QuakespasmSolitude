@@ -73,7 +73,9 @@ int SV_TruePointContents (vec3_t p);
 
 edict_t	*SV_TestEntityPosition (edict_t *ent);
 
-trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end);
+#define CONTENTMASK(c) (1u<<(-CONTENTS_##c))
+#define CONTENTMASK_ANYSOLID (CONTENTMASK(SOLID) | CONTENTMASK(CLIP))
+trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, unsigned int hitcontents);
 trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, edict_t *passedict);
 // mins and maxs are reletive
 

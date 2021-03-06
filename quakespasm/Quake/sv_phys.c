@@ -744,7 +744,7 @@ void SV_PushMove (edict_t *pusher, float movetime)
 		// see if the ent's bbox is inside the pusher's final position
 			if (pusher->v.skin < 0)
 			{	//a more precise check...
-				if (!SV_ClipMoveToEntity (pusher, check->v.origin, check->v.mins, check->v.maxs, check->v.origin).startsolid)
+				if (!SV_ClipMoveToEntity (pusher, check->v.origin, check->v.mins, check->v.maxs, check->v.origin, CONTENTMASK_ANYSOLID).startsolid)
 					continue;
 			}
 			else
