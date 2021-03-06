@@ -73,8 +73,8 @@ int SV_TruePointContents (vec3_t p);
 
 edict_t	*SV_TestEntityPosition (edict_t *ent);
 
-#define CONTENTMASK(c) (1u<<(-CONTENTS_##c))
-#define CONTENTMASK_ANYSOLID (CONTENTMASK(SOLID) | CONTENTMASK(CLIP))
+#define CONTENTMASK_FROMQ1(c) (1u<<(-c))
+#define CONTENTMASK_ANYSOLID (CONTENTMASK_FROMQ1(CONTENTS_SOLID) | CONTENTMASK_FROMQ1(CONTENTS_CLIP))
 trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, unsigned int hitcontents);
 trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, edict_t *passedict);
 // mins and maxs are reletive
@@ -89,7 +89,7 @@ trace_t SV_Move (vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end, int type, e
 
 // passedict is explicitly excluded from clipping checks (normally NULL)
 
-qboolean SV_RecursiveHullCheck (hull_t *hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, trace_t *trace);
+qboolean SV_RecursiveHullCheck (hull_t *hull, vec3_t p1, vec3_t p2, trace_t *trace, unsigned int hitcontents);
 
 qmodel_t *PR_CSQC_GetModel(int idx);
 #endif	/* _QUAKE_WORLD_H */

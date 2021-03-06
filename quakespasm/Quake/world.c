@@ -624,6 +624,7 @@ enum
 };
 struct rhtctx_s
 {
+	unsigned int hitcontents;
 	vec3_t start, end;
 	mclipnode_t	*clipnodes;
 	mplane_t	*planes;
@@ -661,7 +662,7 @@ reenter:
 	{
 		/*hit a leaf*/
 		trace->contents = num;
-		if (num == CONTENTS_SOLID)
+		if (ctx->hitcontents & CONTENTMASK_FROMQ1(num))
 		{
 			if (trace->allsolid)
 				trace->startsolid = true;
@@ -672,7 +673,7 @@ reenter:
 			trace->allsolid = false;
 			if (num == CONTENTS_EMPTY)
 				trace->inopen = true;
-			else
+			else if (num != CONTENTS_SOLID)
 				trace->inwater = true;
 			return rht_empty;
 		}
@@ -768,26 +769,22 @@ SV_RecursiveHullCheck
 Decides if its a simple point test, or does a slightly more expensive check.
 ==================
 */
-qboolean SV_RecursiveHullCheck (hull_t *hull, int num, float p1f, float p2f, vec3_t p1, vec3_t p2, trace_t *trace)
+qboolean SV_RecursiveHullCheck (hull_t *hull, vec3_t p1, vec3_t p2, trace_t *trace, unsigned int hitcontents)
 {
 	if (p1[0]==p2[0] && p1[1]==p2[1] && p1[2]==p2[2])
 	{
 		/*points cannot cross planes, so do it faster*/
-		int c = SV_HullPointContents(hull, num, p1);
+		int c = SV_HullPointContents(hull, hull->firstclipnode, p1);
 		trace->contents = c;
-		switch(c)
-		{
-		case CONTENTS_SOLID:
+		if (hitcontents & CONTENTMASK_FROMQ1(c))
 			trace->startsolid = true;
-			break;
-		case CONTENTS_EMPTY:
+		else
+		{
 			trace->allsolid = false;
-			trace->inopen = true;
-			break;
-		default:
-			trace->allsolid = false;
-			trace->inwater = true;
-			break;
+			if (c == CONTENTS_EMPTY)
+				trace->inopen = true;
+			else if (c != CONTENTS_SOLID)
+				trace->inwater = true;
 		}
 		return true;
 	}
@@ -798,7 +795,8 @@ qboolean SV_RecursiveHullCheck (hull_t *hull, int num, float p1f, float p2f, vec
 		VectorCopy(p2, ctx.end);
 		ctx.clipnodes = hull->clipnodes;
 		ctx.planes = hull->planes;
-		return Q1BSP_RecursiveHullTrace(&ctx, num, p1f, p2f, p1, p2, trace) != rht_impact;
+		ctx.hitcontents = hitcontents;
+		return Q1BSP_RecursiveHullTrace(&ctx, hull->firstclipnode, 0, 1, p1, p2, trace) != rht_impact;
 	}
 }
 
@@ -842,7 +840,7 @@ trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t max
 		end_r[0] = DotProduct(end_l, axis[0]);
 		end_r[1] = DotProduct(end_l, axis[1]);
 		end_r[2] = DotProduct(end_l, axis[2]);
-		SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_r, end_r, &trace);
+		SV_RecursiveHullCheck (hull, start_r, end_r, &trace, hitcontents);
 		VectorCopy(trace.endpos, tmp);
 		trace.endpos[0] = DotProductTranspose(tmp,axis,0);
 		trace.endpos[1] = DotProductTranspose(tmp,axis,1);
@@ -853,7 +851,7 @@ trace_t SV_ClipMoveToEntity (edict_t *ent, vec3_t start, vec3_t mins, vec3_t max
 		trace.plane.normal[2] = DotProductTranspose(tmp,axis,2);
 	}
 	else
-		SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_l, end_l, &trace);
+		SV_RecursiveHullCheck (hull, start_l, end_l, &trace, hitcontents);
 
 // fix trace up by the offset
 	if (trace.fraction != 1)
@@ -1077,7 +1075,7 @@ static void World_ClipToNetwork ( moveclip_t *clip )
 				end_r[0] = DotProduct(end_l, axis[0]);
 				end_r[1] = DotProduct(end_l, axis[1]);
 				end_r[2] = DotProduct(end_l, axis[2]);
-				SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_r, end_r, &trace);
+				SV_RecursiveHullCheck (hull, start_r, end_r, &trace, clip->hitcontents);
 				VectorCopy(trace.endpos, tmp);
 				trace.endpos[0] = DotProductTranspose(tmp,axis,0);
 				trace.endpos[1] = DotProductTranspose(tmp,axis,1);
@@ -1088,7 +1086,7 @@ static void World_ClipToNetwork ( moveclip_t *clip )
 				trace.plane.normal[2] = DotProductTranspose(tmp,axis,2);
 			}
 			else
-				SV_RecursiveHullCheck (hull, hull->firstclipnode, 0, 1, start_l, end_l, &trace);
+				SV_RecursiveHullCheck (hull, start_l, end_l, &trace, clip->hitcontents);
 
 		// fix trace up by the offset
 			if (trace.fraction != 1)
