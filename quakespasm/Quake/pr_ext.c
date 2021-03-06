@@ -7246,107 +7246,183 @@ static struct
 	{"digest_hex",		PF_digest_hex,		PF_digest_hex,				639,	PF_digest_hex, 639, "string(string digest, string data, ...)"},
 };
 
-static const char *extnames[] =
+qboolean PR_Can_Particles(unsigned int prot, unsigned int pext1, unsigned int pext2)
 {
-	"DP_CON_SET",
-	"DP_CON_SETA",
-	"DP_CSQC_QUERYRENDERENTITY",
-	"DP_EF_NOSHADOW",
-	"DP_ENT_ALPHA",	//already in quakespasm, supposedly.
-	"DP_ENT_COLORMOD",
-	"DP_ENT_SCALE",
-	"DP_ENT_TRAILEFFECTNUM",
-	//"DP_GFX_QUAKE3MODELTAGS", //we support attachments but no md3/iqm/tags, so we can't really advertise this (although the builtin is complete if you ignore the lack of md3/iqms/tags)
-	"DP_INPUTBUTTONS",
-	"DP_QC_AUTOCVARS",	//they won't update on changes
-	"DP_QC_ASINACOSATANATAN2TAN",
-	"DP_QC_COPYENTITY",
-	"DP_QC_CRC16",
-	//"DP_QC_DIGEST",
-	"DP_QC_CVAR_DEFSTRING",
-	"DP_QC_CVAR_STRING",
-	"DP_QC_CVAR_TYPE",
-	"DP_QC_EDICT_NUM",
-	"DP_QC_ENTITYDATA",
-	"DP_QC_ETOS",
-	"DP_QC_FINDCHAIN",
-	"DP_QC_FINDCHAINFLAGS",
-	"DP_QC_FINDCHAINFLOAT",
-	"DP_QC_FINDFLAGS",
-	"DP_QC_FINDFLOAT",
-	"DP_QC_GETLIGHT",
-	"DP_QC_GETSURFACE",
-	"DP_QC_GETSURFACETRIANGLE",
-	"DP_QC_GETSURFACEPOINTATTRIBUTE",
-	"DP_QC_MINMAXBOUND",
-	"DP_QC_MULTIPLETEMPSTRINGS",
-	"DP_QC_RANDOMVEC",
-	"DP_QC_RENDER_SCENE",
-	"DP_QC_SINCOSSQRTPOW",
-	"DP_QC_SPRINTF",
-	"DP_QC_STRFTIME",
-	"DP_QC_STRING_CASE_FUNCTIONS",
-	"DP_QC_STRINGBUFFERS",
-	"DP_QC_STRINGCOLORFUNCTIONS",
-	"DP_QC_STRREPLACE",
-	"DP_QC_TOKENIZEBYSEPARATOR",
-	"DP_QC_TRACEBOX",
-	"DP_QC_TRACETOSS",
-	"DP_QC_TRACE_MOVETYPES",
-	"DP_QC_URI_ESCAPE",
-	"DP_QC_VECTOANGLES_WITH_ROLL",
-	"DP_QC_VECTORVECTORS",
-	"DP_QC_WHICHPACK",
-	"DP_VIEWZOOM",
-	"DP_REGISTERCVAR",
-	"DP_SV_BOTCLIENT",
-	"DP_SV_DROPCLIENT",
-//	"DP_SV_POINTPARTICLES",	//can't enable this, because certain mods then assume that we're DP and all the particles break.
-	"DP_SV_POINTSOUND",
-	"DP_SV_PRINT",
-	"DP_SV_SETCOLOR",
-	"DP_SV_SPAWNFUNC_PREFIX",
-	"DP_SV_WRITEUNTERMINATEDSTRING",
-//	"DP_TE_BLOOD",
+	if (prot == PROTOCOL_VERSION_DP7)
+		return true;	//a bit different, but works
+	else if (pext2 || (pext1&PEXT1_CSQC))
+		return true;	//a bit different, but works
+	else
+		return false;	//sorry. don't report it as supported.
+}
+qboolean PR_Can_Ent_Alpha(unsigned int prot, unsigned int pext1, unsigned int pext2)
+{
+	if (prot != PROTOCOL_NETQUAKE)
+		return true;	//most base protocols support it
+	else if (pext2 & PEXT2_REPLACEMENTDELTAS)
+		return true;	//as does fte's extensions
+	else
+		return false;	//sorry. don't report it as supported.
+}
+qboolean PR_Can_Ent_ColorMod(unsigned int prot, unsigned int pext1, unsigned int pext2)
+{
+	if (prot == PROTOCOL_VERSION_DP7)
+		return true;	//dpp7 supports it
+	else if (pext2 & PEXT2_REPLACEMENTDELTAS)
+		return true;	//as does fte's extensions
+	else
+		return false;	//sorry. don't report it as supported.
+}
+qboolean PR_Can_Ent_Scale(unsigned int prot, unsigned int pext1, unsigned int pext2)
+{
+	if (prot == PROTOCOL_RMQ || prot == PROTOCOL_VERSION_DP7)
+		return true;	//some base protocols support it
+	else if (pext2 & PEXT2_REPLACEMENTDELTAS)
+		return true;	//as does fte's extensions
+	else
+		return false;	//sorry. don't report it as supported.
+}
+static struct
+{
+	const char *name;
+	qboolean (*checkextsupported)(unsigned int prot, unsigned int pext1, unsigned int pext2);
+} qcextensions[] =
+{
+	{"DP_CON_SET"},
+	{"DP_CON_SETA"},
+	{"DP_CSQC_QUERYRENDERENTITY"},
+	{"DP_EF_NOSHADOW"},
+	{"DP_ENT_ALPHA",			PR_Can_Ent_Alpha},	//already in quakespasm, supposedly.
+	{"DP_ENT_COLORMOD",			PR_Can_Ent_ColorMod},
+	{"DP_ENT_SCALE",			PR_Can_Ent_Scale},
+	{"DP_ENT_TRAILEFFECTNUM",	PR_Can_Particles},
+	//{"DP_GFX_QUAKE3MODELTAGS"}, //we support attachments but no md3/iqm/tags, so we can't really advertise this (although the builtin is complete if you ignore the lack of md3/iqms/tags)
+	{"DP_INPUTBUTTONS"},
+	{"DP_QC_AUTOCVARS"},	//they won't update on changes
+	{"DP_QC_ASINACOSATANATAN2TAN"},
+	{"DP_QC_COPYENTITY"},
+	{"DP_QC_CRC16"},
+	//{"DP_QC_DIGEST"},
+	{"DP_QC_CVAR_DEFSTRING"},
+	{"DP_QC_CVAR_STRING"},
+	{"DP_QC_CVAR_TYPE"},
+	{"DP_QC_EDICT_NUM"},
+	{"DP_QC_ENTITYDATA"},
+	{"DP_QC_ETOS"},
+	{"DP_QC_FINDCHAIN"},
+	{"DP_QC_FINDCHAINFLAGS"},
+	{"DP_QC_FINDCHAINFLOAT"},
+	{"DP_QC_FINDFLAGS"},
+	{"DP_QC_FINDFLOAT"},
+	{"DP_QC_GETLIGHT"},
+	{"DP_QC_GETSURFACE"},
+	{"DP_QC_GETSURFACETRIANGLE"},
+	{"DP_QC_GETSURFACEPOINTATTRIBUTE"},
+	{"DP_QC_MINMAXBOUND"},
+	{"DP_QC_MULTIPLETEMPSTRINGS"},
+	{"DP_QC_RANDOMVEC"},
+	{"DP_QC_RENDER_SCENE"},	//meaningful for menuqc
+	{"DP_QC_SINCOSSQRTPOW"},
+	{"DP_QC_SPRINTF"},
+	{"DP_QC_STRFTIME"},
+	{"DP_QC_STRING_CASE_FUNCTIONS"},
+	{"DP_QC_STRINGBUFFERS"},
+	{"DP_QC_STRINGCOLORFUNCTIONS"},
+	{"DP_QC_STRREPLACE"},
+	{"DP_QC_TOKENIZEBYSEPARATOR"},
+	{"DP_QC_TRACEBOX"},
+	{"DP_QC_TRACETOSS"},
+	{"DP_QC_TRACE_MOVETYPES"},
+	{"DP_QC_URI_ESCAPE"},
+	{"DP_QC_VECTOANGLES_WITH_ROLL"},
+	{"DP_QC_VECTORVECTORS"},
+	{"DP_QC_WHICHPACK"},
+	{"DP_VIEWZOOM"},
+	{"DP_REGISTERCVAR"},
+	{"DP_SV_BOTCLIENT"},
+	{"DP_SV_DROPCLIENT"},
+//	{"DP_SV_POINTPARTICLES",	PR_Can_Particles},	//can't enable this, because certain mods then assume that we're DP and all the particles break.
+	{"DP_SV_POINTSOUND"},
+	{"DP_SV_PRINT"},
+	{"DP_SV_SETCOLOR"},
+	{"DP_SV_SPAWNFUNC_PREFIX"},
+	{"DP_SV_WRITEUNTERMINATEDSTRING"},
+//	{"DP_TE_BLOOD",				PR_Can_Particles},
 #ifdef PSET_SCRIPT
-	"DP_TE_PARTICLERAIN",
-	"DP_TE_PARTICLESNOW",
+	{"DP_TE_PARTICLERAIN",		PR_Can_Particles},
+	{"DP_TE_PARTICLESNOW",		PR_Can_Particles},
 #endif
-	"DP_TE_STANDARDEFFECTBUILTINS",
-	"EXT_BITSHIFT",
-	"FRIK_FILE",				//lacks the file part, but does have the strings part.
-	"FTE_CSQC_SERVERBROWSER",	//callable from csqc too, for feature parity.
-	"FTE_ENT_SKIN_CONTENTS",	//SOLID_BSP&&skin==CONTENTS_FOO changes CONTENTS_SOLID to CONTENTS_FOO, allowing you to swim in moving ents without qc hacks, as well as correcting view cshifts etc.
+	{"DP_TE_STANDARDEFFECTBUILTINS"},
+	{"EXT_BITSHIFT"},
+	{"FRIK_FILE"},				//lacks the file part, but does have the strings part.
+	{"FTE_CSQC_SERVERBROWSER"},	//callable from csqc too, for feature parity.
+	{"FTE_ENT_SKIN_CONTENTS"},	//SOLID_BSP&&skin==CONTENTS_FOO changes CONTENTS_SOLID to CONTENTS_FOO, allowing you to swim in moving ents without qc hacks, as well as correcting view cshifts etc.
 #ifdef PSET_SCRIPT
-	"FTE_PART_SCRIPT",
-	"FTE_PART_NAMESPACES",
+	{"FTE_PART_SCRIPT"},
+	{"FTE_PART_NAMESPACES"},
 #ifdef PSET_SCRIPT_EFFECTINFO
-	"FTE_PART_NAMESPACE_EFFECTINFO",
+	{"FTE_PART_NAMESPACE_EFFECTINFO"},
 #endif
 #endif
-	"FTE_QC_CHECKCOMMAND",
-	"FTE_QC_CROSSPRODUCT",
-	"FTE_QC_HARDWARECURSORS",
-	"FTE_QC_INFOKEY",
-	"FTE_QC_INTCONV",
-	"FTE_QC_MULTICAST",
-	"FTE_STRINGS",
+	{"FTE_QC_CHECKCOMMAND"},
+	{"FTE_QC_CROSSPRODUCT"},
+	{"FTE_QC_HARDWARECURSORS"},
+	{"FTE_QC_INFOKEY"},
+	{"FTE_QC_INTCONV"},
+	{"FTE_QC_MULTICAST"},
+	{"FTE_STRINGS"},
 #ifdef PSET_SCRIPT
-	"FTE_SV_POINTPARTICLES",
+	{"FTE_SV_POINTPARTICLES",	PR_Can_Particles},
 #endif
-	"KRIMZON_SV_PARSECLIENTCOMMAND",
-	"ZQ_QC_STRINGS",
-
+	{"KRIMZON_SV_PARSECLIENTCOMMAND"},
+	{"ZQ_QC_STRINGS"},
 };
 
 static void PF_checkextension(void)
 {
 	const char *extname = G_STRING(OFS_PARM0);
 	unsigned int i;
-	for (i = 0; i < sizeof(extnames)/sizeof(extnames[0]); i++)
+	for (i = 0; i < countof(qcextensions); i++)
 	{
-		if (!strcmp(extname, extnames[i]))
+		if (!strcmp(extname, qcextensions[i].name))
 		{
+			if (qcextensions[i].checkextsupported)
+			{
+				unsigned int prot, pext1, pext2;
+				extern unsigned int sv_protocol;
+				extern unsigned int sv_protocol_pext1;
+				extern unsigned int sv_protocol_pext2;
+				extern cvar_t cl_nopext;
+				if (sv.active)
+				{	//server or client+server
+					prot = sv_protocol;
+					pext1 = sv_protocol_pext1;
+					pext2 = sv_protocol_pext2;
+
+					//if the server seems to be set up for singleplayer then filter by client settings. otherwise just assume the best.
+					if (!isDedicated && svs.maxclients == 1 && !cl_nopext.value)
+						pext1 = pext2 = 0;
+				}
+				else if (cls.state == ca_connected)
+				{	//client only (or demo)
+					prot = cl.protocol;
+					pext1 = cl.protocol_pext1;
+					pext2 = cl.protocol_pext2;
+				}
+				else
+				{	//menuqc? ooer
+					prot = 0;
+					pext1 = 0;
+					pext2 = 0;
+				}
+				if (!qcextensions[i].checkextsupported(prot, pext1, pext2))
+				{
+					if (!pr_checkextension.value)
+						Con_Printf("Mod queried extension %s, but not enabled\n", extname);
+					G_FLOAT(OFS_RETURN) = false;
+					return;
+				}
+			}
 			if (!pr_checkextension.value)
 				Con_Printf("Mod found extension %s\n", extname);
 			G_FLOAT(OFS_RETURN) = true;
@@ -7781,8 +7857,8 @@ void PR_DumpPlatform_f(void)
 	}
 
 	fprintf(f, "\n\n//List of advertised extensions\n");
-	for (i = 0; i < sizeof(extnames)/sizeof(extnames[0]); i++)
-		fprintf(f, "//%s\n", extnames[i]);
+	for (i = 0; i < countof(qcextensions); i++)
+		fprintf(f, "//%s\n", qcextensions[i].name);
 
 	fprintf(f, "\n\n//Explicitly flag this stuff as probably-not-referenced, meaning fteqcc will shut up about it and silently strip what it can.\n");
 	fprintf(f, "#pragma noref 1\n");
