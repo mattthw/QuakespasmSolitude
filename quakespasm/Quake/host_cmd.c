@@ -1209,6 +1209,7 @@ void Host_Savegame_f (void)
 			fprintf (f, "sv.particle_precache %i \"%s\"\n", i, sv.particle_precache[i]);
 	}
 
+	fprintf (f, "sv.serverflags %i\n", svs.serverflags);
 	for (i = NUM_BASIC_SPAWN_PARMS ; i < NUM_TOTAL_SPAWN_PARMS ; i++)
 	{
 		if (svs.clients->spawn_parms[i])
@@ -1389,6 +1390,13 @@ void Host_Loadgame_f (void)
 					ext = COM_Parse(ext);
 					if (idx >= 1 && idx < MAX_PARTICLETYPES)
 						sv.particle_precache[idx] = (const char *)Hunk_Strdup (com_token, "particle_precache");
+				}
+				else if (!strcmp(com_token, "sv.serverflags") || !strcmp(com_token, "svs.serverflags"))
+				{
+					int fl;
+					ext = COM_Parse(ext);
+					fl = atoi(com_token);
+					svs.serverflags = fl;
 				}
 				else if (!strcmp(com_token, "spawnparm"))
 				{
