@@ -71,8 +71,8 @@ const char *svc_strings[128] =
 	"svc_sellscreen",
 	"svc_cutscene",
 //johnfitz -- new server messages
-	"35",	// 35
-	"36",	// 36
+	"svc_showpic_dp",	// 35
+	"svc_hidepic_dp",	// 36
 	"svc_skybox_fitz", // 37					// [string] skyname
 	"38", // 38
 	"39", // 39
@@ -2704,6 +2704,18 @@ void CL_ParseServerMessage (void)
 			break;
 #endif
 
+		//these two are used by nehahra. we ignore them, parsing only to avoid crashing.
+		case svcdp_showpic:
+			/*slotname = */MSG_ReadString();
+			/*imagename = */MSG_ReadString();
+			/*x = */MSG_ReadByte();	//FIXME: nehahra uses bytes, but DP uses shorts for other games. just use csqc instead.
+			/*y = */MSG_ReadByte();
+			Con_DPrintf("Ignoring svcdp_showpic\n");
+			break;
+		case svcdp_hidepic:
+			/*slotname = */MSG_ReadString();
+			Con_DPrintf("Ignoring svcdp_hidepic\n");
+			break;
 
 		case svcdp_effect:
 		case svcdp_effect2:	//these are kinda pointless when the particle system can do it

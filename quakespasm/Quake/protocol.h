@@ -297,6 +297,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define svc_sellscreen			33
 #define svc_cutscene			34
 
+#define svcdp_showpic			35	// [string] slot [string] img, [byte] x, [byte] y. purely for nehahra... only relative to top-left, so not very useful. use csqc instead.
+#define svcdp_hidepic			36	// [string] slot
+
 //johnfitz -- PROTOCOL_FITZQUAKE -- new server messages
 #define	svc_skybox				37	// [string] name
 #define svc_bf					40
