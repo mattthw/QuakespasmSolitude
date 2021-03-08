@@ -66,7 +66,6 @@ static const char *gl_version;
 static int gl_version_major;
 static int gl_version_minor;
 static const char *gl_extensions;
-static char * gl_extensions_nice;
 
 qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_texture_astc;
 
@@ -922,32 +921,15 @@ void VID_Lock (void)
 GL_MakeNiceExtensionsList -- johnfitz
 ===============
 */
-static char *GL_MakeNiceExtensionsList (const char *in)
+static void GL_PrintNiceExtensionsList (const char *in)
 {
-	char *copy, *token, *out;
-	int i, count;
-
-	if (!in) return Z_Strdup("(none)");
-
-	//each space will be replaced by 4 chars, so count the spaces before we malloc
-	for (i = 0, count = 1; i < (int) strlen(in); i++)
-	{
-		if (in[i] == ' ')
-			count++;
-	}
-
-	out = (char *) Z_Malloc (strlen(in) + count*3 + 1); //usually about 1-2k
-	out[0] = 0;
+	char *copy, *token;
+	if (!in) return Con_SafePrintf("(none)");
 
 	copy = (char *) Z_Strdup(in);
 	for (token = strtok(copy, " "); token; token = strtok(NULL, " "))
-	{
-		strcat(out, "\n   ");
-		strcat(out, token);
-	}
-
+		Con_SafePrintf("\n   %s", token);
 	Z_Free (copy);
-	return out;
 }
 
 /*
@@ -960,7 +942,9 @@ static void GL_Info_f (void)
 	Con_SafePrintf ("GL_VENDOR: %s\n", gl_vendor);
 	Con_SafePrintf ("GL_RENDERER: %s\n", gl_renderer);
 	Con_SafePrintf ("GL_VERSION: %s\n", gl_version);
-	Con_Printf ("GL_EXTENSIONS: %s\n", gl_extensions_nice);
+	Con_SafePrintf ("GL_EXTENSIONS: ");
+	GL_PrintNiceExtensionsList(gl_extensions);
+	Con_SafePrintf ("\n");
 }
 
 /*
@@ -1331,10 +1315,6 @@ static void GL_Init (void)
 		gl_version_major = 0;
 		gl_version_minor = 0;
 	}
-
-	if (gl_extensions_nice != NULL)
-		Z_Free (gl_extensions_nice);
-	gl_extensions_nice = GL_MakeNiceExtensionsList (gl_extensions);
 
 	GL_CheckExtensions (); //johnfitz
 
