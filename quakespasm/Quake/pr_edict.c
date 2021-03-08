@@ -1136,11 +1136,95 @@ void PR_ClearProgs(qcvm_t *vm)
 	if (qcvm->knownstrings)
 		Z_Free ((void *)qcvm->knownstrings);
 	free(qcvm->edicts); // ericw -- sv.edicts switched to use malloc()
+	if (qcvm->fielddefs != (ddef_t *)((byte *)qcvm->progs + qcvm->progs->ofs_fielddefs))
+		free(qcvm->fielddefs);
 	free(qcvm->progs);	// spike -- pr_progs switched to use malloc (so menuqc doesn't end up stuck on the early hunk nor wiped on every map change)
 	memset(qcvm, 0, sizeof(*qcvm));
 
 	qcvm = NULL;
 	PR_SwitchQCVM(oldvm);
+}
+
+//makes sure extension fields are actually registered so they can be used for mappers without qc changes. eg so scale can be used.
+static void PR_MergeEngineFieldDefs (void)
+{
+	struct {
+		const char *fname;
+		etype_t type;
+		int newidx;
+	} extrafields[] =
+	{	//table of engine fields to add. we'll be using ED_FindFieldOffset for these later.
+		//this is useful for fields that should be defined for mappers which are not defined by the mod.
+		//future note: mutators will need to edit the mutator's globaldefs table too. remember to handle vectors and their 3 globals too.
+		{"alpha",			ev_float},	//just because we can (though its already handled in a weird hacky way)
+		{"scale",			ev_float},	//hurrah for being able to rescale entities.
+		{"emiteffectnum",	ev_float},	//constantly emitting particles, even without moving.
+		{"traileffectnum",	ev_float},	//custom effect for trails
+		//{"glow_size",		ev_float},	//deprecated particle trail rubbish
+		//{"glow_color",	ev_float},	//deprecated particle trail rubbish
+		{"tag_entity",		ev_float},	//for setattachment to not bug out when omitted.
+		{"tag_index",		ev_float},	//for setattachment to not bug out when omitted.
+		{"modelflags",		ev_float},	//deprecated rubbish to fill the high 8 bits of effects.
+		//{"vw_index",		ev_float},	//modelindex2
+		//{"pflags",		ev_float},	//for rtlights
+		//{"drawflags",		ev_float},	//hexen2 compat
+		//{"abslight",		ev_float},	//hexen2 compat
+		{"colormod",		ev_vector},	//lighting tints
+		//{"glowmod",		ev_vector},	//fullbright tints
+		//{"fatness",		ev_float},	//bloated rendering...
+		//{"gravitydir",	ev_vector},	//says which direction gravity should act for this ent...
+
+	};
+	int maxofs = qcvm->progs->entityfields;
+	int maxdefs = qcvm->progs->numfielddefs;
+	unsigned int j, a;
+
+	//figure out where stuff goes
+	for (j = 0; j < countof(extrafields); j++)
+	{
+		extrafields[j].newidx = ED_FindFieldOffset(extrafields[j].fname);
+		if (extrafields[j].newidx < 0)
+		{
+			extrafields[j].newidx = maxofs;
+			maxdefs++;
+			if (extrafields[j].type == ev_vector)
+				maxdefs+=3;
+			maxofs+=type_size[extrafields[j].type];
+		}
+	}
+
+	if (maxdefs != qcvm->progs->numfielddefs)
+	{	//we now know how many entries we need to add...
+		ddef_t *olddefs = qcvm->fielddefs;
+		qcvm->fielddefs = malloc(maxdefs * sizeof(*qcvm->fielddefs));
+		memcpy(qcvm->fielddefs, olddefs, qcvm->progs->numfielddefs*sizeof(*qcvm->fielddefs));
+		if (olddefs != (ddef_t *)((byte *)qcvm->progs + qcvm->progs->ofs_fielddefs))
+			free(olddefs);
+
+		//allocate the extra defs
+		for (j = 0; j < countof(extrafields); j++)
+		{
+			if (extrafields[j].newidx >= qcvm->progs->entityfields && extrafields[j].newidx < maxofs)
+			{	//looks like its new. make sure ED_FindField can find it.
+				qcvm->fielddefs[qcvm->progs->numfielddefs].ofs = extrafields[j].newidx;
+				qcvm->fielddefs[qcvm->progs->numfielddefs].type = extrafields[j].type;
+				qcvm->fielddefs[qcvm->progs->numfielddefs].s_name = ED_NewString(extrafields[j].fname);
+				qcvm->progs->numfielddefs++;
+
+				if (extrafields[j].type == ev_vector)
+				{	//vectors are weird and annoying.
+					for (a = 0; a < 3; a++)
+					{
+						qcvm->fielddefs[qcvm->progs->numfielddefs].ofs = extrafields[j].newidx+a;
+						qcvm->fielddefs[qcvm->progs->numfielddefs].type = ev_float;
+						qcvm->fielddefs[qcvm->progs->numfielddefs].s_name = ED_NewString(va("%s_%c", extrafields[j].fname, 'x'+a));
+						qcvm->progs->numfielddefs++;
+					}
+				}
+			}
+		}
+		qcvm->progs->entityfields = maxofs;
+	}
 }
 
 /*
@@ -1151,7 +1235,6 @@ PR_LoadProgs
 qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcrc, builtin_t *builtins, size_t numbuiltins)
 {
 	int			i;
-	unsigned int u;
 
 	PR_ClearProgs(qcvm);	//just in case.
 
@@ -1259,9 +1342,6 @@ qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcr
 		qcvm->globaldefs[i].s_name = LittleLong (qcvm->globaldefs[i].s_name);
 	}
 
-	for (u = 0; u < sizeof(qcvm->extfields)/sizeof(int); u++)
-		((int*)&qcvm->extfields)[u] = -1;
-
 	for (i = 0; i < qcvm->progs->numfielddefs; i++)
 	{
 		qcvm->fielddefs[i].type = LittleShort (qcvm->fielddefs[i].type);
@@ -1278,6 +1358,7 @@ qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcr
 	qcvm->numbuiltins = numbuiltins;
 
 	//spike: detect extended fields from progs
+	PR_MergeEngineFieldDefs();
 #define QCEXTFIELD(n,t) qcvm->extfields.n = ED_FindFieldOffset(#n);
 	QCEXTFIELDS_ALL
 	QCEXTFIELDS_GAME
@@ -1286,13 +1367,7 @@ qboolean PR_LoadProgs (const char *filename, qboolean fatal, unsigned int needcr
 	QCEXTFIELDS_SS
 #undef QCEXTFIELD
 
-	i = qcvm->progs->entityfields;
-	if (qcvm->extfields.emiteffectnum < 0)
-		qcvm->extfields.emiteffectnum = i++;
-	if (qcvm->extfields.traileffectnum < 0)
-		qcvm->extfields.traileffectnum = i++;
-
-	qcvm->edict_size = i * 4 + sizeof(edict_t) - sizeof(entvars_t);
+	qcvm->edict_size = qcvm->progs->entityfields * 4 + sizeof(edict_t) - sizeof(entvars_t);
 	// round off to next highest whole word address (esp for Alpha)
 	// this ensures that pointers in the engine data area are always
 	// properly aligned
