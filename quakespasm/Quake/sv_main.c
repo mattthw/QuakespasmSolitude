@@ -1706,7 +1706,7 @@ This will be sent on the initial connection and upon each server load.
 */
 void SV_SendServerinfo (client_t *client)
 {
-	const char		**s;
+	const char		**s, *noise;
 	char			message[2048];
 	unsigned int	i; //johnfitz
 	qboolean cantruncate;
@@ -1862,9 +1862,19 @@ retry:
 	}
 
 // send music
-	MSG_WriteByte (&client->message, svc_cdtrack);
-	MSG_WriteByte (&client->message, qcvm->edicts->v.sounds);
-	MSG_WriteByte (&client->message, qcvm->edicts->v.sounds);
+	if (qcvm->edicts->v.sounds == -1 && *(noise = PR_GetString(qcvm->edicts->v.noise)) && !strchr(noise, '\"') && !strchr(noise, '\n'))
+	{	//world.sounds ==-1 && world.noise!=""
+		MSG_WriteByte (&client->message, svc_stufftext);
+		MSG_WriteStringUnterminated (&client->message, "music \"");
+		MSG_WriteStringUnterminated (&client->message, noise);
+		MSG_WriteString(&client->message, "\"\n");
+	}
+	else
+	{
+		MSG_WriteByte (&client->message, svc_cdtrack);
+		MSG_WriteByte (&client->message, qcvm->edicts->v.sounds);
+		MSG_WriteByte (&client->message, qcvm->edicts->v.sounds);
+	}
 
 // set view
 	MSG_WriteByte (&client->message, svc_setview);

@@ -950,6 +950,10 @@ void MSG_WriteString (sizebuf_t *sb, const char *s)
 	else
 		SZ_Write (sb, s, Q_strlen(s)+1);
 }
+void MSG_WriteStringUnterminated (sizebuf_t *sb, const char *s)
+{
+	SZ_Write (sb, s, Q_strlen(s));
+}
 
 //johnfitz -- original behavior, 13.3 fixed point coords, max range +-4096
 void MSG_WriteCoord16 (sizebuf_t *sb, float f)
