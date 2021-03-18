@@ -7718,10 +7718,12 @@ void PR_EnableExtensions(ddef_t *pr_globaldefs)
 
 
 #define QCEXTGLOBAL_FLOAT(n) qcvm->extglobals.n = PR_FindExtGlobal(ev_float, #n);
+#define QCEXTGLOBAL_VECTOR(n) qcvm->extglobals.n = PR_FindExtGlobal(ev_vector, #n);
 	QCEXTGLOBALS_COMMON
 	QCEXTGLOBALS_GAME
 	QCEXTGLOBALS_CSQC
 #undef QCEXTGLOBAL_FLOAT
+#undef QCEXTGLOBAL_VECTOR
 
 	//any #0 functions are remapped to their builtins here, so we don't have to tweak the VM in an obscure potentially-breaking way.
 	for (i = 0; i < (unsigned int)qcvm->progs->numfunctions; i++)
@@ -7964,6 +7966,7 @@ void PR_DumpPlatform_f(void)
 #undef QCEXTFUNC
 
 #define QCEXTGLOBAL_FLOAT(n) fprintf(f, "float " #n ";\n");
+#define QCEXTGLOBAL_VECTOR(n) fprintf(f, "vector " #n ";\n");
 	QCEXTGLOBALS_COMMON
 	if (targs & (CS|SS))
 	{
@@ -7973,7 +7976,8 @@ void PR_DumpPlatform_f(void)
 	{
 		QCEXTGLOBALS_CSQC
 	}
-#undef QCEXTGLOBAL
+#undef QCEXTGLOBAL_FLOAT
+#undef QCEXTGLOBAL_VECTOR
 
 	fprintf(f, "const float FALSE		= 0;\n");
 	fprintf(f, "const float TRUE		= 1;\n");

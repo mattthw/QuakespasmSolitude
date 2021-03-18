@@ -1162,6 +1162,8 @@ void SCR_UpdateScreen (void)
 
 		if (qcvm->extglobals.cltime)
 			*qcvm->extglobals.cltime = realtime;
+		if (qcvm->extglobals.clframetime)
+			*qcvm->extglobals.clframetime = host_frametime;
 		if (qcvm->extglobals.player_localentnum)
 			*qcvm->extglobals.player_localentnum = cl.viewentity;
 		if (qcvm->extglobals.intermission)

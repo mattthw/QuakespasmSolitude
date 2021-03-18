@@ -219,28 +219,31 @@ struct pr_extglobals_s
 	//end
 #define QCEXTGLOBALS_GAME \
 	QCEXTGLOBAL_FLOAT(input_timelength)\
-	QCEXTGLOBAL_FLOAT(input_movevalues)\
-	QCEXTGLOBAL_FLOAT(input_angles)\
+	QCEXTGLOBAL_VECTOR(input_movevalues)\
+	QCEXTGLOBAL_VECTOR(input_angles)\
 	QCEXTGLOBAL_FLOAT(input_buttons)\
 	QCEXTGLOBAL_FLOAT(input_impulse)\
 	QCEXTGLOBAL_FLOAT(physics_mode)\
 	//end
 #define QCEXTGLOBALS_CSQC \
 	QCEXTGLOBAL_FLOAT(cltime)\
+	QCEXTGLOBAL_FLOAT(clframetime)\
 	QCEXTGLOBAL_FLOAT(maxclients)\
 	QCEXTGLOBAL_FLOAT(intermission)\
 	QCEXTGLOBAL_FLOAT(intermission_time)\
 	QCEXTGLOBAL_FLOAT(player_localnum)\
 	QCEXTGLOBAL_FLOAT(player_localentnum)\
-	QCEXTGLOBAL_FLOAT(view_angles)\
+	QCEXTGLOBAL_VECTOR(view_angles)\
 	QCEXTGLOBAL_FLOAT(clientcommandframe)\
 	QCEXTGLOBAL_FLOAT(servercommandframe)\
 	//end
 #define QCEXTGLOBAL_FLOAT(n) float *n;
+#define QCEXTGLOBAL_VECTOR(n) float *n;
 	QCEXTGLOBALS_COMMON
 	QCEXTGLOBALS_GAME
 	QCEXTGLOBALS_CSQC
 #undef QCEXTGLOBAL_FLOAT
+#undef QCEXTGLOBAL_VECTOR
 };
 
 struct pr_extfields_s

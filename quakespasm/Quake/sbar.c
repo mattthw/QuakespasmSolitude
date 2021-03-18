@@ -1023,6 +1023,8 @@ void Sbar_Draw (void)
 		pr_global_struct->frametime = host_frametime;
 		if (qcvm->extglobals.cltime)
 			*qcvm->extglobals.cltime = realtime;
+		if (qcvm->extglobals.clframetime)
+			*qcvm->extglobals.clframetime = host_frametime;
 		if (qcvm->extglobals.player_localentnum)
 			*qcvm->extglobals.player_localentnum = cl.viewentity;
 		pr_global_struct->time = cl.time;
@@ -1418,6 +1420,8 @@ void Sbar_IntermissionOverlay (void)
 		PR_SwitchQCVM(&cl.qcvm);
 		if (qcvm->extglobals.cltime)
 			*qcvm->extglobals.cltime = realtime;
+		if (qcvm->extglobals.clframetime)
+			*qcvm->extglobals.clframetime = host_frametime;
 		if (qcvm->extglobals.player_localentnum)
 			*qcvm->extglobals.player_localentnum = cl.viewentity;
 		if (qcvm->extglobals.intermission)
@@ -1425,6 +1429,7 @@ void Sbar_IntermissionOverlay (void)
 		if (qcvm->extglobals.intermission_time)
 			*qcvm->extglobals.intermission_time = cl.completed_time;
 		pr_global_struct->time = cl.time;
+		pr_global_struct->frametime = host_frametime;
 		Sbar_SortFrags ();
 		G_VECTORSET(OFS_PARM0, vid.width/s, vid.height/s, 0);
 		G_FLOAT(OFS_PARM1) = sb_showscores;
