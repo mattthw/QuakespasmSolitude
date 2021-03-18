@@ -2957,6 +2957,45 @@ static void COM_Game_f (void)
 		Con_Printf("\"game\" is \"%s\"\n", COM_GetGameNames(true));
 }
 
+//
+//Spike -- so people can more easily see where their files are actually coming from (to help resolve file conflicts)
+//lack of mouse-coy makes this a pain to report still, however
+//
+static qboolean COM_Dir_Result2(void *ctx, const char *fname, time_t mtime, size_t fsize, searchpath_t *spath)
+{
+	searchpath_t **primary = ctx;
+	if (!*primary)
+		*primary = spath;
+	return false;
+}
+static qboolean COM_Dir_Result(void *ctx, const char *fname, time_t mtime, size_t fsize, searchpath_t *spath)
+{
+	searchpath_t *primary = NULL;
+	const char *prefix;
+	COM_ListAllFiles(&primary, fname, COM_Dir_Result2, 0, NULL);
+
+	if (primary == spath)
+		prefix = "^m";	//file that will be opened.
+	else
+		prefix = "";	//file that will be ignored.
+
+	if (fsize > 1024*1024*1024)
+		Con_SafePrintf("%s    %6.1fgb %-32s %s\n", prefix, (double)fsize/(1024*1024*1024), fname, spath->filename);
+	else if (fsize > 1024*1024)
+		Con_SafePrintf("%s    %6.1fmb %-32s %s\n", prefix, (double)fsize/(1024*1024), fname, spath->filename);
+	else if (fsize > 1024)
+		Con_SafePrintf("%s    %6.1fkb %-32s %s\n", prefix, (double)fsize/1024, fname, spath->filename);
+	else
+		Con_SafePrintf("%s    %4.0fb    %-32s %s\n", prefix, (double)fsize, fname, spath->filename);
+	return true;
+}
+static void COM_Dir_f(void)
+{
+	int i;
+	for (i = 1; i < Cmd_Argc(); i++)
+		COM_ListAllFiles(NULL, Cmd_Argv(i), COM_Dir_Result, 0, NULL);
+}
+
 /*
 =================
 COM_InitFilesystem
@@ -2971,6 +3010,10 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 	Cvar_RegisterVariable (&registered);
 	Cvar_RegisterVariable (&cmdline);
 	Cmd_AddCommand ("path", COM_Path_f);
+	Cmd_AddCommand ("dir", COM_Dir_f);
+	Cmd_AddCommand ("ls", COM_Dir_f);
+	Cmd_AddCommand ("which", COM_Dir_f);
+	Cmd_AddCommand ("flocate", COM_Dir_f);
 	Cmd_AddCommand ("game", COM_Game_f); //johnfitz
 	Cmd_AddCommand ("gamedir", COM_Game_f); //Spike -- alternative name for it, consistent with quakeworld and a few other engines
 
