@@ -323,7 +323,7 @@ void DemoList_Init (void)
 	
 	for (search = com_searchpaths; search; search = search->next)
 	{
-		if (*search->filename) //directory
+		if (!search->pack) //directory
 		{
 #ifdef _WIN32
 			q_snprintf (filestring, sizeof(filestring), "%s/*.dem", search->filename);
