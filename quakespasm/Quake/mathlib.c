@@ -856,6 +856,7 @@ void Matrix4_ProjectionMatrix(float fovx, float fovy, float neard, float fard, q
 	out[6] = 0;
 	if (fard < neard)
 	{	//fiddle with the far clip plane to make it rather large
+		//depth precision is non-linear, decaying with distance relative to the near clip plane, a closer near plane degrades precision faster, so an 'infinite' far clip plane doesn't actually hurt typical precision all that much, at least with a 24bit depth buffer.
 		const double epsilon = 1.0/(1<<22);
 		out[10] = epsilon-1;
 		out[14] = (epsilon-(df-dn))*neard;

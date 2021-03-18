@@ -484,7 +484,6 @@ void R_SetupGL (void)
 	int scale;
 
 	//johnfitz -- rewrote this section
-	glMatrixMode(GL_PROJECTION);
 	scale =  CLAMP(1, (int)r_scale.value, 4); // ericw -- see R_ScaleView
 	glViewport (glx + r_refdef.vrect.x,
 				gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height,
@@ -492,10 +491,11 @@ void R_SetupGL (void)
 				r_refdef.vrect.height / scale);
 	//johnfitz
 
-	#if 1
+	#if 1	//Spike: these should be equivelent. gpus tend not to use doubles in favour of speed, so no loss there.
 	{
 		mat4_t mat;
 		Matrix4_ProjectionMatrix(r_fovx, r_fovy, NEARCLIP, gl_farclip.value, false, frustum_skew, 0, mat);
+		glMatrixMode(GL_PROJECTION);
 		glLoadMatrixf(mat);
 
 		Matrix4_ViewMatrix(r_refdef.viewangles, r_refdef.vieworg, mat);
@@ -503,7 +503,8 @@ void R_SetupGL (void)
 		glLoadMatrixf(mat);
     }
 	#else
-	//glLoadIdentity ();
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity ();
 	GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
 
 //	glCullFace(GL_BACK); //johnfitz -- glquake used CCW with backwards culling -- let's do it right
