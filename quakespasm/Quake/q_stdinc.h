@@ -147,6 +147,8 @@ typedef int	fixed4_t;
 typedef int	fixed8_t;
 typedef int	fixed16_t;
 
+typedef vec_t mat_t;
+typedef mat_t mat4_t[4*4];	//this is bad form, to have an array typedef, as it will be passed as a pointer.
 
 /*==========================================================================*/
 

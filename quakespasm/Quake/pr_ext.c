@@ -6207,7 +6207,7 @@ static struct
 } viewprops;
 
 void V_CalcRefdef (void);
-static void PF_m_clearscene(void)
+static void PF_cl_clearscene(void)
 {
 	if (cl_numvisedicts + 64 > cl_maxvisedicts)
 	{
@@ -6306,7 +6306,7 @@ enum
 	//VF_DP_MAINVIEW		= 400, // defective. should be a viewid instead, allowing for per-view motionblur instead of disabling it outright
 	//VF_DP_MINFPS_QUALITY	= 401, //multiplier for lod and culling to try to reduce costs.
 };
-static void PF_m_getproperty(void)
+static void PF_cl_getproperty(void)
 {
 	float s;
 	int prop = G_FLOAT(OFS_PARM0);
@@ -6452,7 +6452,7 @@ static void PF_m_getproperty(void)
 		break;
 	}
 }
-static void PF_m_setproperty(void)
+static void PF_cl_setproperty(void)
 {
 	int prop = G_FLOAT(OFS_PARM0);
 	switch(prop)
@@ -6577,7 +6577,7 @@ void R_RenderScene (void);
 void SCR_DrawCrosshair (void);
 float CalcFovy (float fov_x, float width, float height);
 extern cvar_t scr_fov;
-static void PF_m_renderscene(void)
+static void PF_cl_computerefdef(void)
 {
 	float s = PR_GetVMScale();
 
@@ -6587,23 +6587,36 @@ static void PF_m_renderscene(void)
 	r_refdef.vrect.y = viewprops.rect_pos[1]*s;
 	r_refdef.vrect.width = viewprops.rect_size[0]*s;
 	r_refdef.vrect.height = viewprops.rect_size[1]*s;
-	if (r_refdef.vrect.width < 1 || r_refdef.vrect.height < 1)
-		return;	//can't draw nuffin...
 
-	if (!viewprops.afov)
-		viewprops.afov = scr_fov.value;
-	if (r_refdef.vrect.width/r_refdef.vrect.height < 4/3)
+	if (viewprops.fov_x && viewprops.fov_y)
 	{
-		r_refdef.fov_y = viewprops.afov;
-		r_refdef.fov_x = CalcFovy(r_refdef.fov_y, r_refdef.vrect.height, r_refdef.vrect.width);
+		r_refdef.fov_x = viewprops.fov_x;
+		r_refdef.fov_y = viewprops.fov_y;
 	}
 	else
 	{
-		r_refdef.fov_y = tan(viewprops.afov * M_PI / 360.0) * (3.0 / 4.0);
-		r_refdef.fov_x = r_refdef.fov_y * r_refdef.vrect.width / r_refdef.vrect.height;
-		r_refdef.fov_x = atan(r_refdef.fov_x) * (360.0 / M_PI);
-		r_refdef.fov_y = atan(r_refdef.fov_y) * (360.0 / M_PI);
+		if (!viewprops.afov)
+			viewprops.afov = scr_fov.value;
+		if (r_refdef.vrect.width/r_refdef.vrect.height < 4/3)
+		{
+			r_refdef.fov_y = viewprops.afov;
+			r_refdef.fov_x = CalcFovy(r_refdef.fov_y, r_refdef.vrect.height, r_refdef.vrect.width);
+		}
+		else
+		{
+			r_refdef.fov_y = tan(viewprops.afov * M_PI / 360.0) * (3.0 / 4.0);
+			r_refdef.fov_x = r_refdef.fov_y * r_refdef.vrect.width / r_refdef.vrect.height;
+			r_refdef.fov_x = atan(r_refdef.fov_x) * (360.0 / M_PI);
+			r_refdef.fov_y = atan(r_refdef.fov_y) * (360.0 / M_PI);
+		}
 	}
+}
+static void PF_cl_renderscene(void)
+{
+	PF_cl_computerefdef();
+	if (r_refdef.vrect.width < 1 || r_refdef.vrect.height < 1)
+		return;	//can't draw nuffin...
+
 	R_SetupView ();
 	R_RenderScene ();
 	if (r_refdef.drawworld)
@@ -6625,6 +6638,94 @@ static void PF_m_renderscene(void)
 	glDisable (GL_ALPHA_TEST);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 }
+
+static void PF_cl_genProjectMatricies(mat4_t viewproj)
+{
+	mat4_t view;
+	mat4_t proj;
+	extern cvar_t gl_farclip;
+
+	//note: we ignore r_waterwarp here (we don't really know if we're underwater or not here), and you're unlikely to want such warping for mouse clicks.
+	Matrix4_ProjectionMatrix(r_refdef.fov_x, r_refdef.fov_y, NEARCLIP, gl_farclip.value, false, 0, 0, proj);
+	Matrix4_ViewMatrix(r_refdef.viewangles, r_refdef.vieworg, view);
+
+	//combine
+	Matrix4_Multiply(proj, view, viewproj);
+}
+
+//vector(vector v) unproject
+//Transform a 2d screen-space point (with depth) into a 3d world-space point, according the various origin+angle+fov etc settings set via setproperty.
+static void PF_cl_unproject(void)
+{
+	mat4_t viewproj, viewproj_inv;
+	vec4_t pos, res;
+	float s = PR_GetVMScale();
+	VectorCopy(G_VECTOR(OFS_PARM0), pos);
+
+	PF_cl_computerefdef();	//determine correct vrect (in pixels), and compute fovxy accordingly. this could be cached...
+	PF_cl_genProjectMatricies(viewproj);
+	Matrix4_Invert(viewproj, viewproj_inv);
+
+	//convert virtual coords to (pixel) screenspace
+	pos[0] *= s;
+	pos[1] *= s;
+
+	//convert to viewport (0-1 within vrect)...
+	pos[0] = (pos[0]-r_refdef.vrect.x)/r_refdef.vrect.width;
+	pos[1] = (pos[1]-r_refdef.vrect.y)/r_refdef.vrect.height;
+	pos[1] = 1-pos[1];	//matricies for opengl are bottom-up.
+
+	//convert to clipspace (+/- 1)
+	pos[0] = pos[0]*2-1;
+	pos[1] = pos[1]*2-1;
+	pos[2] = pos[2]*2-1;	//input_z==0 means near clip plane.
+
+	//don't allow 1 here as that causes issues with infinite far clip plane maths, and some DP mods abuse it with depth values much larger than 1.
+	if (pos[2] >= 1)
+		pos[2] = 0.999999;
+	//w coord is 1... yay 4*4 matricies.
+	pos[3] = 1;
+
+	//transform our point...
+	Matrix4_Transform4(viewproj_inv, pos, res);
+
+	//result is then res_xyz/res_w. we don't really care for interpolating texture projection...
+	VectorScale(res, 1/res[3], G_VECTOR(OFS_RETURN));
+}
+//vector(vector v) project
+//Transform a 3d world-space point into a 2d screen-space point, according the various origin+angle+fov etc settings set via setproperty.
+static void PF_cl_project(void)
+{
+	mat_t viewproj[16];
+	vec4_t pos, res;
+	float s = PR_GetVMScale();
+	VectorCopy(G_VECTOR(OFS_PARM0), pos);
+	pos[3] = 1;	//w is always 1.
+
+	PF_cl_computerefdef();	//determine correct vrect (in pixels), and compute fovxy accordingly. this could be cached...
+	PF_cl_genProjectMatricies(viewproj);
+
+	Matrix4_Transform4(viewproj, pos, res);
+	VectorScale(res, 1/res[3], res);
+	if (res[3] < 0)
+		res[2] *= -1;	//oops... keep things behind us behind... this allows it to act as an error condition.
+
+	//clipspace to viewport
+	res[0] = (1+res[0])/2;
+	res[1] = (1+res[1])/2;
+	res[1] = 1-res[1]; //matricies for opengl are bottom-up.
+
+	//viewport to screenspace (0-1 within vrect)...
+	res[0] = r_refdef.vrect.x + r_refdef.vrect.width *res[0];
+	res[1] = r_refdef.vrect.y + r_refdef.vrect.height*res[1];
+
+	//screenspace to virtual
+	res[0] /= s;
+	res[1] /= s;
+
+	VectorCopy(res, G_VECTOR(OFS_RETURN));
+}
+
 
 static void PF_cs_setlistener(void)
 {
@@ -6990,20 +7091,20 @@ static struct
 //	{"clustertransfer",	PF_clustertransfer,	PF_NoCSQC,			0,		PF_NoMenu, D("string(entity player, optional string newnode)", "Only functions in mapcluster mode. Initiate transfer of the player to a different node. Can take some time. If dest is specified, returns null on error. Otherwise returns the current/new target node (or null if not transferring).")},
 //	{"modelframecount", PF_modelframecount, PF_modelframecount,	0,		PF_NoMenu, D("float(float mdlidx)", "Retrieves the number of frames in the specified model.")},
 
-	{"clearscene",		PF_NoSSQC,			PF_m_clearscene,	300,	PF_m_clearscene,300, D("void()", "Forgets all rentities, polygons, and temporary dlights. Resets all view properties to their default values.")},// (EXT_CSQC)
+	{"clearscene",		PF_NoSSQC,			PF_cl_clearscene,	300,	PF_cl_clearscene,300, D("void()", "Forgets all rentities, polygons, and temporary dlights. Resets all view properties to their default values.")},// (EXT_CSQC)
 	{"addentities",		PF_NoSSQC,			PF_cs_addentities,	301,	PF_NoMenu, D("void(float mask)", "Walks through all entities effectively doing this:\n if (ent.drawmask&mask){ if (!ent.predaw()) addentity(ent); }\nIf mask&MASK_DELTA, non-csqc entities, particles, and related effects will also be added to the rentity list.\n If mask&MASK_STDVIEWMODEL then the default view model will also be added.")},// (EXT_CSQC)
 	{"addentity",		PF_NoSSQC,			PF_cs_addentity,	302,	PF_m_addentity,302, D("void(entity ent)", "Copies the entity fields into a new rentity for later rendering via addscene.")},// (EXT_CSQC)
 //	{"removeentity",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("void(entity ent)", "Undoes all addentities added to the scene from the given entity, without removing ALL entities (useful for splitscreen/etc, readd modified versions as desired).")},// (EXT_CSQC)
 //	{"addtrisoup_simple",PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("typedef float vec2[2];\ntypedef float vec3[3];\ntypedef float vec4[4];\ntypedef struct trisoup_simple_vert_s {vec3 xyz;vec2 st;vec4 rgba;} trisoup_simple_vert_t;\nvoid(string texturename, int flags, struct trisoup_simple_vert_s *verts, int *indexes, int numindexes)", "Adds the specified trisoup into the scene as additional geometry. This permits caching geometry to reduce builtin spam. Indexes are a triangle list (so eg quads will need 6 indicies to form two triangles). NOTE: this is not going to be a speedup over polygons if you're still generating lots of new data every frame.")},
-	{"setproperty",		PF_NoSSQC,			PF_m_setproperty,	303,	PF_m_setproperty,303, D("#define setviewprop setproperty\nfloat(float property, ...)", "Allows you to override default view properties like viewport, fov, and whether the engine hud will be drawn. Different VF_ values have slightly different arguments, some are vectors, some floats.")},// (EXT_CSQC)
-	{"renderscene",		PF_NoSSQC,			PF_m_renderscene,	304,	PF_m_renderscene,304, D("void()", "Draws all entities, polygons, and particles on the rentity list (which were added via addentities or addentity), using the various view properties set via setproperty. There is no ordering dependancy.\nThe scene must generally be cleared again before more entities are added, as entities will persist even over to the next frame.\nYou may call this builtin multiple times per frame, but should only be called from CSQC_UpdateView.")},// (EXT_CSQC)
+	{"setproperty",		PF_NoSSQC,			PF_cl_setproperty,	303,	PF_cl_setproperty,303, D("#define setviewprop setproperty\nfloat(float property, ...)", "Allows you to override default view properties like viewport, fov, and whether the engine hud will be drawn. Different VF_ values have slightly different arguments, some are vectors, some floats.")},// (EXT_CSQC)
+	{"renderscene",		PF_NoSSQC,			PF_cl_renderscene,	304,	PF_cl_renderscene,304, D("void()", "Draws all entities, polygons, and particles on the rentity list (which were added via addentities or addentity), using the various view properties set via setproperty. There is no ordering dependancy.\nThe scene must generally be cleared again before more entities are added, as entities will persist even over to the next frame.\nYou may call this builtin multiple times per frame, but should only be called from CSQC_UpdateView.")},// (EXT_CSQC)
 	{"dynamiclight_add",PF_NoSSQC,			PF_cs_addlight,		305,	PF_NoMenu, D("float(vector org, float radius, vector lightcolours, optional float style, optional string cubemapname, optional float pflags)", "Adds a temporary dlight, ready to be drawn via addscene. Cubemap orientation will be read from v_forward/v_right/v_up.")},// (EXT_CSQC)
 	{"R_BeginPolygon",	PF_NoSSQC,			PF_R_PolygonBegin,	306,	PF_R_PolygonBegin,	306, D("void(string texturename, optional float flags, optional float is2d)", "Specifies the shader to use for the following polygons, along with optional flags.\nIf is2d, the polygon will be drawn as soon as the EndPolygon call is made, rather than waiting for renderscene. This allows complex 2d effects.")},// (EXT_CSQC_???)
 	{"R_PolygonVertex",	PF_NoSSQC,			PF_R_PolygonVertex,	307,	PF_R_PolygonVertex,	307, D("void(vector org, vector texcoords, vector rgb, float alpha)", "Specifies a polygon vertex with its various properties.")},// (EXT_CSQC_???)
 	{"R_EndPolygon",	PF_NoSSQC,			PF_R_PolygonEnd,	308,	PF_R_PolygonEnd,	308, D("void()", "Ends the current polygon. At least 3 verticies must have been specified. You do not need to call beginpolygon if you wish to draw another polygon with the same shader.")},
-	{"getproperty",		PF_NoSSQC,			PF_m_getproperty,	309,	PF_m_getproperty,	309, D("#define getviewprop getproperty\n__variant(float property)", "Retrieve a currently-set (typically view) property, allowing you to read the current viewport or other things. Due to cheat protection, certain values may be unretrievable.")},// (EXT_CSQC_1)
-//	{"unproject",		PF_NoSSQC,			PF_cl_unproject,	310,	PF_NoMenu, D("vector (vector v)", "Transform a 2d screen-space point (with depth) into a 3d world-space point, according the various origin+angle+fov etc settings set via setproperty.")},// (EXT_CSQC)
-//	{"project",			PF_NoSSQC,			PF_cl_project,		311,	PF_NoMenu, D("vector (vector v)", "Transform a 3d world-space point into a 2d screen-space point, according the various origin+angle+fov etc settings set via setproperty.")},// (EXT_CSQC)
+	{"getproperty",		PF_NoSSQC,			PF_cl_getproperty,	309,	PF_cl_getproperty,	309, D("#define getviewprop getproperty\n__variant(float property)", "Retrieve a currently-set (typically view) property, allowing you to read the current viewport or other things. Due to cheat protection, certain values may be unretrievable.")},// (EXT_CSQC_1)
+	{"unproject",		PF_NoSSQC,			PF_cl_unproject,	310,	PF_NoMenu, D("vector (vector v)", "Transform a 2d screen-space point (with depth) into a 3d world-space point, according the various origin+angle+fov etc settings set via setproperty.")},// (EXT_CSQC)
+	{"project",			PF_NoSSQC,			PF_cl_project,		311,	PF_NoMenu, D("vector (vector v)", "Transform a 3d world-space point into a 2d screen-space point, according the various origin+angle+fov etc settings set via setproperty.")},// (EXT_CSQC)
 //	{"drawtextfield",	PF_NoSSQC,			PF_FullCSQCOnly,	0,		PF_NoMenu, D("void(vector pos, vector size, float alignflags, string text)", "Draws a multi-line block of text, including word wrapping and alignment. alignflags bits are RTLB, typically 3.")},// (EXT_CSQC)
 //	{"drawline",		PF_NoSSQC,			PF_FullCSQCOnly,	315,	PF_NoMenu, D("void(float width, vector pos1, vector pos2, vector rgb, float alpha, optional float drawflag)", "Draws a 2d line between the two 2d points.")},// (EXT_CSQC)
 	{"iscachedpic",		PF_NoSSQC,			PF_cl_iscachedpic,	316,	PF_cl_iscachedpic,451,		D("float(string name)", "Checks to see if the image is currently loaded. Engines might lie, or cache between maps.")},// (EXT_CSQC)

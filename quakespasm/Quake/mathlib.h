@@ -94,6 +94,12 @@ void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3]);
 void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4]);
 void RotatePointAroundVector( vec3_t dst, const vec3_t dir, const vec3_t point, float degrees );
 
+void Matrix4_Transform4(const mat4_t matrix, const vec4_t vector, vec4_t product);
+void Matrix4_Multiply(const mat4_t a, const mat4_t b, mat4_t out);
+qboolean Matrix4_Invert(const mat4_t m, mat4_t out);
+void Matrix4_ViewMatrix(const vec3_t viewangles, const vec3_t vieworg, mat4_t out);
+void Matrix4_ProjectionMatrix(float fovx, float fovy, float neard, float fard, qboolean d3d, float xskew, float yskew, mat4_t out);
+
 void FloorDivMod (double numer, double denom, int *quotient,
 		int *rem);
 fixed16_t Invert24To16(fixed16_t val);

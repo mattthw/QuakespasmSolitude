@@ -466,13 +466,13 @@ GL_SetFrustum -- johnfitz -- written to replace MYgluPerspective
 */
 #define NEARCLIP 4
 float frustum_skew = 0.0; //used by r_stereo
-void GL_SetFrustum(float fovx, float fovy)
+/*void GL_SetFrustum(float fovx, float fovy)
 {
 	float xmax, ymax;
 	xmax = NEARCLIP * tan( fovx * M_PI / 360.0 );
 	ymax = NEARCLIP * tan( fovy * M_PI / 360.0 );
 	glFrustum(-xmax + frustum_skew, xmax + frustum_skew, -ymax, ymax, NEARCLIP, gl_farclip.value);
-}
+}*/
 
 /*
 =============
@@ -485,7 +485,6 @@ void R_SetupGL (void)
 
 	//johnfitz -- rewrote this section
 	glMatrixMode(GL_PROJECTION);
-    glLoadIdentity ();
 	scale =  CLAMP(1, (int)r_scale.value, 4); // ericw -- see R_ScaleView
 	glViewport (glx + r_refdef.vrect.x,
 				gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height,
@@ -493,7 +492,19 @@ void R_SetupGL (void)
 				r_refdef.vrect.height / scale);
 	//johnfitz
 
-    GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
+	#if 1
+	{
+		mat4_t mat;
+		Matrix4_ProjectionMatrix(r_fovx, r_fovy, NEARCLIP, gl_farclip.value, false, frustum_skew, 0, mat);
+		glLoadMatrixf(mat);
+
+		Matrix4_ViewMatrix(r_refdef.viewangles, r_refdef.vieworg, mat);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadMatrixf(mat);
+    }
+	#else
+	//glLoadIdentity ();
+	GL_SetFrustum (r_fovx, r_fovy); //johnfitz -- use r_fov* vars
 
 //	glCullFace(GL_BACK); //johnfitz -- glquake used CCW with backwards culling -- let's do it right
 
@@ -506,6 +517,7 @@ void R_SetupGL (void)
     glRotatef (-r_refdef.viewangles[0],  0, 1, 0);
     glRotatef (-r_refdef.viewangles[1],  0, 0, 1);
     glTranslatef (-r_refdef.vieworg[0],  -r_refdef.vieworg[1],  -r_refdef.vieworg[2]);
+    #endif
 
 	//
 	// set drawing parms

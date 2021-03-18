@@ -55,10 +55,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define PEXT1_HLBSP					0x00000200	//hint to server to avoid messy error messages
 #define PEXT1_Q2BSP					0x00020000	//hint to server to avoid messy error messages
 #define PEXT1_Q3BSP					0x00040000	//hint to server to avoid messy error messages
-//#define PEXT1_CUSTOMTEMPEFFECTS	0x00800000
-//#define PEXT1_SPLITSCREEN			0x00100000
-//#define PEXT1_SHOWPIC				0x04000000
-//#define PEXT1_CHUNKEDDOWNLOADS		0x20000000
+//#define PEXT1_CUSTOMTEMPEFFECTS	0x00800000	//favour csqc instead.
+//#define PEXT1_SPLITSCREEN			0x00100000	//too much hassle for not enough users.
+//#define PEXT1_SHOWPIC				0x04000000	//favour csqc instead.
+//#define PEXT1_CHUNKEDDOWNLOADS	0x20000000	//favour DP's download protocol instead. its simpler and better established (though doesn't cope with packetloss so well).
 #define PEXT1_CSQC					0x40000000	//(full)csqc additions, required for csqc ents+events.
 #define PEXT1_ACCEPTED_CLIENT		(PEXT1_SUPPORTED_CLIENT|PEXT1_Q3BSP|PEXT1_Q2BSP|PEXT1_HLBSP)	//pext1 flags that we can accept from a server (aka: partial support)
 #define PEXT1_SUPPORTED_CLIENT		(PEXT1_CSQC)	//pext1 flags that we advertise to servers (aka: full support)
@@ -73,7 +73,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define PEXT2_PREDINFO				0x00000020	//provides input acks and reworks stats such that clc_clientdata becomes redundant.
 #define PEXT2_NEWSIZEENCODING		0x00000040	//richer size encoding, for more precise bboxes.
 #define PEXT2_INFOBLOBS				0x00000080	//unbounded userinfo
-#define PEXT2_ACCEPTED_CLIENT		(PEXT2_SUPPORTED_CLIENT|PEXT2_NEWSIZEENCODING|PEXT2_PRYDONCURSOR|PEXT2_INFOBLOBS)	//pext2 flags that we can parse, but don't want to advertise
+#define PEXT2_ACCEPTED_CLIENT		(PEXT2_SUPPORTED_CLIENT|PEXT2_NEWSIZEENCODING|PEXT2_PRYDONCURSOR|PEXT2_INFOBLOBS)	//pext2 flags that we can parse, but don't want to advertise (for demos)
 #define PEXT2_SUPPORTED_CLIENT		(PEXT2_SETANGLEDELTA|PEXT2_VOICECHAT|PEXT2_REPLACEMENTDELTAS|PEXT2_MAXPLAYERS|PEXT2_PREDINFO)	//pext2 flags that we understand+support
 #define PEXT2_SUPPORTED_SERVER		(                    PEXT2_VOICECHAT|PEXT2_REPLACEMENTDELTAS                 |PEXT2_PREDINFO)
 

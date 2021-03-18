@@ -586,3 +586,288 @@ fixed16_t Invert24To16(fixed16_t val)
 			(((double)0x10000 * (double)0x1000000 / (double)val) + 0.5);
 }
 
+/*
+===================
+Various 4*4 matrix functions.
+===================
+*/
+void Matrix4_Transform4(const mat4_t matrix, const vec4_t vector, vec4_t product)
+{
+	product[0] = matrix[0]*vector[0] + matrix[4]*vector[1] + matrix[8]*vector[2] + matrix[12]*vector[3];
+	product[1] = matrix[1]*vector[0] + matrix[5]*vector[1] + matrix[9]*vector[2] + matrix[13]*vector[3];
+	product[2] = matrix[2]*vector[0] + matrix[6]*vector[1] + matrix[10]*vector[2] + matrix[14]*vector[3];
+	product[3] = matrix[3]*vector[0] + matrix[7]*vector[1] + matrix[11]*vector[2] + matrix[15]*vector[3];
+}
+void Matrix4_Multiply(const mat4_t a, const mat4_t b, mat4_t out)
+{
+	out[0]  = a[0] * b[0] + a[4] * b[1] + a[8] * b[2] + a[12] * b[3];
+	out[1]  = a[1] * b[0] + a[5] * b[1] + a[9] * b[2] + a[13] * b[3];
+	out[2]  = a[2] * b[0] + a[6] * b[1] + a[10] * b[2] + a[14] * b[3];
+	out[3]  = a[3] * b[0] + a[7] * b[1] + a[11] * b[2] + a[15] * b[3];
+
+	out[4]  = a[0] * b[4] + a[4] * b[5] + a[8] * b[6] + a[12] * b[7];
+	out[5]  = a[1] * b[4] + a[5] * b[5] + a[9] * b[6] + a[13] * b[7];
+	out[6]  = a[2] * b[4] + a[6] * b[5] + a[10] * b[6] + a[14] * b[7];
+	out[7]  = a[3] * b[4] + a[7] * b[5] + a[11] * b[6] + a[15] * b[7];
+
+	out[8]  = a[0] * b[8] + a[4] * b[9] + a[8] * b[10] + a[12] * b[11];
+	out[9]  = a[1] * b[8] + a[5] * b[9] + a[9] * b[10] + a[13] * b[11];
+	out[10] = a[2] * b[8] + a[6] * b[9] + a[10] * b[10] + a[14] * b[11];
+	out[11] = a[3] * b[8] + a[7] * b[9] + a[11] * b[10] + a[15] * b[11];
+
+	out[12] = a[0] * b[12] + a[4] * b[13] + a[8] * b[14] + a[12] * b[15];
+	out[13] = a[1] * b[12] + a[5] * b[13] + a[9] * b[14] + a[13] * b[15];
+	out[14] = a[2] * b[12] + a[6] * b[13] + a[10] * b[14] + a[14] * b[15];
+	out[15] = a[3] * b[12] + a[7] * b[13] + a[11] * b[14] + a[15] * b[15];
+}
+/*
+ * Compute inverse of 4x4 transformation matrix.
+ * Code contributed by Jacques Leroy jle@star.be
+ * Return true for success, false for failure (singular matrix)
+ * Spike: This comes from mesa's GLU.
+ */
+qboolean Matrix4_Invert(const float *m, float *out)
+{
+/* NB. OpenGL Matrices are COLUMN major. */
+#define SWAP_ROWS(a, b) { float *_tmp = a; (a)=(b); (b)=_tmp; }
+#define MAT(m,r,c) (m)[(c)*4+(r)]
+
+   float wtmp[4][8];
+   float m0, m1, m2, m3, s;
+   float *r0, *r1, *r2, *r3;
+
+   r0 = wtmp[0], r1 = wtmp[1], r2 = wtmp[2], r3 = wtmp[3];
+
+   r0[0] = MAT(m, 0, 0), r0[1] = MAT(m, 0, 1),
+      r0[2] = MAT(m, 0, 2), r0[3] = MAT(m, 0, 3),
+      r0[4] = 1.0, r0[5] = r0[6] = r0[7] = 0.0,
+      r1[0] = MAT(m, 1, 0), r1[1] = MAT(m, 1, 1),
+      r1[2] = MAT(m, 1, 2), r1[3] = MAT(m, 1, 3),
+      r1[5] = 1.0, r1[4] = r1[6] = r1[7] = 0.0,
+      r2[0] = MAT(m, 2, 0), r2[1] = MAT(m, 2, 1),
+      r2[2] = MAT(m, 2, 2), r2[3] = MAT(m, 2, 3),
+      r2[6] = 1.0, r2[4] = r2[5] = r2[7] = 0.0,
+      r3[0] = MAT(m, 3, 0), r3[1] = MAT(m, 3, 1),
+      r3[2] = MAT(m, 3, 2), r3[3] = MAT(m, 3, 3),
+      r3[7] = 1.0, r3[4] = r3[5] = r3[6] = 0.0;
+
+   /* choose pivot - or die */
+   if (fabs(r3[0]) > fabs(r2[0]))
+      SWAP_ROWS(r3, r2)
+   if (fabs(r2[0]) > fabs(r1[0]))
+      SWAP_ROWS(r2, r1)
+   if (fabs(r1[0]) > fabs(r0[0]))
+      SWAP_ROWS(r1, r0)
+   if (0.0 == r0[0])
+      return false;
+
+   /* eliminate first variable     */
+   m1 = r1[0] / r0[0];
+   m2 = r2[0] / r0[0];
+   m3 = r3[0] / r0[0];
+   s = r0[1];
+   r1[1] -= m1 * s;
+   r2[1] -= m2 * s;
+   r3[1] -= m3 * s;
+   s = r0[2];
+   r1[2] -= m1 * s;
+   r2[2] -= m2 * s;
+   r3[2] -= m3 * s;
+   s = r0[3];
+   r1[3] -= m1 * s;
+   r2[3] -= m2 * s;
+   r3[3] -= m3 * s;
+   s = r0[4];
+   if (s != 0.0) {
+      r1[4] -= m1 * s;
+      r2[4] -= m2 * s;
+      r3[4] -= m3 * s;
+   }
+   s = r0[5];
+   if (s != 0.0) {
+      r1[5] -= m1 * s;
+      r2[5] -= m2 * s;
+      r3[5] -= m3 * s;
+   }
+   s = r0[6];
+   if (s != 0.0) {
+      r1[6] -= m1 * s;
+      r2[6] -= m2 * s;
+      r3[6] -= m3 * s;
+   }
+   s = r0[7];
+   if (s != 0.0) {
+      r1[7] -= m1 * s;
+      r2[7] -= m2 * s;
+      r3[7] -= m3 * s;
+   }
+
+   /* choose pivot - or die */
+   if (fabs(r3[1]) > fabs(r2[1]))
+      SWAP_ROWS(r3, r2)
+   if (fabs(r2[1]) > fabs(r1[1]))
+      SWAP_ROWS(r2, r1)
+   if (0.0 == r1[1])
+      return false;
+
+   /* eliminate second variable */
+   m2 = r2[1] / r1[1];
+   m3 = r3[1] / r1[1];
+   r2[2] -= m2 * r1[2];
+   r3[2] -= m3 * r1[2];
+   r2[3] -= m2 * r1[3];
+   r3[3] -= m3 * r1[3];
+   s = r1[4];
+   if (0.0 != s) {
+      r2[4] -= m2 * s;
+      r3[4] -= m3 * s;
+   }
+   s = r1[5];
+   if (0.0 != s) {
+      r2[5] -= m2 * s;
+      r3[5] -= m3 * s;
+   }
+   s = r1[6];
+   if (0.0 != s) {
+      r2[6] -= m2 * s;
+      r3[6] -= m3 * s;
+   }
+   s = r1[7];
+   if (0.0 != s) {
+      r2[7] -= m2 * s;
+      r3[7] -= m3 * s;
+   }
+
+   /* choose pivot - or die */
+   if (fabs(r3[2]) > fabs(r2[2]))
+      SWAP_ROWS(r3, r2)
+   if (0.0 == r2[2])
+      return false;
+
+   /* eliminate third variable */
+   m3 = r3[2] / r2[2];
+   r3[3] -= m3 * r2[3], r3[4] -= m3 * r2[4],
+      r3[5] -= m3 * r2[5], r3[6] -= m3 * r2[6], r3[7] -= m3 * r2[7];
+
+   /* last check */
+   if (0.0 == r3[3])
+      return false;
+
+   s = 1.0 / r3[3];             /* now back substitute row 3 */
+   r3[4] *= s;
+   r3[5] *= s;
+   r3[6] *= s;
+   r3[7] *= s;
+
+   m2 = r2[3];                  /* now back substitute row 2 */
+   s = 1.0 / r2[2];
+   r2[4] = s * (r2[4] - r3[4] * m2), r2[5] = s * (r2[5] - r3[5] * m2),
+      r2[6] = s * (r2[6] - r3[6] * m2), r2[7] = s * (r2[7] - r3[7] * m2);
+   m1 = r1[3];
+   r1[4] -= r3[4] * m1, r1[5] -= r3[5] * m1,
+      r1[6] -= r3[6] * m1, r1[7] -= r3[7] * m1;
+   m0 = r0[3];
+   r0[4] -= r3[4] * m0, r0[5] -= r3[5] * m0,
+      r0[6] -= r3[6] * m0, r0[7] -= r3[7] * m0;
+
+   m1 = r1[2];                  /* now back substitute row 1 */
+   s = 1.0 / r1[1];
+   r1[4] = s * (r1[4] - r2[4] * m1), r1[5] = s * (r1[5] - r2[5] * m1),
+      r1[6] = s * (r1[6] - r2[6] * m1), r1[7] = s * (r1[7] - r2[7] * m1);
+   m0 = r0[2];
+   r0[4] -= r2[4] * m0, r0[5] -= r2[5] * m0,
+      r0[6] -= r2[6] * m0, r0[7] -= r2[7] * m0;
+
+   m0 = r0[1];                  /* now back substitute row 0 */
+   s = 1.0 / r0[0];
+   r0[4] = s * (r0[4] - r1[4] * m0), r0[5] = s * (r0[5] - r1[5] * m0),
+      r0[6] = s * (r0[6] - r1[6] * m0), r0[7] = s * (r0[7] - r1[7] * m0);
+
+   MAT(out, 0, 0) = r0[4];
+   MAT(out, 0, 1) = r0[5], MAT(out, 0, 2) = r0[6];
+   MAT(out, 0, 3) = r0[7], MAT(out, 1, 0) = r1[4];
+   MAT(out, 1, 1) = r1[5], MAT(out, 1, 2) = r1[6];
+   MAT(out, 1, 3) = r1[7], MAT(out, 2, 0) = r2[4];
+   MAT(out, 2, 1) = r2[5], MAT(out, 2, 2) = r2[6];
+   MAT(out, 2, 3) = r2[7], MAT(out, 3, 0) = r3[4];
+   MAT(out, 3, 1) = r3[5], MAT(out, 3, 2) = r3[6];
+   MAT(out, 3, 3) = r3[7];
+
+   return true;
+
+#undef MAT
+#undef SWAP_ROWS
+}
+
+//FIXME: use these instead of all the glRotate etc calls, because why not.
+void Matrix4_ViewMatrix(const vec3_t viewangles, const vec3_t vieworg, mat4_t out)
+{	//directly compute an opengl view matrix. this is not the same as a model matrix (in part because the values are all negated).
+	float cp = cos(-viewangles[0] * M_PI / 180.0);
+	float sp = sin(-viewangles[0] * M_PI / 180.0);
+	float cy = cos(-viewangles[1] * M_PI / 180.0);
+	float sy = sin(-viewangles[1] * M_PI / 180.0);
+	float cr = cos(-viewangles[2] * M_PI / 180.0);
+	float sr = sin(-viewangles[2] * M_PI / 180.0);
+
+	out[0]  = sr*sp*cy - cr*sy;
+	out[1]  = -cr*sp*cy + sr*sy;
+	out[2]  = -cp*cy;
+	out[3]  = 0;
+	out[4]  = -cr*cy - sr*sp*sy;
+	out[5]  = sr*cy + cr*sp*sy;
+	out[6]  = cp*sy;
+	out[7]  = 0;
+	out[8]  = -sr*cp;
+	out[9]  = cr*cp;
+	out[10] = -sp;
+	out[11] = 0;
+	out[12] =   - out[0]*vieworg[0] - out[4]*vieworg[1] - out[ 8]*vieworg[2];
+	out[13] =   - out[1]*vieworg[0] - out[5]*vieworg[1] - out[ 9]*vieworg[2];
+	out[14] =   - out[2]*vieworg[0] - out[6]*vieworg[1] - out[10]*vieworg[2];
+	out[15] = 1 - out[3]*vieworg[0] - out[7]*vieworg[1] - out[11]*vieworg[2];
+}
+//computes an orthographic projection matrix (mostly equivelent to glFrustum)
+void Matrix4_ProjectionMatrix(float fovx, float fovy, float neard, float fard, qboolean d3d, float xskew, float yskew, mat4_t out)
+{
+	double xmin, xmax, ymin, ymax;
+	double dn = (d3d?0:-1), df = 1;
+
+	xmax = neard * tan( fovx * M_PI / 360.0 );
+	xmin = -xmax;
+	ymax = neard * tan( fovy * M_PI / 360.0 );
+	ymin = -ymax;
+
+	xmax += xskew;	//this stuff for r_stereo
+	xmin += xskew;
+	ymax += yskew;
+	ymin += yskew;
+
+	out[0] = (2*neard) / (xmax - xmin);
+	out[4] = 0;
+	out[8] = (xmax + xmin) / (xmax - xmin);
+	out[12] = 0;
+
+	out[1] = 0;
+	out[5] = (2*neard) / (ymax - ymin);
+	out[9] = (ymax + ymin) / (ymax - ymin);
+	out[13] = 0;
+
+	out[2] = 0;
+	out[6] = 0;
+	if (fard < neard)
+	{	//fiddle with the far clip plane to make it rather large
+		const double epsilon = 1.0/(1<<22);
+		out[10] = epsilon-1;
+		out[14] = (epsilon-(df-dn))*neard;
+	}
+	else
+	{
+		out[10] = (fard*df-neard*dn)/(neard-fard);
+		out[14] = ((df-dn)*fard*neard)/(neard-fard);
+	}
+
+	out[3] = 0;
+	out[7] = 0;
+	out[11] = -1;
+	out[15] = 0;
+}
