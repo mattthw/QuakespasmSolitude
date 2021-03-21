@@ -579,12 +579,8 @@ static void CL_EntitiesDeltaed(void)
 		VectorCopy (ent->msg_origins[0], ent->msg_origins[1]);
 		VectorCopy (ent->msg_angles[0], ent->msg_angles[1]);
 
-		ent->msg_origins[0][0] = ent->netstate.origin[0];
-		ent->msg_angles[0][0] = ent->netstate.angles[0];
-		ent->msg_origins[0][1] = ent->netstate.origin[1];
-		ent->msg_angles[0][1] = ent->netstate.angles[1];
-		ent->msg_origins[0][2] = ent->netstate.origin[2];
-		ent->msg_angles[0][2] = ent->netstate.angles[2];
+		VectorCopy (ent->netstate.origin, ent->msg_origins[0]);
+		VectorCopy (ent->netstate.angles, ent->msg_angles[0]);
 
 		//johnfitz -- lerping for movetype_step entities
 		if (ent->netstate.eflags & EFLAGS_STEP)
@@ -1573,7 +1569,12 @@ static void CL_ParseUpdate (int bits)
 	//johnfitz
 
 	ent->msgtime = cl.mtime[0];
-	ent->netstate = ent->baseline;
+
+	//copy the baseline into the netstate for the rest of the code to use.
+	//do NOT copy the origin/angles values, so we don't forget them when hipnotic sends a random pointless fastupdate[playerent] at us with its angles. this way our deltas won't forget it.
+	//we don't worry too much about extension stuff going stale, because mods tend not to know about that stuff anyway.
+#define netstate_start offsetof(entity_state_t, scale)
+	memcpy((char*)&ent->netstate + offsetof(entity_state_t, modelindex), (const char*)&ent->baseline + offsetof(entity_state_t, modelindex), sizeof(ent->baseline) - offsetof(entity_state_t, modelindex));
 
 	if (bits & U_MODEL)
 	{
