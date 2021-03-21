@@ -799,9 +799,8 @@ qboolean Matrix4_Invert(const float *m, float *out)
 #undef SWAP_ROWS
 }
 
-//FIXME: use these instead of all the glRotate etc calls, because why not.
 void Matrix4_ViewMatrix(const vec3_t viewangles, const vec3_t vieworg, mat4_t out)
-{	//directly compute an opengl view matrix. this is not the same as a model matrix (in part because the values are all negated).
+{	//directly compute a view matrix. this is not the same as a model matrix (in part because the values are all negated).
 	float cp = cos(-viewangles[0] * M_PI / 180.0);
 	float sp = sin(-viewangles[0] * M_PI / 180.0);
 	float cy = cos(-viewangles[1] * M_PI / 180.0);
@@ -809,15 +808,15 @@ void Matrix4_ViewMatrix(const vec3_t viewangles, const vec3_t vieworg, mat4_t ou
 	float cr = cos(-viewangles[2] * M_PI / 180.0);
 	float sr = sin(-viewangles[2] * M_PI / 180.0);
 
-	out[0]  = sr*sp*cy - cr*sy;
+	out[0]  = -sr*sp*cy - cr*sy;
 	out[1]  = -cr*sp*cy + sr*sy;
 	out[2]  = -cp*cy;
 	out[3]  = 0;
-	out[4]  = -cr*cy - sr*sp*sy;
-	out[5]  = sr*cy + cr*sp*sy;
+	out[4]  = sr*sp*sy - cr*cy;
+	out[5]  = cr*sp*sy + sr*cy;
 	out[6]  = cp*sy;
 	out[7]  = 0;
-	out[8]  = -sr*cp;
+	out[8]  = sr*cp;
 	out[9]  = cr*cp;
 	out[10] = -sp;
 	out[11] = 0;
