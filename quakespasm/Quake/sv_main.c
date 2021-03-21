@@ -1061,7 +1061,7 @@ sendremove:
 		if ((size_t)msg->cursize + 2 > origmaxsize)
 		{
 			msg->cursize = rollbacksize;	//roll back
-			client->pendingentities_bits[entnum] |= logbits;	//make sure those bits get re-applied later.
+			client->pendingcsqcentities_bits[entnum] |= logbits;	//make sure those bits get re-applied later.
 			break;
 		}
 
