@@ -1710,6 +1710,7 @@ void SV_SendServerinfo (client_t *client)
 	char			message[2048];
 	unsigned int	i; //johnfitz
 	qboolean cantruncate;
+	qboolean truncated = false;
 
 	SV_VoiceInitClient(client);
 
@@ -1731,7 +1732,7 @@ void SV_SendServerinfo (client_t *client)
 	{
 		MSG_WriteByte (&client->message, svc_stufftext);
 		MSG_WriteString (&client->message, "cmd pext\n");
-		client->sendsignon = true;
+		client->sendsignon = PRESPAWN_FLUSH;
 		return;
 	}
 	client->protocol_pext1 &= sv_protocol_pext1;
@@ -1748,7 +1749,7 @@ void SV_SendServerinfo (client_t *client)
 	if (sv.protocol != PROTOCOL_NETQUAKE || client->protocol_pext2)
 	{
 		client->limit_unreliable = DATAGRAM_MTU;//some safe ethernet limit. these clients should accept pretty much anything, but any routers will not.
-		client->limit_reliable = MAX_DATAGRAM;	//quite large, ip allows 16 bits
+		client->limit_reliable = NET_MAXMESSAGE;	//quite large, ip allows 16 bits
 		client->limit_entities = qcvm->max_edicts;	//we don't really know, 8k is probably a save guess but could be 32k, 65k, or even more...
 		client->limit_models = MAX_MODELS;		//not really sure, client's problem until >14bits
 		client->limit_sounds = MAX_SOUNDS;		//not really sure, client's problem until >14bits
@@ -1756,7 +1757,7 @@ void SV_SendServerinfo (client_t *client)
 		if (!Q_strcmp(NET_QSocketGetTrueAddressString(client->netconnection), "LOCAL"))
 		{	//override some other limits for localhost, because we can probably get away with it.
 			//only do this if we're using extensions, so we don't break demos
-			client->limit_unreliable = client->limit_reliable = MAX_DATAGRAM;
+//			client->limit_unreliable = client->limit_reliable = NET_MAXMESSAGE;
 		}
 	}
 	if (client->limit_entities > 0x8000 && !(client->protocol_pext2 & PEXT2_REPLACEMENTDELTAS))
@@ -1846,10 +1847,15 @@ retry:
 	for (i=1,s = sv.model_precache+1 ; *s && i < client->limit_models; s++,i++)
 		MSG_WriteString (&client->message, *s);
 	MSG_WriteByte (&client->message, 0);
+	client->signon_models = i;
 
-	for (i=1,s = sv.sound_precache+1 ; *s && i < client->limit_sounds; s++,i++)
+	//Spike: if we have svc_precache then use it for sounds. this reduces the stress on the serverinfo message size.
+	if (host_client->protocol_pext2 && truncated)
+		i=1;	//we tried, it didn't fit.
+	else for (i=1, s = sv.sound_precache+1 ; *s && i < client->limit_sounds; s++,i++)
 		MSG_WriteString (&client->message, *s);
 	MSG_WriteByte (&client->message, 0);
+	client->signon_sounds = i;
 	//johnfitz
 
 	if (svs.serverinfo)
@@ -1880,21 +1886,25 @@ retry:
 	MSG_WriteByte (&client->message, svc_setview);
 	MSG_WriteShort (&client->message, NUM_FOR_EDICT(client->edict));
 
-	MSG_WriteByte (&client->message, svc_signonnum);
-	MSG_WriteByte (&client->message, 1);
+	MSG_WriteByte (&host_client->message, svc_signonnum);
+	MSG_WriteByte (&host_client->message, 1);
 
-	client->sendsignon = true;
+	client->sendsignon = PRESPAWN_FLUSH;
 
 	SVFTE_SetupFrames(client);
 
-	if (client->message.overflowed && client->limit_sounds > 64 && cantruncate)
+	if (client->message.overflowed && client->limit_models > 64 && cantruncate)
 	{
-		if (client->limit_models > client->limit_sounds)
-			client->limit_models /= 2;
-		else
-			client->limit_sounds /= 2;
+		if (!host_client->protocol_pext2 || truncated)
+		{	//first time around we can just drop sounds completely, filling them in later.
+			//theoretically we can do the same with models too, but we don't entirely trust clients to handle lightmaps properly when its external bmodels.
+			if (client->limit_models > client->limit_sounds || host_client->protocol_pext2)
+				client->limit_models /= 2;
+			else
+				client->limit_sounds /= 2;
+		}
 		SZ_Clear(&client->message);
-		Con_Printf("Serverinfo too large for %s, truncating.\n", NET_QSocketGetTrueAddressString(client->netconnection));
+		truncated = true;
 		goto retry;
 	}
 
@@ -1905,9 +1915,12 @@ retry:
 		{
 			SZ_Clear (&client->message);
 			client->last_message = realtime;
-			client->sendsignon = false;
+			client->sendsignon = PRESPAWN_DONE;
 		}
 	}
+
+	if (truncated)
+		Con_Printf("Protocol limitation (serverinfo) for %s\n", NET_QSocketGetTrueAddressString(client->netconnection));
 
 	//protocol 15 is too limited. let people know that they'll get a crappy experience.
 	if (client->limit_entities <= (unsigned)qcvm->num_edicts)
@@ -1917,25 +1930,27 @@ retry:
 		MSG_WriteByte (&client->message, 2);
 		MSG_WriteString (&client->message, "WARNING: ");
 		MSG_WriteByte (&client->message, svc_print);
-		MSG_WriteString (&client->message, "The protocol in use is too limited. You will not be able to see all entities\n");
+		MSG_WriteString (&client->message, va("The protocol in use is too limited. You will not be able to see all entities (%i / %i)\n", client->limit_entities, qcvm->num_edicts));
 	}
 	if (client->limit_models < MAX_MODELS && sv.model_precache[client->limit_models])
 	{
-		Con_Warning("Protocol limitation (models) for %s\n", NET_QSocketGetTrueAddressString(client->netconnection));
+		for (i = client->limit_models; sv.model_precache[i]; i++);
+		Con_Warning("Protocol limitation (models) for %s (%i / %i)\n", NET_QSocketGetTrueAddressString(client->netconnection), client->limit_models, i);
 		MSG_WriteByte (&client->message, svc_print);
 		MSG_WriteByte (&client->message, 2);
 		MSG_WriteString (&client->message, "WARNING: ");
 		MSG_WriteByte (&client->message, svc_print);
-		MSG_WriteString (&client->message, "The protocol in use is too limited. You will not be able to see all models\n");
+		MSG_WriteString (&client->message, va("The protocol in use is too limited. You will not be able to see all models (%i / %i)\n", client->limit_models, i));
 	}
 	if (client->limit_sounds < MAX_SOUNDS && sv.sound_precache[client->limit_sounds])
 	{
+		for (i = client->limit_sounds; sv.sound_precache[i]; i++);
 		Con_Warning("Protocol limitation (sounds) for %s\n", NET_QSocketGetTrueAddressString(client->netconnection));
 		MSG_WriteByte (&client->message, svc_print);
 		MSG_WriteByte (&client->message, 2);
 		MSG_WriteString (&client->message, "WARNING: ");
 		MSG_WriteByte (&client->message, svc_print);
-		MSG_WriteString (&client->message, "The protocol in use is too limited. You will not be able to hear all sounds\n");
+		MSG_WriteString (&client->message, va("The protocol in use is too limited. You will not be able to hear all sounds (%i / %i)\n", client->limit_sounds, i));
 	}
 }
 
@@ -2852,13 +2867,54 @@ void SV_SendNop (client_t *client)
 	client->last_message = realtime;
 }
 
+qboolean SV_SendPrespawnModelPrecaches(void)
+{
+	return false;
+	size_t maxsize = host_client->message.maxsize;	//we can go quite large
+	int idx = host_client->signon_models;
+	if (!host_client->protocol_pext2)
+		return false;	//unsupported by this client.
+	for (;idx < host_client->limit_models;idx++)
+	{
+		if (!sv.model_precache[idx])
+			continue;
+		if (host_client->message.cursize + 4+strlen(sv.model_precache[idx]) > maxsize)
+			break;
+		MSG_WriteByte(&host_client->message, svcdp_precache);
+		MSG_WriteShort(&host_client->message, 0x0000 | idx);
+		MSG_WriteString(&host_client->message, sv.model_precache[idx]);
+	}
+	host_client->signon_models = idx;
+	return idx < host_client->limit_models;
+}
+qboolean SV_SendPrespawnSoundPrecaches(void)
+{
+	int idx = host_client->signon_sounds;
+	size_t maxsize = host_client->message.maxsize;	//we can go quite large
+	if (!host_client->protocol_pext2)
+		return false;	//unsupported by this client...
+	for (;idx < host_client->limit_sounds;idx++)
+	{
+		if (!sv.sound_precache[idx])
+			continue;
+		if (host_client->message.cursize + 4+strlen(sv.sound_precache[idx]) > maxsize)
+			break;
+		MSG_WriteByte(&host_client->message, svcdp_precache);
+		MSG_WriteShort(&host_client->message, 0x8000 | idx);
+		MSG_WriteString(&host_client->message, sv.sound_precache[idx]);
+	}
+	host_client->signon_sounds = idx;
+	return idx < host_client->limit_sounds;
+}
 int SV_SendPrespawnParticlePrecaches(int idx)
 {
 	size_t maxsize = host_client->message.maxsize;	//we can go quite large
 	if (!host_client->protocol_pext2)
 		return -1;	//unsupported by this client.
-	for (; idx < MAX_PARTICLETYPES; idx++)
+	for (;;idx++)
 	{
+		if (idx == MAX_PARTICLETYPES)
+			return -1;
 		if (!sv.particle_precache[idx])
 			continue;
 		if (host_client->message.cursize + 4+strlen(sv.particle_precache[idx]) > maxsize)
@@ -2867,8 +2923,6 @@ int SV_SendPrespawnParticlePrecaches(int idx)
 		MSG_WriteShort(&host_client->message, 0x4000 | idx);
 		MSG_WriteString(&host_client->message, sv.particle_precache[idx]);
 	}
-	if (idx == MAX_PARTICLETYPES)
-		return -1;
 	return idx;
 }
 int SV_SendPrespawnStatics(int idx)
@@ -2992,7 +3046,41 @@ void SV_SendClientMessages (void)
 					SV_SendNop (host_client);
 				continue;	// don't send out non-signon messages
 			}
-			if (host_client->sendsignon == 2)
+			/*if (host_client->sendsignon == PRESPAWN_SERVERINFO)
+			{
+				const char *pre = "//fullserverinfo \"";
+				if (host_client->message.cursize + 4+strlen(pre)+strlen(svs.serverinfo) <= host_client->message.maxsize)
+				{
+					if (svs.serverinfo)
+					{
+						MSG_WriteByte (&host_client->message, svc_stufftext);
+						SZ_Write (&host_client->message, pre, Q_strlen(pre));
+						SZ_Write (&host_client->message, svs.serverinfo, Q_strlen(svs.serverinfo));
+						MSG_WriteString(&host_client->message, "\"\n");
+					}
+					MSG_WriteByte (&host_client->message, svc_signonnum);
+					MSG_WriteByte (&host_client->message, 1);
+					host_client->signonidx = 0;
+					host_client->sendsignon++;
+				}
+			}*/
+			if (host_client->sendsignon == PRESPAWN_MODELS)
+			{
+				if (!SV_SendPrespawnModelPrecaches())
+				{
+					host_client->signonidx = 0;
+					host_client->sendsignon++;
+				}
+			}
+			if (host_client->sendsignon == PRESPAWN_SOUNDS)
+			{
+				if (!SV_SendPrespawnSoundPrecaches())
+				{
+					host_client->signonidx = 0;
+					host_client->sendsignon++;
+				}
+			}
+			if (host_client->sendsignon == PRESPAWN_PARTICLES)
 			{
 				host_client->signonidx = SV_SendPrespawnParticlePrecaches(host_client->signonidx);
 				if (host_client->signonidx < 0)
@@ -3001,7 +3089,7 @@ void SV_SendClientMessages (void)
 					host_client->sendsignon++;
 				}
 			}
-			if (host_client->sendsignon == 3)
+			if (host_client->sendsignon == PRESPAWN_BASELINES)
 			{
 				host_client->signonidx = SV_SendPrespawnBaselines(host_client->signonidx);
 				if (host_client->signonidx < 0)
@@ -3010,7 +3098,7 @@ void SV_SendClientMessages (void)
 					host_client->sendsignon++;
 				}
 			}
-			if (host_client->sendsignon == 4)
+			if (host_client->sendsignon == PRESPAWN_STATICS)
 			{
 				host_client->signonidx = SV_SendPrespawnStatics(host_client->signonidx);
 				if (host_client->signonidx < 0)
@@ -3019,7 +3107,7 @@ void SV_SendClientMessages (void)
 					host_client->sendsignon++;
 				}
 			}
-			if (host_client->sendsignon == 5)
+			if (host_client->sendsignon == PRESPAWN_AMBIENTS)
 			{
 				host_client->signonidx = SV_SendAmbientSounds(host_client->signonidx);
 				if (host_client->signonidx < 0)
@@ -3028,14 +3116,14 @@ void SV_SendClientMessages (void)
 					host_client->sendsignon++;
 				}
 			}
-			if (host_client->sendsignon == 6)
+			if (host_client->sendsignon == PRESPAWN_SIGNONMSG)
 			{
 				if (host_client->message.cursize+sv.signon.cursize+2 < host_client->message.maxsize)
 				{
 					SZ_Write (&host_client->message, sv.signon.data, sv.signon.cursize);
 					MSG_WriteByte (&host_client->message, svc_signonnum);
 					MSG_WriteByte (&host_client->message, 2);
-					host_client->sendsignon = true;
+					host_client->sendsignon = PRESPAWN_FLUSH;
 				}
 			}
 		}
@@ -3067,8 +3155,8 @@ void SV_SendClientMessages (void)
 					SV_DropClient (false);	// if the message couldn't send, kick off
 				SZ_Clear (&host_client->message);
 				host_client->last_message = realtime;
-				if (host_client->sendsignon == true)
-					host_client->sendsignon = false;
+				if (host_client->sendsignon == PRESPAWN_FLUSH)
+					host_client->sendsignon = PRESPAWN_DONE;
 			}
 		}
 	}

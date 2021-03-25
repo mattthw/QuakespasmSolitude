@@ -111,8 +111,22 @@ typedef struct client_s
 	qboolean		active;				// false = client is free
 	qboolean		spawned;			// false = don't send datagrams (set when client acked the first entities)
 	qboolean		dropasap;			// has been told to go to another level
-	int				sendsignon;			// only valid before spawned
+	enum
+	{
+		PRESPAWN_DONE,
+		PRESPAWN_FLUSH=1,
+//		PRESPAWN_SERVERINFO,
+		PRESPAWN_MODELS,
+		PRESPAWN_SOUNDS,
+		PRESPAWN_PARTICLES,
+		PRESPAWN_BASELINES,
+		PRESPAWN_STATICS,
+		PRESPAWN_AMBIENTS,
+		PRESPAWN_SIGNONMSG,
+	}				sendsignon;			// only valid before spawned
 	int				signonidx;
+	unsigned int	signon_sounds;		//
+	unsigned int	signon_models;		//
 
 	double			last_message;		// reliable messages must be sent
 										// periodically
