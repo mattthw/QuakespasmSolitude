@@ -7958,6 +7958,11 @@ void PR_DumpPlatform_f(void)
 			"#endif\n"
 			);
 	}
+	fprintf(f,
+		"#ifndef QSSDEP\n"
+			"#define QSSDEP(reason) __deprecated(reason)\n"
+		"#endif\n"
+	);
 
 	fprintf(f, "\n\n//List of advertised extensions\n");
 	for (i = 0; i < countof(qcextensions); i++)
@@ -8252,11 +8257,13 @@ void PR_DumpPlatform_f(void)
 		fprintf(f, "const float VF_DRAWWORLD = %i;", VF_DRAWWORLD);
 		fprintf(f, "const float VF_DRAWENGINESBAR = %i;", VF_DRAWENGINESBAR);
 		fprintf(f, "const float VF_DRAWCROSSHAIR = %i;", VF_DRAWCROSSHAIR);
+		fprintf(f, "QSSDEP(\"Query only\") const float VF_MINDIST = %i;", VF_MINDIST);
+		fprintf(f, "QSSDEP(\"Query only\") const float VF_MAXDIST = %i;", VF_MAXDIST);
 		fprintf(f, "const float VF_CL_VIEWANGLES = %i;", VF_CL_VIEWANGLES);
 		fprintf(f, "const float VF_CL_VIEWANGLES_X = %i;", VF_CL_VIEWANGLES_X);
 		fprintf(f, "const float VF_CL_VIEWANGLES_Y = %i;", VF_CL_VIEWANGLES_Y);
 		fprintf(f, "const float VF_CL_VIEWANGLES_Z = %i;", VF_CL_VIEWANGLES_Z);
-		fprintf(f, "const float VF_ACTIVESEAT = %i; //stub", VF_ACTIVESEAT);
+		fprintf(f, "const float VF_ACTIVESEAT = %i; //stub - must only be set to 0", VF_ACTIVESEAT);
 		fprintf(f, "const float VF_AFOV = %i;", VF_AFOV);
 		fprintf(f, "const float VF_SCREENVSIZE = %i;", VF_SCREENVSIZE);
 		fprintf(f, "const float VF_SCREENPSIZE = %i;", VF_SCREENPSIZE);
