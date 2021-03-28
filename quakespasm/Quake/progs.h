@@ -139,6 +139,7 @@ int NUM_FOR_EDICT(edict_t *e);
 extern	int		type_size[8];
 
 FUNC_NORETURN void PR_RunError (const char *error, ...) FUNC_PRINTF(1,2);
+void PR_RunWarning (const char *error, ...) FUNC_PRINTF(1,2);
 #ifdef __WATCOMC__
 #pragma aux PR_RunError aborts;
 #endif

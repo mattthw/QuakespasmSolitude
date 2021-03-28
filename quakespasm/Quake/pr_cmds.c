@@ -661,6 +661,12 @@ static void PF_sound (void)
 	volume = G_FLOAT(OFS_PARM3) * 255;
 	attenuation = G_FLOAT(OFS_PARM4);
 
+	if (!*sample)
+	{
+		PR_RunWarning("PF_sound: empty string\n");
+		return;
+	}
+
 /*	Spike -- these checks are redundant
 	if (volume < 0 || volume > 255)
 		Host_Error ("SV_StartSound: volume = %i", volume);
