@@ -196,7 +196,7 @@ typedef struct client_s
 		struct
 		{
 			unsigned int num;
-			unsigned int bits;
+			unsigned int ebits;
 			unsigned int csqcbits;
 		} *ents;
 		int numents;	//doesn't contain an entry for every entity, just ones that were sent this frame. no 0 bits

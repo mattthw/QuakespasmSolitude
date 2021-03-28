@@ -666,8 +666,12 @@ static void SVFTE_DroppedFrame(client_t *client, int sequence)
 	}
 	//flag their various entities as needing a resend too.
 	for (i = 0; i < frame->numents; i++)
-		client->pendingentities_bits[frame->ents[i].num] |= frame->ents[i].bits;
-
+	{
+		if (frame->ents[i].ebits)
+			client->pendingentities_bits[frame->ents[i].num] |= frame->ents[i].ebits;
+		if (frame->ents[i].csqcbits)
+			client->pendingcsqcentities_bits[frame->ents[i].num] |= frame->ents[i].csqcbits;
+	}
 }
 void SVFTE_Ack(client_t *client, int sequence)
 {	//any gaps in the sequence need to considered dropped
@@ -831,7 +835,7 @@ static void SVFTE_CalcEntityDeltas(client_t *client)
 		else if (olds==oldstop || (news!=newstop && news->num < olds->num))
 		{
 			//new ent is new this frame, so reset everything.
-			client->pendingentities_bits[news->num] = UF_RESET | UF_RESET2;
+			client->pendingentities_bits[news->num] = UF_RESET;
 			//don't need to calc the other bits here, resets are enough
 			news++;
 		}
@@ -863,7 +867,7 @@ static void SVFTE_CalcEntityDeltas(client_t *client)
 static void SVFTE_WriteEntitiesToClient(client_t *client, sizebuf_t *msg, size_t overflowsize)
 {
 	struct entity_num_state_s *state, *stateend;
-	unsigned int bits, logbits;
+	unsigned int entbits, logbits, netbits;
 	size_t entnum;
 	int sequence = NET_QSocketGetSequenceOut(client->netconnection);
 	size_t origmaxsize = msg->maxsize;
@@ -885,14 +889,14 @@ static void SVFTE_WriteEntitiesToClient(client_t *client, sizebuf_t *msg, size_t
 	MSG_WriteFloat(msg, frame->timestamp);	//should be the time the last physics frame was run.
 	for (entnum = client->snapshotresume; entnum < client->numpendingentities; entnum++)
 	{
-		bits = client->pendingentities_bits[entnum];
-		if (!(bits & ~UF_RESET2))
+		entbits = client->pendingentities_bits[entnum];
+		if (!(entbits & ~UF_RESET2))
 			continue;	//nothing to send (if reset2 is still set, then leave it pending until there's more data
 
 		rollbacksize = msg->cursize;
 		client->pendingentities_bits[entnum] = 0;
 		logbits = 0;
-		if (bits & UF_REMOVE)
+		if (entbits & UF_REMOVE)
 		{
 			if (entnum > 0x3fff)
 			{
@@ -909,23 +913,23 @@ static void SVFTE_WriteEntitiesToClient(client_t *client, sizebuf_t *msg, size_t
 				state++;
 			if (state<stateend && state->num == entnum)
 			{
-				if (bits & UF_RESET2)
+				if (entbits & UF_RESET2)
 				{
 					/*if reset2, then this is the second packet sent to the client and should have a forced reset (but which isn't tracked)*/
-					logbits = bits & ~(UF_RESET|UF_RESET2);
-					bits = UF_RESET | MSGFTE_DeltaCalcBits(&EDICT_NUM(entnum)->baseline, &state->state);
-//					Con_Printf("RESET2 %i @ %i\n", j, sequence);
+					logbits = entbits & ~(UF_RESET|UF_RESET2);
+					netbits = UF_RESET | MSGFTE_DeltaCalcBits(&EDICT_NUM(entnum)->baseline, &state->state);
+//					Con_Printf("RESET2 %u @ %i\n", (int)entnum, sequence);
 				}
-				else if (bits & UF_RESET)
+				else if (entbits & UF_RESET)
 				{
 					/*flag the entity for the next packet, so we always get two resets when it appears, to reduce the effects of packetloss on seeing rockets etc*/
 					client->pendingentities_bits[entnum] = UF_RESET2;
-					bits = UF_RESET | MSGFTE_DeltaCalcBits(&EDICT_NUM(entnum)->baseline, &state->state);
+					netbits = UF_RESET | MSGFTE_DeltaCalcBits(&EDICT_NUM(entnum)->baseline, &state->state);
 					logbits = UF_RESET;
-//					Con_Printf("RESET %i @ %i\n", j, sequence);
+//					Con_Printf("RESET %u @ %i\n", (int)entnum, sequence);
 				}
 				else
-					logbits = bits;
+					logbits = netbits = entbits;
 
 				if (entnum >= 0x4000)
 				{
@@ -935,14 +939,14 @@ static void SVFTE_WriteEntitiesToClient(client_t *client, sizebuf_t *msg, size_t
 				else
 					MSG_WriteShort(msg, entnum);
 //				SV_EmitDeltaEntIndex(msg, j, false, true);
-				MSGFTE_WriteEntityUpdate(bits, &state->state, msg, client->protocol_pext2, sv.protocolflags);
+				MSGFTE_WriteEntityUpdate(netbits, &state->state, msg, client->protocol_pext2, sv.protocolflags);
 			}
 		}
 
 		if ((size_t)msg->cursize + 2 > origmaxsize)
 		{
 			msg->cursize = rollbacksize;	//roll back
-			client->pendingentities_bits[entnum] |= logbits;	//make sure those bits get re-applied later.
+			client->pendingentities_bits[entnum] = entbits;	//make sure those bits get re-applied later.
 			break;
 		}
 		if (frame->numents == frame->maxents)
@@ -951,7 +955,7 @@ static void SVFTE_WriteEntitiesToClient(client_t *client, sizebuf_t *msg, size_t
 			frame->ents = realloc(frame->ents, sizeof(*frame->ents)*frame->maxents);
 		}
 		frame->ents[frame->numents].num = entnum;
-		frame->ents[frame->numents].bits = logbits;
+		frame->ents[frame->numents].ebits = logbits;
 		frame->ents[frame->numents].csqcbits = 0;
 		frame->numents++;
 	}
@@ -1073,7 +1077,7 @@ sendremove:
 				frame->ents = realloc(frame->ents, sizeof(*frame->ents)*frame->maxents);
 			}
 			frame->ents[frame->numents].num = entnum;
-			frame->ents[frame->numents].bits = 0;
+			frame->ents[frame->numents].ebits = 0;
 			frame->ents[frame->numents].csqcbits = logbits;
 			frame->numents++;
 		}
