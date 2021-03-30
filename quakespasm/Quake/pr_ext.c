@@ -3780,13 +3780,15 @@ static void PF_WasFreed(void)
 static void PF_copyentity(void)
 {
 	edict_t *src = G_EDICT(OFS_PARM0);
-	edict_t *dst = G_EDICT(OFS_PARM1);
+	edict_t *dst = (qcvm->argc<2)?ED_Alloc():G_EDICT(OFS_PARM1);
 	if (src->free || dst->free)
 		Con_Printf("PF_copyentity: entity is free\n");
-	memcpy(&dst->v, &src->v, qcvm->edict_size - sizeof(edict_t));
+	memcpy(&dst->v, &src->v, qcvm->edict_size - sizeof(entvars_t));
 	dst->alpha = src->alpha;
 	dst->sendinterval = src->sendinterval;
 	SV_LinkEdict(dst, false);
+
+	G_INT(OFS_RETURN) = EDICT_TO_PROG(dst);
 }
 static void PF_edict_for_num(void)
 {
