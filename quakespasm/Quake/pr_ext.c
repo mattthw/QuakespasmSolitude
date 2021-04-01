@@ -5557,6 +5557,7 @@ static void PF_cl_sendevent(void)
 	const char *eventargs = G_STRING(OFS_PARM1);
 	int a;
 	eval_t *val;
+	edict_t *ed;
 
 	MSG_WriteByte(&cls.message, clcfte_qcrequest);
 	for (a = 2; a < 8 && *eventargs; a++, eventargs++)
@@ -5582,8 +5583,9 @@ static void PF_cl_sendevent(void)
 			MSG_WriteFloat(&cls.message, G_FLOAT(OFS_PARM0+a*3+2));
 			break;
 		case 'e':
+			ed = G_EDICT(OFS_PARM0+a*3);
 			MSG_WriteByte(&cls.message, ev_entity);
-			val = GetEdictFieldValue(host_client->edict, ED_FindFieldOffset("entnum"));	//we need to transmit the SERVER's number, the client's number is meaningless to it.
+			val = GetEdictFieldValue(ed, ED_FindFieldOffset("entnum"));	//we need to transmit the SERVER's number, the client's number is meaningless to it.
 			MSG_WriteEntity(&cls.message, val?val->_float:0, cl.protocol_pext2);
 			break;
 		}
