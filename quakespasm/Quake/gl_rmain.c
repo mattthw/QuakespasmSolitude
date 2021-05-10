@@ -484,7 +484,10 @@ void R_SetupGL (void)
 	int scale;
 
 	//johnfitz -- rewrote this section
-	scale =  CLAMP(1, (int)r_scale.value, 4); // ericw -- see R_ScaleView
+	if (!r_refdef.drawworld)
+		scale = 1;	//don't rescale. we can't handle rescaling transparent parts.
+	else
+		scale =  CLAMP(1, (int)r_scale.value, 4); // ericw -- see R_ScaleView
 	glViewport (glx + r_refdef.vrect.x,
 				gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height,
 				r_refdef.vrect.width / scale,
@@ -1062,7 +1065,7 @@ void R_ScaleView (void)
 	srcw = r_refdef.vrect.width / scale;
 	srch = r_refdef.vrect.height / scale;
 
-	if (scale == 1)
+	if (scale == 1 || !r_refdef.drawworld)
 		return;
 
 	// make sure texture unit 0 is selected
