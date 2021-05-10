@@ -2786,6 +2786,15 @@ static void PF_cl_soundlength(void)
 			G_FLOAT(OFS_RETURN) = (double)sc->length / sc->speed;
 	}
 }
+static void PF_cl_localsound(void)
+{
+	const char *sample = G_STRING(OFS_PARM0);
+	float channel = (qcvm->argc>1)?G_FLOAT(OFS_PARM1):-1;
+	float volume = (qcvm->argc>2)?G_FLOAT(OFS_PARM2):1;
+
+	//FIXME: svc_setview or map changes can break sound replacements here.
+	S_StartSound(cl.viewentity, channel, S_PrecacheSound(sample), vec3_origin, volume, 0);
+}
 
 //file stuff
 
@@ -6997,6 +7006,7 @@ static struct
 	{"strzone",			PF_strzone,			PF_strzone,			118, PF_strzone,56,		D("string(string s, ...)", "Create a semi-permanent copy of a string that only becomes invalid once strunzone is called on the string (instead of when the engine assumes your string has left scope).")},	// (FRIK_FILE)
 	{"strunzone",		PF_strunzone,		PF_strunzone,		119, PF_strunzone,57,	D("void(string s)", "Destroys a string that was allocated by strunzone. Further references to the string MAY crash the game.")},	// (FRIK_FILE)
 	{"tokenize_menuqc",	PF_Tokenize,		PF_Tokenize,		0,	PF_Tokenize,58, "float(string s)"},
+	{"localsound",		PF_NoSSQC,			PF_cl_localsound,	177,	PF_cl_localsound,65, D("void(string soundname, optional float channel, optional float volume)", "Plays a sound... locally... probably best not to call this from ssqc. Also disables reverb.")},//	#177
 //	{"getmodelindex",	PF_getmodelindex,	PF_getmodelindex,	200,	PF_NoMenu, D("float(string modelname, optional float queryonly)", "Acts as an alternative to precache_model(foo);setmodel(bar, foo); return bar.modelindex;\nIf queryonly is set and the model was not previously precached, the builtin will return 0 without needlessly precaching the model.")},
 //	{"externcall",		PF_externcall,		PF_externcall,		201,	PF_NoMenu, D("__variant(float prnum, string funcname, ...)", "Directly call a function in a different/same progs by its name.\nprnum=0 is the 'default' or 'main' progs.\nprnum=-1 means current progs.\nprnum=-2 will scan through the active progs and will use the first it finds.")},
 //	{"addprogs",		PF_addprogs,		PF_addprogs,		202,	PF_NoMenu, D("float(string progsname)", "Loads an additional .dat file into the current qcvm. The returned handle can be used with any of the externcall/externset/externvalue builtins.\nThere are cvars that allow progs to be loaded automatically.")},
