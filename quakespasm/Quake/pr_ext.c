@@ -7498,14 +7498,14 @@ static void PF_checkextension(void)
 				extern unsigned int sv_protocol_pext1;
 				extern unsigned int sv_protocol_pext2;
 				extern cvar_t cl_nopext;
-				if (sv.active)
+				if (sv.active || qcvm == &sv.qcvm)
 				{	//server or client+server
 					prot = sv_protocol;
 					pext1 = sv_protocol_pext1;
 					pext2 = sv_protocol_pext2;
 
 					//if the server seems to be set up for singleplayer then filter by client settings. otherwise just assume the best.
-					if (!isDedicated && svs.maxclients == 1 && !cl_nopext.value)
+					if (!isDedicated && svs.maxclients == 1 && cl_nopext.value)
 						pext1 = pext2 = 0;
 				}
 				else if (cls.state == ca_connected)
