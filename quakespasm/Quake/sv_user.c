@@ -450,6 +450,10 @@ void SV_ReadClientMove (usercmd_t *move)
 	vec3_t	angle;
 	int		buttonbits;
 	int		newimpulse;
+	unsigned int inweapon;
+	float curs_screen[2];
+	vec3_t curs_start, curs_impact;
+	unsigned int curs_entity;
 	eval_t *eval;
 	qboolean drop = false;
 	float timestamp;
@@ -484,8 +488,23 @@ void SV_ReadClientMove (usercmd_t *move)
 	movevalues[0] = MSG_ReadShort ();
 	movevalues[1] = MSG_ReadShort ();
 	movevalues[2] = MSG_ReadShort ();
-	buttonbits = MSG_ReadByte();
+	if (host_client->protocol_pext2 & PEXT2_PRYDONCURSOR)
+		buttonbits = MSG_ReadLong();
+	else
+		buttonbits = MSG_ReadByte();
 	newimpulse = MSG_ReadByte();
+
+	inweapon = (buttonbits & (1u<<30))?MSG_ReadLong():0;
+	curs_screen[0] = (buttonbits & (1u<<31))?MSG_ReadShort()/32767.0:0;
+	curs_screen[1] = (buttonbits & (1u<<31))?MSG_ReadShort()/32767.0:0;
+	curs_start[0] = (buttonbits & (1u<<31))?MSG_ReadFloat():0;
+	curs_start[1] = (buttonbits & (1u<<31))?MSG_ReadFloat():0;
+	curs_start[2] = (buttonbits & (1u<<31))?MSG_ReadFloat():0;
+	curs_impact[0] = (buttonbits & (1u<<31))?MSG_ReadFloat():0;
+	curs_impact[1] = (buttonbits & (1u<<31))?MSG_ReadFloat():0;
+	curs_impact[2] = (buttonbits & (1u<<31))?MSG_ReadFloat():0;
+	curs_entity = (buttonbits & (1u<<31))?MSG_ReadEntity(host_client->protocol_pext2):0;
+	buttonbits &= ~((1u<<30)|(1u<<31));
 
 	if (drop)
 		return;	//okay, we don't care about that then
@@ -559,17 +578,20 @@ void SV_ReadClientMove (usercmd_t *move)
 		if (qcvm->extglobals.input_impulse)
 			*qcvm->extglobals.input_impulse = newimpulse;
 		if (qcvm->extglobals.input_movevalues)
-		{
-			qcvm->extglobals.input_movevalues[0] = movevalues[0];
-			qcvm->extglobals.input_movevalues[1] = movevalues[1];
-			qcvm->extglobals.input_movevalues[2] = movevalues[2];
-		}
+			VectorCopy(movevalues, qcvm->extglobals.input_movevalues);
 		if (qcvm->extglobals.input_angles)
-		{
-			qcvm->extglobals.input_angles[0] = angle[0];
-			qcvm->extglobals.input_angles[1] = angle[1];
-			qcvm->extglobals.input_angles[2] = angle[2];
-		}
+			VectorCopy(angle, qcvm->extglobals.input_angles);
+		if (qcvm->extglobals.input_weapon)
+			*qcvm->extglobals.input_weapon = inweapon;
+		if (qcvm->extglobals.input_cursor_screen)
+			qcvm->extglobals.input_cursor_screen[0] = curs_screen[0], qcvm->extglobals.input_cursor_screen[1] = curs_screen[1];
+		if (qcvm->extglobals.input_cursor_trace_start)
+			VectorCopy(curs_start, qcvm->extglobals.input_cursor_trace_start);
+		if (qcvm->extglobals.input_cursor_trace_endpos)
+			VectorCopy(curs_impact, qcvm->extglobals.input_cursor_trace_endpos);
+		if (qcvm->extglobals.input_cursor_entitynumber)
+			*qcvm->extglobals.input_cursor_entitynumber = curs_entity;
+
 		pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
 		PR_ExecuteProgram(qcvm->extfuncs.SV_RunClientCommand);
 

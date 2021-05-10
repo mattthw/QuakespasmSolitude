@@ -415,6 +415,7 @@ void CL_SendMove (const usercmd_t *cmd)
 	if (cmd)
 	{
 		int dump = buf.cursize;
+		unsigned int bits = cmd->buttons;
 
 	//
 	// send the movement message
@@ -457,25 +458,38 @@ void CL_SendMove (const usercmd_t *cmd)
 		MSG_WriteShort (&buf, cmd->sidemove);
 		MSG_WriteShort (&buf, cmd->upmove);
 
-
-		if (cl.protocol == PROTOCOL_VERSION_DP7)
+		if (cl.protocol_pext2 & PEXT2_PRYDONCURSOR)
 		{
-			MSG_WriteLong (&buf, cmd->buttons);
-			MSG_WriteByte (&buf, cmd->impulse);
-			MSG_WriteShort(&buf, 32767);//cursor x
-			MSG_WriteShort(&buf, 32767);//cursor y
-			MSG_WriteFloat(&buf, r_refdef.vieworg[0]);	//start (view pos)
-			MSG_WriteFloat(&buf, r_refdef.vieworg[1]);
-			MSG_WriteFloat(&buf, r_refdef.vieworg[2]);
-			MSG_WriteFloat(&buf, r_refdef.vieworg[0]);	//impact
-			MSG_WriteFloat(&buf, r_refdef.vieworg[1]);
-			MSG_WriteFloat(&buf, r_refdef.vieworg[2]);
-			MSG_WriteShort(&buf, 0);	//entity
+			if (cmd->weapon)
+				bits |= (1u<<30);
+			if (cmd->cursor_screen[0] || cmd->cursor_screen[1] ||
+				cmd->cursor_start[0] || cmd->cursor_start[1] || cmd->cursor_start[2] ||
+				cmd->cursor_impact[0] || cmd->cursor_impact[1] || cmd->cursor_impact[2] ||
+				cmd->cursor_entitynumber)
+				bits |= (1u<<31);
+			MSG_WriteLong (&buf, bits);
+		}
+		else if (cl.protocol == PROTOCOL_VERSION_DP7)
+		{
+			MSG_WriteLong (&buf, bits);
+			bits |= (1u<<31);
 		}
 		else
+			MSG_WriteByte (&buf, bits);
+		MSG_WriteByte (&buf, cmd->impulse);
+		if (bits & (1u<<30))
+			MSG_WriteLong (&buf, cmd->weapon);
+		if (bits & (1u<<31))
 		{
-			MSG_WriteByte (&buf, cmd->buttons);
-			MSG_WriteByte (&buf, cmd->impulse);
+			MSG_WriteShort(&buf, cmd->cursor_screen[0] * 32767);
+			MSG_WriteShort(&buf, cmd->cursor_screen[1] * 32767);
+			MSG_WriteFloat(&buf, cmd->cursor_start[0]);	//start (view pos)
+			MSG_WriteFloat(&buf, cmd->cursor_start[1]);
+			MSG_WriteFloat(&buf, cmd->cursor_start[2]);
+			MSG_WriteFloat(&buf, cmd->cursor_impact[0]);	//impact
+			MSG_WriteFloat(&buf, cmd->cursor_impact[1]);
+			MSG_WriteFloat(&buf, cmd->cursor_impact[2]);
+			MSG_WriteEntity(&buf, cmd->cursor_entitynumber, cl.protocol_pext2);
 		}
 		in_impulse = 0;
 

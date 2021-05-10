@@ -73,9 +73,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define PEXT2_PREDINFO				0x00000020	//provides input acks and reworks stats such that clc_clientdata becomes redundant.
 #define PEXT2_NEWSIZEENCODING		0x00000040	//richer size encoding, for more precise bboxes.
 #define PEXT2_INFOBLOBS				0x00000080	//unbounded userinfo
-#define PEXT2_ACCEPTED_CLIENT		(PEXT2_SUPPORTED_CLIENT|PEXT2_NEWSIZEENCODING|PEXT2_PRYDONCURSOR|PEXT2_INFOBLOBS)	//pext2 flags that we can parse, but don't want to advertise (for demos)
-#define PEXT2_SUPPORTED_CLIENT		(PEXT2_SETANGLEDELTA|PEXT2_VOICECHAT|PEXT2_REPLACEMENTDELTAS|PEXT2_MAXPLAYERS|PEXT2_PREDINFO)	//pext2 flags that we understand+support
-#define PEXT2_SUPPORTED_SERVER		(                    PEXT2_VOICECHAT|PEXT2_REPLACEMENTDELTAS                 |PEXT2_PREDINFO)
+#define PEXT2_ACCEPTED_CLIENT		(PEXT2_SUPPORTED_CLIENT|PEXT2_NEWSIZEENCODING|PEXT2_INFOBLOBS)	//pext2 flags that we can parse, but don't want to advertise (for demos)
+#define PEXT2_SUPPORTED_CLIENT		(PEXT2_PRYDONCURSOR|PEXT2_VOICECHAT|PEXT2_SETANGLEDELTA|PEXT2_REPLACEMENTDELTAS|PEXT2_MAXPLAYERS|PEXT2_PREDINFO)	//pext2 flags that we understand+support
+#define PEXT2_SUPPORTED_SERVER		(PEXT2_PRYDONCURSOR|PEXT2_VOICECHAT|                    PEXT2_REPLACEMENTDELTAS                 |PEXT2_PREDINFO)
 
 // if the high bit of the servercmd is set, the low bits are fast update flags:
 #define	U_MOREBITS		(1<<0)
@@ -477,6 +477,14 @@ typedef struct
 	unsigned int	impulse;
 
 	unsigned int	sequence;
+
+
+	int		weapon;
+	//prydon cursor crap
+	float	cursor_screen[2];	//-1 to 1
+	vec3_t	cursor_start;		//world coord
+	vec3_t	cursor_impact;		//world coord
+	int		cursor_entitynumber;//usually 0
 } usercmd_t;
 
 #endif	/* _QUAKE_PROTOCOL_H */

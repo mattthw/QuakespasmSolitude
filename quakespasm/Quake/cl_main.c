@@ -1202,6 +1202,17 @@ void CL_CSQC_SetInputs(usercmd_t *cmd, qboolean set)
 			*qcvm->extglobals.input_buttons = cmd->buttons;
 		if (qcvm->extglobals.input_impulse)
 			*qcvm->extglobals.input_impulse = cmd->impulse;
+
+		if (qcvm->extglobals.input_weapon)
+			*qcvm->extglobals.input_weapon = cmd->weapon;
+		if (qcvm->extglobals.input_cursor_screen)
+			qcvm->extglobals.input_cursor_screen[0] = cmd->cursor_screen[0], qcvm->extglobals.input_cursor_screen[1] = cmd->cursor_screen[1];
+		if (qcvm->extglobals.input_cursor_trace_start)
+			VectorCopy(cmd->cursor_start, qcvm->extglobals.input_cursor_trace_start);
+		if (qcvm->extglobals.input_cursor_trace_endpos)
+			VectorCopy(cmd->cursor_impact, qcvm->extglobals.input_cursor_trace_endpos);
+		if (qcvm->extglobals.input_cursor_entitynumber)
+			*qcvm->extglobals.input_cursor_entitynumber = cmd->cursor_entitynumber;
 	}
 	else
 	{
@@ -1219,6 +1230,17 @@ void CL_CSQC_SetInputs(usercmd_t *cmd, qboolean set)
 			cmd->buttons = *qcvm->extglobals.input_buttons;
 		if (qcvm->extglobals.input_impulse)
 			cmd->impulse = *qcvm->extglobals.input_impulse;
+
+		if (qcvm->extglobals.input_weapon)
+			cmd->weapon = *qcvm->extglobals.input_weapon;
+		if (qcvm->extglobals.input_cursor_screen)
+			cmd->cursor_screen[0] = qcvm->extglobals.input_cursor_screen[0], cmd->cursor_screen[1] = qcvm->extglobals.input_cursor_screen[1];
+		if (qcvm->extglobals.input_cursor_trace_start)
+			VectorCopy(qcvm->extglobals.input_cursor_trace_start, cmd->cursor_start);
+		if (qcvm->extglobals.input_cursor_trace_endpos)
+			VectorCopy(qcvm->extglobals.input_cursor_trace_endpos, cmd->cursor_impact);
+		if (qcvm->extglobals.input_cursor_entitynumber)
+			cmd->cursor_entitynumber = *qcvm->extglobals.input_cursor_entitynumber;
 	}
 }
 
@@ -1252,7 +1274,7 @@ void CL_SendCmd (void)
 		PR_SwitchQCVM(&cl.qcvm);
 		CL_CSQC_SetInputs(&cmd, true);
 		PR_ExecuteProgram(cl.qcvm.extfuncs.CSQC_Input_Frame);
-//		CL_CSQC_SetInputs(&cmd, false);
+		CL_CSQC_SetInputs(&cmd, false);
 		PR_SwitchQCVM(NULL);
 	}
 

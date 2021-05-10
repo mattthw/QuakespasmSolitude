@@ -224,6 +224,11 @@ struct pr_extglobals_s
 	QCEXTGLOBAL_VECTOR(input_angles)\
 	QCEXTGLOBAL_FLOAT(input_buttons)\
 	QCEXTGLOBAL_FLOAT(input_impulse)\
+	QCEXTGLOBAL_INT(input_weapon)\
+	QCEXTGLOBAL_VECTOR(input_cursor_screen)\
+	QCEXTGLOBAL_VECTOR(input_cursor_trace_start)\
+	QCEXTGLOBAL_VECTOR(input_cursor_trace_endpos)\
+	QCEXTGLOBAL_FLOAT(input_cursor_entitynumber)\
 	QCEXTGLOBAL_FLOAT(physics_mode)\
 	//end
 #define QCEXTGLOBALS_CSQC \
@@ -239,11 +244,13 @@ struct pr_extglobals_s
 	QCEXTGLOBAL_FLOAT(servercommandframe)\
 	//end
 #define QCEXTGLOBAL_FLOAT(n) float *n;
+#define QCEXTGLOBAL_INT(n) int *n;
 #define QCEXTGLOBAL_VECTOR(n) float *n;
 	QCEXTGLOBALS_COMMON
 	QCEXTGLOBALS_GAME
 	QCEXTGLOBALS_CSQC
 #undef QCEXTGLOBAL_FLOAT
+#undef QCEXTGLOBAL_INT
 #undef QCEXTGLOBAL_VECTOR
 };
 
