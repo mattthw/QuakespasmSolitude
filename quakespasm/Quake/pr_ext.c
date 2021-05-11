@@ -7499,6 +7499,8 @@ static void PF_checkextension(void)
 {
 	const char *extname = G_STRING(OFS_PARM0);
 	unsigned int i;
+	cvar_t *v;
+	char *cvn;
 	for (i = 0; i < countof(qcextensions); i++)
 	{
 		if (!strcmp(extname, qcextensions[i].name))
@@ -7539,6 +7541,19 @@ static void PF_checkextension(void)
 					G_FLOAT(OFS_RETURN) = false;
 					return;
 				}
+			}
+
+			cvn = va("pr_ext_%s", qcextensions[i].name);
+			for (i = 0; cvn[i]; i++)
+				if (cvn[i] >= 'A' && cvn[i] <= 'Z')
+					cvn[i] = 'a' + (cvn[i]-'A');
+			v = Cvar_Create(cvn, "1");
+			if (v && !v->value)
+			{
+				if (!pr_checkextension.value)
+					Con_Printf("Mod queried extension %s, but blocked by cvar\n", extname);
+				G_FLOAT(OFS_RETURN) = false;
+				return;
 			}
 			if (!pr_checkextension.value)
 				Con_Printf("Mod found extension %s\n", extname);
