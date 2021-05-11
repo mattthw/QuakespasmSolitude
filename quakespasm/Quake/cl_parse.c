@@ -242,7 +242,16 @@ static unsigned int CLFTE_ReadDelta(unsigned int entnum, entity_state_t *news, c
 	else if (!olds)
 	{
 		/*reset got lost, probably the data will be filled in later - FIXME: we should probably ignore this entity*/
-		Con_DPrintf("New entity %i without reset\n", entnum);
+		if (sv.active)
+		{	//for extra debug info
+			qcvm_t *old = qcvm;
+			qcvm = NULL;
+			PR_SwitchQCVM(&sv.qcvm);
+			Con_DPrintf("New entity %i(%s / %s) without reset\n", entnum, PR_GetString(EDICT_NUM(entnum)->v.classname), PR_GetString(EDICT_NUM(entnum)->v.model));
+			PR_SwitchQCVM(old);
+		}
+		else
+			Con_DPrintf("New entity %i without reset\n", entnum);
 		*news = nullentitystate;
 	}
 	else
@@ -555,17 +564,28 @@ static void CL_EntitiesDeltaed(void)
 		if (!ent->update_type)
 			continue;	//not interested in this one
 
-		if (ent->msgtime != cl.mtime[1])
-			forcelink = true;	// no previous frame to lerp from
+		if (ent->msgtime == cl.mtime[0])
+			forcelink = false;	//update got fragmented, don't dirty anything.
 		else
-			forcelink = false;
+		{
+			if (ent->msgtime != cl.mtime[1])
+				forcelink = true;	// no previous frame to lerp from
+			else
+				forcelink = false;
 
-		//johnfitz -- lerping
-		if (ent->msgtime + 0.2 < cl.mtime[0]) //more than 0.2 seconds since the last message (most entities think every 0.1 sec)
-			ent->lerpflags |= LERP_RESETANIM; //if we missed a think, we'd be lerping from the wrong frame
+			//johnfitz -- lerping
+			if (ent->msgtime + 0.2 < cl.mtime[0]) //more than 0.2 seconds since the last message (most entities think every 0.1 sec)
+				ent->lerpflags |= LERP_RESETANIM; //if we missed a think, we'd be lerping from the wrong frame
 
-		ent->msgtime = cl.mtime[0];
+			ent->msgtime = cl.mtime[0];
 
+		// shift the known values for interpolation
+			VectorCopy (ent->msg_origins[0], ent->msg_origins[1]);
+			VectorCopy (ent->msg_angles[0], ent->msg_angles[1]);
+
+			VectorCopy (ent->netstate.origin, ent->msg_origins[0]);
+			VectorCopy (ent->netstate.angles, ent->msg_angles[0]);
+		}
 		skin = ent->netstate.skin;
 		if (skin != ent->skinnum)
 		{
@@ -574,13 +594,6 @@ static void CL_EntitiesDeltaed(void)
 				R_TranslateNewPlayerSkin (newnum - 1); //johnfitz -- was R_TranslatePlayerSkin
 		}
 		ent->effects = ent->netstate.effects;
-
-	// shift the known values for interpolation
-		VectorCopy (ent->msg_origins[0], ent->msg_origins[1]);
-		VectorCopy (ent->msg_angles[0], ent->msg_angles[1]);
-
-		VectorCopy (ent->netstate.origin, ent->msg_origins[0]);
-		VectorCopy (ent->netstate.angles, ent->msg_angles[0]);
 
 		//johnfitz -- lerping for movetype_step entities
 		if (ent->netstate.eflags & EFLAGS_STEP)
