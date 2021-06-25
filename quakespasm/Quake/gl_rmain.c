@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 
 #include "quakedef.h"
+#include "glquake.h"
 
 qboolean	r_cache_thrash;		// compatability
 
@@ -727,7 +728,7 @@ R_DrawViewModel -- johnfitz -- gutted
 */
 void R_DrawViewModel (void)
 {
-	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value)
+	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value || skyroom_drawing/*silly depthrange*/)
 		return;
 
 	if (cl.items & IT_INVISIBILITY || cl.stats[STAT_HEALTH] <= 0)
@@ -1208,6 +1209,7 @@ void R_RenderView (void)
 			VectorAngles(axis[0], axis[2], r_refdef.viewangles);
 		}
 
+		skyroom_drawing = true;
 		R_SetupView ();
 		//note: sky boxes are generally considered an 'infinite' distance away such that you'd not see paralax.
 		//that's my excuse for not handling r_stereo here, and I'm sticking to it.
@@ -1217,6 +1219,7 @@ void R_RenderView (void)
 		VectorCopy(viewang, r_refdef.viewangles);
 		skyroom_drawn = true;	//disable glClear(GL_COLOR_BUFFER_BIT)
 	}
+	skyroom_drawing = false;
 	//skyroom end
 
 	R_SetupView (); //johnfitz -- this does everything that should be done once per frame

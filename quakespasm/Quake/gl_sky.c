@@ -35,6 +35,7 @@ extern	int rs_skypasses; //for r_speeds readout
 float	skyflatcolor[3];
 float	skymins[2][6], skymaxs[2][6];
 
+qboolean skyroom_drawing;
 qboolean skyroom_drawn;
 qboolean skyroom_enabled;
 vec4_t skyroom_origin;
@@ -1068,8 +1069,38 @@ void Sky_DrawSky (void)
 	int				i;
 
 	//in these special render modes, the sky faces are handled in the normal world/brush renderer
-	if (r_drawflat_cheatsafe || r_lightmap_cheatsafe || skyroom_drawn)
+	if (r_drawflat_cheatsafe || r_lightmap_cheatsafe)
 		return;
+
+	if (skyroom_drawn)
+	{	//Spike: We already drew a skyroom underneath. If we draw an actual sky now then we'll have wasted all that effort.
+		//however, if we fiddle with stuff, we can make sure that other surfaces don't draw over it either.
+
+		int			i;
+		msurface_t	*s;
+		texture_t	*t;
+
+		glColorMask(false,false,false,false);
+		glDisable (GL_TEXTURE_2D);
+		for (i=0 ; i<cl.worldmodel->numtextures ; i++)
+		{
+			t = cl.worldmodel->textures[i];
+
+			if (!t || !t->texturechains[chain_world] || !(t->texturechains[chain_world]->flags & SURF_DRAWSKY))
+				continue;
+
+			for (s = t->texturechains[chain_world]; s; s = s->texturechain)
+				if (!s->culled)
+				{
+					DrawGLPoly(s->polys);
+					rs_brushpasses++;
+					Sky_ProcessPoly (s->polys);
+				}
+		}
+		glEnable (GL_TEXTURE_2D);
+		glColorMask(true,true,true,true);
+		return;
+	}
 
 	//
 	// reset sky bounds
