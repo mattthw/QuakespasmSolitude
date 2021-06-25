@@ -6584,10 +6584,7 @@ static void PF_cl_setproperty(void)
 	}
 }
 
-void R_SetupView (void);
 void V_PolyBlend (void);
-void R_RenderScene (void);
-void R_ScaleView (void);
 void SCR_DrawCrosshair (void);
 float CalcFovy (float fov_x, float width, float height);
 extern cvar_t scr_fov;
@@ -6631,9 +6628,7 @@ static void PF_cl_renderscene(void)
 	if (r_refdef.vrect.width < 1 || r_refdef.vrect.height < 1)
 		return;	//can't draw nuffin...
 
-	R_SetupView ();
-	R_RenderScene ();
-	R_ScaleView();
+	R_RenderView();
 	if (r_refdef.drawworld)
 		V_PolyBlend ();
 
