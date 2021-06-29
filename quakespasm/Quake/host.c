@@ -1049,7 +1049,11 @@ void Host_Init (void)
 	NET_Init ();
 	SV_Init ();
 
+#ifdef QSS_DATE	//avoid non-determinism.
+	Con_Printf ("Exe: " ENGINE_NAME_AND_VER "\n");
+#else
 	Con_Printf ("Exe: " __TIME__ " " __DATE__ "\n");
+#endif
 	Con_Printf ("%4.1f megabyte heap\n", host_parms->memsize/ (1024*1024.0));
 
 	if (cls.state != ca_dedicated)

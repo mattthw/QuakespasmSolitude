@@ -51,6 +51,7 @@ STRIP = strip
 CPUFLAGS=
 LDFLAGS = -m32 -mwindows -Wl,--large-address-aware
 LDFLAGS += $(QSS_LDFLAGS)
+LDFLAGS += -Wl,--no-insert-timestamp   #prevent non-determinism in the exe header. mustn't be used for dlls.
 DFLAGS ?=
 CFLAGS ?= -m32 -Wall -Wno-trigraphs
 CFLAGS += $(CPUFLAGS)
