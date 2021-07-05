@@ -1157,9 +1157,9 @@ static void CL_ParseStartSoundPacket(void)
 	if (cl.protocol == PROTOCOL_VERSION_BJP3)
 		field_mask |= SND_LARGESOUND;
 
-	//spike -- extra channel flags
+	//spike -- extra flags
 	if (field_mask & SND_FTE_MOREFLAGS)
-		field_mask |= MSG_ReadByte()<<8;
+		field_mask |= MSG_ReadUInt64()<<8;
 
 	if (field_mask & SND_VOLUME)
 		volume = MSG_ReadByte ();

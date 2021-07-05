@@ -241,8 +241,9 @@ qpic_t *Draw_PicFromWad2 (const char *name, unsigned int texflags)
 		Con_SafePrintf ("W_GetLumpName: %s not found\n", name);
 		return pic_nul; //johnfitz
 	}
-	if (info->type != TYP_QPIC) Sys_Error ("Draw_PicFromWad: lump \"%s\" is not a qpic", name);
-	if (info->size < sizeof(int)*2 || 8+p->width*p->height < info->size) Sys_Error ("Draw_PicFromWad: pic \"%s\" truncated", name);
+	if (info->type != TYP_QPIC) {Con_SafePrintf ("Draw_PicFromWad: lump \"%s\" is not a qpic\n", name); return pic_nul;}
+	if (info->size < sizeof(int)*2) {Con_SafePrintf ("Draw_PicFromWad: pic \"%s\" is too small for its qpic header (%u bytes)\n", name, info->size); return pic_nul;}
+	if (8+p->width*p->height < info->size) Sys_Error ("Draw_PicFromWad: pic \"%s\" truncated (%u*%u requires %u bytes)\n", name, p->width,p->height, 8+p->width*p->height);
 
 	//Spike -- if we're loading external images, and one exists, then use that instead.
 	if (draw_load24bit && (gl.gltexture=TexMgr_LoadImage (NULL, name, 0, 0, SRC_EXTERNAL, NULL, va("gfx/%s", name), 0, texflags|TEXPREF_MIPMAP|TEXPREF_ALLOWMISSING)))
