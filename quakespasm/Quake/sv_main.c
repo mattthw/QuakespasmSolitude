@@ -2825,7 +2825,7 @@ qboolean SV_SendClientDatagram (client_t *client)
 
 	msg.allowoverflow = false;
 	msg.data = buf;
-	msg.maxsize = client->limit_unreliable;
+	msg.maxsize = q_min(sizeof(buf), client->limit_unreliable);
 	msg.cursize = 0;
 	if (client->download.file)
 		msg.maxsize /= 2;	//make sure there's space for download data
@@ -2882,7 +2882,7 @@ qboolean SV_SendClientDatagram (client_t *client)
 
 	SV_VoiceSendPacket(client, &msg);
 
-	msg.maxsize = client->limit_unreliable;
+	msg.maxsize = q_min(sizeof(buf), client->limit_unreliable);
 	Host_AppendDownloadData(client, &msg);
 
 
