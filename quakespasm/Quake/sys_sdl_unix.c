@@ -53,7 +53,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 int _newlib_heap_size_user = 256 * 1024 * 1024;
 
 #define MAX_CURDIR_PATH 512
-char cur_dir[MAX_CURDIR_PATH] = "ux0:data/EQuakespasm/";
+char cur_dir[MAX_CURDIR_PATH] = "ux0:data/Quakespasm/";
 int can_use_IME_keyboard = 1;
 char *getcwd(char *buf, size_t size) {
     if (buf != NULL) {
