@@ -24,7 +24,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern cvar_t r_drawflat;
 
+#ifndef VITA
 cvar_t r_oldwater = {"r_oldwater", "0", CVAR_ARCHIVE};
+#else
+cvar_t r_oldwater = {"r_oldwater", "1", CVAR_ARCHIVE};
+#endif
 cvar_t r_waterquality = {"r_waterquality", "8", CVAR_NONE};
 cvar_t r_waterwarp = {"r_waterwarp", "1", CVAR_NONE};
 
@@ -219,6 +223,7 @@ R_UpdateWarpTextures -- johnfitz -- each frame, update warping textures
 */
 void R_UpdateWarpTextures (void)
 {
+#ifndef VITA
 	texture_t *tx;
 	int i;
 	float x, y, x2, warptess;
@@ -269,4 +274,5 @@ void R_UpdateWarpTextures (void)
 
 	//if viewsize is less than 100, we need to redraw the frame around the viewport
 	scr_tileclear_updates = 0;
+#endif
 }

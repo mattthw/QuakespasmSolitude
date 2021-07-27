@@ -99,7 +99,7 @@ dllhandle_t *Sys_LoadLibrary(const char *name, dllfunction_t *funcs)
 
 	return (dllhandle_t*)lib;
 }
-#elif defined(PLATFORM_UNIX)
+#elif defined(PLATFORM_UNIX) && !defined(VITA)
 //unixes should have a dlopen (this test includes osx)
 #include <dlfcn.h>
 void Sys_CloseLibrary(dllhandle_t *lib)

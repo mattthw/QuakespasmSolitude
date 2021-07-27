@@ -306,18 +306,23 @@ static void TexMgr_Imagedump_f (void)
 		q_snprintf(tganame, sizeof(tganame), "imagedump/%s.tga", tempname);
 
 		GL_Bind (glt);
+#ifndef VITA
 		glPixelStorei (GL_PACK_ALIGNMENT, 1);/* for widths that aren't a multiple of 4 */
-
+#endif
 		if (glt->flags & TEXPREF_ALPHA)
 		{
 			buffer = (byte *) malloc(glt->width*glt->height*4);
+#ifndef VITA
 			glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+#endif
 			Image_WriteTGA (tganame, buffer, glt->width, glt->height, 32, true);
 		}
 		else
 		{
 			buffer = (byte *) malloc(glt->width*glt->height*3);
+#ifndef VITA
 			glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, buffer);
+#endif
 			Image_WriteTGA (tganame, buffer, glt->width, glt->height, 24, true);
 		}
 		free (buffer);
@@ -1268,10 +1273,10 @@ static void TexMgr_LoadImageCompressed (gltexture_t *glt, byte *data)
 	//make sure the picmip level is not bigger than the number of mips that we have available...
 	while (picmip && (!(glt->width>>picmip) || !(glt->height>>picmip)))
 		picmip--;
-
+#ifndef VITA
 	if (type && blockbytes < 4)
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);	//makes stuff work more reliably, if slower.
-
+#endif
 	//upload each mip level in turn.
 	GL_Bind (glt);
 	for (miplevel = 0; ; miplevel++)
@@ -1295,10 +1300,10 @@ static void TexMgr_LoadImageCompressed (gltexture_t *glt, byte *data)
 		if (!(glt->flags & TEXPREF_MIPMAP))
 			break;
 	}
-
+#ifndef VITA
 	if (type && blockbytes < 4)
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);	//back to opengl's default.
-
+#endif
 	// set filter modes
 	TexMgr_SetFilterModes (glt);
 }

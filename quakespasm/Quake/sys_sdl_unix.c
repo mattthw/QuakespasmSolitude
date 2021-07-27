@@ -48,6 +48,57 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SDL.h"
 #endif
 
+#ifdef VITA
+#include <dirent.h>
+int _newlib_heap_size_user = 256 * 1024 * 1024;
+
+#define MAX_CURDIR_PATH 512
+char cur_dir[MAX_CURDIR_PATH] = "ux0:data/EQuakespasm/";
+int can_use_IME_keyboard = 1;
+char *getcwd(char *buf, size_t size) {
+    if (buf != NULL) {
+        strncpy(buf, cur_dir, size);
+    }
+    return cur_dir;
+}
+
+char patched_fname[512];
+char *patch_fname(char *fname) {
+	if (strstr(fname, "ux0")) {
+		char *s = strstr(fname, ".");
+		if (s)
+			fname = s;
+		else
+			return fname;
+	}
+	
+	if (fname[0] == '.') {
+		char *s = strstr(fname, "/");
+		if (s)
+			fname = s + 1;
+		else
+			fname++;
+	}
+	sprintf(patched_fname, "ux0:data/Quakespasm/%s", fname);
+	return patched_fname;
+}
+
+int __wrap_access(const char *fname, int mode) {
+	return __real_access(patch_fname(fname), mode);
+}
+
+FILE *__wrap_fopen(char *fname, char *mode) {
+	return __real_fopen(patch_fname(fname), mode);
+}
+
+int __wrap_open(const char *fname, int mode) {
+	return __real_open(patch_fname(fname), mode);
+}
+
+DIR *__wrap_opendir(const char *fname) {
+	return __real_opendir(patch_fname(fname));
+}
+#endif
 
 qboolean		isDedicated;
 cvar_t		sys_throttle = {"sys_throttle", "0.02", CVAR_ARCHIVE};
@@ -369,7 +420,11 @@ void Sys_Init (void)
 
 void Sys_mkdir (const char *path)
 {
+#ifndef VITA
 	int rc = mkdir (path, 0777);
+#else
+	int rc = sceIoMkdir (path, 0777);
+#endif
 	if (rc != 0 && errno == EEXIST)
 	{
 		struct stat st;

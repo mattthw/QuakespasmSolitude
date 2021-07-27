@@ -1110,6 +1110,7 @@ static void GL_CheckExtensions (void)
 	//
 	if (GL_ParseExtensionList(gl_extensions, "GL_EXT_texture_filter_anisotropic"))
 	{
+#ifndef VITA
 		float test1,test2;
 		GLuint tex;
 
@@ -1141,6 +1142,7 @@ static void GL_CheckExtensions (void)
 			gl_max_anisotropy = 1;
 			Con_Warning ("anisotropic filtering broken: disabled\n");
 		}
+#endif
 	}
 	else
 	{

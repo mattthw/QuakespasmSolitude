@@ -51,7 +51,7 @@ sys_socket_t UDP4_Init (void)
 		return INVALID_SOCKET;
 
 	myAddr4 = htonl(INADDR_LOOPBACK);
-#ifdef __linux__
+#if defined(__linux__) || defined(VITA)
 	//gethostbyname(gethostname()) is only supported if the hostname can be looked up on an actual name server
 	//this means its usable as a test to see if other hosts can see it, but means we cannot use it to find out the local address.
 	//it also means stalls and slow loading and other undesirable behaviour, so lets stop doing this legacy junk.
@@ -84,8 +84,12 @@ sys_socket_t UDP4_Init (void)
 #endif
 			if (!(local = gethostbyname(buff)))
 			{
+#ifndef VITA
 				Con_SafePrintf("UDP4_Init: gethostbyname failed (%s)\n",
 								hstrerror(h_errno));
+#else
+				Con_SafePrintf("UDP4_Init: gethostbyname failed\n");
+#endif
 			}
 			else if (local->h_addrtype != AF_INET)
 			{
@@ -168,8 +172,11 @@ sys_socket_t UDP4_OpenSocket (int port)
 		Con_SafePrintf("UDP4_OpenSocket: %s\n", socketerror(err));
 		return INVALID_SOCKET;
 	}
-
+#ifdef VITA
+	if (setsockopt(newsocket, SOL_SOCKET, SCE_NET_SO_NBIO, (char *)&_true, sizeof(uint32_t)) == -1)
+#else
 	if (ioctlsocket (newsocket, FIONBIO, &_true) == SOCKET_ERROR)
+#endif
 		goto ErrorReturn;
 
 	memset(&address, 0, sizeof(struct sockaddr_in));
@@ -269,7 +276,7 @@ sys_socket_t UDP4_CheckNewConnections (void)
 
 	if (net_acceptsocket4 == INVALID_SOCKET)
 		return INVALID_SOCKET;
-
+#ifndef VITA
 	if (ioctl (net_acceptsocket4, FIONREAD, &available) == -1)
 	{
 		int err = SOCKETERRNO;
@@ -277,6 +284,11 @@ sys_socket_t UDP4_CheckNewConnections (void)
 	}
 	if (available)
 		return net_acceptsocket4;
+#else
+	char buf[4096];
+	if (recvfrom(net_acceptsocket4, buf, sizeof(buf), MSG_PEEK, NULL, NULL) >= 0)
+		return net_acceptsocket4;
+#endif
 	// quietly absorb empty packets
 	recvfrom (net_acceptsocket4, buff, 0, 0, (struct sockaddr *) &from, &fromlen);
 	return INVALID_SOCKET;
@@ -454,13 +466,14 @@ int UDP_GetSocketAddr (sys_socket_t socketid, struct qsockaddr *addr)
 		if (a == 0 || a == htonl(INADDR_LOOPBACK))
 			((struct sockaddr_in *)addr)->sin_addr.s_addr = myAddr4;
 	}
+#ifndef VITA
 	else if (addr->qsa_family == AF_INET6)
 	{
 		static const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
 		if (!memcmp(&((struct sockaddr_in6 *)addr)->sin6_addr, &in6addr_any, sizeof(in6addr_any)))
 			memcpy(&((struct sockaddr_in6 *)addr)->sin6_addr, &myAddrv6, sizeof(((struct sockaddr_in6 *)addr)->sin6_addr));
 	}
-
+#endif
 	return 0;
 }
 
@@ -667,6 +680,9 @@ sys_socket_t UDP6_Listen (qboolean state)
 
 sys_socket_t UDP6_OpenSocket (int port)
 {
+#ifdef VITA
+	return INVALID_SOCKET;
+#else
 	sys_socket_t newsocket;
 	struct sockaddr_in6 address;
 	int _true = 1;
@@ -707,12 +723,14 @@ ErrorReturn:
 	Con_SafePrintf("UDP6_OpenSocket: %s\n", socketerror(err));
 	UDP_CloseSocket (newsocket);
 	return INVALID_SOCKET;
+#endif
 }
 
 //=============================================================================
 
 sys_socket_t UDP6_CheckNewConnections (void)
 {
+#ifndef VITA
 	int		available;
 	struct sockaddr_in	from;
 	socklen_t	fromlen;
@@ -731,6 +749,7 @@ sys_socket_t UDP6_CheckNewConnections (void)
 	// quietly absorb empty packets
 	fromlen = sizeof(from);
 	recvfrom (net_acceptsocket6, buff, 0, 0, (struct sockaddr *) &from, &fromlen);
+#endif
 	return INVALID_SOCKET;
 }
 
@@ -738,6 +757,7 @@ sys_socket_t UDP6_CheckNewConnections (void)
 
 int UDP6_Broadcast (sys_socket_t socketid, byte *buf, int len)
 {
+#ifndef VITA
 	struct sockaddr_in6	address;
 
 	memset(&address, 0, sizeof(struct sockaddr_in6));
@@ -749,6 +769,9 @@ int UDP6_Broadcast (sys_socket_t socketid, byte *buf, int len)
 	address.sin6_port = htons((unsigned short)net_hostport);
 
 	return UDP_Write (socketid, buf, len, (struct qsockaddr *)&address);
+#else
+	return 0;
+#endif
 }
 
 //=============================================================================
@@ -763,6 +786,7 @@ int UDP6_StringToAddr (const char *string, struct qsockaddr *addr)
 
 int UDP6_GetAddrFromName (const char *name, struct qsockaddr *addr)
 {
+#ifndef VITA
 	struct addrinfo *addrinfo = NULL;
 	struct addrinfo *pos;
 	struct addrinfo udp6hint;
@@ -845,6 +869,7 @@ int UDP6_GetAddrFromName (const char *name, struct qsockaddr *addr)
 		}
 		return 0;
 	}
+#endif
 	return -1;
 }
 

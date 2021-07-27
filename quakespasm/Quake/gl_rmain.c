@@ -138,9 +138,11 @@ GLSLGamma_DeleteTexture
 */
 void GLSLGamma_DeleteTexture (void)
 {
+#ifndef VITA
 	glDeleteTextures (1, &r_gamma_texture);
 	r_gamma_texture = 0;
 	r_gamma_program = 0; // deleted in R_DeleteShaders
+#endif
 }
 
 /*
@@ -150,6 +152,7 @@ GLSLGamma_CreateShaders
 */
 static void GLSLGamma_CreateShaders (void)
 {
+#ifndef VITA
 	const GLchar *vertSource = \
 		"#version 110\n"
 		"\n"
@@ -180,6 +183,7 @@ static void GLSLGamma_CreateShaders (void)
 	gammaLoc = GL_GetUniformLocation (&r_gamma_program, "GammaValue");
 	contrastLoc = GL_GetUniformLocation (&r_gamma_program, "ContrastValue");
 	textureLoc = GL_GetUniformLocation (&r_gamma_program, "GammaTexture");
+#endif
 }
 
 /*
@@ -189,6 +193,7 @@ GLSLGamma_GammaCorrect
 */
 void GLSLGamma_GammaCorrect (void)
 {
+#ifndef VITA
 	int tw=glwidth,th=glheight;
 	float smax, tmax;
 
@@ -264,6 +269,7 @@ void GLSLGamma_GammaCorrect (void)
 	
 // clear cached binding
 	GL_ClearBindings ();
+#endif
 }
 
 /*
@@ -1055,6 +1061,7 @@ or possibly as a perforance boost on slow graphics cards.
 */
 void R_ScaleView (void)
 {
+#ifndef VITA
 	float smax, tmax;
 	int scale;
 	int srcx, srcy, srcw, srch;
@@ -1134,6 +1141,7 @@ void R_ScaleView (void)
 
 	// clear cached binding
 	GL_ClearBindings ();
+#endif
 }
 
 static qboolean R_SkyroomWasVisible(void)
