@@ -187,6 +187,7 @@ int main(int argc, char *argv[])
 	while (1)
 	{
 		/* If we have no input focus at all, sleep a bit */
+#ifndef VITA
 		if (!VID_HasMouseOrInputFocus() || cl.paused)
 		{
 			SDL_Delay(16);
@@ -198,6 +199,7 @@ int main(int argc, char *argv[])
 			SDL_Delay(32);
 		}
 		else
+#endif
 		{
 			scr_skipupdate = 0;
 		}
@@ -205,10 +207,10 @@ int main(int argc, char *argv[])
 		time = newtime - oldtime;
 
 		Host_Frame (time);
-
+#ifndef VITA
 		if (time < sys_throttle.value && !cls.timedemo)
 			SDL_Delay(1);
-
+#endif
 		oldtime = newtime;
 	}
 

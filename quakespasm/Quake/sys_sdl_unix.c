@@ -49,6 +49,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 #ifdef VITA
+#include <vitasdk.h>
 #include <dirent.h>
 int _newlib_heap_size_user = 256 * 1024 * 1024;
 
@@ -457,7 +458,13 @@ void Sys_Quit (void)
 
 double Sys_DoubleTime (void)
 {
+#ifdef VITA
+	SceRtcTick ticks;
+	sceRtcGetCurrentTick(&ticks);
+	return ticks.tick * 0.000001;
+#else
 	return SDL_GetTicks() / 1000.0;
+#endif
 }
 
 const char *Sys_ConsoleInput (void)
