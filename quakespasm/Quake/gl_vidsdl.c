@@ -338,12 +338,16 @@ VID_GetCurrentWidth
 */
 static int VID_GetCurrentWidth (void)
 {
+#ifdef VITA
+	return 960;
+#else
 #if defined(USE_SDL2)
 	int w = 0, h = 0;
 	SDL_GetWindowSize(draw_context, &w, &h);
 	return w;
 #else
 	return draw_context->w;
+#endif
 #endif
 }
 
@@ -354,12 +358,16 @@ VID_GetCurrentHeight
 */
 static int VID_GetCurrentHeight (void)
 {
+#ifdef VITA
+	return 544;
+#else
 #if defined(USE_SDL2)
 	int w = 0, h = 0;
 	SDL_GetWindowSize(draw_context, &w, &h);
 	return h;
 #else
 	return draw_context->h;
+#endif
 #endif
 }
 
@@ -394,11 +402,15 @@ VID_GetCurrentBPP
 */
 static int VID_GetCurrentBPP (void)
 {
+#ifdef VITA
+	return 32;
+#else
 #if defined(USE_SDL2)
 	const Uint32 pixelFormat = SDL_GetWindowPixelFormat(draw_context);
 	return SDL_BITSPERPIXEL(pixelFormat);
 #else
 	return draw_context->format->BitsPerPixel;
+#endif
 #endif
 }
 
@@ -738,6 +750,10 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 	vid.conheight = vid.conwidth * vid.height / vid.width;
 	vid.numpages = 2;
 
+#ifdef VITA
+	depthbits = 32;
+	gl_stencilbits = 8;
+#else
 // read the obtained z-buffer depth
 	if (SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &depthbits) == -1)
 		depthbits = 0;
@@ -749,7 +765,7 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 // read stencil bits
 	if (SDL_GL_GetAttribute(SDL_GL_STENCIL_SIZE, &gl_stencilbits) == -1)
 		gl_stencilbits = 0;
-
+#endif
 	modestate = VID_GetFullscreen() ? MS_FULLSCREEN : MS_WINDOWED;
 
 	CDAudio_Resume ();
@@ -1315,6 +1331,7 @@ GL_Init
 static void GL_Init (void)
 {
 #ifdef VITA
+	sceClibPrintf("Initializing vitaGL...\n");
 	vglInitExtended(20 * 1024 * 1024, 960, 544, 2 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
 	
 	// Checking for libshacccg.suprx existence
