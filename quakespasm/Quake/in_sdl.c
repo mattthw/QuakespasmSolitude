@@ -310,6 +310,7 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 		IN_ReenableOSXMouseAccel();
 #endif
 
+#ifndef VITA
 #if defined(USE_SDL2)
 	if (wantcursor)
 	{
@@ -359,7 +360,7 @@ static void IN_UpdateGrabs_Internal(qboolean forecerelease)
 		}
 	}
 #endif
-
+#endif
 	if (needevents)
 		IN_EndIgnoringMouseEvents();
 	else

@@ -1310,8 +1310,10 @@ static void GL_SetupState (void)
 	glEnable(GL_ALPHA_TEST);
 	glAlphaFunc(GL_GREATER, 0.666);
 	glPolygonMode (GL_FRONT_AND_BACK, GL_FILL);
+#ifndef VITA
 	glShadeModel (GL_FLAT);
 	glHint (GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST); //johnfitz
+#endif
 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 	//spike -- these are invalid as there is no texture bound to receive this state.
@@ -1411,16 +1413,18 @@ GL_EndRendering
 */
 void GL_EndRendering (void)
 {
+#ifdef VITA
+	vglSwapBuffers(GL_FALSE);
+#else
 	if (!scr_skipupdate)
 	{
-#ifdef VITA
-		vglSwapBuffers(GL_FALSE);
-#elif defined(USE_SDL2)
+#if defined(USE_SDL2)
 		SDL_GL_SwapWindow(draw_context);
 #else
 		SDL_GL_SwapBuffers();
 #endif
 	}
+#endif
 }
 
 

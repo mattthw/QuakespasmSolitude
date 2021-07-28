@@ -188,7 +188,11 @@ void DrawWaterPoly (glpoly_t *p)
 
 	if (load_subdivide_size > 48)
 	{
+#ifdef VITA
+		glBegin (GL_TRIANGLE_FAN);
+#else
 		glBegin (GL_POLYGON);
+#endif
 		v = p->verts[0];
 		for (i=0 ; i<p->numverts ; i++, v+= VERTEXSIZE)
 		{
@@ -199,7 +203,11 @@ void DrawWaterPoly (glpoly_t *p)
 	}
 	else
 	{
+#ifdef VITA
+		glBegin (GL_TRIANGLE_FAN);
+#else
 		glBegin (GL_POLYGON);
+#endif
 		v = p->verts[0];
 		for (i=0 ; i<p->numverts ; i++, v+= VERTEXSIZE)
 		{

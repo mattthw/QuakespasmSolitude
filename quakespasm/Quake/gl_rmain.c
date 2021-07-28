@@ -781,6 +781,26 @@ R_EmitWireBox -- johnfitz -- draws one axis aligned bounding box
 */
 void R_EmitWireBox (vec3_t mins, vec3_t maxs)
 {
+#ifdef VITA
+	glBegin (GL_QUADS);
+	glVertex3f (mins[0], mins[1], mins[2]);
+	glVertex3f (mins[0], mins[1], maxs[2]);
+	glVertex3f (maxs[0], mins[1], mins[2]);
+	glVertex3f (maxs[0], mins[1], maxs[2]);
+	glVertex3f (maxs[0], mins[1], mins[2]);
+	glVertex3f (maxs[0], mins[1], maxs[2]);
+	glVertex3f (maxs[0], maxs[1], mins[2]);
+	glVertex3f (maxs[0], maxs[1], maxs[2]);
+	glVertex3f (maxs[0], maxs[1], mins[2]);
+	glVertex3f (maxs[0], maxs[1], maxs[2]);
+	glVertex3f (mins[0], maxs[1], mins[2]);
+	glVertex3f (mins[0], maxs[1], maxs[2]);
+	glVertex3f (mins[0], maxs[1], mins[2]);
+	glVertex3f (mins[0], maxs[1], maxs[2]);
+	glVertex3f (mins[0], mins[1], mins[2]);
+	glVertex3f (mins[0], mins[1], maxs[2]);
+	glEnd ();
+#else
 	glBegin (GL_QUAD_STRIP);
 	glVertex3f (mins[0], mins[1], mins[2]);
 	glVertex3f (mins[0], mins[1], maxs[2]);
@@ -793,6 +813,7 @@ void R_EmitWireBox (vec3_t mins, vec3_t maxs)
 	glVertex3f (mins[0], mins[1], mins[2]);
 	glVertex3f (mins[0], mins[1], maxs[2]);
 	glEnd ();
+#endif
 }
 
 /*

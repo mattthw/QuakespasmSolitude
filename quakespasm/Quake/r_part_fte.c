@@ -7687,7 +7687,9 @@ endtype:
 			if (cl_stris[i].beflags & BEF_LINES)
 			{
 				glDisable(GL_TEXTURE_2D);
+#ifndef VITA
 				glShadeModel(GL_SMOOTH);
+#endif
 //				glDrawRangeElements(GL_LINES, 0, cl_stris[i].numvert, cl_stris[i].numidx, GL_UNSIGNED_SHORT, cl_strisidx + cl_stris[i].firstidx);
 				glDrawElements(GL_LINES, cl_stris[i].numidx, GL_UNSIGNED_SHORT, cl_strisidx + cl_stris[i].firstidx);
 				glEnable(GL_TEXTURE_2D);
@@ -7705,7 +7707,9 @@ endtype:
 	glDisableClientState (GL_COLOR_ARRAY);
 	glEnable(GL_TEXTURE_2D);
 	glDisable(GL_BLEND);
+#ifndef VITA
 	glShadeModel(GL_FLAT);
+#endif
 	glDepthMask(GL_TRUE);
 	glEnable(GL_CULL_FACE);
 	glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
