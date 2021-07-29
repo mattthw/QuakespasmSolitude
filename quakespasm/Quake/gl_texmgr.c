@@ -1283,6 +1283,7 @@ static void TexMgr_LoadImageCompressed (gltexture_t *glt, byte *data)
 #endif
 	//upload each mip level in turn.
 	GL_Bind (glt);
+#ifndef VITA
 	for (miplevel = 0; ; miplevel++)
 	{
 		mipwidth = glt->width >> miplevel;
@@ -1304,7 +1305,7 @@ static void TexMgr_LoadImageCompressed (gltexture_t *glt, byte *data)
 		if (!(glt->flags & TEXPREF_MIPMAP))
 			break;
 	}
-#ifndef VITA
+
 	if (type && blockbytes < 4)
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);	//back to opengl's default.
 #endif

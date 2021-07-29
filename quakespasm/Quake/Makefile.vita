@@ -49,7 +49,7 @@ CPUFLAGS=
 LDFLAGS =
 DFLAGS ?=
 CFLAGS ?= -Wl,-q -g \
-	-Wall -Wno-trigraphs -fsigned-char -I$(VITASDK)/arm-vita-eabi/include/SDL2 -fno-short-enums \
+	-Wall -Wno-trigraphs -I$(VITASDK)/arm-vita-eabi/include/SDL2 -fno-short-enums \
 	-DVITA -I$(VITASDK)/arm-vita-eabi/include/opus
 CFLAGS += $(CPUFLAGS)
 ifneq ($(DEBUG),0)
@@ -58,7 +58,7 @@ CFLAGS += -g
 do_strip=
 else
 DFLAGS += -DNDEBUG
-CFLAGS += -O2
+CFLAGS += -O3
 cmd_strip=$(STRIP) $(1)
 define do_strip
 	$(call cmd_strip,$(1));

@@ -154,14 +154,14 @@ QS_PFNGLCOMPRESSEDTEXIMAGE2DPROC GL_CompressedTexImage2D = NULL;	//spike
 //====================================
 
 //johnfitz -- new cvars
-static cvar_t	vid_fullscreen = {"vid_fullscreen", "0", CVAR_ARCHIVE};	// QuakeSpasm, was "1"
-static cvar_t	vid_width = {"vid_width", "800", CVAR_ARCHIVE};		// QuakeSpasm, was 640
-static cvar_t	vid_height = {"vid_height", "600", CVAR_ARCHIVE};	// QuakeSpasm, was 480
-static cvar_t	vid_bpp = {"vid_bpp", "16", CVAR_ARCHIVE};
+static cvar_t	vid_fullscreen = {"vid_fullscreen", "1", CVAR_ARCHIVE};	// QuakeSpasm, was "1"
+static cvar_t	vid_width = {"vid_width", "960", CVAR_ARCHIVE};		// QuakeSpasm, was 640
+static cvar_t	vid_height = {"vid_height", "544", CVAR_ARCHIVE};	// QuakeSpasm, was 480
+static cvar_t	vid_bpp = {"vid_bpp", "32", CVAR_ARCHIVE};
 static cvar_t	vid_refreshrate = {"vid_refreshrate", "60", CVAR_ARCHIVE};
-static cvar_t	vid_vsync = {"vid_vsync", "0", CVAR_ARCHIVE};
+static cvar_t	vid_vsync = {"vid_vsync", "1", CVAR_ARCHIVE};
 static cvar_t	vid_fsaa = {"vid_fsaa", "0", CVAR_ARCHIVE}; // QuakeSpasm
-static cvar_t	vid_desktopfullscreen = {"vid_desktopfullscreen", "0", CVAR_ARCHIVE}; // QuakeSpasm
+static cvar_t	vid_desktopfullscreen = {"vid_desktopfullscreen", "1", CVAR_ARCHIVE}; // QuakeSpasm
 static cvar_t	vid_borderless = {"vid_borderless", "0", CVAR_ARCHIVE}; // QuakeSpasm
 //johnfitz
 
@@ -439,10 +439,14 @@ returns true if we are specifically in "desktop fullscreen" mode
 */
 static qboolean VID_GetDesktopFullscreen (void)
 {
+#ifdef VITA
+	return true;
+#else
 #if defined(USE_SDL2)
 	return (SDL_GetWindowFlags(draw_context) & SDL_WINDOW_FULLSCREEN_DESKTOP) == SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else
 	return false;
+#endif
 #endif
 }
 
@@ -561,6 +565,10 @@ static qboolean VID_ValidMode (int width, int height, int refreshrate, int bpp, 
 
 	if (height < 200)
 		return false;
+	
+#ifdef VITA
+	return true;
+#endif
 
 #if defined(USE_SDL2)
 	if (fullscreen && VID_SDL2_GetDisplayMode(width, height, refreshrate, bpp) == NULL)
@@ -667,14 +675,14 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 	{
 		previous_display = SDL_GetWindowDisplayIndex(draw_context);
 	}
+#else
+	draw_context = SDL_CreateWindow("dummy", 0, 0, 960, 544, SDL_WINDOW_FULLSCREEN);
 #endif
 	/* Ensure the window is not fullscreen */
 	if (VID_GetFullscreen ())
 	{
-#ifndef VITA
 		if (SDL_SetWindowFullscreen (draw_context, 0) != 0)
 			Sys_Error("Couldn't set fullscreen state mode");
-#endif
 	}
 #ifndef VITA
 	/* Set window size and display mode */
@@ -1333,25 +1341,30 @@ GL_Init
 static void GL_Init (void)
 {
 #ifdef VITA
-	sceClibPrintf("Initializing vitaGL...\n");
-	vglInitExtended(20 * 1024 * 1024, 960, 544, 2 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
+	static int vgl_inited = 0;
+	if (!vgl_inited) {
+		sceClibPrintf("Initializing vitaGL...\n");
+		vglInitExtended(20 * 1024 * 1024, 960, 544, 2 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
 	
-	// Checking for libshacccg.suprx existence
-	SceIoStat st1, st2;
-	if (!(sceIoGetstat("ur0:/data/libshacccg.suprx", &st1) >= 0 || sceIoGetstat("ur0:/data/external/libshacccg.suprx", &st2) >= 0)) {
-		SceMsgDialogUserMessageParam msg_param;
-		sceClibMemset(&msg_param, 0, sizeof(SceMsgDialogUserMessageParam));
-		msg_param.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK;
-		msg_param.msg = (const SceChar8*)"Error: Runtime shader compiler (libshacccg.suprx) is not installed.";
-		SceMsgDialogParam param;
-		sceMsgDialogParamInit(&param);
-		param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
-		param.userMsgParam = &msg_param;
-		sceMsgDialogInit(&param);
-		while (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
-			vglSwapBuffers(GL_TRUE);
+		// Checking for libshacccg.suprx existence
+		SceIoStat st1, st2;
+		if (!(sceIoGetstat("ur0:/data/libshacccg.suprx", &st1) >= 0 || sceIoGetstat("ur0:/data/external/libshacccg.suprx", &st2) >= 0)) {
+			SceMsgDialogUserMessageParam msg_param;
+			sceClibMemset(&msg_param, 0, sizeof(SceMsgDialogUserMessageParam));
+			msg_param.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK;
+			msg_param.msg = (const SceChar8*)"Error: Runtime shader compiler (libshacccg.suprx) is not installed.";
+			SceMsgDialogParam param;
+			sceMsgDialogParamInit(&param);
+			param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
+			param.userMsgParam = &msg_param;
+			sceMsgDialogInit(&param);
+			while (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
+				vglSwapBuffers(GL_TRUE);
+			}
+			sceKernelExitProcess(0);
 		}
-		sceKernelExitProcess(0);
+		
+		vgl_inited = 1;
 	}
 #endif
 	gl_vendor = (const char *) glGetString (GL_VENDOR);

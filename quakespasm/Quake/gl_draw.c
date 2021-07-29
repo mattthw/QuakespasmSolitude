@@ -138,7 +138,7 @@ byte		menuplyr_pixels[4096];
 
 int			scrap_allocated[MAX_SCRAPS][BLOCK_WIDTH];
 byte		scrap_texels[MAX_SCRAPS][BLOCK_WIDTH*BLOCK_HEIGHT]; //johnfitz -- removed *4 after BLOCK_HEIGHT
-qboolean	scrap_dirty;
+qboolean	scrap_dirty = false;
 gltexture_t	*scrap_textures[MAX_SCRAPS]; //johnfitz
 
 
@@ -271,9 +271,9 @@ qpic_t *Draw_PicFromWad2 (const char *name, unsigned int texflags)
 		gl.gltexture = scrap_textures[texnum]; //johnfitz -- changed to an array
 		//johnfitz -- no longer go from 0.01 to 0.99
 		gl.sl = x/(float)BLOCK_WIDTH;
-		gl.sh = (x+p->width)/(float)BLOCK_WIDTH;
+		gl.sh = (float)(x+p->width)/(float)BLOCK_WIDTH;
 		gl.tl = y/(float)BLOCK_WIDTH;
-		gl.th = (y+p->height)/(float)BLOCK_WIDTH;
+		gl.th = (float)(y+p->height)/(float)BLOCK_WIDTH;
 	}
 	else
 	{
@@ -569,9 +569,9 @@ void Draw_CharacterQuad (int x, int y, char num)
 	row = num>>4;
 	col = num&15;
 
-	frow = row*0.0625;
-	fcol = col*0.0625;
-	size = 0.0625;
+	frow = ((float)row)*0.0625f;
+	fcol = ((float)col)*0.0625f;
+	size = 0.0625f;
 
 	glTexCoord2f (fcol, frow);
 	glVertex2f (x, y);
@@ -667,13 +667,13 @@ void Draw_SubPic (float x, float y, float w, float h, qpic_t *pic, float s1, flo
 	gl = (glpic_t *)pic->data;
 	GL_Bind (gl->gltexture);
 	glBegin (GL_QUADS);
-	glTexCoord2f (gl->sl*(1-s1) + s1*gl->sh, gl->tl*(1-t1) + t1*gl->th);
+	glTexCoord2f (gl->sl*(1.0f-s1) + s1*gl->sh, gl->tl*(1.0f-t1) + t1*gl->th);
 	glVertex2f (x, y);
-	glTexCoord2f (gl->sl*(1-s2) + s2*gl->sh, gl->tl*(1-t1) + t1*gl->th);
+	glTexCoord2f (gl->sl*(1.0f-s2) + s2*gl->sh, gl->tl*(1.0f-t1) + t1*gl->th);
 	glVertex2f (x+w, y);
-	glTexCoord2f (gl->sl*(1-s2) + s2*gl->sh, gl->tl*(1-t2) + t2*gl->th);
+	glTexCoord2f (gl->sl*(1.0f-s2) + s2*gl->sh, gl->tl*(1.0f-t2) + t2*gl->th);
 	glVertex2f (x+w, y+h);
-	glTexCoord2f (gl->sl*(1-s1) + s1*gl->sh, gl->tl*(1-t2) + t2*gl->th);
+	glTexCoord2f (gl->sl*(1.0f-s1) + s1*gl->sh, gl->tl*(1.0f-t2) + t2*gl->th);
 	glVertex2f (x, y+h);
 	glEnd ();
 }
@@ -691,7 +691,7 @@ void Draw_PicPolygon(qpic_t *pic, unsigned int numverts, polygonvert_t *verts)
 	while (numverts --> 0)
 	{
 		glColor4fv(verts->rgba);
-		glTexCoord2f (gl->sl*(1-verts->st[0]) + verts->st[0]*gl->sh, gl->tl*(1-verts->st[1]) + verts->st[1]*gl->th);
+		glTexCoord2f (gl->sl*(1.0f-verts->st[0]) + verts->st[0]*gl->sh, gl->tl*(1.0f-verts->st[1]) + verts->st[1]*gl->th);
 		glVertex2f(verts->xy[0], verts->xy[1]);
 		verts++;
 	}
@@ -735,13 +735,13 @@ void Draw_ConsoleBackground (void)
 	pic->width = vid.conwidth;
 	pic->height = vid.conheight;
 
-	alpha = (con_forcedup) ? 1.0 : scr_conalpha.value;
+	alpha = (con_forcedup) ? 1.0f : scr_conalpha.value;
 
 	GL_SetCanvas (CANVAS_CONSOLE); //in case this is called from weird places
 
-	if (alpha > 0.0)
+	if (alpha > 0.0f)
 	{
-		if (alpha < 1.0)
+		if (alpha < 1.0f)
 		{
 			if (premul_hud)
 				glColor4f (alpha,alpha,alpha,alpha);
@@ -757,7 +757,7 @@ void Draw_ConsoleBackground (void)
 
 		Draw_Pic (0, 0, pic);
 
-		if (alpha < 1.0)
+		if (alpha < 1.0f)
 		{
 			if (!premul_hud)
 			{
@@ -788,13 +788,13 @@ void Draw_TileClear (int x, int y, int w, int h)
 	glColor3f (1,1,1);
 	GL_Bind (gl->gltexture);
 	glBegin (GL_QUADS);
-	glTexCoord2f (x/64.0, y/64.0);
+	glTexCoord2f (((float)x)/64.0f, ((float)y)/64.0f);
 	glVertex2f (x, y);
-	glTexCoord2f ( (x+w)/64.0, y/64.0);
+	glTexCoord2f ( ((float)(x+w))/64.0f, ((float)y)/64.0f);
 	glVertex2f (x+w, y);
-	glTexCoord2f ( (x+w)/64.0, (y+h)/64.0);
+	glTexCoord2f ( ((float)(x+w))/64.0f, ((float)(y+h))/64.0f);
 	glVertex2f (x+w, y+h);
-	glTexCoord2f ( x/64.0, (y+h)/64.0 );
+	glTexCoord2f ( ((float)x)/64.0f, ((float)(y+h))/64.0f );
 	glVertex2f (x, y+h);
 	glEnd ();
 }
