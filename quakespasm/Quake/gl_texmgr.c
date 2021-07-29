@@ -1145,7 +1145,7 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 	GL_Bind (glt);
 	internalformat = (glt->flags & TEXPREF_ALPHA) ? gl_alpha_format : gl_solid_format;
 	glTexImage2D (GL_TEXTURE_2D, 0, internalformat, glt->width, glt->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-
+#ifndef VITA
 	// upload mipmaps
 	if (glt->flags & TEXPREF_MIPMAP)
 	{
@@ -1167,7 +1167,7 @@ static void TexMgr_LoadImage32 (gltexture_t *glt, unsigned *data)
 			glTexImage2D (GL_TEXTURE_2D, miplevel, internalformat, mipwidth, mipheight, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		}
 	}
-
+#endif
 	// set filter modes
 	TexMgr_SetFilterModes (glt);
 }
