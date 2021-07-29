@@ -26,6 +26,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "net_defs.h"
 
+#ifdef VITA
+#include <vitasdk.h>
+static void *net_memory = NULL;
+#define NET_INIT_SIZE 1*1024*1024
+#endif
+
 static sys_socket_t net_acceptsocket4 = INVALID_SOCKET;	// socket for fielding new connections
 static sys_socket_t net_controlsocket4;
 static sys_socket_t net_broadcastsocket4 = INVALID_SOCKET;
@@ -49,13 +55,53 @@ sys_socket_t UDP4_Init (void)
 
 	if (COM_CheckParm ("-noudp") || COM_CheckParm ("-noudp4"))
 		return INVALID_SOCKET;
-
+#ifndef VITA
 	myAddr4 = htonl(INADDR_LOOPBACK);
-#if defined(__linux__) || defined(VITA)
+#endif
+#if defined(__linux__)
 	//gethostbyname(gethostname()) is only supported if the hostname can be looked up on an actual name server
 	//this means its usable as a test to see if other hosts can see it, but means we cannot use it to find out the local address.
 	//it also means stalls and slow loading and other undesirable behaviour, so lets stop doing this legacy junk.
 	//we probably have multiple interfaces nowadays anyway (wan and lan and wifi and localhost and linklocal addresses and zomgwtf).
+#elif defined(VITA)
+	// Start SceNet & SceNetCtl
+	SceNetInitParam initparam;
+	int ret = sceNetShowNetstat();
+	if (ret == SCE_NET_ERROR_ENOTINIT) {
+		net_memory = malloc(NET_INIT_SIZE);
+
+		initparam.memory = net_memory;
+		initparam.size = NET_INIT_SIZE;
+		initparam.flags = 0;
+
+		ret = sceNetInit(&initparam);
+		if (ret < 0) return -1;
+		
+		ret = sceNetCtlInit();
+		if (ret < 0){
+			sceNetTerm();
+			free(net_memory);
+			return -1;
+		}
+	}	
+	
+	// Getting IP address
+	SceNetCtlInfo info;
+	sceNetCtlInetGetInfo(SCE_NETCTL_INFO_GET_IP_ADDRESS, &info);
+	sceNetInetPton(SCE_NET_AF_INET, info.ip_address, &myAddr4);
+	
+	// if the quake hostname isn't set, set it to player nickname
+	if (!strcmp(hostname.string, "UNNAMED"))
+	{
+		SceAppUtilInitParam init_param;
+		SceAppUtilBootParam boot_param;
+		memset(&init_param, 0, sizeof(SceAppUtilInitParam));
+		memset(&boot_param, 0, sizeof(SceAppUtilBootParam));
+		sceAppUtilInit(&init_param, &boot_param);
+		char nick[SCE_SYSTEM_PARAM_USERNAME_MAXSIZE];
+		sceAppUtilSystemParamGetString(SCE_SYSTEM_PARAM_ID_USERNAME, nick, SCE_SYSTEM_PARAM_USERNAME_MAXSIZE);
+		Cvar_Set ("hostname", nick);
+	}
 #else
 	{
 		// determine my name & address
