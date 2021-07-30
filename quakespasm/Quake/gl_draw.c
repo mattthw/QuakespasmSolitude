@@ -270,9 +270,9 @@ qpic_t *Draw_PicFromWad2 (const char *name, unsigned int texflags)
 		}
 		gl.gltexture = scrap_textures[texnum]; //johnfitz -- changed to an array
 		//johnfitz -- no longer go from 0.01 to 0.99
-		gl.sl = x/(float)BLOCK_WIDTH;
+		gl.sl = (float)x/(float)BLOCK_WIDTH;
 		gl.sh = (float)(x+p->width)/(float)BLOCK_WIDTH;
-		gl.tl = y/(float)BLOCK_WIDTH;
+		gl.tl = (float)y/(float)BLOCK_WIDTH;
 		gl.th = (float)(y+p->height)/(float)BLOCK_WIDTH;
 	}
 	else
