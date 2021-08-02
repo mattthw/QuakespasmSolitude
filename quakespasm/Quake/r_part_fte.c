@@ -414,8 +414,13 @@ static pcfg_t *loadedconfigs;
 //static void P_ReadPointFile_f (void);
 
 #define MAX_BEAMSEGS			(1<<11)	// default max # of beam segments
+#ifdef VITA
+#define MAX_PARTICLES			2048	// max # of particles at one time
+#define MAX_DECALS				2048	// max # of decal fragments at one time
+#else
 #define MAX_PARTICLES			(1<<18)	// max # of particles at one time
 #define MAX_DECALS				(1<<18)	// max # of decal fragments at one time
+#endif
 #define MAX_TRAILSTATES			(1<<10)	// default max # of trailstates
 
 //int		ramp1[8] = {0x6f, 0x6d, 0x6b, 0x69, 0x67, 0x65, 0x63, 0x61};
