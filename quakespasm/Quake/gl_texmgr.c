@@ -249,11 +249,11 @@ static void TexMgr_Anisotropy_f (cvar_t *var)
 		{
 		/*  TexMgr_SetFilterModes (glt);*/
 		    if (glt->flags & TEXPREF_MIPMAP) {
-			GL_Bind (glt);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmodes[glmode_idx].magfilter);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmodes[glmode_idx].minfilter);
+				GL_Bind (glt);
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmodes[glmode_idx].magfilter);
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmodes[glmode_idx].minfilter);
 #ifndef VITA
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy.value);
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, gl_texture_anisotropy.value);
 #endif
 		    }
 		}
@@ -1282,8 +1282,8 @@ static void TexMgr_LoadImageCompressed (gltexture_t *glt, byte *data)
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);	//makes stuff work more reliably, if slower.
 #endif
 	//upload each mip level in turn.
-	GL_Bind (glt);
 #ifndef VITA
+	GL_Bind (glt);
 	for (miplevel = 0; ; miplevel++)
 	{
 		mipwidth = glt->width >> miplevel;
@@ -1459,7 +1459,7 @@ gltexture_t *TexMgr_LoadImage (qmodel_t *owner, const char *name, int width, int
 		if (!data && (flags & TEXPREF_ALLOWMISSING))
 			return NULL;	//don't allocate anything.
 	}
-
+	
 	if (!glt)
 		glt = TexMgr_NewTexture ();
 
@@ -1712,9 +1712,6 @@ void TexMgr_ReloadNobrightImages (void)
 
 ================================================================================
 */
-
-static GLuint	currenttexture[3] = {GL_UNUSED_TEXTURE, GL_UNUSED_TEXTURE, GL_UNUSED_TEXTURE}; // to avoid unnecessary texture sets
-static GLenum	currenttarget = GL_TEXTURE0_ARB;
 qboolean	mtexenabled = false;
 
 /*
@@ -1723,12 +1720,8 @@ GL_SelectTexture -- johnfitz -- rewritten
 ================
 */
 void GL_SelectTexture (GLenum target)
-{
-	if (target == currenttarget)
-		return;
-		
+{	
 	GL_SelectTextureFunc(target);
-	currenttarget = target;
 }
 
 /*
@@ -1771,12 +1764,8 @@ void GL_Bind (gltexture_t *texture)
 	if (!texture)
 		texture = nulltexture;
 
-	if (texture->texnum != currenttexture[currenttarget - GL_TEXTURE0_ARB])
-	{
-		currenttexture[currenttarget - GL_TEXTURE0_ARB] = texture->texnum;
-		glBindTexture (GL_TEXTURE_2D, texture->texnum);
-		texture->visframe = r_framecount;
-	}
+	glBindTexture (GL_TEXTURE_2D, texture->texnum);
+	texture->visframe = r_framecount;
 }
 
 /*
@@ -1790,11 +1779,6 @@ from our per-TMU cached texture binding table.
 static void GL_DeleteTexture (gltexture_t *texture)
 {
 	glDeleteTextures (1, &texture->texnum);
-
-	if (texture->texnum == currenttexture[0]) currenttexture[0] = GL_UNUSED_TEXTURE;
-	if (texture->texnum == currenttexture[1]) currenttexture[1] = GL_UNUSED_TEXTURE;
-	if (texture->texnum == currenttexture[2]) currenttexture[2] = GL_UNUSED_TEXTURE;
-
 	texture->texnum = 0;
 }
 
@@ -1809,9 +1793,4 @@ Call this after changing the binding outside of GL_Bind.
 */
 void GL_ClearBindings(void)
 {
-	int i;
-	for (i = 0; i < 3; i++)
-	{
-		currenttexture[i] = GL_UNUSED_TEXTURE;
-	}
 }

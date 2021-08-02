@@ -1345,7 +1345,7 @@ static void GL_Init (void)
 	if (!vgl_inited) {
 		sceClibPrintf("Initializing vitaGL...\n");
 		vglInitExtended(20 * 1024 * 1024, 960, 544, 2 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
-	
+
 		// Checking for libshacccg.suprx existence
 		SceIoStat st1, st2;
 		if (!(sceIoGetstat("ur0:/data/libshacccg.suprx", &st1) >= 0 || sceIoGetstat("ur0:/data/external/libshacccg.suprx", &st2) >= 0)) {
@@ -1426,18 +1426,16 @@ GL_EndRendering
 */
 void GL_EndRendering (void)
 {
-#ifdef VITA
-	vglSwapBuffers(GL_FALSE);
-#else
 	if (!scr_skipupdate)
 	{
-#if defined(USE_SDL2)
+#ifdef VITA
+		vglSwapBuffers(GL_FALSE);
+#elif defined(USE_SDL2)
 		SDL_GL_SwapWindow(draw_context);
 #else
 		SDL_GL_SwapBuffers();
 #endif
 	}
-#endif
 }
 
 

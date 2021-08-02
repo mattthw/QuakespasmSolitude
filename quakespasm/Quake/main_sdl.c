@@ -103,7 +103,7 @@ static quakeparms_t	parms;
 #endif
 
 #ifdef VITA
-int quake_main (unsigned int argc, void* argv)
+int quake_main (unsigned int argc, char *argv[])
 #else
 int main(int argc, char *argv[])
 #endif
@@ -115,22 +115,23 @@ int main(int argc, char *argv[])
 	scePowerSetBusClockFrequency(222);
 	scePowerSetGpuClockFrequency(222);
 	scePowerSetGpuXbarClockFrequency(166);
+	sceIoMkdir("ux0:data/Quakespasm/tmp", 0777);
 #endif
 	int		t;
 	double		time, oldtime, newtime;
 
 	host_parms = &parms;
 	parms.basedir = "ux0:data/Quakespasm";
-
+	
 	parms.argc = argc;
 	parms.argv = argv;
 
 	parms.errstate = 0;
 
 	COM_InitArgv(parms.argc, parms.argv);
-
+#ifndef VITA
 	isDedicated = (COM_CheckParm("-dedicated") != 0);
-
+#endif
 	Sys_InitSDL ();
 
 	Sys_Init();

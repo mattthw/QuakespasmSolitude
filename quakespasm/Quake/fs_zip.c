@@ -747,6 +747,9 @@ pack_t *FSZIP_LoadArchive (const char *packfile)
 	return pack;
 }
 
+uint64_t idx = 0;
+char of_path[128];
+
 FILE *FSZIP_Deflate(FILE *src, int srcsize, int outsize)
 {
 #ifdef USE_ZLIB
@@ -756,7 +759,10 @@ FILE *FSZIP_Deflate(FILE *src, int srcsize, int outsize)
 	int ret;
 
 	FILE *of;
-#ifdef _WIN32
+#ifdef VITA
+	sprintf(of_path, "ux0:data/Quakespasm/tmp/%llu.tmp", idx++);
+	of = fopen(of_path, "wb+");
+#elif defined(_WIN32)
 	/*warning: annother app might manage to open the file before we can. if the file is not opened exclusively then we can end up with issues
 	on windows, fopen is typically exclusive anyway, but not on unix. but on unix, tmpfile is actually usable, so special-case the windows code and hope that its never an issue
 	tmpfile isn't usable in windows. it creates the file in the root dir and requires admin rights, which is stupid.
