@@ -50,7 +50,8 @@ LDFLAGS =
 DFLAGS ?=
 CFLAGS ?= -Wl,-q -g \
 	-Wall -Wno-trigraphs -I$(VITASDK)/arm-vita-eabi/include/SDL2 -fno-short-enums \
-	-DVITA -I$(VITASDK)/arm-vita-eabi/include/opus
+	-DVITA -I$(VITASDK)/arm-vita-eabi/include/opus -fno-optimize-sibling-calls \
+	-DUSE_ZLIB
 CFLAGS += $(CPUFLAGS)
 ifneq ($(DEBUG),0)
 DFLAGS += -DDEBUG
