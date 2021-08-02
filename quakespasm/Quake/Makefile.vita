@@ -261,17 +261,18 @@ OBJS := strlcat.o \
 	zone.o \
 	$(SYSOBJ_SYS) $(SYSOBJ_MAIN) $(SYSOBJ_RES)
 
-# ------------------------
-# Linux build rules
-# ------------------------
 quakespasm.vpk: quakespasm.velf
 	vita-make-fself -c -s $< build/eboot.bin
-	vita-mksfoex -s TITLE_ID=QUAKSPASM -d ATTRIBUTE2=12 "Quakespasm" param.sfo
+	vita-mksfoex -s TITLE_ID=QKSPMSPK -d ATTRIBUTE2=12 "Quakespasm Spiked" param.sfo
 	cp -f param.sfo build/sce_sys/param.sfo
-
-	#------------ Comment this if you don't have 7zip ------------------
-	7z a -tzip ./$(TARGET).vpk -r ./build/sce_sys ./build/eboot.bin
-	#-------------------------------------------------------------------
+	vita-pack-vpk -s param.sfo -b build/eboot.bin \
+		--add build/sce_sys/icon0.png=sce_sys/icon0.png \
+		--add build/sce_sys/livearea/contents/bg.png=sce_sys/livearea/contents/bg.png \
+		--add build/sce_sys/livearea/contents/startup.png=sce_sys/livearea/contents/startup.png \
+		--add build/sce_sys/livearea/contents/hipnotic.png=sce_sys/livearea/contents/hipnotic.png \
+		--add build/sce_sys/livearea/contents/rogue.png=sce_sys/livearea/contents/rogue.png \
+		--add build/sce_sys/livearea/contents/template.xml=sce_sys/livearea/contents/template.xml \
+		quakespasm.vpk
 
 %.velf: %.elf
 	cp $< $<.unstripped.elf
@@ -288,4 +289,4 @@ debug:
 	$(error Use "make DEBUG=1")
 
 clean:
-	@rm -rf $(TARGET).velf $(TARGET).elf $(OBJS) $(TARGET).elf.unstripped.elf $(TARGET).vpk build/eboot.bin build/sce_sys/param.sfo ./param.sfo
+	@rm -rf quakespasm.velf quakespasm.elf $(OBJS) quakespasm.elf.unstripped.elf quakespasm.vpk build/eboot.bin build/sce_sys/param.sfo ./param.sfo
