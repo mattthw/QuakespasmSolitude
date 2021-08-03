@@ -51,5 +51,9 @@ void IN_ClearStates (void);
 // doing all the mode, state, etc checks in one place ensures that they're consistent, regardless of what else is happening.
 void IN_UpdateGrabs(void);
 
+#ifdef VITA
+qboolean IN_SwitchKeyboard(char *out, int out_len);
+#endif
+
 #endif	/* _QUAKE_INPUT_H */
 

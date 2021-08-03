@@ -745,6 +745,15 @@ void M_Setup_Key (int k)
 		if (setup_cursor >= NUM_SETUP_CMDS)
 			setup_cursor = 0;
 		break;
+		
+#ifdef VITA
+	case K_YBUTTON:
+		if (setup_cursor == 0)
+			IN_SwitchKeyboard(setup_hostname, 16);
+		else if (setup_cursor == 1)
+			IN_SwitchKeyboard(setup_myname, 16);
+		break;
+#endif
 
 	case K_LEFTARROW:
 		if (setup_cursor < 2)
@@ -785,7 +794,8 @@ forward:
 		m_entersound = true;
 		M_Menu_MultiPlayer_f ();
 		break;
-
+	
+	case K_XBUTTON:
 	case K_BACKSPACE:
 		if (setup_cursor == 0)
 		{
@@ -1623,7 +1633,8 @@ void M_Keys_Key (int k)
 		bind_grab = true;
 		IN_UpdateGrabs(); // activate to allow mouse key binding
 		break;
-
+	
+	case K_XBUTTON:
 	case K_BACKSPACE:	// delete bindings
 	case K_DEL:
 		S_LocalSound ("misc/menu2.wav");
@@ -2017,7 +2028,14 @@ void M_LanConfig_Key (int key)
 		}
 
 		break;
-
+#ifdef VITA
+	case K_YBUTTON:
+		if (lanConfig_cursor == 3)
+			IN_SwitchKeyboard(lanConfig_joinname, 22);
+		else if (lanConfig_cursor == 0)
+			IN_SwitchKeyboard(lanConfig_portname, 6);
+		break;
+#endif
 	case K_BACKSPACE:
 		if (lanConfig_cursor == 0)
 		{

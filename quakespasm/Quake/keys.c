@@ -570,6 +570,7 @@ void Key_Console (int key)
 	{
 	case K_ENTER:
 	case K_KP_ENTER:
+	case K_ABUTTON:
 		key_tabpartial[0] = 0;
 		Cbuf_AddText (workline + 1);	// skip the prompt
 		Cbuf_AddText ("\n");
@@ -587,7 +588,14 @@ void Key_Console (int key)
 		if (cls.state == ca_disconnected)
 			SCR_UpdateScreen (); // force an update, because the command may take some time
 		return;
+#ifdef VITA
+	case K_YBUTTON:
+		IN_SwitchKeyboard(workline + 1, MAXCMDLINE - 1);
+		key_linepos = strlen(workline);
+		return;
 
+	case K_XBUTTON:
+#endif
 	case K_TAB:
 		Con_TabComplete ();
 		return;
@@ -649,14 +657,16 @@ void Key_Console (int key)
 			con_backscroll = 0;
 		else	key_linepos = strlen(workline);
 		return;
-
+	
+	case K_LSHOULDER:
 	case K_PGUP:
 	case K_MWHEELUP:
 		con_backscroll += keydown[K_CTRL] ? ((con_vislines>>3) - 4) : 2;
 		if (con_backscroll > con_totallines - (vid.height>>3) - 1)
 			con_backscroll = con_totallines - (vid.height>>3) - 1;
 		return;
-
+	
+	case K_RSHOULDER:
 	case K_PGDN:
 	case K_MWHEELDOWN:
 		con_backscroll -= keydown[K_CTRL] ? ((con_vislines>>3) - 4) : 2;
@@ -1209,6 +1219,13 @@ void Key_Init (void)
 	consolekeys[K_KP_DEL] = true;
 #if defined(PLATFORM_OSX) || defined(PLATFORM_MAC)
 	consolekeys[K_COMMAND] = true;
+#endif
+#if defined(__SWITCH__)
+	consolekeys[K_YBUTTON] = true;
+	consolekeys[K_XBUTTON] = true;
+	consolekeys[K_ABUTTON] = true;
+	consolekeys[K_LSHOULDER] = true;
+	consolekeys[K_RSHOULDER] = true;
 #endif
 	consolekeys[K_MWHEELUP] = true;
 	consolekeys[K_MWHEELDOWN] = true;
