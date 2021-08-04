@@ -137,6 +137,18 @@ void M_PrintWhite (int cx, int cy, const char *str)
 	}
 }
 
+void M_PrintCentered (int cy, char *str)
+{
+	int cx = 160 - strlen(str) * 4;
+	
+	while (*str)
+	{
+		M_DrawCharacter (cx, cy, (*str)+128);
+		str++;
+		cx += 8;
+	}
+}
+
 void M_DrawTransPic (int x, int y, qpic_t *pic)
 {
 	Draw_Pic (x, y, pic); //johnfitz -- simplified becuase centering is handled elsewhere
@@ -247,6 +259,12 @@ void M_Main_Draw (void)
 	f = (int)(realtime * 10)%6;
 
 	M_DrawTransPic (54, 32 + m_main_cursor * 20,Draw_CachePic( va("gfx/menudot%i.lmp", f+1 ) ) );
+	
+	M_PrintCentered (150, "Thanks for the awesome support on Patreon to:");
+	M_PrintCentered (158, "@Sarkies_Proxy, Badmanwazzy37, drd7of14");
+	M_PrintCentered (166, "Tain Sueiras, Colin VanBuren, Titi Clash");
+	M_PrintCentered (174, "Freddy Parra, The Vita3K Project");
+	M_PrintCentered (182, "UnrootedTiara, XandridFire");
 }
 
 
