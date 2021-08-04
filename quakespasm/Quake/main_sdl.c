@@ -103,6 +103,23 @@ static quakeparms_t	parms;
 #endif
 
 #ifdef VITA
+uint16_t title[SCE_IME_DIALOG_MAX_TITLE_LENGTH];
+uint16_t initial_text[SCE_IME_DIALOG_MAX_TEXT_LENGTH];
+uint16_t input_text[SCE_IME_DIALOG_MAX_TEXT_LENGTH + 1];
+char title_keyboard[256];
+
+void ascii2utf(uint16_t* dst, char* src){
+	if(!src || !dst)return;
+	while(*src)*(dst++)=(*src++);
+	*dst=0x00;
+}
+
+void utf2ascii(char* dst, uint16_t* src){
+	if(!src || !dst)return;
+	while(*src)*(dst++)=(*(src++))&0xFF;
+	*dst=0x00;
+}
+
 int quake_main (unsigned int argc, char *argv[])
 #else
 int main(int argc, char *argv[])
@@ -116,15 +133,109 @@ int main(int argc, char *argv[])
 	scePowerSetGpuClockFrequency(222);
 	scePowerSetGpuXbarClockFrequency(166);
 	sceIoMkdir("ux0:data/Quakespasm/tmp", 0777);
+	sceAppUtilInit(&(SceAppUtilInitParam){}, &(SceAppUtilBootParam){});
+	SceCommonDialogConfigParam cmnDlgCfgParam;
+	sceCommonDialogConfigParamInit(&cmnDlgCfgParam);
+	sceAppUtilSystemParamGetInt(SCE_SYSTEM_PARAM_ID_LANG, (int *)&cmnDlgCfgParam.language);
+	sceAppUtilSystemParamGetInt(SCE_SYSTEM_PARAM_ID_ENTER_BUTTON, (int *)&cmnDlgCfgParam.enterButtonAssign);
+	sceCommonDialogSetConfigParam(&cmnDlgCfgParam);
 #endif
 	int		t;
 	double		time, oldtime, newtime;
 
 	host_parms = &parms;
 	parms.basedir = "ux0:data/Quakespasm";
+
+#ifdef VITA	
+	sceClibPrintf("Initializing vitaGL...\n");
+	vglInitExtended(20 * 1024 * 1024, 960, 544, 2 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
+
+	// Checking for libshacccg.suprx existence
+	SceIoStat st1, st2;
+	if (!(sceIoGetstat("ur0:/data/libshacccg.suprx", &st1) >= 0 || sceIoGetstat("ur0:/data/external/libshacccg.suprx", &st2) >= 0)) {
+		SceMsgDialogUserMessageParam msg_param;
+		sceClibMemset(&msg_param, 0, sizeof(SceMsgDialogUserMessageParam));
+		msg_param.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK;
+		msg_param.msg = (const SceChar8*)"Error: Runtime shader compiler (libshacccg.suprx) is not installed.";
+		SceMsgDialogParam param;
+		sceMsgDialogParamInit(&param);
+		param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
+		param.userMsgParam = &msg_param;
+		sceMsgDialogInit(&param);
+		while (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
+			vglSwapBuffers(GL_TRUE);
+		}
+		sceKernelExitProcess(0);
+	}
 	
-	parms.argc = argc;
-	parms.argv = argv;
+	// Official mission packs support
+	SceAppUtilAppEventParam eventParam;
+	memset(&eventParam, 0, sizeof(SceAppUtilAppEventParam));
+	sceAppUtilReceiveAppEvent(&eventParam);
+	char *int_argv[16];
+	int int_argc = 2;
+	char buffer[2048];
+	if (eventParam.type == 0x05) {
+		int_argv[0] = int_argv[2] = "";
+		memset(buffer, 0, 2048);
+		sceAppUtilAppEventParseLiveArea(&eventParam, buffer);
+		if (strstr(buffer, "custom") != NULL) {
+			memset(input_text, 0, (SCE_IME_DIALOG_MAX_TEXT_LENGTH + 1) << 1);
+			memset(initial_text, 0, (SCE_IME_DIALOG_MAX_TEXT_LENGTH) << 1);
+			sprintf(title_keyboard, "Insert args list");
+			ascii2utf(title, title_keyboard);
+			SceImeDialogParam param;
+			sceImeDialogParamInit(&param);
+			param.supportedLanguages = 0x0001FFFF;
+			param.languagesForced = SCE_TRUE;
+			param.type = SCE_IME_TYPE_BASIC_LATIN;
+			param.title = title;
+			param.maxTextLength = SCE_IME_DIALOG_MAX_TEXT_LENGTH;
+			param.initialText = initial_text;
+			param.inputTextBuffer = input_text;
+			sceImeDialogInit(&param);
+			while (sceImeDialogGetStatus() != 2) {
+				vglSwapBuffers(GL_TRUE);
+			}
+			SceCommonDialogStatus status = sceImeDialogGetStatus();
+			SceImeDialogResult result;
+			memset(&result, 0, sizeof(SceImeDialogResult));
+			sceImeDialogGetResult(&result);
+			if (result.button == SCE_IME_DIALOG_BUTTON_ENTER)
+			{
+				utf2ascii(title_keyboard, input_text);
+				if (strlen(title_keyboard) > 1) {
+					
+					int_argv[1] = title_keyboard;
+					char *ptr = title_keyboard;
+					for (;;) {
+						char *space = strstr(ptr, " ");
+						if (space == NULL) break;
+						*space = 0;
+						int_argv[int_argc++] = ptr = space + 1;
+					}
+					int_argv[int_argc++] = "";
+					parms.argc = int_argc;
+					parms.argv = int_argv;
+				} else {
+					parms.argc = argc;
+					parms.argv = argv;
+				}
+			} else {
+				parms.argc = argc;
+				parms.argv = argv;
+			}
+			sceImeDialogTerm();
+		} else {
+			int_argv[1] = buffer;
+			parms.argc = 3;
+			parms.argv = int_argv;
+		}
+	} else {
+		parms.argc = argc;
+		parms.argv = argv;
+	}
+#endif	
 
 	parms.errstate = 0;
 

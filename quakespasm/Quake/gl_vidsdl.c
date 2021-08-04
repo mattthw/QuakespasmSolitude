@@ -1340,33 +1340,6 @@ GL_Init
 */
 static void GL_Init (void)
 {
-#ifdef VITA
-	static int vgl_inited = 0;
-	if (!vgl_inited) {
-		sceClibPrintf("Initializing vitaGL...\n");
-		vglInitExtended(20 * 1024 * 1024, 960, 544, 2 * 1024 * 1024, SCE_GXM_MULTISAMPLE_4X);
-
-		// Checking for libshacccg.suprx existence
-		SceIoStat st1, st2;
-		if (!(sceIoGetstat("ur0:/data/libshacccg.suprx", &st1) >= 0 || sceIoGetstat("ur0:/data/external/libshacccg.suprx", &st2) >= 0)) {
-			SceMsgDialogUserMessageParam msg_param;
-			sceClibMemset(&msg_param, 0, sizeof(SceMsgDialogUserMessageParam));
-			msg_param.buttonType = SCE_MSG_DIALOG_BUTTON_TYPE_OK;
-			msg_param.msg = (const SceChar8*)"Error: Runtime shader compiler (libshacccg.suprx) is not installed.";
-			SceMsgDialogParam param;
-			sceMsgDialogParamInit(&param);
-			param.mode = SCE_MSG_DIALOG_MODE_USER_MSG;
-			param.userMsgParam = &msg_param;
-			sceMsgDialogInit(&param);
-			while (sceMsgDialogGetStatus() != SCE_COMMON_DIALOG_STATUS_FINISHED) {
-				vglSwapBuffers(GL_TRUE);
-			}
-			sceKernelExitProcess(0);
-		}
-		
-		vgl_inited = 1;
-	}
-#endif
 	gl_vendor = (const char *) glGetString (GL_VENDOR);
 	gl_renderer = (const char *) glGetString (GL_RENDERER);
 	gl_version = (const char *) glGetString (GL_VERSION);
