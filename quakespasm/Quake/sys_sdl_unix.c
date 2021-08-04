@@ -390,9 +390,6 @@ void Sys_mkdir (const char *path)
 {
 #ifndef VITA
 	int rc = mkdir (path, 0777);
-#else
-	int rc = sceIoMkdir (path, 0777);
-#endif
 	if (rc != 0 && errno == EEXIST)
 	{
 		struct stat st;
@@ -404,6 +401,9 @@ void Sys_mkdir (const char *path)
 		rc = errno;
 		Sys_Error("Unable to create directory %s: %s", path, strerror(rc));
 	}
+#else
+	sceIoMkdir (path, 0777);
+#endif
 }
 
 static const char errortxt1[] = "\nERROR-OUT BEGIN\n\n";

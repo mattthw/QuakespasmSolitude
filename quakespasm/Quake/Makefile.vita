@@ -263,7 +263,7 @@ OBJS := strlcat.o \
 
 quakespasm.vpk: quakespasm.velf
 	vita-make-fself -c -s $< build/eboot.bin
-	vita-mksfoex -s TITLE_ID=QKSPMSPK -d ATTRIBUTE2=12 "Quakespasm Spiked" param.sfo
+	vita-mksfoex -s TITLE_ID=QKSPMSPKD -d ATTRIBUTE2=12 "Quakespasm Spiked" param.sfo
 	cp -f param.sfo build/sce_sys/param.sfo
 	vita-pack-vpk -s param.sfo -b build/eboot.bin \
 		--add build/sce_sys/icon0.png=sce_sys/icon0.png \

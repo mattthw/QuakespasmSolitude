@@ -212,7 +212,7 @@ sys_socket_t UDP4_OpenSocket (int port)
 	int _true = 1;
 	int err;
 
-	if ((newsocket = socket (PF_INET, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET)
+	if ((newsocket = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET)
 	{
 		err = SOCKETERRNO;
 		Con_SafePrintf("UDP4_OpenSocket: %s\n", socketerror(err));
@@ -734,7 +734,7 @@ sys_socket_t UDP6_OpenSocket (int port)
 	int _true = 1;
 	int err;
 
-	if ((newsocket = socket (PF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET)
+	if ((newsocket = socket (AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == INVALID_SOCKET)
 	{
 		err = SOCKETERRNO;
 		Con_SafePrintf("UDP6_OpenSocket: %s\n", socketerror(err));
