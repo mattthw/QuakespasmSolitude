@@ -54,6 +54,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #endif
 
+extern uint64_t rumble_tick;
+
 static void Sys_AtExit (void)
 {
 	SDL_Quit();
@@ -289,6 +291,11 @@ int main(int argc, char *argv[])
 				SDL_Delay(1);
 				newtime = Sys_DoubleTime ();
 				time = newtime - oldtime;
+			}
+			
+			// Rumble effect managing (PSTV only)
+			if (rumble_tick != 0) {
+				if (sceKernelGetProcessTimeWide() - rumble_tick > 500000) IN_StopRumble(); // 0.5 sec
 			}
 
 			Host_Frame (time);

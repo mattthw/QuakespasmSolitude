@@ -90,6 +90,7 @@ qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_
 
 extern cvar_t gl_texturemode;
 extern cvar_t crosshair;
+extern cvar_t pstv_rumble;
 
 static vmode_t	modelist[MAX_MODE_LIST];
 static int		nummodes;
@@ -1923,6 +1924,7 @@ enum {
 	VID_OPT_BILINEAR,
 	VID_OPT_WATER_OPACITY,
 	VID_OPT_VSYNC,
+	VID_OPT_RUMBLE,
 	VIDEO_OPTIONS_ITEMS
 };
 
@@ -2294,6 +2296,9 @@ static void VID_MenuKey (int key)
 		case VID_OPT_VSYNC:
 			Cvar_SetValue ("vid_vsync", !vid_vsync.value);
 			break;
+		case VID_OPT_RUMBLE:
+			Cvar_SetValue ("pstv_rumble", !pstv_rumble.value);
+			break;
 		default:
 			break;
 		}
@@ -2355,6 +2360,11 @@ static void VID_MenuDraw (void)
 		case VID_OPT_VSYNC:
 			M_Print (16, y, "     Vertical sync");
 			M_DrawCheckbox (184, y, (int)vid_vsync.value);
+			break;
+		case VID_OPT_RUMBLE:
+			M_Print (16, y, "     Rumble Effect");
+			r = pstv_rumble.value;
+			M_DrawSlider (220, y, r);
 			break;
 		}
 

@@ -34,8 +34,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static qboolean	textmode;
 extern qboolean	bind_grab;	//from the menu code, so that we regrab the mouse in order to pass inputs through
+uint64_t rumble_tick = 0;
 
 static cvar_t in_debugkeys = {"in_debugkeys", "0", CVAR_NONE};
+cvar_t pstv_rumble = {"pstv_rumble", "1", CVAR_ARCHIVE};
 
 #ifdef __APPLE__
 /* Mouse acceleration needs to be disabled on OS X */
@@ -1353,5 +1355,23 @@ qboolean IN_SwitchKeyboard(char *out, int out_len)
 
 	return true;
 }
-#endif
 
+void IN_StartRumble (void)
+{
+	if (!pstv_rumble.value) return;
+	SceCtrlActuator handle;
+	handle.small = 100;
+	handle.large = 100;
+	sceCtrlSetActuator(1, &handle);
+	rumble_tick = sceKernelGetProcessTimeWide();
+}
+
+void IN_StopRumble (void)
+{
+	SceCtrlActuator handle;
+	handle.small = 0;
+	handle.large = 0;
+	sceCtrlSetActuator(1, &handle);
+	rumble_tick = 0;
+}
+#endif

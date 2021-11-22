@@ -1925,6 +1925,7 @@ static void CL_ParseClientdata (void)
 		CL_SetHudStat(STAT_ARMOR, armourval);
 		CL_SetHudStat(STAT_WEAPON, weaponmodel);
 		CL_SetHudStat(STAT_ACTIVEWEAPON, activeweapon);
+		if (health < cl.stats[STAT_HEALTH]) IN_StartRumble();
 		CL_SetHudStat(STAT_HEALTH, health);
 		CL_SetHudStat(STAT_AMMO, ammo);
 		CL_SetHudStat(STAT_SHELLS, ammovals[0]);
