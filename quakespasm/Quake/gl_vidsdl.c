@@ -89,6 +89,7 @@ static const char *gl_extensions;
 qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_texture_astc;
 
 extern cvar_t gl_texturemode;
+extern cvar_t crosshair;
 
 static vmode_t	modelist[MAX_MODE_LIST];
 static int		nummodes;
@@ -1918,7 +1919,7 @@ void VID_SyncCvars (void)
 //==========================================================================
 
 enum {
-	VID_OPT_SHADOWS,
+	VID_OPT_XHAIR,
 	VID_OPT_BILINEAR,
 	VID_OPT_WATER_OPACITY,
 	VID_OPT_VSYNC,
@@ -2221,8 +2222,8 @@ static void VID_MenuKey (int key)
 		S_LocalSound ("misc/menu3.wav");
 		switch (video_options_cursor)
 		{
-		case VID_OPT_SHADOWS:
-			Cvar_SetValue ("r_shadows", !r_shadows.value);
+		case VID_OPT_XHAIR:
+			Cvar_SetValue ("crosshair", !crosshair.value);
 			break;
 		case VID_OPT_BILINEAR:
 			if (!strcmp(gl_texturemode.string, "GL_NEAREST"))
@@ -2250,9 +2251,9 @@ static void VID_MenuKey (int key)
 		S_LocalSound ("misc/menu3.wav");
 		switch (video_options_cursor)
 		{
-		case VID_OPT_SHADOWS:
-			Cvar_SetValue ("r_shadows", !r_shadows.value);
-			break;;
+		case VID_OPT_XHAIR:
+			Cvar_SetValue ("crosshair", !crosshair.value);
+			break;
 		case VID_OPT_BILINEAR:
 			if (!strcmp(gl_texturemode.string, "GL_NEAREST"))
 				Cbuf_AddText ("gl_texturemode GL_LINEAR\n");
@@ -2281,8 +2282,8 @@ static void VID_MenuKey (int key)
 		m_entersound = true;
 		switch (video_options_cursor)
 		{
-		case VID_OPT_SHADOWS:
-			Cvar_SetValue ("r_shadows", !r_shadows.value);
+		case VID_OPT_XHAIR:
+			Cvar_SetValue ("crosshair", !crosshair.value);
 			break;
 		case VID_OPT_BILINEAR:
 			if (!strcmp(gl_texturemode.string, "GL_NEAREST"))
@@ -2338,9 +2339,9 @@ static void VID_MenuDraw (void)
 	{
 		switch (i)
 		{
-		case VID_OPT_SHADOWS:
-			M_Print (16, y, "   Dynamic Shadows");
-			M_DrawCheckbox (220, y, r_shadows.value);
+		case VID_OPT_XHAIR:
+			M_Print (16, y, "    Show Crosshair");
+			M_DrawCheckbox (220, y, crosshair.value);
 			break;
 		case VID_OPT_BILINEAR:
 			M_Print (16, y, "Bilinear Filtering");
