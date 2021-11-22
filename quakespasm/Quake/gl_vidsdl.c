@@ -56,6 +56,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define DEFAULT_REFRESHRATE	60
 
+// FIXME: If we don't re-define this here, there seems to be issues related to softfp vs hardfp
+#define SLIDER_RANGE 10
+static void M_DrawSlider (int x, int y, float range)
+{
+	int	i;
+	if (range < 0)
+		range = 0;
+	if (range > 1)
+		range = 1;
+	M_DrawCharacter (x-8, y, 128);
+	for (i = 0; i < SLIDER_RANGE; i++)
+		M_DrawCharacter (x + i*8, y, 129);
+	M_DrawCharacter (x+i*8, y, 130);
+	M_DrawCharacter (x + (SLIDER_RANGE-1)*8 * range, y, 131);
+}
+
 typedef struct {
 	int			width;
 	int			height;
@@ -71,6 +87,8 @@ static int gl_version_minor;
 static const char *gl_extensions;
 
 qboolean gl_texture_s3tc, gl_texture_rgtc, gl_texture_bptc, gl_texture_etc2, gl_texture_astc;
+
+extern cvar_t gl_texturemode;
 
 static vmode_t	modelist[MAX_MODE_LIST];
 static int		nummodes;
@@ -807,6 +825,7 @@ VID_Changed_f -- kristian -- notify us that a value has changed that requires a 
 static void VID_Changed_f (cvar_t *var)
 {
 	vid_changed = true;
+	vglWaitVblankStart(vid_vsync.value);
 }
 
 /*
@@ -1890,13 +1909,10 @@ void VID_SyncCvars (void)
 //==========================================================================
 
 enum {
-	VID_OPT_MODE,
-	VID_OPT_BPP,
-	VID_OPT_REFRESHRATE,
-	VID_OPT_FULLSCREEN,
+	VID_OPT_SHADOWS,
+	VID_OPT_BILINEAR,
+	VID_OPT_WATER_OPACITY,
 	VID_OPT_VSYNC,
-	VID_OPT_TEST,
-	VID_OPT_APPLY,
 	VIDEO_OPTIONS_ITEMS
 };
 
@@ -2196,20 +2212,25 @@ static void VID_MenuKey (int key)
 		S_LocalSound ("misc/menu3.wav");
 		switch (video_options_cursor)
 		{
-		case VID_OPT_MODE:
-			VID_Menu_ChooseNextMode (1);
+		case VID_OPT_SHADOWS:
+			Cvar_SetValue ("r_shadows", !r_shadows.value);
 			break;
-		case VID_OPT_BPP:
-			VID_Menu_ChooseNextBpp (1);
+		case VID_OPT_BILINEAR:
+			if (!strcmp(gl_texturemode.string, "GL_NEAREST"))
+				Cbuf_AddText ("gl_texturemode GL_LINEAR\n");
+			else
+				Cbuf_AddText ("gl_texturemode GL_NEAREST\n");
 			break;
-		case VID_OPT_REFRESHRATE:
-			VID_Menu_ChooseNextRate (1);
-			break;
-		case VID_OPT_FULLSCREEN:
-			Cbuf_AddText ("toggle vid_fullscreen\n");
+		case VID_OPT_WATER_OPACITY:
+			r_wateralpha.value -= 0.1;
+			if (r_wateralpha.value < 0)
+				r_wateralpha.value = 0;
+			if (r_wateralpha.value > 1)
+				r_wateralpha.value = 1;
+			Cvar_SetValue ("r_wateralpha", r_wateralpha.value);
 			break;
 		case VID_OPT_VSYNC:
-			Cbuf_AddText ("toggle vid_vsync\n"); // kristian
+			Cvar_SetValue ("vid_vsync", !vid_vsync.value);
 			break;
 		default:
 			break;
@@ -2220,20 +2241,25 @@ static void VID_MenuKey (int key)
 		S_LocalSound ("misc/menu3.wav");
 		switch (video_options_cursor)
 		{
-		case VID_OPT_MODE:
-			VID_Menu_ChooseNextMode (-1);
+		case VID_OPT_SHADOWS:
+			Cvar_SetValue ("r_shadows", !r_shadows.value);
+			break;;
+		case VID_OPT_BILINEAR:
+			if (!strcmp(gl_texturemode.string, "GL_NEAREST"))
+				Cbuf_AddText ("gl_texturemode GL_LINEAR\n");
+			else
+				Cbuf_AddText ("gl_texturemode GL_NEAREST\n");
 			break;
-		case VID_OPT_BPP:
-			VID_Menu_ChooseNextBpp (-1);
-			break;
-		case VID_OPT_REFRESHRATE:
-			VID_Menu_ChooseNextRate (-1);
-			break;
-		case VID_OPT_FULLSCREEN:
-			Cbuf_AddText ("toggle vid_fullscreen\n");
+		case VID_OPT_WATER_OPACITY:
+			r_wateralpha.value += 0.1;
+			if (r_wateralpha.value < 0)
+				r_wateralpha.value = 0;
+			if (r_wateralpha.value > 1)
+				r_wateralpha.value = 1;
+			Cvar_SetValue ("r_wateralpha", r_wateralpha.value);
 			break;
 		case VID_OPT_VSYNC:
-			Cbuf_AddText ("toggle vid_vsync\n");
+			Cvar_SetValue ("vid_vsync", !vid_vsync.value);
 			break;
 		default:
 			break;
@@ -2246,29 +2272,17 @@ static void VID_MenuKey (int key)
 		m_entersound = true;
 		switch (video_options_cursor)
 		{
-		case VID_OPT_MODE:
-			VID_Menu_ChooseNextMode (1);
+		case VID_OPT_SHADOWS:
+			Cvar_SetValue ("r_shadows", !r_shadows.value);
 			break;
-		case VID_OPT_BPP:
-			VID_Menu_ChooseNextBpp (1);
-			break;
-		case VID_OPT_REFRESHRATE:
-			VID_Menu_ChooseNextRate (1);
-			break;
-		case VID_OPT_FULLSCREEN:
-			Cbuf_AddText ("toggle vid_fullscreen\n");
+		case VID_OPT_BILINEAR:
+			if (!strcmp(gl_texturemode.string, "GL_NEAREST"))
+				Cbuf_AddText ("gl_texturemode GL_LINEAR\n");
+			else
+				Cbuf_AddText ("gl_texturemode GL_NEAREST\n");
 			break;
 		case VID_OPT_VSYNC:
-			Cbuf_AddText ("toggle vid_vsync\n");
-			break;
-		case VID_OPT_TEST:
-			Cbuf_AddText ("vid_test\n");
-			break;
-		case VID_OPT_APPLY:
-			Cbuf_AddText ("vid_restart\n");
-			key_dest = key_game;
-			m_state = m_none;
-			IN_UpdateGrabs();
+			Cvar_SetValue ("vid_vsync", !vid_vsync.value);
 			break;
 		default:
 			break;
@@ -2290,7 +2304,8 @@ static void VID_MenuDraw (void)
 	int i, y;
 	qpic_t *p;
 	const char *title;
-
+	float r;
+	
 	y = 4;
 
 	// plaque
@@ -2304,7 +2319,7 @@ static void VID_MenuDraw (void)
 	y += 28;
 
 	// title
-	title = "Video Options";
+	title = "Advanced Options";
 	M_PrintWhite ((320-8*strlen(title))/2, y, title);
 
 	y += 16;
@@ -2314,35 +2329,22 @@ static void VID_MenuDraw (void)
 	{
 		switch (i)
 		{
-		case VID_OPT_MODE:
-			M_Print (16, y, "        Video mode");
-			M_Print (184, y, va("%ix%i", (int)vid_width.value, (int)vid_height.value));
+		case VID_OPT_SHADOWS:
+			M_Print (16, y, "   Dynamic Shadows");
+			M_DrawCheckbox (220, y, r_shadows.value);
 			break;
-		case VID_OPT_BPP:
-			M_Print (16, y, "       Color depth");
-			M_Print (184, y, va("%i", (int)vid_bpp.value));
+		case VID_OPT_BILINEAR:
+			M_Print (16, y, "Bilinear Filtering");
+			M_DrawCheckbox (220, y, strcmp(gl_texturemode.string, "GL_NEAREST"));
 			break;
-		case VID_OPT_REFRESHRATE:
-			M_Print (16, y, "      Refresh rate");
-			M_Print (184, y, va("%i", (int)vid_refreshrate.value));
-			break;
-		case VID_OPT_FULLSCREEN:
-			M_Print (16, y, "        Fullscreen");
-			M_DrawCheckbox (184, y, (int)vid_fullscreen.value);
+		case VID_OPT_WATER_OPACITY:
+			M_Print (16, y, "     Water Opacity");
+			r = r_wateralpha.value;
+			M_DrawSlider (220, y, r);
 			break;
 		case VID_OPT_VSYNC:
 			M_Print (16, y, "     Vertical sync");
-			if (gl_swap_control)
-				M_DrawCheckbox (184, y, (int)vid_vsync.value);
-			else
-				M_Print (184, y, "N/A");
-			break;
-		case VID_OPT_TEST:
-			y += 8; //separate the test and apply items
-			M_Print (16, y, "      Test changes");
-			break;
-		case VID_OPT_APPLY:
-			M_Print (16, y, "     Apply changes");
+			M_DrawCheckbox (184, y, (int)vid_vsync.value);
 			break;
 		}
 

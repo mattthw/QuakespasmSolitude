@@ -1153,7 +1153,6 @@ void M_AdjustSliders (int dir)
 void M_DrawSlider (int x, int y, float range)
 {
 	int	i;
-
 	if (range < 0)
 		range = 0;
 	if (range > 1)
@@ -1273,7 +1272,7 @@ void M_Options_Draw (void)
 
 	// OPT_VIDEO:
 	if (vid_menudrawfn)
-		M_Print (16, 32 + 8*OPT_VIDEO,	"         Video Options");
+		M_Print (16, 32 + 8*OPT_VIDEO,	"      Advanced Options");
 
 // cursor
 	M_DrawCharacter (200, 32 + options_cursor*8, 12+((int)(realtime*4)&1));
