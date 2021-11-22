@@ -37,7 +37,12 @@ extern qboolean	bind_grab;	//from the menu code, so that we regrab the mouse in 
 uint64_t rumble_tick = 0;
 
 static cvar_t in_debugkeys = {"in_debugkeys", "0", CVAR_NONE};
+
+#ifdef VITA
+#include <vitasdk.h>
 cvar_t pstv_rumble = {"pstv_rumble", "1", CVAR_ARCHIVE};
+cvar_t retrotouch = {"retrotouch", "0", CVAR_ARCHIVE};
+#endif
 
 #ifdef __APPLE__
 /* Mouse acceleration needs to be disabled on OS X */
@@ -440,6 +445,11 @@ void IN_ShutdownJoystick (void)
 #endif
 }
 
+static void IN_Retrotouch_f (cvar_t *var)
+{
+	sceTouchSetSamplingState(SCE_TOUCH_PORT_BACK, (int)retrotouch.value);
+}
+
 void IN_Init (void)
 {
 	textmode = Key_TextEntry();
@@ -474,7 +484,10 @@ void IN_Init (void)
 	Cvar_RegisterVariable(&joy_exponent_move);
 	Cvar_RegisterVariable(&joy_swapmovelook);
 	Cvar_RegisterVariable(&joy_enable);
-
+	Cvar_RegisterVariable(&pstv_rumble);
+	Cvar_RegisterVariable(&retrotouch);
+	Cvar_SetCallback (&retrotouch, IN_Retrotouch_f);
+	
 	IN_UpdateGrabs();
 	IN_StartupJoystick();
 }
