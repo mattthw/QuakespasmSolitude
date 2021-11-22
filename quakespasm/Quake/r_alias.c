@@ -91,6 +91,9 @@ typedef struct
 	GLuint useFullbrightTexLoc;
 	GLuint useOverbrightLoc;
 	GLuint useAlphaTestLoc;
+#ifdef VITA
+	GLuint fogDensityLoc;
+#endif
 } aliasglsl_t;
 static aliasglsl_t r_alias_glsl[ALIAS_GLSL_MODES];
 
@@ -170,7 +173,102 @@ void GLAlias_CreateShaders (void)
 		{ "Pose2Normal", pose2NormalAttrIndex },
 		{ "VertColours", vertColoursAttrIndex }
 	};
+#ifdef VITA
+	const GLchar *vertSource = \
+		"#ifdef SKELETAL\n"
+		"#define BoneWeight Pose2Vert\n"
+		"#define BoneIndex Pose2Normal\n"
+		"#endif\n"
+		"uniform float3 ShadeVector;\n"
+		"uniform float4 LightColor;\n"
+		"uniform float4x4 gl_ModelViewProjectionMatrix;\n"
+		"\n"
+		"float r_avertexnormal_dot(float3 vertexnormal) // from MH \n"
+		"{\n"
+		"        float _dot = dot(vertexnormal, ShadeVector);\n"
+		"        // wtf - this reproduces anorm_dots within as reasonable a degree of tolerance as the >= 0 case\n"
+		"        if (_dot < 0.0)\n"
+		"            return 1.0 + _dot * (13.0 / 44.0);\n"
+		"        else\n"
+		"            return 1.0 + _dot;\n"
+		"}\n"
+		"void main(\n"
+		"	float4 TexCoords,\n"
+		"	float4 Pose1Vert,\n"
+		"	float3 Pose1Normal,\n"
+		"#ifdef SKELETAL\n"
+		"	float4 BoneWeight,\n"
+		"	float4 BoneIndex,\n"
+		"	float4 VertColours,\n"
+		"	uniform float4 BoneTable[MAXBONES*3],\n" //fixme: should probably try to use a UBO or SSBO.
+		"#else\n"
+		"	uniform float Blend,\n"
+		"	float4 Pose2Vert,\n"
+		"	float3 Pose2Normal,\n"
+		"#endif\n"
+		"	float2 out gl_TexCoord : TEXCOORD0,\n"
+		"	float4 out gl_Position : POSITION,\n"
+		"	float4 out gl_FrontColor : COLOR\n"
+		") {\n"
+		"	gl_TexCoord = TexCoords.xy;\n"
+		"#ifdef SKELETAL\n"
+		"	float4x4 wmat;"
+		"	wmat[0]  = BoneTable[0+3*int(BoneIndex.x)] * BoneWeight.x;"
+		"	wmat[0] += BoneTable[0+3*int(BoneIndex.y)] * BoneWeight.y;"
+		"	wmat[0] += BoneTable[0+3*int(BoneIndex.z)] * BoneWeight.z;"
+		"	wmat[0] += BoneTable[0+3*int(BoneIndex.w)] * BoneWeight.w;"
+		"	wmat[1]  = BoneTable[1+3*int(BoneIndex.x)] * BoneWeight.x;"
+		"	wmat[1] += BoneTable[1+3*int(BoneIndex.y)] * BoneWeight.y;"
+		"	wmat[1] += BoneTable[1+3*int(BoneIndex.z)] * BoneWeight.z;"
+		"	wmat[1] += BoneTable[1+3*int(BoneIndex.w)] * BoneWeight.w;"
+		"	wmat[2]  = BoneTable[2+3*int(BoneIndex.x)] * BoneWeight.x;"
+		"	wmat[2] += BoneTable[2+3*int(BoneIndex.y)] * BoneWeight.y;"
+		"	wmat[2] += BoneTable[2+3*int(BoneIndex.z)] * BoneWeight.z;"
+		"	wmat[2] += BoneTable[2+3*int(BoneIndex.w)] * BoneWeight.w;"
+		"	wmat[3] = float4(0.0,0.0,0.0,1.0);\n"
+		"	float4 lerpedVert = mul(wmat, float4(Pose1Vert.xyz, 1.0));\n"
+		"	float dot1 = r_avertexnormal_dot((mul(wmat, float4(Pose1Vert.xyz, 0.0))).xyz);\n"
+		"#else\n"
+		"	float4 lerpedVert = lerp(float4(Pose1Vert.xyz, 1.0), float4(Pose2Vert.xyz, 1.0), Blend);\n"
+		"	float dot1 = lerp(r_avertexnormal_dot(Pose1Normal), r_avertexnormal_dot(Pose2Normal), Blend);\n"
+		"#endif\n"
+		"	gl_Position = mul(gl_ModelViewProjectionMatrix, lerpedVert);\n"
+		"	gl_FrontColor = LightColor * float4(float3(dot1), 1.0);\n"
+		"#ifdef SKELETAL\n"
+		"	gl_FrontColor *= VertColours;\n"	//this is basically only useful for vertex alphas.
+		"#endif\n"
+		"}\n";
 
+	const GLchar *fragSource = \
+		"uniform sampler2D Tex;\n"
+		"uniform sampler2D FullbrightTex;\n"
+		"uniform int UseFullbrightTex;\n"
+		"uniform int UseOverbright;\n"
+		"uniform int UseAlphaTest;\n"
+		"uniform float fog_density;\n"
+		"\n"
+		"float4 main(\n"
+		"	float4 coords : WPOS,\n"
+		"	float2 gl_TexCoord : TEXCOORD0,\n"
+		"	float4 gl_Color : COLOR\n"
+		") {\n"
+		"	float4 result = tex2D(Tex, gl_TexCoord);\n"
+		"	if (UseAlphaTest && (result.a < 0.666))\n"
+		"		discard;\n"
+		"	result *= gl_Color;\n"
+		"	if (UseOverbright)\n"
+		"		result.rgb *= 2.0;\n"
+		"	if (UseFullbrightTex)\n"
+		"		result += tex2D(FullbrightTex, gl_TexCoord);\n"
+		"	result = clamp(result, 0.0, 1.0);\n"
+		"	float FogFragCoord = coords.z / coords.w;\n"
+		"	float fog = exp(-fog_density * fog_density * FogFragCoord * FogFragCoord);\n"
+		"	fog = clamp(fog, 0.0, 1.0);\n"
+		"	result = lerp(float4(0.3, 0.3, 0.3, 1.0), result, fog);\n"
+		"	result.a = gl_Color.a;\n" // FIXME: This will make almost transparent things cut holes though heavy fog
+		"	return result;\n"
+		"}\n";
+#else
 	const GLchar *vertSource = \
 		"#version 110\n"
 		"%s"
@@ -264,7 +362,7 @@ void GLAlias_CreateShaders (void)
 		"	result.a *= gl_Color.a;\n" // FIXME: This will make almost transparent things cut holes though heavy fog
 		"	gl_FragColor = result;\n"
 		"}\n";
-
+#endif
 	if (!gl_glsl_alias_able)
 		return;
 
@@ -301,11 +399,16 @@ void GLAlias_CreateShaders (void)
 			}
 			glsl->shadevectorLoc = GL_GetUniformLocation (&glsl->program, "ShadeVector");
 			glsl->lightColorLoc = GL_GetUniformLocation (&glsl->program, "LightColor");
+#ifndef VITA
 			glsl->texLoc = GL_GetUniformLocation (&glsl->program, "Tex");
 			glsl->fullbrightTexLoc = GL_GetUniformLocation (&glsl->program, "FullbrightTex");
+#endif
 			glsl->useFullbrightTexLoc = GL_GetUniformLocation (&glsl->program, "UseFullbrightTex");
 			glsl->useOverbrightLoc = GL_GetUniformLocation (&glsl->program, "UseOverbright");
 			glsl->useAlphaTestLoc = GL_GetUniformLocation (&glsl->program, "UseAlphaTest");
+#ifdef VITA
+			glsl->fogDensityLoc = GL_GetUniformLocation(&glsl->program, "fog_density");
+#endif
 		}
 	}
 }
@@ -400,11 +503,16 @@ void GL_DrawAliasFrame_GLSL (aliasglsl_t *glsl, aliashdr_t *paliashdr, lerpdata_
 		GL_Uniform4fvFunc (glsl->bonesLoc, paliashdr->numbones*3, lerpdata.bonestate->mat);
 	GL_Uniform3fFunc (glsl->shadevectorLoc, shadevector[0], shadevector[1], shadevector[2]);
 	GL_Uniform4fFunc (glsl->lightColorLoc, lightcolor[0], lightcolor[1], lightcolor[2], entalpha);
+#ifndef VITA
 	GL_Uniform1iFunc (glsl->texLoc, 0);
 	GL_Uniform1iFunc (glsl->fullbrightTexLoc, 1);
+#endif
 	GL_Uniform1iFunc (glsl->useFullbrightTexLoc, (fb != NULL) ? 1 : 0);
 	GL_Uniform1fFunc (glsl->useOverbrightLoc, overbright ? 1 : 0);
 	GL_Uniform1iFunc (glsl->useAlphaTestLoc, (currententity->model->flags & MF_HOLEY) ? 1 : 0);
+#ifdef VITA
+	GL_Uniform1fFunc (glsl->fogDensityLoc, Fog_GetDensity() / 64.0f);
+#endif
 
 // set textures
 	GL_SelectTexture (GL_TEXTURE0);

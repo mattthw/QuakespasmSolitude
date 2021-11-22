@@ -817,6 +817,9 @@ static GLuint useFullbrightTexLoc;
 static GLuint useOverbrightLoc;
 static GLuint useAlphaTestLoc;
 static GLuint alphaLoc;
+#ifdef VITA
+static GLuint fogDensityLoc;
+#endif
 
 #define vertAttrIndex 0
 #define texCoordsAttrIndex 1
@@ -834,7 +837,55 @@ void GLWorld_CreateShaders (void)
 		{ "TexCoords", texCoordsAttrIndex },
 		{ "LMCoords", LMCoordsAttrIndex }
 	};
+#ifdef VITA
+	const GLchar *vertSource = \
+		"uniform float4x4 gl_ModelViewProjectionMatrix;\n"
+		"\n"
+		"void main(\n"
+		"	float4 Vert,\n"
+		"	float2 TexCoords,\n"
+		"	float2 LMCoords,\n"
+		"	float2 out tc_tex : TEXCOORD0,\n"
+		"	float2 out tc_lm : TEXCOORD1,\n"
+		"	float4 out gl_Position : POSITION\n"
+		") {\n"
+		"	tc_tex = TexCoords;\n"
+		"	tc_lm = LMCoords;\n"
+		"	gl_Position = mul(gl_ModelViewProjectionMatrix, Vert);\n"
+		"}\n";
 
+	const GLchar *fragSource = \
+		"uniform sampler2D Tex;\n"
+		"uniform sampler2D LMTex;\n"
+		"uniform sampler2D FullbrightTex;\n"
+		"uniform int UseFullbrightTex;\n"
+		"uniform int UseOverbright;\n"
+		"uniform int UseAlphaTest;\n"
+		"uniform float Alpha;\n"
+		"uniform float fog_density;\n"
+		"\n"
+		"float4 main(\n"
+		"	float4 coords : WPOS,\n"
+		"	float2 tc_tex : TEXCOORD0,\n"
+		"	float2 tc_lm : TEXCOORD1\n"
+		") {\n"
+		"	float4 result = tex2D(Tex, tc_tex);\n"
+		"	if (UseAlphaTest && (result.a < 0.666))\n"
+		"		discard;\n"
+		"	result *= tex2D(LMTex, tc_lm);\n"
+		"	if (UseOverbright)\n"
+		"		result.rgb *= 2.0;\n"
+		"	if (UseFullbrightTex)\n"
+		"		result += tex2D(FullbrightTex, tc_tex);\n"
+		"	result = clamp(result, 0.0, 1.0);\n"
+		"	float FogFragCoord = coords.z / coords.w;\n"
+		"	float fog = exp(-fog_density * fog_density * FogFragCoord * FogFragCoord);\n"
+		"	fog = clamp(fog, 0.0, 1.0);\n"
+		"	result = lerp(float4(0.3, 0.3, 0.3, 1.0), result, fog);\n" // FIXME: Fog color hardcoded to gray
+		"	result.a = Alpha;\n" // FIXME: This will make almost transparent things cut holes though heavy fog
+		"	return result;\n"
+		"}\n";
+#else
 	// Driver bug workarounds:
 	// - "Intel(R) UHD Graphics 600" version "4.6.0 - Build 26.20.100.7263"
 	//    crashing on glUseProgram with `vec3 Vert` and
@@ -891,7 +942,7 @@ void GLWorld_CreateShaders (void)
 		"	result.a = Alpha;\n" // FIXME: This will make almost transparent things cut holes though heavy fog
 		"	gl_FragColor = result;\n"
 		"}\n";
-	
+#endif
 	if (!gl_glsl_alias_able)
 		return;
 	
@@ -900,13 +951,18 @@ void GLWorld_CreateShaders (void)
 	if (r_world_program != 0)
 	{
 		// get uniform locations
+#ifndef VITA
 		texLoc = GL_GetUniformLocation (&r_world_program, "Tex");
 		LMTexLoc = GL_GetUniformLocation (&r_world_program, "LMTex");
 		fullbrightTexLoc = GL_GetUniformLocation (&r_world_program, "FullbrightTex");
+#endif
 		useFullbrightTexLoc = GL_GetUniformLocation (&r_world_program, "UseFullbrightTex");
 		useOverbrightLoc = GL_GetUniformLocation (&r_world_program, "UseOverbright");
 		useAlphaTestLoc = GL_GetUniformLocation (&r_world_program, "UseAlphaTest");
 		alphaLoc = GL_GetUniformLocation (&r_world_program, "Alpha");
+#ifdef VITA
+		fogDensityLoc = GL_GetUniformLocation(&r_world_program, "fog_density");
+#endif
 	}
 }
 
@@ -954,14 +1010,19 @@ void R_DrawTextureChains_GLSL (qmodel_t *model, entity_t *ent, texchain_t chain)
 	GL_VertexAttribPointerFunc (LMCoordsAttrIndex,  2, GL_FLOAT, GL_FALSE, VERTEXSIZE * sizeof(float), ((float *)0) + 5);
 	
 // set uniforms
+#ifndef VITA
 	GL_Uniform1iFunc (texLoc, 0);
 	GL_Uniform1iFunc (LMTexLoc, 1);
 	GL_Uniform1iFunc (fullbrightTexLoc, 2);
+#endif
 	GL_Uniform1iFunc (useFullbrightTexLoc, 0);
 	GL_Uniform1iFunc (useOverbrightLoc, (int)gl_overbright.value);
 	GL_Uniform1iFunc (useAlphaTestLoc, 0);
 	GL_Uniform1fFunc (alphaLoc, entalpha);
-	
+#ifdef VITA
+	GL_Uniform1fFunc (fogDensityLoc, Fog_GetDensity() / 64.0f);
+#endif
+
 	for (i=0 ; i<model->numtextures ; i++)
 	{
 		t = model->textures[i];
