@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "bgmusic.h"
 
+extern cvar_t scr_fov;
+
 void (*vid_menucmdfn)(void); //johnfitz
 void (*vid_menudrawfn)(void);
 void (*vid_menukeyfn)(int key);
@@ -991,7 +993,11 @@ enum
 	OPT_SCALE,
 	OPT_SCRSIZE,
 	OPT_GAMMA,
+#ifdef VITA
+	OPT_FOV,
+#else
 	OPT_CONTRAST,
+#endif
 	OPT_MOUSESPEED,
 	OPT_SBALPHA,
 	OPT_SNDVOL,
@@ -1064,12 +1070,21 @@ void M_AdjustSliders (int dir)
 		else if (f > 1)	f = 1;
 		Cvar_SetValue ("gamma", f);
 		break;
+#ifdef VITA
+	case OPT_FOV:	// fov
+		scr_fov.value += dir * 5;
+		if (scr_fov.value > 130) scr_fov.value = 130;
+		else if (scr_fov.value < 75) scr_fov.value = 75;
+		Cvar_SetValue ("fov",scr_fov.value);
+		break;
+#else
 	case OPT_CONTRAST:	// contrast
 		f = vid_contrast.value + dir * 0.1;
 		if (f < 1)	f = 1;
 		else if (f > 2)	f = 2;
 		Cvar_SetValue ("contrast", f);
 		break;
+#endif
 	case OPT_MOUSESPEED:	// mouse speed
 		f = sensitivity.value + dir * 0.5;
 		if (f > 11)	f = 11;
@@ -1212,10 +1227,16 @@ void M_Options_Draw (void)
 	M_DrawSlider (220, 32 + 8*OPT_GAMMA, r);
 
 	// OPT_CONTRAST:
+#ifdef VITA
+	M_Print (16, 32 + 8*OPT_FOV,	    "         Field of View");
+	r = (scr_fov.value - 75) / 55;
+	M_DrawSlider (220, 32 + 8*OPT_FOV, r);
+#else
 	M_Print (16, 32 + 8*OPT_CONTRAST,	"              Contrast");
 	r = vid_contrast.value - 1.0;
 	M_DrawSlider (220, 32 + 8*OPT_CONTRAST, r);
-	
+#endif
+
 	// OPT_MOUSESPEED:
 	M_Print (16, 32 + 8*OPT_MOUSESPEED,	"           Mouse Speed");
 	r = (sensitivity.value - 1)/10;
