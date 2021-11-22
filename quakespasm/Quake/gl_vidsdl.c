@@ -825,7 +825,7 @@ VID_Changed_f -- kristian -- notify us that a value has changed that requires a 
 static void VID_Changed_f (cvar_t *var)
 {
 	vid_changed = true;
-	vglWaitVblankStart(vid_vsync.value);
+	vglWaitVblankStart((int)vid_vsync.value);
 }
 
 /*
@@ -1903,7 +1903,9 @@ void VID_SyncCvars (void)
 		Cvar_SetQuick (&vid_fullscreen, VID_GetFullscreen() ? "1" : "0");
 		// don't sync vid_desktopfullscreen, it's a user preference that
 		// should persist even if we are in windowed mode.
+#ifndef VITA
 		Cvar_SetQuick (&vid_vsync, VID_GetVSync() ? "1" : "0");
+#endif
 	}
 
 	vid_changed = false;
