@@ -29,6 +29,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern cvar_t cl_maxpitch; //johnfitz -- variable pitch clamping
 extern cvar_t cl_minpitch; //johnfitz -- variable pitch clamping
 
+#ifdef VITA
+#include <vitasdk.h>
+extern cvar_t	motioncam;
+extern cvar_t	motion_horizontal_sensitivity;
+extern cvar_t	motion_vertical_sensitivity;
+extern cvar_t joy_invert;
+
+SceMotionState motionstate;
+#endif
+
 /*
 ===============================================================================
 
@@ -297,6 +307,26 @@ void CL_AdjustAngles (void)
 		cl.viewangles[ROLL] = 50;
 	if (cl.viewangles[ROLL] < -50)
 		cl.viewangles[ROLL] = -50;
+
+#ifdef VITA
+	if (motioncam.value) {
+		sceMotionGetState(&motionstate);
+
+		// not sure why YAW or the horizontal x axis is the controlled by angularVelocity.y
+		// and the PITCH or the vertical y axis is controlled by angularVelocity.x but its what seems to work
+		float x_gyro_cam = motionstate.angularVelocity.y * motion_horizontal_sensitivity.value;
+		float y_gyro_cam = motionstate.angularVelocity.x * motion_vertical_sensitivity.value;
+
+		cl.viewangles[YAW] += x_gyro_cam;
+
+		V_StopPitchDrift();
+
+		if (joy_invert.value)
+			cl.viewangles[PITCH] += y_gyro_cam;
+		else
+			cl.viewangles[PITCH] -= y_gyro_cam;
+	}
+#endif // VITA
 }
 
 /*

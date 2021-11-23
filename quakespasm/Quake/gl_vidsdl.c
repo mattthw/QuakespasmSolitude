@@ -92,6 +92,9 @@ extern cvar_t gl_texturemode;
 extern cvar_t crosshair;
 extern cvar_t pstv_rumble;
 extern cvar_t retrotouch;
+extern cvar_t	motioncam;
+extern cvar_t	motion_horizontal_sensitivity;
+extern cvar_t	motion_vertical_sensitivity;
 
 static vmode_t	modelist[MAX_MODE_LIST];
 static int		nummodes;
@@ -1927,6 +1930,9 @@ enum {
 	VID_OPT_VSYNC,
 	VID_OPT_RUMBLE,
 	VID_OPT_RETROTOUCH,
+	VID_OPT_GYROSCOPE,
+	VID_OPT_GYRO_HORI,
+	VID_OPT_GYRO_VERT,
 	VIDEO_OPTIONS_ITEMS
 };
 
@@ -2272,6 +2278,22 @@ static void VID_MenuKey (int key)
 				r_wateralpha.value = 1;
 			Cvar_SetValue ("r_wateralpha", r_wateralpha.value);
 			break;
+		case VID_OPT_GYRO_HORI:
+			motion_horizontal_sensitivity.value += 0.5;
+			if (motion_horizontal_sensitivity.value < 0)
+				motion_horizontal_sensitivity.value = 0;
+			if (motion_horizontal_sensitivity.value > 10)
+				motion_horizontal_sensitivity.value = 10;
+			Cvar_SetValue ("motion_horizontal_sensitivity", motion_horizontal_sensitivity.value);
+			break;
+		case VID_OPT_GYRO_VERT:
+			motion_horizontal_sensitivity.value -= 0.5;
+			if (motion_horizontal_sensitivity.value < 0)
+				motion_horizontal_sensitivity.value = 0;
+			if (motion_horizontal_sensitivity.value > 10)
+				motion_horizontal_sensitivity.value = 10;
+			Cvar_SetValue ("motion_horizontal_sensitivity", motion_horizontal_sensitivity.value);
+			break;
 		case VID_OPT_VSYNC:
 			Cvar_SetValue ("vid_vsync", !vid_vsync.value);
 			break;
@@ -2303,6 +2325,9 @@ static void VID_MenuKey (int key)
 			break;
 		case VID_OPT_RETROTOUCH:
 			Cvar_SetValue ("retrotouch", !retrotouch.value);
+			break;
+		case VID_OPT_GYROSCOPE:
+			Cvar_SetValue ("motioncam", !motioncam.value);
 			break;
 		default:
 			break;
@@ -2373,6 +2398,20 @@ static void VID_MenuDraw (void)
 		case VID_OPT_RETROTOUCH:
 			M_Print (16, y, "    Use Retrotouch");
 			M_DrawCheckbox (220, y, retrotouch.value);
+			break;
+		case VID_OPT_GYROSCOPE:
+			M_Print (16, y, "     Use Gyroscope");
+			M_DrawCheckbox (220, y, motioncam.value);
+			break;
+		case VID_OPT_GYRO_HORI:
+			M_Print (16, y, "Gyro X Sensitivity");
+			r = motion_horizontal_sensitivity.value/10;
+			M_DrawSlider (220, y, r);
+			break;
+		case VID_OPT_GYRO_VERT:
+			M_Print (16, y, "Gyro Y Sensitivity");
+			r = motion_vertical_sensitivity.value/10;
+			M_DrawSlider (220, y, r);
 			break;
 		}
 

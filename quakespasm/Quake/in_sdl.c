@@ -42,6 +42,9 @@ static cvar_t in_debugkeys = {"in_debugkeys", "0", CVAR_NONE};
 #include <vitasdk.h>
 cvar_t pstv_rumble = {"pstv_rumble", "1", CVAR_ARCHIVE};
 cvar_t retrotouch = {"retrotouch", "0", CVAR_ARCHIVE};
+cvar_t motioncam = {"motioncam", "0", CVAR_ARCHIVE};
+cvar_t motion_horizontal_sensitivity = {"motion_horizontal_sensitivity", "0", CVAR_ARCHIVE};
+cvar_t motion_vertical_sensitivity = {"motion_vertical_sensitivity", "0", CVAR_ARCHIVE};
 #endif
 
 #ifdef __APPLE__
@@ -484,12 +487,21 @@ void IN_Init (void)
 	Cvar_RegisterVariable(&joy_exponent_move);
 	Cvar_RegisterVariable(&joy_swapmovelook);
 	Cvar_RegisterVariable(&joy_enable);
+#ifdef VITA
+	Cvar_RegisterVariable(&motioncam);
+	Cvar_RegisterVariable(&motion_horizontal_sensitivity);
+	Cvar_RegisterVariable(&motion_vertical_sensitivity);
 	Cvar_RegisterVariable(&pstv_rumble);
 	Cvar_RegisterVariable(&retrotouch);
 	Cvar_SetCallback (&retrotouch, IN_Retrotouch_f);
-	
+#endif
 	IN_UpdateGrabs();
 	IN_StartupJoystick();
+
+#ifdef VITA
+	sceMotionReset();
+	sceMotionStartSampling();
+#endif
 }
 
 void IN_Shutdown (void)
