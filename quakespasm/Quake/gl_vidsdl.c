@@ -95,6 +95,12 @@ extern cvar_t retrotouch;
 extern cvar_t	motioncam;
 extern cvar_t	motion_horizontal_sensitivity;
 extern cvar_t	motion_vertical_sensitivity;
+extern cvar_t	r_lerpmodels;
+extern cvar_t	r_lerpmoves;
+extern cvar_t r_viewmodeloffset;
+
+char *w_pos[] = {"Center", "Right", "Left", "Hidden"};
+int w_pos_idx = -1;
 
 static vmode_t	modelist[MAX_MODE_LIST];
 static int		nummodes;
@@ -1927,12 +1933,14 @@ enum {
 	VID_OPT_XHAIR,
 	VID_OPT_BILINEAR,
 	VID_OPT_WATER_OPACITY,
+	VID_OPT_SMOOTH_ANIM,
 	VID_OPT_VSYNC,
 	VID_OPT_RUMBLE,
 	VID_OPT_RETROTOUCH,
 	VID_OPT_GYROSCOPE,
 	VID_OPT_GYRO_HORI,
 	VID_OPT_GYRO_VERT,
+	VID_OPT_WEAPON_POS,
 	VIDEO_OPTIONS_ITEMS
 };
 
@@ -2252,6 +2260,28 @@ static void VID_MenuKey (int key)
 		case VID_OPT_VSYNC:
 			Cvar_SetValue ("vid_vsync", !vid_vsync.value);
 			break;
+		case VID_OPT_WEAPON_POS:
+			w_pos_idx--;
+			if (w_pos_idx > 3) w_pos_idx = 0;
+			if (w_pos_idx < 0) w_pos_idx = 3;
+			switch (w_pos_idx) {
+			case 1:
+				Cvar_SetValue ("r_drawviewmodel", 1);
+				Cvar_SetValue ("r_viewmodeloffset", 8);
+				break;
+			case 2:
+				Cvar_SetValue ("r_drawviewmodel", 1);
+				Cvar_SetValue ("r_viewmodeloffset", -8);
+				break;
+			case 3:
+				Cvar_SetValue ("r_drawviewmodel", 0);
+				break;
+			default:
+				Cvar_SetValue ("r_drawviewmodel", 1);
+				Cvar_SetValue ("r_viewmodeloffset", 0);
+				break;
+			}
+			break;
 		default:
 			break;
 		}
@@ -2297,6 +2327,28 @@ static void VID_MenuKey (int key)
 		case VID_OPT_VSYNC:
 			Cvar_SetValue ("vid_vsync", !vid_vsync.value);
 			break;
+		case VID_OPT_WEAPON_POS:
+			w_pos_idx++;
+			if (w_pos_idx > 3) w_pos_idx = 0;
+			if (w_pos_idx < 0) w_pos_idx = 3;
+			switch (w_pos_idx) {
+			case 1:
+				Cvar_SetValue ("r_drawviewmodel", 1);
+				Cvar_SetValue ("r_viewmodeloffset", 8);
+				break;
+			case 2:
+				Cvar_SetValue ("r_drawviewmodel", 1);
+				Cvar_SetValue ("r_viewmodeloffset", -8);
+				break;
+			case 3:
+				Cvar_SetValue ("r_drawviewmodel", 0);
+				break;
+			default:
+				Cvar_SetValue ("r_drawviewmodel", 1);
+				Cvar_SetValue ("r_viewmodeloffset", 0);
+				break;
+			}
+			break;
 		default:
 			break;
 		}
@@ -2328,6 +2380,10 @@ static void VID_MenuKey (int key)
 			break;
 		case VID_OPT_GYROSCOPE:
 			Cvar_SetValue ("motioncam", !motioncam.value);
+			break;
+		case VID_OPT_SMOOTH_ANIM:
+			Cvar_SetValue ("r_lerpmodels", !r_lerpmodels.value);
+			Cvar_SetValue ("r_lerpmoves", r_lerpmodels.value);
 			break;
 		default:
 			break;
@@ -2387,6 +2443,10 @@ static void VID_MenuDraw (void)
 			r = r_wateralpha.value;
 			M_DrawSlider (220, y, r);
 			break;
+		case VID_OPT_SMOOTH_ANIM:
+			M_Print (16, y, " Smooth Animations");
+			M_DrawCheckbox (220, y, (int)r_lerpmodels.value);
+			break;
 		case VID_OPT_VSYNC:
 			M_Print (16, y, "     Vertical sync");
 			M_DrawCheckbox (220, y, (int)vid_vsync.value);
@@ -2412,6 +2472,16 @@ static void VID_MenuDraw (void)
 			M_Print (16, y, "Gyro Y Sensitivity");
 			r = motion_vertical_sensitivity.value/10;
 			M_DrawSlider (220, y, r);
+			break;
+		case VID_OPT_WEAPON_POS:
+			M_Print (16, y, "   Weapon Position");
+			if (w_pos_idx == -1) {
+				if (!r_drawviewmodel.value) w_pos_idx = 3;
+				else if (r_viewmodeloffset.value < 0) w_pos_idx = 2;
+				else if (r_viewmodeloffset.value > 0) w_pos_idx = 1;
+				else w_pos_idx = 0;
+			}
+			M_Print (220, y, w_pos[w_pos_idx]);
 			break;
 		}
 

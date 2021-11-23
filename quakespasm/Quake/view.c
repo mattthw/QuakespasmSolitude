@@ -72,6 +72,32 @@ float	v_dmg_time, v_dmg_roll, v_dmg_pitch;
 
 extern	int			in_forward, in_forward2, in_back;
 
+cvar_t r_viewmodeloffset = {"r_viewmodeloffset", "0", CVAR_ARCHIVE};
+
+#ifndef min
+#define min(x, y) (x < y ? x : y)
+#endif
+int ParseFloats(const signed char *s, float *f, int *f_size) {
+	int i, argc;
+
+	if (!s || !f || !f_size)
+		Sys_Error("ParseFloats() wrong params");
+
+	if (f_size[0] <= 0)
+		return (f_size[0] = 0); // array have no size, unusual but no crime
+
+	Cmd_TokenizeString(s);
+	argc = min(Cmd_Argc(), f_size[0]);
+
+	for (i = 0; i < argc; i++)
+		f[i] = atof(Cmd_Argv(i));
+
+	for (; i < f_size[0]; i++)
+		f[i] = 0; // zeroing unused elements
+
+	return (f_size[0] = argc);
+}
+
 vec3_t	v_punchangles[2]; //johnfitz -- copied from cl.punchangle.  0 is current, 1 is previous value. never the same unless map just loaded
 double	v_punchangles_times[2]; //spike -- times, to avoid assumptions...
 
@@ -871,10 +897,19 @@ void V_CalcRefdef (void)
 
 	VectorCopy (ent->origin, view->origin);
 	view->origin[2] += cl.stats[STAT_VIEWHEIGHT];
+	
+	VectorCopy (r_refdef.vieworg, view->origin);
+	VectorMA (view->origin, bob * 0.4, forward, view->origin);
 
-	for (i=0 ; i<3 ; i++)
-		view->origin[i] += forward[i]*bob*0.4;
-	view->origin[2] += bob;
+	if (r_viewmodeloffset.string[0]) {
+		float offset[3];
+		int size = sizeof(offset)/sizeof(offset[0]);
+
+		ParseFloats(r_viewmodeloffset.string, offset, &size);
+		VectorMA (view->origin,  offset[0], right,   view->origin);
+		VectorMA (view->origin, -offset[1], up,      view->origin);
+		VectorMA (view->origin,  offset[2], forward, view->origin);
+	}
 
 	//johnfitz -- removed all gun position fudging code (was used to keep gun from getting covered by sbar)
 	//MarkV -- restored this with r_viewmodel_quake cvar
@@ -1023,5 +1058,6 @@ void V_Init (void)
 	Cvar_RegisterVariable (&v_gunkick); //johnfitz
 	
 	Cvar_RegisterVariable (&r_viewmodel_quake); //MarkV
+	Cvar_RegisterVariable (&r_viewmodeloffset);
 }
 
