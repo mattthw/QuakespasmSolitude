@@ -98,6 +98,7 @@ extern cvar_t	motion_vertical_sensitivity;
 extern cvar_t	r_lerpmodels;
 extern cvar_t	r_lerpmoves;
 extern cvar_t r_viewmodeloffset;
+extern cvar_t scr_showfps;
 
 char *w_pos[] = {"Center", "Right", "Left", "Hidden"};
 int w_pos_idx = -1;
@@ -1930,6 +1931,7 @@ void VID_SyncCvars (void)
 //==========================================================================
 
 enum {
+	VID_OPT_FPS,
 	VID_OPT_XHAIR,
 	VID_OPT_BILINEAR,
 	VID_OPT_WATER_OPACITY,
@@ -2240,6 +2242,9 @@ static void VID_MenuKey (int key)
 		S_LocalSound ("misc/menu3.wav");
 		switch (video_options_cursor)
 		{
+		case VID_OPT_FPS:
+			Cvar_SetValue ("scr_showfps", !scr_showfps.value);
+			break;
 		case VID_OPT_XHAIR:
 			Cvar_SetValue ("crosshair", !crosshair.value);
 			break;
@@ -2291,6 +2296,9 @@ static void VID_MenuKey (int key)
 		S_LocalSound ("misc/menu3.wav");
 		switch (video_options_cursor)
 		{
+		case VID_OPT_FPS:
+			Cvar_SetValue ("scr_showfps", !scr_showfps.value);
+			break;
 		case VID_OPT_XHAIR:
 			Cvar_SetValue ("crosshair", !crosshair.value);
 			break;
@@ -2360,6 +2368,9 @@ static void VID_MenuKey (int key)
 		m_entersound = true;
 		switch (video_options_cursor)
 		{
+		case VID_OPT_FPS:
+			Cvar_SetValue ("scr_showfps", !scr_showfps.value);
+			break;
 		case VID_OPT_XHAIR:
 			Cvar_SetValue ("crosshair", !crosshair.value);
 			break;
@@ -2409,10 +2420,6 @@ static void VID_MenuDraw (void)
 	
 	y = 4;
 
-	// plaque
-	p = Draw_CachePic ("gfx/qplaque.lmp");
-	M_DrawTransPic (16, y, p);
-
 	//p = Draw_CachePic ("gfx/vidmodes.lmp");
 	p = Draw_CachePic ("gfx/p_option.lmp");
 	M_DrawPic ( (320-p->width)/2, y, p);
@@ -2430,6 +2437,10 @@ static void VID_MenuDraw (void)
 	{
 		switch (i)
 		{
+		case VID_OPT_FPS:
+			M_Print (16, y, "    Show Framerate");
+			M_DrawCheckbox (220, y, scr_showfps.value);
+			break;
 		case VID_OPT_XHAIR:
 			M_Print (16, y, "    Show Crosshair");
 			M_DrawCheckbox (220, y, crosshair.value);
