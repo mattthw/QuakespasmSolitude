@@ -1461,7 +1461,9 @@ void Key_Event (int key, qboolean down)
 
 // if not a consolekey, send to the interpreter no matter what mode is
 	if ((key_dest == key_menu && menubound[key]) ||
+#ifndef VITA
 	    (key_dest == key_console && !consolekeys[key]) ||
+#endif
 	    (key_dest == key_game && (!con_forcedup || !consolekeys[key])))
 	{
 		kb = keybindings[key_bindmap[0]][key];
