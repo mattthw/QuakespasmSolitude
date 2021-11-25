@@ -175,6 +175,8 @@ void GLAlias_CreateShaders (void)
 	};
 #ifdef VITA
 	const GLchar *vertSource = \
+		"%s"
+		"\n"
 		"#ifdef SKELETAL\n"
 		"#define BoneWeight Pose2Vert\n"
 		"#define BoneIndex Pose2Normal\n"
