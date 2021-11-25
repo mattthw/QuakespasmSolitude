@@ -1306,6 +1306,7 @@ void M_Options_Key (int k)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
+		Host_WriteConfiguration();
 		M_Menu_Main_f ();
 		break;
 
