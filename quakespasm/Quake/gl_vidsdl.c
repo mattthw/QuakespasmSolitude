@@ -2325,12 +2325,12 @@ static void VID_MenuKey (int key)
 			Cvar_SetValue ("motion_horizontal_sensitivity", motion_horizontal_sensitivity.value);
 			break;
 		case VID_OPT_GYRO_VERT:
-			motion_horizontal_sensitivity.value -= 0.5;
-			if (motion_horizontal_sensitivity.value < 0)
-				motion_horizontal_sensitivity.value = 0;
-			if (motion_horizontal_sensitivity.value > 10)
-				motion_horizontal_sensitivity.value = 10;
-			Cvar_SetValue ("motion_horizontal_sensitivity", motion_horizontal_sensitivity.value);
+			motion_vertical_sensitivity.value -= 0.5;
+			if (motion_vertical_sensitivity.value < 0)
+				motion_vertical_sensitivity.value = 0;
+			if (motion_vertical_sensitivity.value > 10)
+				motion_vertical_sensitivity.value = 10;
+			Cvar_SetValue ("motion_vertical_sensitivity", motion_vertical_sensitivity.value);
 			break;
 		case VID_OPT_VSYNC:
 			Cvar_SetValue ("vid_vsync", !vid_vsync.value);
