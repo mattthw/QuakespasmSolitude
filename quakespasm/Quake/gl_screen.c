@@ -735,8 +735,10 @@ void SCR_DrawLoading (void)
 
 	GL_SetCanvas (CANVAS_MENU); //johnfitz
 
-	pic = Draw_CachePic ("gfx/loading.lmp");
-	Draw_Pic ( (320 - pic->width)/2, (240 - 48 - pic->height)/2, pic); //johnfitz -- stretched menus
+    Draw_Fill(-500,-500,1000,1000,BLACK, 1.0); //back fill TODO: rescale image to fit and remove this
+
+    pic = Draw_CachePic ("gfx/loading.lmp");
+    Draw_Pic ( (320 - pic->width)/2, (240 - 48 - pic->height)/2, pic); //johnfitz -- stretched menus
 
 	scr_tileclear_updates = 0; //johnfitz
 }
@@ -948,10 +950,10 @@ void SCR_BeginLoadingPlaque (void)
 {
 	S_StopAllSounds (true);
 
-	if (cls.state != ca_connected)
-		return;
-	if (cls.signon != SIGNONS)
-		return;
+//	if (cls.state != ca_connected)
+//		return;
+//	if (cls.signon != SIGNONS)
+//		return;
 
 // redraw with no console and the loading plaque
 	Con_ClearNotify ();

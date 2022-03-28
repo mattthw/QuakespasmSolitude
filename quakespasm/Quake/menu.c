@@ -31,16 +31,18 @@ void (*vid_menukeyfn)(int key);
 
 enum m_state_e m_state;
 
+bool mm_rentry = false;
+
 void M_Menu_Main_f (void);
 	void M_Menu_SinglePlayer_f (void);
 		void M_Menu_Load_f (void);
 		void M_Menu_Save_f (void);
-	void M_Menu_MultiPlayer_f (void);
+//	void M_Menu_MultiPlayer_f (void);
+    void M_Matchmaking_f (void);
 		void M_Menu_Setup_f (void);
-		void M_Menu_Net_f (void);
+//		void M_Menu_Net_f (void);
 		void M_Menu_LanConfig_f (void);
-//        void M_Matchmaking_f (void);
-		void M_Menu_GameOptions_f (void);
+//		void M_Menu_GameOptions_f (void);
 		void M_Menu_Search_f (enum slistScope_e scope);
 		void M_Menu_ServerList_f (void);
 	void M_Menu_Options_f (void);
@@ -55,14 +57,14 @@ void M_Main_Draw (void);
 		void M_Load_Draw (void);
 		void M_Save_Draw (void);
     void M_Main_Multi_Draw (void);
-	void M_MultiPlayer_Draw (void);
+//	void M_MultiPlayer_Draw (void);
+    void M_Matchmaking_Draw (void);
 		void M_Setup_Draw (void);
-		void M_Net_Draw (void);
+//		void M_Net_Draw (void);
 		void M_LanConfig_Draw (void);
-		void M_GameOptions_Draw (void);
+//		void M_GameOptions_Draw (void);
 		void M_Search_Draw (void);
 		void M_ServerList_Draw (void);
-//        void M_Matchmaking_Draw (void);
 	void M_Options_Draw (void);
 		void M_Keys_Draw (void);
 		void M_Video_Draw (void);
@@ -84,14 +86,14 @@ void M_Main_Key (int key);
 	void M_SinglePlayer_Key (int key);
 		void M_Load_Key (int key);
 		void M_Save_Key (int key);
-	void M_MultiPlayer_Key (int key);
+//	void M_MultiPlayer_Key (int key);
+    void M_Matchmaking_Key (int key);
 		void M_Setup_Key (int key);
-		void M_Net_Key (int key);
+//		void M_Net_Key (int key);
 		void M_LanConfig_Key (int key);
-		void M_GameOptions_Key (int key);
+//		void M_GameOptions_Key (int key);
 		void M_Search_Key (int key);
 		void M_ServerList_Key (int key);
-//        void M_Matchmaking_Key (int key);
 	void M_Options_Key (int key);
 		void M_Keys_Key (int key);
 		void M_Video_Key (int key);
@@ -109,7 +111,7 @@ char		m_return_reason [32];
 int m_multiplayer_cursor = 1;
 #define StartingGame	(m_multiplayer_cursor == 1)
 #define JoiningGame		(m_multiplayer_cursor == 0)
-#define	IPXConfig		(m_net_cursor == 0)
+#define	IPXConfig		false //(m_net_cursor == 0)
 #define	TCPIPConfig		(m_net_cursor == 1)
 
 void M_ConfigureNetSubsystem(void);
@@ -372,11 +374,11 @@ void M_Main_Key (int key)
             switch (m_main_multi_cursor)
             {
                 case 0:
-                    M_Menu_MultiPlayer_f();
+                    M_Matchmaking_f();
                     break;
                 case 1:
                     m_multiplayer_cursor = 0;
-                    M_Menu_Net_f ();
+                    M_Menu_LanConfig_f();
                     break;
             }
         }
@@ -388,7 +390,7 @@ void M_Main_Key (int key)
                     main_multi = true;
                     break;
                 case 1:
-//                    M_Menu_Firefight_f ();
+                    M_Menu_Firefight_f ();
                     break;
 
                 case 2:
@@ -680,90 +682,90 @@ void M_Save_Key (int k)
 /* MULTIPLAYER MENU */
 
 int	m_multiplayer_cursor;
-#define	MULTIPLAYER_ITEMS	3
+//#define	MULTIPLAYER_ITEMS	3
 
 
-void M_Menu_MultiPlayer_f (void)
-{
-	key_dest = key_menu;
-	m_state = m_multiplayer;
-	m_entersound = true;
-	IN_UpdateGrabs();
-}
+//void M_Menu_MultiPlayer_f (void)
+//{
+//	key_dest = key_menu;
+//	m_state = m_multiplayer;
+//	m_entersound = true;
+//	IN_UpdateGrabs();
+//}
 
 
-void M_MultiPlayer_Draw (void)
-{
-	int		f;
-	qpic_t	*p;
-
-    int y_offset = 30;
-    int y_cursor_offset = 32;
-    int x_offset = 60;
-    int x_text_offset = 15;
-
-	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
-	p = Draw_CachePic ("gfx/p_multi.lmp");
-	M_DrawPic ( (320-p->width)/2, 4, p);
-//	M_DrawTransPic (72, 32, Draw_CachePic ("gfx/mp_menu.lmp") );
-
-    //menu items
-    M_Print(x_offset+x_text_offset, y_offset+32, "Join Game");
-    M_Print(x_offset+x_text_offset, y_offset+52, "Start Game");
-
-	f = (int)(realtime * 10)%6;
-
-	M_DrawTransPic (54, 32 + m_multiplayer_cursor * 20,Draw_CachePic( va("gfx/menudot%i.lmp", f+1 ) ) );
-
-	if (ipxAvailable || ipv4Available || ipv6Available)
-		return;
-	M_PrintWhite ((320/2) - ((27*8)/2), 148, "No Communications Available");
-}
-
-
-void M_MultiPlayer_Key (int key)
-{
-	switch (key)
-	{
-	case K_ESCAPE:
-	case K_BBUTTON:
-		M_Menu_Main_f ();
-		break;
-
-	case K_DOWNARROW:
-		S_LocalSound ("misc/menuoption.wav");
-		if (++m_multiplayer_cursor >= MULTIPLAYER_ITEMS)
-			m_multiplayer_cursor = 0;
-		break;
-
-	case K_UPARROW:
-		S_LocalSound ("misc/menuoption.wav");
-		if (--m_multiplayer_cursor < 0)
-			m_multiplayer_cursor = MULTIPLAYER_ITEMS - 1;
-		break;
-
-	case K_ENTER:
-	case K_KP_ENTER:
-	case K_ABUTTON:
-		m_entersound = true;
-		switch (m_multiplayer_cursor)
-		{
-		case 0:
-			if (ipxAvailable || ipv4Available || ipv6Available)
-				M_Menu_Net_f ();
-			break;
-
-		case 1:
-			if (ipxAvailable || ipv4Available || ipv6Available)
-				M_Menu_Net_f ();
-			break;
-
-		case 2:
-			M_Menu_Setup_f ();
-			break;
-		}
-	}
-}
+//void M_MultiPlayer_Draw (void)
+//{
+//	int		f;
+//	qpic_t	*p;
+//
+//    int y_offset = 30;
+//    int y_cursor_offset = 32;
+//    int x_offset = 60;
+//    int x_text_offset = 15;
+//
+//	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
+//	p = Draw_CachePic ("gfx/p_multi.lmp");
+//	M_DrawPic ( (320-p->width)/2, 4, p);
+////	M_DrawTransPic (72, 32, Draw_CachePic ("gfx/mp_menu.lmp") );
+//
+//    //menu items
+//    M_Print(x_offset+x_text_offset, y_offset+32, "Join Game");
+//    M_Print(x_offset+x_text_offset, y_offset+52, "Start Game");
+//
+//	f = (int)(realtime * 10)%6;
+//
+//	M_DrawTransPic (54, 32 + m_multiplayer_cursor * 20,Draw_CachePic( va("gfx/menudot%i.lmp", f+1 ) ) );
+//
+//	if (ipxAvailable || ipv4Available || ipv6Available)
+//		return;
+//	M_PrintWhite ((320/2) - ((27*8)/2), 148, "No Communications Available");
+//}
+//
+//
+//void M_MultiPlayer_Key (int key)
+//{
+//	switch (key)
+//	{
+//	case K_ESCAPE:
+//	case K_BBUTTON:
+//		M_Menu_Main_f ();
+//		break;
+//
+//	case K_DOWNARROW:
+//		S_LocalSound ("misc/menuoption.wav");
+//		if (++m_multiplayer_cursor >= MULTIPLAYER_ITEMS)
+//			m_multiplayer_cursor = 0;
+//		break;
+//
+//	case K_UPARROW:
+//		S_LocalSound ("misc/menuoption.wav");
+//		if (--m_multiplayer_cursor < 0)
+//			m_multiplayer_cursor = MULTIPLAYER_ITEMS - 1;
+//		break;
+//
+//	case K_ENTER:
+//	case K_KP_ENTER:
+//	case K_ABUTTON:
+//		m_entersound = true;
+//		switch (m_multiplayer_cursor)
+//		{
+//		case 0:
+//			if (ipxAvailable || ipv4Available || ipv6Available)
+//				M_Menu_Net_f ();
+//			break;
+//
+//		case 1:
+//			if (ipxAvailable || ipv4Available || ipv6Available)
+//				M_Menu_Net_f ();
+//			break;
+//
+//		case 2:
+//			M_Menu_Setup_f ();
+//			break;
+//		}
+//	}
+//}
 
 //=============================================================================
 /* SETUP MENU */
@@ -900,7 +902,7 @@ forward:
 		if (setup_top != setup_oldtop || setup_bottom != setup_oldbottom)
 			Cbuf_AddText( va ("color %i %i\n", setup_top, setup_bottom) );
 		m_entersound = true;
-		M_Menu_MultiPlayer_f ();
+		M_Menu_Main_f();
 		break;
 	
 	case K_XBUTTON:
@@ -963,112 +965,114 @@ qboolean M_Setup_TextEntry (void)
 
 //=============================================================================
 /* NET MENU */
-
+//
 int	m_net_cursor;
-int m_net_items;
+//int m_net_items;
+//int m_net_prevstate;
+//
+//const char *net_helpMessage [] =
+//{
+///* .........1.........2.... */
+//  " Novell network LANs    ",
+//  " or Windows 95 DOS-box. ",
+//  "                        ",
+//  "(LAN=Local Area Network)",
+//
+//  " Commonly used to play  ",
+//  " over the Internet, but ",
+//  " also used on a Local   ",
+//  " Area Network.          "
+//};
+//
+//void M_Menu_Net_f (void)
+//{
+//	key_dest = key_menu;
+//    m_net_prevstate = m_state;
+//    m_state = m_net;
+//	m_entersound = true;
+//	m_net_items = 2;
+//
+//	IN_UpdateGrabs();
+//
+//	if (m_net_cursor >= m_net_items)
+//		m_net_cursor = 0;
+//	m_net_cursor--;
+//	M_Net_Key (K_DOWNARROW);
+//}
 
-const char *net_helpMessage [] =
-{
-/* .........1.........2.... */
-  " Novell network LANs    ",
-  " or Windows 95 DOS-box. ",
-  "                        ",
-  "(LAN=Local Area Network)",
+//
+//void M_Net_Draw (void)
+//{
+//	int		f;
+//	qpic_t	*p;
+//
+//	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
+//	p = Draw_CachePic ("gfx/p_multi.lmp");
+//	M_DrawPic ( (320-p->width)/2, 4, p);
+//
+//	f = 32;
+//
+//	if (ipxAvailable)
+//		p = Draw_CachePic ("gfx/netmen3.lmp");
+//	else
+//		p = Draw_CachePic ("gfx/dim_ipx.lmp");
+//	M_DrawTransPic (72, f, p);
+//
+//	f += 19;
+//	if (ipv4Available || ipv6Available)
+//		p = Draw_CachePic ("gfx/netmen4.lmp");
+//	else
+//		p = Draw_CachePic ("gfx/dim_tcp.lmp");
+//	M_DrawTransPic (72, f, p);
+//
+//	f = (320-26*8)/2;
+//	M_DrawTextBox (f, 96, 24, 4);
+//	f += 8;
+//	M_Print (f, 104, net_helpMessage[m_net_cursor*4+0]);
+//	M_Print (f, 112, net_helpMessage[m_net_cursor*4+1]);
+//	M_Print (f, 120, net_helpMessage[m_net_cursor*4+2]);
+//	M_Print (f, 128, net_helpMessage[m_net_cursor*4+3]);
+//
+//	f = (int)(realtime * 10)%6;
+//	M_DrawTransPic (54, 32 + m_net_cursor * 20,Draw_CachePic( va("gfx/menudot%i.lmp", f+1 ) ) );
+//}
 
-  " Commonly used to play  ",
-  " over the Internet, but ",
-  " also used on a Local   ",
-  " Area Network.          "
-};
-
-void M_Menu_Net_f (void)
-{
-	key_dest = key_menu;
-	m_state = m_net;
-	m_entersound = true;
-	m_net_items = 2;
-
-	IN_UpdateGrabs();
-
-	if (m_net_cursor >= m_net_items)
-		m_net_cursor = 0;
-	m_net_cursor--;
-	M_Net_Key (K_DOWNARROW);
-}
-
-
-void M_Net_Draw (void)
-{
-	int		f;
-	qpic_t	*p;
-
-	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
-	p = Draw_CachePic ("gfx/p_multi.lmp");
-	M_DrawPic ( (320-p->width)/2, 4, p);
-
-	f = 32;
-
-	if (ipxAvailable)
-		p = Draw_CachePic ("gfx/netmen3.lmp");
-	else
-		p = Draw_CachePic ("gfx/dim_ipx.lmp");
-	M_DrawTransPic (72, f, p);
-
-	f += 19;
-	if (ipv4Available || ipv6Available)
-		p = Draw_CachePic ("gfx/netmen4.lmp");
-	else
-		p = Draw_CachePic ("gfx/dim_tcp.lmp");
-	M_DrawTransPic (72, f, p);
-
-	f = (320-26*8)/2;
-	M_DrawTextBox (f, 96, 24, 4);
-	f += 8;
-	M_Print (f, 104, net_helpMessage[m_net_cursor*4+0]);
-	M_Print (f, 112, net_helpMessage[m_net_cursor*4+1]);
-	M_Print (f, 120, net_helpMessage[m_net_cursor*4+2]);
-	M_Print (f, 128, net_helpMessage[m_net_cursor*4+3]);
-
-	f = (int)(realtime * 10)%6;
-	M_DrawTransPic (54, 32 + m_net_cursor * 20,Draw_CachePic( va("gfx/menudot%i.lmp", f+1 ) ) );
-}
-
-
-void M_Net_Key (int k)
-{
-again:
-	switch (k)
-	{
-	case K_ESCAPE:
-	case K_BBUTTON:
-		M_Menu_MultiPlayer_f ();
-		break;
-
-	case K_DOWNARROW:
-		S_LocalSound ("misc/menuoption.wav");
-		if (++m_net_cursor >= m_net_items)
-			m_net_cursor = 0;
-		break;
-
-	case K_UPARROW:
-		S_LocalSound ("misc/menuoption.wav");
-		if (--m_net_cursor < 0)
-			m_net_cursor = m_net_items - 1;
-		break;
-
-	case K_ENTER:
-	case K_KP_ENTER:
-	case K_ABUTTON:
-		m_entersound = true;
-		M_Menu_LanConfig_f ();
-		break;
-	}
-
-	if (m_net_cursor == 0 && !ipxAvailable)
-		goto again;
-	if (m_net_cursor == 1 && !(ipv4Available || ipv6Available))
-		goto again;
-}
+//
+//void M_Net_Key (int k)
+//{
+//again:
+//	switch (k)
+//	{
+//	case K_ESCAPE:
+//	case K_BBUTTON:
+//		M_Menu_MultiPlayer_f ();
+//		break;
+//
+//	case K_DOWNARROW:
+//		S_LocalSound ("misc/menuoption.wav");
+//		if (++m_net_cursor >= m_net_items)
+//			m_net_cursor = 0;
+//		break;
+//
+//	case K_UPARROW:
+//		S_LocalSound ("misc/menuoption.wav");
+//		if (--m_net_cursor < 0)
+//			m_net_cursor = m_net_items - 1;
+//		break;
+//
+//	case K_ENTER:
+//	case K_KP_ENTER:
+//	case K_ABUTTON:
+//		m_entersound = true;
+//		M_Menu_LanConfig_f ();
+//		break;
+//	}
+//
+//	if (m_net_cursor == 0 && !ipxAvailable)
+//		goto again;
+//	if (m_net_cursor == 1 && !(ipv4Available || ipv6Available))
+//		goto again;
+//}
 
 
 //======================
@@ -1081,9 +1085,17 @@ void M_Menu_Pause_f (void)
     m_entersound = true;
 }
 
-#define	NUM_PAUSEOPTIONS	4
+int PauseOptsCount(void)
+{
+    if (deathmatch.value == 2) {
+        return 2;
+    } else {
+        return 4;
+    }
+}
+//#define	NUM_PAUSEOPTIONS	PauseOptsCount()
 
-#define P_HEIGHT 			mvs(4)
+#define P_HEIGHT 			mvs(PauseOptsCount())
 #define P_YOFF				PixHeight(0.3)
 
 #define P_WIDTH 			PixWidth(0.4)
@@ -1100,10 +1112,16 @@ void M_Pause_Draw (void)
     //cursor
     Draw_Cursor(P_XOFF, P_YOFF+mvs(pause_cursor), P_WIDTH, MVS, true);
     //menu items
-    M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(0)+TEXT_YMARGIN, "Add Bot");
-    M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(1)+TEXT_YMARGIN, "Remove Bot");
-    M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(2)+TEXT_YMARGIN, "Options");
-    M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(3)+TEXT_YMARGIN, "Disconnect");
+    if ((int)deathmatch.value == 2) //firefight
+    {
+        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(0)+TEXT_YMARGIN, "Options");
+        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(1)+TEXT_YMARGIN, "Disconnect");
+    } else {
+        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(0)+TEXT_YMARGIN, "Add Bot");
+        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(1)+TEXT_YMARGIN, "Remove Bot");
+        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(2)+TEXT_YMARGIN, "Options");
+        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(3)+TEXT_YMARGIN, "Disconnect");
+    }
 }
 
 void M_Pause_Key (int key)
@@ -1122,36 +1140,51 @@ void M_Pause_Key (int key)
             S_LocalSound ("misc/menuoption.wav");
             pause_cursor--;
             if (pause_cursor < 0)
-                pause_cursor = NUM_PAUSEOPTIONS-1;
+                pause_cursor = PauseOptsCount()-1;
             break;
 
         case K_DOWNARROW:
             S_LocalSound ("misc/menuoption.wav");
             pause_cursor++;
-            if (pause_cursor >= NUM_PAUSEOPTIONS)
+            if (pause_cursor >= PauseOptsCount())
                 pause_cursor = 0;
             break;
 
         case K_ABUTTON:
             S_LocalSound ("misc/menuenter.wav");
-            if(pause_cursor == 0)
+            if ((int)deathmatch.value == 2) //firefight
             {
-                Cbuf_AddText ("impulse 100\n");
-            }
-            if(pause_cursor == 1)
-            {
-                Cbuf_AddText ("impulse 102\n");
-            }
-            if(pause_cursor == 2)
-            {
-                M_Menu_Options_f ();
-            }
-            if(pause_cursor == 3)
-            {
-                Cbuf_AddText ("disconnect\n");
-                M_Menu_Main_f();
-                //S_StopAllSounds(true);
-                //Cbuf_AddText  ("play music/Solitude_MainTheme_Low.wav");
+                if(pause_cursor == 0)
+                {
+                    M_Menu_Options_f ();
+                }
+                if(pause_cursor == 1)
+                {
+                    Cbuf_AddText ("disconnect\n");
+                    M_Menu_Main_f();
+                    //S_StopAllSounds(true);
+                    //Cbuf_AddText  ("play music/Solitude_MainTheme_Low.wav");
+                }
+            } else {
+                if(pause_cursor == 0)
+                {
+                    Cbuf_AddText ("impulse 100\n");
+                }
+                if(pause_cursor == 1)
+                {
+                    Cbuf_AddText ("impulse 102\n");
+                }
+                if(pause_cursor == 2)
+                {
+                    M_Menu_Options_f ();
+                }
+                if(pause_cursor == 3)
+                {
+                    Cbuf_AddText ("disconnect\n");
+                    M_Menu_Main_f();
+                    //S_StopAllSounds(true);
+                    //Cbuf_AddText  ("play music/Solitude_MainTheme_Low.wav");
+                }
             }
             break;
     }
@@ -2047,9 +2080,6 @@ void M_Quit_Draw (void)
 
     Draw_Fill(0,0,1000,1000, BLACK, 0.30);
     Draw_OffCenterWindow(0, -20, 0.5, 0.2, "Quit", MENU_ALPHA);
-//    M_Print (xoff+64, yoff+84,  quitMessage[msgNumber*4+0]);
-//    M_Print (xoff+64, yoff+92,  quitMessage[msgNumber*4+1]);
-//    M_Print (xoff+64, yoff+100, quitMessage[msgNumber*4+2]);
     M_PrintWhite (xoff+64, yoff+116, quitMessage[msgNumber*4+3]);
 }
 
@@ -2063,6 +2093,10 @@ int 	lanConfig_port;
 char	lanConfig_portname[6];
 char	lanConfig_joinname[22];
 
+/***
+ * This method creates and/or joins a game over IPX or TCP/IP
+ *  - Initializer component
+ */
 void M_Menu_LanConfig_f (void)
 {
 	key_dest = key_menu;
@@ -2082,19 +2116,24 @@ void M_Menu_LanConfig_f (void)
 
 	m_return_onerror = false;
 	m_return_reason[0] = 0;
+    mm_rentry = true; //used in matchmaking menu
 	IN_UpdateGrabs();
 }
 
+const char	*protocol = "null";
 
+/***
+ * This method creates and/or joins a game over IPX or TCP/IP
+ *  - Draw component
+ */
 void M_LanConfig_Draw (void)
 {
-	qpic_t	*p;
-	int		basex;
-	int		y;
-	int		numaddresses, i;
-	qhostaddr_t addresses[16];
-	const char	*startJoin;
-	const char	*protocol;
+    qpic_t	*p;
+    int		basex;
+    int		y;
+    int		numaddresses, i;
+    qhostaddr_t addresses[16];
+    const char	*startJoin;
 
 	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
 	p = Draw_CachePic ("gfx/p_multi.lmp");
@@ -2199,7 +2238,10 @@ void M_LanConfig_Draw (void)
 		M_PrintWhite (basex, 148, m_return_reason);
 }
 
-
+/***
+ * This method creates and/or joins a game over IPX or TCP/IP
+ *  - Key input component
+ */
 void M_LanConfig_Key (int key)
 {
 	int		l;
@@ -2208,7 +2250,15 @@ void M_LanConfig_Key (int key)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
-		M_Menu_Net_f ();
+        if (m_multiplayer_cursor == 0)
+        {
+            M_Menu_Main_f ();
+        }
+        else
+        {
+            M_Matchmaking_f ();
+        }
+//		M_Menu_Net_f ();
 		break;
 
 	case K_UPARROW:
@@ -2238,7 +2288,7 @@ void M_LanConfig_Key (int key)
 		if (StartingGame)
 		{
 			if (lanConfig_cursor == 1)
-				M_Menu_GameOptions_f ();
+                M_Matchmaking_f ();
 		}
 		else
 		{
@@ -2297,7 +2347,10 @@ void M_LanConfig_Key (int key)
 	sprintf(lanConfig_portname, "%u", lanConfig_port);
 }
 
-
+/***
+ * This method creates and/or joins a game over IPX or TCP/IP
+ *  - helper method
+ */
 void M_LanConfig_Char (int key)
 {
 	int l;
@@ -2325,7 +2378,10 @@ void M_LanConfig_Char (int key)
 	}
 }
 
-
+/***
+ * This method creates and/or joins a game over IPX or TCP/IP
+ *  - helper method
+ */
 qboolean M_LanConfig_TextEntry (void)
 {
 	return (lanConfig_cursor == 0 || lanConfig_cursor == 3);
@@ -2442,336 +2498,458 @@ episode_t	rogueepisodes[] =
 	{"Deathmatch Arena", 16, 1}
 };
 
+episode_t	episodes_ff[] =
+        {
+                {"Firefight Maps", 11, 2}
+        };
+
 extern cvar_t sv_public;
+
+
+
+//========= || MATCHMAKING || ============
 
 int	startepisode;
 int	startlevel;
 int maxplayers;
-qboolean m_serverInfoMessage = false;
-double m_serverInfoMessageTime;
+bool matchmaking_draw_loading = false;
 
-void M_Menu_GameOptions_f (void)
+void M_Matchmaking_f (void)
 {
-	key_dest = key_menu;
-	m_state = m_gameoptions;
-	IN_UpdateGrabs();
-	m_entersound = true;
-	if (maxplayers == 0)
-		maxplayers = svs.maxclients;
-	if (maxplayers < 2)
-		maxplayers = svs.maxclientslimit;
+    key_dest = key_menu;
+    m_state = m_gameoptions;
+    m_entersound = true;
+    if (maxplayers == 0)
+        maxplayers = svs.maxclients;
+    if (maxplayers < 2)
+        maxplayers = svs.maxclientslimit;
+    //default MP settings
+    Cvar_SetValue ("skill", 0);
+    Cvar_SetValue ("deathmatch", 1);
+    Cbuf_AddText ("fraglimit 20\n");
+    startepisode = 0;
+    if (!mm_rentry)
+        startlevel = rand() % episodes[startepisode].levels;
+    mm_rentry = false;
+    matchmaking_draw_loading = false;
 }
 
 
-int gameoptions_cursor_table[] = {40, 56, 64, 72, 80, 88, 96, 104, 120, 128};
-#define	NUM_GAMEOPTIONS	10
-int		gameoptions_cursor;
+int gameoptions_cursor_table[] = {40, 56, 64, 72, 80, 88, 96, 112, 120};
+#define	NUM_GAMEOPTIONS	7
 
-void M_GameOptions_Draw (void)
+#define MM_WIDTH_PERCENT 0.4
+#define MM_WIDTH_PIX PixWidth(MM_WIDTH_PERCENT)
+#define MM_HEIGHT_PERCENT 1
+#define MM_HEIGHT_PIX PixHeight(MM_HEIGHT_PERCENT)
+
+#define MM_GAMEOPS_HEIGHT mvs(NUM_GAMEOPTIONS)
+#define MM_HEADER_HEIGHT mvs(3)
+#define MM_FOOTER_HEIGHT mvs(1)
+
+#define MM_XOFF 0
+
+#define MM_BG BG_COLOR
+#define MM_FG BG_COLOR + 1
+
+#define MM_GAMEOPS_OPT_XOFF TEXT_XMARGIN + 8 * CHARZ
+#define MM_X_SELECTION MM_XOFF+TEXT_XMARGIN+MM_GAMEOPS_OPT_XOFF
+#define MM_Y_SELECTION MM_HEADER_HEIGHT+TEXT_YMARGIN
+
+int gameoptions_cursor = 6;
+
+
+void M_Matchmaking_Draw (void)
 {
-	qpic_t	*p;
-	int		x;
-	int y = 40;
+    //background
+    Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEIGHT_PIX, MM_BG, 0.5); //bg full
+    Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEADER_HEIGHT, BLACK, 0.5); //bg header
+    Draw_Fill(MM_XOFF, MM_HEADER_HEIGHT, MM_WIDTH_PIX, MM_GAMEOPS_HEIGHT, MM_FG, 0.5); //bg mid
+    Draw_Fill(MM_XOFF, MM_HEIGHT_PIX-mvs(1), MM_WIDTH_PIX, MM_FOOTER_HEIGHT, BLACK, 0.5); //bg bottom
+    Draw_Fill(MM_XOFF+MM_WIDTH_PIX, 0, 1, MM_HEIGHT_PIX, BLACK+1, 0.5); //vertical border on right
+    //cursor
+    Draw_Cursor(MM_XOFF, MM_HEADER_HEIGHT+mvs(gameoptions_cursor), MM_WIDTH_PIX, MVS, true);
 
-	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
-	p = Draw_CachePic ("gfx/p_multi.lmp");
-	M_DrawPic ( (320-p->width)/2, 4, p);
+    //======================== header
+    M_PrintWhite (MM_XOFF+TEXT_XMARGIN, MM_HEADER_HEIGHT-mvs(1)+TEXT_YMARGIN, "MATCHMAKING");
+    //========================= Footer
+    M_PrintWhite (MM_WIDTH_PIX-23*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN, "0 Back X Select/Change");
+    //======================== 0
+    //force update protocol char[]
+    if (IPXConfig)
+        protocol = "IPX";
+    else
+        protocol = "TCP/IP";
+    M_Print (MM_XOFF+TEXT_XMARGIN, MM_Y_SELECTION+mvs(0), "NETWORK");
+    M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(0), protocol);
+    //======================== 1
+    M_Print (MM_XOFF+TEXT_XMARGIN, MM_Y_SELECTION+mvs(1), "GAME");
+    switch((int)deathmatch.value)
+    {
+        case 0:
+            M_PrintWhite  (MM_X_SELECTION, MM_Y_SELECTION+mvs(1), "Co-op");
+            break;
+        case 1:
+            M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(1), "Slayer");
+            if((int)deathmatch.value > 1000)
+                Cvar_SetValue ("fraglimit", 50);
+            Cvar_SetValue ("deathmatch", 1);
+            Cbuf_AddText ("deathmatch 1\n");
+            Cvar_SetValue ("coop", 0);
+            Cbuf_AddText ("coop 0\n");
+            Cvar_SetValue ("teamplay", 0);
+            break;
+        case 3:
+            M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(1), "Swat");
+            if((int)deathmatch.value > 1000)
+                Cvar_SetValue ("fraglimit", 50);
+            Cvar_SetValue ("deathmatch", 3);
+            Cbuf_AddText ("deathmatch 3\n");
+            Cvar_SetValue ("coop", 0);
+            Cvar_SetValue ("teamplay", 0);
+            break;
+    }
+    //======================== 2
+    M_Print (MM_XOFF+TEXT_XMARGIN, MM_Y_SELECTION+mvs(2), "KILLS");
+    if (fraglimit.value == 0)
+        M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(2), "Unlimited");
+    else if (fraglimit.value < 1000)
+        M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(2), va("%i", (int)fraglimit.value));
+    else
+        M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(2), "Rounds");
+    //======================== 3
+    M_Print (MM_XOFF+TEXT_XMARGIN, MM_Y_SELECTION+mvs(3), "TIME");
+    if (timelimit.value == 0)
+        M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(3), "Unlimited");
+    else
+        M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(3), va("%i Minutes", (int)timelimit.value));
+    //======================== 4
+    M_Print (MM_XOFF+TEXT_XMARGIN, MM_Y_SELECTION+mvs(4), "BOT SKILL");
+    if (skill.value == 0)
+        M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(4), "Easy");
+    else if (skill.value == 1)
+        M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(4), "Normal");
+    else if (skill.value == 2)
+        M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(4), "Hard");
+    else
+        M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(4), "Legendary");
+    //======================== 5
+    M_Print (MM_XOFF+TEXT_XMARGIN, MM_Y_SELECTION+mvs(5), "MAP");
+    M_PrintWhite (MM_X_SELECTION, MM_Y_SELECTION+mvs(5), levels[episodes[startepisode].firstLevel + startlevel].description);
+    //========================= 6
+    M_PrintWhite (MM_XOFF+TEXT_XMARGIN, MM_Y_SELECTION+mvs(6), "START GAME");
+    //========================= Draw image
+    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[startepisode].firstLevel + startlevel].name));
+    qpic_t *randmap = Draw_CachePic("gfx/maps/random.lmp");
+    if (mappic) {
+        M_DrawTransPic(MM_XOFF+(MM_WIDTH_PIX-mappic->width)/2, MM_HEADER_HEIGHT+MM_GAMEOPS_HEIGHT+(((MM_HEIGHT_PIX-MM_FOOTER_HEIGHT)-(MM_HEADER_HEIGHT+MM_GAMEOPS_HEIGHT))-mappic->height)/2, mappic);
+    } else {
+        M_DrawTransPic(MM_XOFF+(MM_WIDTH_PIX-randmap->width)/2, MM_HEADER_HEIGHT+MM_GAMEOPS_HEIGHT+(((MM_HEIGHT_PIX-MM_FOOTER_HEIGHT)-(MM_HEADER_HEIGHT+MM_GAMEOPS_HEIGHT))-randmap->height)/2, randmap);
+    }
 
-	M_DrawTextBox (152, y-8, 10, 1);
-	M_Print (160, y, "begin game");
-	y+=16;
-
-	M_Print (0, y, "      Max players");
-	M_Print (160, y, va("%i", maxplayers) );
-	y+=8;
-
-	M_Print (0, y, "           Public");
-	if (sv_public.value)
-		M_Print (160, y, "Yes");
-	else
-		M_Print (160, y, "No");
-	y+=8;
-
-	M_Print (0, y, "        Game Type");
-	if (coop.value)
-		M_Print (160, y, "Cooperative");
-	else
-		M_Print (160, y, "Deathmatch");
-	y+=8;
-
-	M_Print (0, y, "        Teamplay");
-	if (rogue)
-	{
-		const char *msg;
-
-		switch((int)teamplay.value)
-		{
-			case 1: msg = "No Friendly Fire"; break;
-			case 2: msg = "Friendly Fire"; break;
-			case 3: msg = "Tag"; break;
-			case 4: msg = "Capture the Flag"; break;
-			case 5: msg = "One Flag CTF"; break;
-			case 6: msg = "Three Team CTF"; break;
-			default: msg = "Off"; break;
-		}
-		M_Print (160, y, msg);
-	}
-	else
-	{
-		const char *msg;
-
-		switch((int)teamplay.value)
-		{
-			case 1: msg = "No Friendly Fire"; break;
-			case 2: msg = "Friendly Fire"; break;
-			default: msg = "Off"; break;
-		}
-		M_Print (160, y, msg);
-	}
-	y+=8;
-
-	M_Print (0, y, "            Skill");
-	if (skill.value == 0)
-		M_Print (160, y, "Easy difficulty");
-	else if (skill.value == 1)
-		M_Print (160, y, "Normal difficulty");
-	else if (skill.value == 2)
-		M_Print (160, y, "Hard difficulty");
-	else
-		M_Print (160, y, "Nightmare difficulty");
-	y+=8;
-
-	M_Print (0, y, "       Frag Limit");
-	if (fraglimit.value == 0)
-		M_Print (160, y, "none");
-	else
-		M_Print (160, y, va("%i frags", (int)fraglimit.value));
-	y+=8;
-
-	M_Print (0, y, "       Time Limit");
-	if (timelimit.value == 0)
-		M_Print (160, y, "none");
-	else
-		M_Print (160, y, va("%i minutes", (int)timelimit.value));
-	y+=8;
-
-	y+=8;
-
-	M_Print (0, y, "         Episode");
-	// MED 01/06/97 added hipnotic episodes
-	if (hipnotic)
-		M_Print (160, y, hipnoticepisodes[startepisode].description);
-	// PGM 01/07/97 added rogue episodes
-	else if (rogue)
-		M_Print (160, y, rogueepisodes[startepisode].description);
-	else
-		M_Print (160, y, episodes[startepisode].description);
-	y+=8;
-
-	M_Print (0, y, "           Level");
-	// MED 01/06/97 added hipnotic episodes
-	if (hipnotic)
-	{
-		M_Print (160, y, hipnoticlevels[hipnoticepisodes[startepisode].firstLevel + startlevel].description);
-		M_Print (160, y+8, hipnoticlevels[hipnoticepisodes[startepisode].firstLevel + startlevel].name);
-	}
-	// PGM 01/07/97 added rogue episodes
-	else if (rogue)
-	{
-		M_Print (160, y, roguelevels[rogueepisodes[startepisode].firstLevel + startlevel].description);
-		M_Print (160, y+8, roguelevels[rogueepisodes[startepisode].firstLevel + startlevel].name);
-	}
-	else
-	{
-		M_Print (160, y, levels[episodes[startepisode].firstLevel + startlevel].description);
-		M_Print (160, y+8, levels[episodes[startepisode].firstLevel + startlevel].name);
-	}
-	y+=8;
-
-// line cursor
-	M_DrawCharacter (144, gameoptions_cursor_table[gameoptions_cursor], 12+((int)(realtime*4)&1));
-
-	if (m_serverInfoMessage)
-	{
-		if ((realtime - m_serverInfoMessageTime) < 5.0)
-		{
-			x = (320-26*8)/2;
-			M_DrawTextBox (x, 138, 24, 4);
-			x += 8;
-			M_Print (x, 146, "  More than 4 players   ");
-			M_Print (x, 154, " requires using command ");
-			M_Print (x, 162, "line parameters; please ");
-			M_Print (x, 170, "   see techinfo.txt.    ");
-		}
-		else
-		{
-			m_serverInfoMessage = false;
-		}
-	}
+    if (matchmaking_draw_loading) {
+        // loading screen attempt
+        Draw_Fill(0,0,1000,1000, BLACK, 0.50);
+        M_PrintWhite (320/2 + 10/2, 100 +8/2, "Loading...");
+    }
 }
 
-
-void M_NetStart_Change (int dir)
+void M_Matchmaking_Change (int dir)
 {
-	int count;
-	float	f;
+    int epcount, levcount;
+    switch (gameoptions_cursor)
+    {
+        case 1: //game mode
+            Cvar_SetValue ("deathmatch", (int)deathmatch.value + dir);
+            if ((int)deathmatch.value < 1) //rollover
+            {
+                Cvar_SetValue ("deathmatch", 3);
+                Cbuf_AddText ("deathmatch 3\n");
+            }
+            else if((int)deathmatch.value > 3) //rollover
+            {
+                Cvar_SetValue ("deathmatch", 1);
+                Cbuf_AddText ("deathmatch 1\n");
+            }
+            else if ((int)deathmatch.value == 2) //firefight
+            {
+                Cvar_SetValue ("deathmatch", (int)deathmatch.value + dir);
+                Cbuf_AddText ( va ("deathmatch %u\n", (int)deathmatch.value + dir) );
+            }
 
-	switch (gameoptions_cursor)
-	{
-	case 1:
-		maxplayers += dir;
-		if (maxplayers > svs.maxclientslimit)
-		{
-			maxplayers = svs.maxclientslimit;
-			m_serverInfoMessage = true;
-			m_serverInfoMessageTime = realtime;
-		}
-		if (maxplayers < 2)
-			maxplayers = 2;
-		break;
+            if((int)deathmatch.value == 1) //slayer
+            {
+                if((int)fraglimit.value > 1000)
+                    Cbuf_AddText ("fraglimit 50\n");
+                Cbuf_AddText ("deathmatch 1\n");
+                Cvar_SetValue ("deathmatch", 1);
+                Cvar_SetValue ("coop", 0);
+                Cvar_SetValue ("teamplay", 0);
+                startepisode = 0;
+            }
+            else if((int)deathmatch.value == 3) //Swat
+            {
+                if((int)fraglimit.value > 1000)
+                    Cbuf_AddText ("fraglimit 50\n");
+                Cbuf_AddText ("deathmatch 3\n");
+                Cvar_SetValue ("deathmatch", 3);
+                Cvar_SetValue ("coop", 0);
+                Cvar_SetValue ("teamplay", 0);
+                startepisode = 0;
+            }
+            else
+            {
+                startepisode = 0;
+                startlevel = 0;
+            }
 
-	case 2:
-		Cvar_SetQuick (&sv_public, sv_public.value ? "0" : "1");
-		break;
+            if(sv.active)
+                Cbuf_AddText ("disconnect\n");
+            break;
 
-	case 3:
-		Cvar_Set ("coop", coop.value ? "0" : "1");
-		break;
+        case 2: //game mode frags
+            Cvar_SetValue ("fraglimit", fraglimit.value + dir*10);
+            if (fraglimit.value > 100)
+                Cvar_SetValue ("fraglimit", 0);
+            if (fraglimit.value < 0)
+                Cvar_SetValue ("fraglimit", 100);
+            break;
+        case 3: //time set
+            Cvar_SetValue ("timelimit", timelimit.value + dir*5);
+            if (timelimit.value > 60)
+                Cvar_SetValue ("timelimit", 0);
+            if (timelimit.value < 0)
+                Cvar_SetValue ("timelimit", 60);
+            break;
+        case 4: //difficulty
+            Cvar_SetValue ("skill", skill.value + dir);
+            if (skill.value > 3)
+                Cvar_SetValue ("skill", 0);
+            if (skill.value < 0)
+                Cvar_SetValue ("skill", 3);
+            break;
+        case 5: //map
+            startlevel += dir;
+            levcount = episodes[startepisode].levels;
 
-	case 4:
-		count = (rogue) ? 6 : 2;
-		f = teamplay.value + dir;
-		if (f > count)	f = 0;
-		else if (f < 0)	f = count;
-		Cvar_SetValue ("teamplay", f);
-		break;
+            if (startlevel < 0)
+                startlevel = levcount - 1;
 
-	case 5:
-		f = skill.value + dir;
-		if (f > 3)	f = 0;
-		else if (f < 0)	f = 3;
-		Cvar_SetValue ("skill", f);
-		break;
-
-	case 6:
-		f = fraglimit.value + dir * 10;
-		if (f > 100)	f = 0;
-		else if (f < 0)	f = 100;
-		Cvar_SetValue ("fraglimit", f);
-		break;
-
-	case 7:
-		f = timelimit.value + dir * 5;
-		if (f > 60)	f = 0;
-		else if (f < 0)	f = 60;
-		Cvar_SetValue ("timelimit", f);
-		break;
-
-	case 8:
-		startepisode += dir;
-	//MED 01/06/97 added hipnotic count
-		if (hipnotic)
-			count = 6;
-	//PGM 01/07/97 added rogue count
-	//PGM 03/02/97 added 1 for dmatch episode
-		else if (rogue)
-			count = 4;
-		else if (registered.value)
-			count = 7;
-		else
-			count = 2;
-
-		if (startepisode < 0)
-			startepisode = count - 1;
-
-		if (startepisode >= count)
-			startepisode = 0;
-
-		startlevel = 0;
-		break;
-
-	case 9:
-		startlevel += dir;
-	//MED 01/06/97 added hipnotic episodes
-		if (hipnotic)
-			count = hipnoticepisodes[startepisode].levels;
-	//PGM 01/06/97 added hipnotic episodes
-		else if (rogue)
-			count = rogueepisodes[startepisode].levels;
-		else
-			count = episodes[startepisode].levels;
-
-		if (startlevel < 0)
-			startlevel = count - 1;
-
-		if (startlevel >= count)
-			startlevel = 0;
-		break;
-	}
+            if (startlevel >= levcount)
+                startlevel = 0;
+            break;
+    }
 }
 
-void M_GameOptions_Key (int key)
+void M_Matchmaking_Key (int key)
 {
-	switch (key)
-	{
-	case K_ESCAPE:
-	case K_BBUTTON:
-		M_Menu_Net_f ();
-		break;
+    switch (key)
+    {
+        case K_ENTER:
+        case K_ESCAPE:
+        case K_BBUTTON:
+        case K_YBUTTON:
+            M_Menu_Main_f ();
+            break;
 
-	case K_UPARROW:
-		S_LocalSound ("misc/menuoption.wav");
-		gameoptions_cursor--;
-		if (gameoptions_cursor < 0)
-			gameoptions_cursor = NUM_GAMEOPTIONS-1;
-		break;
+        case K_UPARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            gameoptions_cursor--;
+            if (gameoptions_cursor < 0)
+                gameoptions_cursor = NUM_GAMEOPTIONS-1;
+            break;
 
-	case K_DOWNARROW:
-		S_LocalSound ("misc/menuoption.wav");
-		gameoptions_cursor++;
-		if (gameoptions_cursor >= NUM_GAMEOPTIONS)
-			gameoptions_cursor = 0;
-		break;
+        case K_DOWNARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            gameoptions_cursor++;
+            if (gameoptions_cursor >= NUM_GAMEOPTIONS)
+                gameoptions_cursor = 0;
+            break;
 
-	case K_LEFTARROW:
-		if (gameoptions_cursor == 0)
-			break;
-		S_LocalSound ("misc/menu3.wav");
-		M_NetStart_Change (-1);
-		break;
+        case K_LEFTARROW:
+            if (gameoptions_cursor == 6 || gameoptions_cursor == 0)
+                break;
+            S_LocalSound ("misc/menuoption.wav");
+            M_Matchmaking_Change (-1);
+            break;
 
-	case K_RIGHTARROW:
-		if (gameoptions_cursor == 0)
-			break;
-		S_LocalSound ("misc/menu3.wav");
-		M_NetStart_Change (1);
-		break;
+        case K_RIGHTARROW:
+            if (gameoptions_cursor == 6 || gameoptions_cursor == 0)
+                break;
+            S_LocalSound ("misc/menuoption.wav");
+            M_Matchmaking_Change (1);
+            break;
 
-	case K_ENTER:
-	case K_KP_ENTER:
-	case K_ABUTTON:
-		S_LocalSound ("misc/menu2.wav");
-		if (gameoptions_cursor == 0)
-		{
-			if (sv.active)
-				Cbuf_AddText ("disconnect\n");
-			Cbuf_AddText ("listen 0\n");	// so host_netport will be re-examined
-			Cbuf_AddText ( va ("maxplayers %u\n", maxplayers) );
-			SCR_BeginLoadingPlaque ();
+        case K_ABUTTON:
+            S_LocalSound ("misc/menuenter.wav");
+            if (gameoptions_cursor == 6)
+            {
+                S_LocalSound ("misc/menuback.wav");
+                // matchmaking_draw_loading = true;
 
-			if (hipnotic)
-				Cbuf_AddText ( va ("map %s\n", hipnoticlevels[hipnoticepisodes[startepisode].firstLevel + startlevel].name) );
-			else if (rogue)
-				Cbuf_AddText ( va ("map %s\n", roguelevels[rogueepisodes[startepisode].firstLevel + startlevel].name) );
-			else
-				Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + startlevel].name) );
+                // make sure we disconnected from lat match
+                if (sv.active) {
+                    Cbuf_AddText ("disconnect\n");
+                }
+                Cbuf_AddText ("listen 0\n");	// so host_netport will be re-examined
+                Cbuf_AddText ( va ("maxplayers %u\n", 8) );
+                SCR_BeginLoadingPlaque ();
+                Cbuf_AddText ("chase_active 0\n");
+                Cbuf_AddText ( va ("deathmatch %u\n", (int)deathmatch.value) );
+                Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + startlevel].name) );
+//                // remove old bots. add single bot
+                for (int i = 0; i < 8; i++) {
+                    Cbuf_AddText ("impulse 102\n");
+                }
+                Cvar_SetValue ("skill", skill.value);
+                Cbuf_AddText ("impulse 100\n");
+//                Cbuf_Execute();
+                m_state = m_none; // set state to none so console loads?
+                return;
+            }
+            else if (gameoptions_cursor == 0)
+            {
+                m_multiplayer_cursor = 1;
+                M_Menu_LanConfig_f();
+            }
 
-			return;
-		}
+            M_Matchmaking_Change (1);
+            break;
+    }
+}
 
-		M_NetStart_Change (1);
-		break;
-	}
+void M_Menu_Firefight_f (void)
+{
+    key_dest = key_menu;
+    m_state = m_firefight;
+    m_entersound = true;
+    //default firefight settings
+    Cvar_SetValue ("skill", 0);
+    Cvar_SetValue ("deathmatch", 2);
+    startepisode = 0;
+    startlevel = rand() % episodes_ff[startepisode].levels;
+}
+
+int firefight_cursor_table[] = {40, 56, 64, 72, 80, 88, 96, 112, 120};
+#define	NUM_FIREFIGHT_OPTIONS	2
+#define MM_FFOPS_HEIGHT mvs(NUM_FIREFIGHT_OPTIONS)
+int		firefight_cursor;
+
+
+void M_Firefight_Draw (void)
+{
+    qpic_t	*p, *gt, *bg, *bar, *skillp, *mapfire, *mapconstruction, *maprandom;
+    int		x, chg;
+
+    // mapfire = Draw_CachePic ("gfx/maps/fire.lmp");
+    // mapconstruction = Draw_CachePic ("gfx/maps/construction.lmp");
+    bg = Draw_CachePic ("gfx/MENU/matchmakingback.lmp");
+    bar = Draw_CachePic ("gfx/MENU/menubarmp.lmp");
+
+    //background
+    qpic_t *randmap = Draw_CachePic("gfx/maps/random.lmp");
+    Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEIGHT_PIX, MM_BG, 0.5); //bg full
+    Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEADER_HEIGHT, BLACK, 0.5); //bg header
+    int fg_feight = MM_HEIGHT_PIX - (MM_HEADER_HEIGHT + MM_FOOTER_HEIGHT +randmap->height);
+    Draw_Fill(MM_XOFF, MM_HEADER_HEIGHT, MM_WIDTH_PIX, fg_feight, MM_FG, 0.5); //bg foreground
+    Draw_Fill(MM_XOFF, MM_HEIGHT_PIX-mvs(1), MM_WIDTH_PIX, MM_FOOTER_HEIGHT, BLACK, 0.5); //bg footer
+    Draw_Fill(MM_XOFF+MM_WIDTH_PIX, 0, 1, MM_HEIGHT_PIX, BLACK+1, 0.5); //bg vertical border
+    //cursor
+    Draw_Cursor(MM_XOFF, MM_HEADER_HEIGHT+mvs(firefight_cursor), MM_WIDTH_PIX, MVS, true);
+
+    //======================== header
+    M_PrintWhite (MM_XOFF+TEXT_XMARGIN, MM_HEADER_HEIGHT-mvs(1)+TEXT_YMARGIN, "FIREFIGHT");
+    //========================= Footer
+    M_PrintWhite (MM_WIDTH_PIX-23*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN, "0 Back X Select/Change");
+
+    //======================== 5
+    M_Print (MM_XOFF+TEXT_XMARGIN, MM_Y_SELECTION+mvs(0), "MAP");
+    M_PrintWhite (MM_XOFF+TEXT_XMARGIN+(5*CHARZ), MM_Y_SELECTION+mvs(0), levels[episodes_ff[startepisode].firstLevel + startlevel].description);
+    //========================= 6
+    M_PrintWhite (MM_XOFF+TEXT_XMARGIN, MM_Y_SELECTION+mvs(1), "START GAME");
+    //========================= Draw image
+    //qpic_t *randmap = Draw_CachePic("gfx/maps/random.lmp");
+    M_DrawTransPic(MM_XOFF+(MM_WIDTH_PIX-randmap->width)/2, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT-randmap->height, randmap);
+    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes_ff[startepisode].firstLevel + startlevel].name));
+    M_DrawTransPic(MM_XOFF+(MM_WIDTH_PIX-mappic->width)/2, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT-mappic->height, mappic);
+}
+
+void M_Firefight_Change (int dir)
+{
+    int epcount, levcount;
+    switch (firefight_cursor)
+    {
+        case 0: //map
+            startlevel += dir;
+            levcount = episodes_ff[startepisode].levels;
+
+            if (startlevel < 0)
+                startlevel = levcount - 1;
+
+            if (startlevel >= levcount)
+                startlevel = 0;
+            break;
+    }
+}
+
+void M_Firefight_Key (int key)
+{
+    switch (key)
+    {
+        case K_ENTER:
+        case K_ESCAPE:
+        case K_YBUTTON:
+        case K_BBUTTON:
+            M_Menu_Main_f ();
+            break;
+
+        case K_UPARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            firefight_cursor--;
+            if (firefight_cursor < 0)
+                firefight_cursor = NUM_FIREFIGHT_OPTIONS-1;
+            break;
+
+        case K_DOWNARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            firefight_cursor++;
+            if (firefight_cursor >= NUM_FIREFIGHT_OPTIONS)
+                firefight_cursor = 0;
+            break;
+
+        case K_LEFTARROW:
+            if (firefight_cursor == 1)
+                break;
+            S_LocalSound ("misc/menuoption.wav");
+            M_Firefight_Change (-1);
+            break;
+
+        case K_RIGHTARROW:
+            if (firefight_cursor == 1)
+                break;
+            S_LocalSound ("misc/menuoption.wav");
+            M_Firefight_Change (1);
+            break;
+
+        case K_ABUTTON:
+            S_LocalSound ("misc/menuenter.wav");
+            if (firefight_cursor == 1) //on start options
+            {
+                if (sv.active)
+                    Cbuf_AddText ("disconnect\n");
+                SCR_BeginLoadingPlaque (); //#TODO: fix loading screen not working.
+                Cbuf_AddText ("timelimit 60\n");
+                Cbuf_AddText ("fraglimit 9999\n");
+                Cbuf_AddText ("listen 0\n");	// so host_netport will be re-examined
+                Cbuf_AddText ("chase_active 0\n");
+                Cbuf_AddText ( va ("maxplayers %u\n", 1) );
+                Cbuf_AddText ( va ("deathmatch %u\n", (int)deathmatch.value) );
+                Cbuf_AddText ( va ("map %s\n", levels[episodes_ff[startepisode].firstLevel + startlevel].name) );
+
+                return;
+            }
+            break;
+    }
 }
 
 //=============================================================================
@@ -2946,7 +3124,7 @@ static struct
 	{"menu_singleplayer", M_Menu_SinglePlayer_f},
 	{"menu_load", M_Menu_Load_f},
 	{"menu_save", M_Menu_Save_f},
-	{"menu_multiplayer", M_Menu_MultiPlayer_f},
+//	{"menu_multiplayer", M_Menu_MultiPlayer_f},
 	{"menu_setup", M_Menu_Setup_f},
 	{"menu_options", M_Menu_Options_f},
 	{"menu_keys", M_Menu_Keys_f},
@@ -3281,9 +3459,13 @@ void M_Draw (void)
 		M_Save_Draw ();
 		break;
 
-	case m_multiplayer:
-		M_MultiPlayer_Draw ();
-		break;
+//	case m_multiplayer:
+//		M_MultiPlayer_Draw ();
+//		break;
+
+    case m_firefight:
+        M_Firefight_Draw();
+        break;
 
     case m_pause:
         M_Pause_Draw ();
@@ -3291,10 +3473,6 @@ void M_Draw (void)
 
 	case m_setup:
 		M_Setup_Draw ();
-		break;
-
-	case m_net:
-		M_Net_Draw ();
 		break;
 
 	case m_options:
@@ -3314,12 +3492,6 @@ void M_Draw (void)
 		break;
 
 	case m_quit:
-//		if (!fitzmode)
-//		{ /* QuakeSpasm customization: */
-//			/* Quit now! S.A. */
-//			key_dest = key_console;
-//			Host_Quit_f ();
-//		}
 		M_Quit_Draw ();
 		break;
 
@@ -3328,7 +3500,7 @@ void M_Draw (void)
 		break;
 
 	case m_gameoptions:
-		M_GameOptions_Draw ();
+        M_Matchmaking_Draw ();
 		break;
 
 	case m_search:
@@ -3382,23 +3554,20 @@ void M_Keydown (int key)
 		M_Save_Key (key);
 		return;
 
-	case m_multiplayer:
-		M_MultiPlayer_Key (key);
-		return;
+//	case m_multiplayer:
+//		M_MultiPlayer_Key (key);
+//		return;
 
     case m_pause:
         M_Pause_Key (key);
         return;
 
     case m_firefight:
+        M_Firefight_Key (key);
         return;
 
 	case m_setup:
 		M_Setup_Key (key);
-		return;
-
-	case m_net:
-		M_Net_Key (key);
 		return;
 
 	case m_options:
@@ -3426,7 +3595,7 @@ void M_Keydown (int key)
 		return;
 
 	case m_gameoptions:
-		M_GameOptions_Key (key);
+        M_Matchmaking_Key (key);
 		return;
 
 	case m_search:

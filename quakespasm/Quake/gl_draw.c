@@ -402,8 +402,8 @@ qpic_t	*Draw_TryCachePic (const char *path, unsigned int texflags)
 qpic_t	*Draw_CachePic (const char *path)
 {
 	qpic_t *pic = Draw_TryCachePic(path, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
-	if (!pic)
-		Sys_Error ("Draw_CachePic: failed to load %s", path);
+//	if (!pic)
+//		Sys_Error ("Draw_CachePic: failed to load %s", path);
 	return pic;
 }
 

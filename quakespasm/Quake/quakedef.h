@@ -376,7 +376,7 @@ extern int		minimum_memory;
 //menu UI defines
 #define MENU_SCALE 1.75
 #define CHARZ 8
-#define MVS_P 0.085//0.067 //menu vertical spacing percent
+#define MVS_P 0.067//0.085//0.067 //menu vertical spacing percent
 #define MVS PixHeight(MVS_P) //menu vertical spacing
 #define TEXT_YMARGIN (MVS-CHARZ)/2 //margin below or above text in a MVS row
 #define TEXT_XMARGIN 15
