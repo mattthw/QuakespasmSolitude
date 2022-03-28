@@ -30,6 +30,8 @@ enum m_state_e {
 	m_load,
 	m_save,
 	m_multiplayer,
+    m_firefight,
+    m_pause,
 	m_setup,
 	m_net,
 	m_options,

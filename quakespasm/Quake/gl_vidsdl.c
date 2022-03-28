@@ -2220,19 +2220,19 @@ static void VID_MenuKey (int key)
 	case K_ESCAPE:
 	case K_BBUTTON:
 		VID_SyncCvars (); //sync cvars before leaving menu. FIXME: there are other ways to leave menu
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		M_Menu_Options_f ();
 		break;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		video_options_cursor--;
 		if (video_options_cursor < 0)
 			video_options_cursor = VIDEO_OPTIONS_ITEMS-1;
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		video_options_cursor++;
 		if (video_options_cursor >= VIDEO_OPTIONS_ITEMS)
 			video_options_cursor = 0;

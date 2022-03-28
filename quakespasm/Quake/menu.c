@@ -39,6 +39,7 @@ void M_Menu_Main_f (void);
 		void M_Menu_Setup_f (void);
 		void M_Menu_Net_f (void);
 		void M_Menu_LanConfig_f (void);
+//        void M_Matchmaking_f (void);
 		void M_Menu_GameOptions_f (void);
 		void M_Menu_Search_f (enum slistScope_e scope);
 		void M_Menu_ServerList_f (void);
@@ -47,11 +48,13 @@ void M_Menu_Main_f (void);
 		void M_Menu_Video_f (void);
 	void M_Menu_Help_f (void);
 	void M_Menu_Quit_f (void);
+    void M_Menu_Pause_f (void);
 
 void M_Main_Draw (void);
 	void M_SinglePlayer_Draw (void);
 		void M_Load_Draw (void);
 		void M_Save_Draw (void);
+    void M_Main_Multi_Draw (void);
 	void M_MultiPlayer_Draw (void);
 		void M_Setup_Draw (void);
 		void M_Net_Draw (void);
@@ -59,11 +62,13 @@ void M_Main_Draw (void);
 		void M_GameOptions_Draw (void);
 		void M_Search_Draw (void);
 		void M_ServerList_Draw (void);
+//        void M_Matchmaking_Draw (void);
 	void M_Options_Draw (void);
 		void M_Keys_Draw (void);
 		void M_Video_Draw (void);
 	void M_Help_Draw (void);
 	void M_Quit_Draw (void);
+    void M_Pause_Draw (void);
 
 #ifdef VITA
 	void M_Mods_Key (int key);
@@ -86,11 +91,13 @@ void M_Main_Key (int key);
 		void M_GameOptions_Key (int key);
 		void M_Search_Key (int key);
 		void M_ServerList_Key (int key);
+//        void M_Matchmaking_Key (int key);
 	void M_Options_Key (int key);
 		void M_Keys_Key (int key);
 		void M_Video_Key (int key);
 	void M_Help_Key (int key);
 	void M_Quit_Key (int key);
+    void M_Pause_Key (int key);
 
 qboolean	m_entersound;		// play after drawing a frame, so caching
 								// won't disrupt the sound
@@ -99,7 +106,7 @@ qboolean	m_recursiveDraw;
 enum m_state_e	m_return_state;
 qboolean	m_return_onerror;
 char		m_return_reason [32];
-
+int m_multiplayer_cursor = 1;
 #define StartingGame	(m_multiplayer_cursor == 1)
 #define JoiningGame		(m_multiplayer_cursor == 0)
 #define	IPXConfig		(m_net_cursor == 0)
@@ -141,7 +148,7 @@ void M_PrintWhite (int cx, int cy, const char *str)
 
 void M_PrintCentered (int cy, char *str)
 {
-	int cx = 160 - strlen(str) * 4;
+	int cx = (320*MENU_SCALE)/2 - strlen(str) * 4;
 	
 	while (*str)
 	{
@@ -225,13 +232,37 @@ void M_DrawTextBox (int x, int y, int width, int lines)
 
 int m_save_demonum;
 
+int mvs(int cursorpos)
+{
+    return cursorpos*MVS;
+}
 
 //=============================================================================
 /* MAIN MENU */
 
 int	m_main_cursor;
 #define	MAIN_ITEMS	5
+#define MAIN_MULTI_ITEMS 2
 
+int	m_main_cursor;
+int m_main_multi_cursor;
+bool main_multi = false;
+float main_percentwidth = 0.3;
+float main_x_offset_percent = 0.1;
+
+#define CURSOR_HEIGHT MVS
+
+//main
+#define main_pixel_height (MAIN_ITEMS + 1) * MVS
+#define main_pixel_width PixWidth(main_percentwidth)
+#define main_y_offset_pixels PixHeight(1) - main_pixel_height
+#define main_x_offset_pixels PixWidth(main_x_offset_percent)
+
+//main-multi submenu
+#define multi_pixel_height (MAIN_MULTI_ITEMS) * MVS
+#define multi_pixel_width 17*CHARZ
+
+#define multi_x_offset_pixels main_x_offset_pixels+main_pixel_width
 
 void M_Menu_Main_f (void)
 {
@@ -243,88 +274,136 @@ void M_Menu_Main_f (void)
 	key_dest = key_menu;
 	m_state = m_main;
 	m_entersound = true;
+    main_multi = false;
 
 	IN_UpdateGrabs();
 }
 
-
 void M_Main_Draw (void)
 {
-	int		f;
-	qpic_t	*p;
+    //background
+    Draw_Fill(main_x_offset_pixels, main_y_offset_pixels, main_pixel_width, main_pixel_height, BG_COLOR, 0.5); //blue bg
+    Draw_Fill(main_x_offset_pixels, PixHeight(1)-MVS, main_pixel_width, MVS, BLACK, 0.5); //black bar bottom
+    M_PrintWhite(main_x_offset_pixels+main_pixel_width-(9*8), PixHeight(1)-MVS+TEXT_YMARGIN, "X Select"); //tip
+    //cursor
+    Draw_Cursor(main_x_offset_pixels, main_y_offset_pixels+mvs(m_main_cursor), main_pixel_width, CURSOR_HEIGHT, !main_multi);
+    //menu items
+    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(0), "Matchmaking");
+    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(1), "Firefight");
+    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(2), "Options");
+    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(3), "Spartan");
+    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(4), "Quit");
 
-	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
-	p = Draw_CachePic ("gfx/ttl_main.lmp");
-	M_DrawPic ( (320-p->width)/2, 4, p);
-	M_DrawTransPic (72, 32, Draw_CachePic ("gfx/mainmenu.lmp") );
-
-	f = (int)(realtime * 10)%6;
-
-	M_DrawTransPic (54, 32 + m_main_cursor * 20,Draw_CachePic( va("gfx/menudot%i.lmp", f+1 ) ) );
-	
-	M_PrintCentered (150, "Thanks for the awesome support on Patreon to:");
-	M_PrintCentered (158, "@Sarkies_Proxy, Badmanwazzy37, drd7of14");
-	M_PrintCentered (166, "Tain Sueiras, Colin VanBuren, Titi Clash");
-	M_PrintCentered (174, "Freddy Parra, The Vita3K Project");
-	M_PrintCentered (182, "UnrootedTiara, XandridFire");
+    if (main_multi)
+        M_Main_Multi_Draw ();
 }
 
+void M_Main_Multi_Draw (void)
+{
+    //background
+    Draw_Fill(multi_x_offset_pixels, main_y_offset_pixels, multi_pixel_width, multi_pixel_height, GREY, 0.5);
+    //cursor in focus
+    Draw_Cursor(multi_x_offset_pixels, main_y_offset_pixels+mvs(m_main_multi_cursor), multi_pixel_width, CURSOR_HEIGHT, true);
+    //menu items
+    M_PrintWhite(multi_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(0), "Custom Games");
+    M_PrintWhite(multi_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(1), "Find Match");
+}
 
 void M_Main_Key (int key)
 {
 	switch (key)
 	{
 	case K_ESCAPE:
+    case K_YBUTTON:
 	case K_BBUTTON:
-		key_dest = key_game;
-		m_state = m_none;
-		cls.demonum = m_save_demonum;
-		IN_UpdateGrabs();
-		if (!fitzmode)	/* QuakeSpasm customization: */
-			break;
-		if (cls.demonum != -1 && !cls.demoplayback && cls.state != ca_connected)
-			CL_NextDemo ();
+        if (main_multi == true)
+        {
+            main_multi = false;
+        }
+        else
+        {
+            m_main_cursor = 4;
+            M_Menu_Quit_f ();
+        }
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
-		if (++m_main_cursor >= MAIN_ITEMS)
-			m_main_cursor = 0;
+		S_LocalSound ("misc/menuoption.wav");
+            if (main_multi)
+            {
+                if (++m_main_multi_cursor >= MAIN_MULTI_ITEMS)
+                    m_main_multi_cursor = 0;
+            }
+            else
+            {
+                if (++m_main_cursor >= MAIN_ITEMS)
+                    m_main_cursor = 0;
+            }
 		break;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
-		if (--m_main_cursor < 0)
-			m_main_cursor = MAIN_ITEMS - 1;
+		S_LocalSound ("misc/menuoption.wav");
+            if (main_multi)
+            {
+                if (--m_main_multi_cursor < 0)
+                    m_main_multi_cursor = MAIN_MULTI_ITEMS - 1;
+            }
+            else
+            {
+                if (--m_main_cursor < 0)
+                    m_main_cursor = MAIN_ITEMS - 1;
+            }
 		break;
 
 	case K_ENTER:
 	case K_KP_ENTER:
 	case K_ABUTTON:
-		m_entersound = true;
+        if (m_main_cursor != 0) //submenu
+        {
+            S_LocalSound ("misc/menuoption.wav");
+        }
+        else
+        {
+            m_entersound = true;
+        }
 
-		switch (m_main_cursor)
-		{
-		case 0:
-			M_Menu_SinglePlayer_f ();
-			break;
+        if (main_multi)
+        {
+            switch (m_main_multi_cursor)
+            {
+                case 0:
+                    M_Menu_MultiPlayer_f();
+                    break;
+                case 1:
+                    m_multiplayer_cursor = 0;
+                    M_Menu_Net_f ();
+                    break;
+            }
+        }
+        else
+        {
+            switch (m_main_cursor)
+            {
+                case 0:
+                    main_multi = true;
+                    break;
+                case 1:
+//                    M_Menu_Firefight_f ();
+                    break;
 
-		case 1:
-			M_Menu_MultiPlayer_f ();
-			break;
+                case 2:
+                    M_Menu_Options_f ();
+                    break;
 
-		case 2:
-			M_Menu_Options_f ();
-			break;
+                case 3:
+                    M_Menu_Setup_f ();
+                    break;
 
-		case 3:
-			M_Menu_Help_f ();
-			break;
-
-		case 4:
-			M_Menu_Quit_f ();
-			break;
-		}
+                case 4:
+                    M_Menu_Quit_f ();
+                    break;
+            }
+        }
 	}
 }
 
@@ -371,13 +450,13 @@ void M_SinglePlayer_Key (int key)
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		if (++m_singleplayer_cursor >= SINGLEPLAYER_ITEMS)
 			m_singleplayer_cursor = 0;
 		break;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		if (--m_singleplayer_cursor < 0)
 			m_singleplayer_cursor = SINGLEPLAYER_ITEMS - 1;
 		break;
@@ -544,7 +623,7 @@ void M_Load_Key (int k)
 
 	case K_UPARROW:
 	case K_LEFTARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		load_cursor--;
 		if (load_cursor < 0)
 			load_cursor = MAX_SAVEGAMES-1;
@@ -552,7 +631,7 @@ void M_Load_Key (int k)
 
 	case K_DOWNARROW:
 	case K_RIGHTARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		load_cursor++;
 		if (load_cursor >= MAX_SAVEGAMES)
 			load_cursor = 0;
@@ -581,7 +660,7 @@ void M_Save_Key (int k)
 
 	case K_UPARROW:
 	case K_LEFTARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		load_cursor--;
 		if (load_cursor < 0)
 			load_cursor = MAX_SAVEGAMES-1;
@@ -589,7 +668,7 @@ void M_Save_Key (int k)
 
 	case K_DOWNARROW:
 	case K_RIGHTARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		load_cursor++;
 		if (load_cursor >= MAX_SAVEGAMES)
 			load_cursor = 0;
@@ -618,10 +697,19 @@ void M_MultiPlayer_Draw (void)
 	int		f;
 	qpic_t	*p;
 
+    int y_offset = 30;
+    int y_cursor_offset = 32;
+    int x_offset = 60;
+    int x_text_offset = 15;
+
 	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
 	p = Draw_CachePic ("gfx/p_multi.lmp");
 	M_DrawPic ( (320-p->width)/2, 4, p);
-	M_DrawTransPic (72, 32, Draw_CachePic ("gfx/mp_menu.lmp") );
+//	M_DrawTransPic (72, 32, Draw_CachePic ("gfx/mp_menu.lmp") );
+
+    //menu items
+    M_Print(x_offset+x_text_offset, y_offset+32, "Join Game");
+    M_Print(x_offset+x_text_offset, y_offset+52, "Start Game");
 
 	f = (int)(realtime * 10)%6;
 
@@ -643,13 +731,13 @@ void M_MultiPlayer_Key (int key)
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		if (++m_multiplayer_cursor >= MULTIPLAYER_ITEMS)
 			m_multiplayer_cursor = 0;
 		break;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		if (--m_multiplayer_cursor < 0)
 			m_multiplayer_cursor = MULTIPLAYER_ITEMS - 1;
 		break;
@@ -749,18 +837,18 @@ void M_Setup_Key (int k)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
-		M_Menu_MultiPlayer_f ();
+		M_Menu_Main_f();
 		break;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		setup_cursor--;
 		if (setup_cursor < 0)
 			setup_cursor = NUM_SETUP_CMDS-1;
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		setup_cursor++;
 		if (setup_cursor >= NUM_SETUP_CMDS)
 			setup_cursor = 0;
@@ -957,13 +1045,13 @@ again:
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		if (++m_net_cursor >= m_net_items)
 			m_net_cursor = 0;
 		break;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		if (--m_net_cursor < 0)
 			m_net_cursor = m_net_items - 1;
 		break;
@@ -980,6 +1068,93 @@ again:
 		goto again;
 	if (m_net_cursor == 1 && !(ipv4Available || ipv6Available))
 		goto again;
+}
+
+
+//======================
+/* PAUSE MENU */
+
+void M_Menu_Pause_f (void)
+{
+    key_dest = key_menu;
+    m_state = m_pause;
+    m_entersound = true;
+}
+
+#define	NUM_PAUSEOPTIONS	4
+
+#define P_HEIGHT 			mvs(4)
+#define P_YOFF				PixHeight(0.3)
+
+#define P_WIDTH 			PixWidth(0.4)
+#define P_XOFF				(PixWidth(1)-P_WIDTH)/2
+
+int		pause_cursor;
+
+//pause
+void M_Pause_Draw (void)
+{
+
+    //background
+    Draw_WindowPix(P_XOFF, P_YOFF, P_WIDTH, P_HEIGHT, "Pause", 0.8);
+    //cursor
+    Draw_Cursor(P_XOFF, P_YOFF+mvs(pause_cursor), P_WIDTH, MVS, true);
+    //menu items
+    M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(0)+TEXT_YMARGIN, "Add Bot");
+    M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(1)+TEXT_YMARGIN, "Remove Bot");
+    M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(2)+TEXT_YMARGIN, "Options");
+    M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(3)+TEXT_YMARGIN, "Disconnect");
+}
+
+void M_Pause_Key (int key)
+{
+    switch (key)
+    {
+        case K_ENTER:
+        case K_ESCAPE:
+        case K_YBUTTON:
+        case K_BBUTTON:
+            key_dest = key_game;
+            m_state = m_none;
+            break;
+
+        case K_UPARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            pause_cursor--;
+            if (pause_cursor < 0)
+                pause_cursor = NUM_PAUSEOPTIONS-1;
+            break;
+
+        case K_DOWNARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            pause_cursor++;
+            if (pause_cursor >= NUM_PAUSEOPTIONS)
+                pause_cursor = 0;
+            break;
+
+        case K_ABUTTON:
+            S_LocalSound ("misc/menuenter.wav");
+            if(pause_cursor == 0)
+            {
+                Cbuf_AddText ("impulse 100\n");
+            }
+            if(pause_cursor == 1)
+            {
+                Cbuf_AddText ("impulse 102\n");
+            }
+            if(pause_cursor == 2)
+            {
+                M_Menu_Options_f ();
+            }
+            if(pause_cursor == 3)
+            {
+                Cbuf_AddText ("disconnect\n");
+                M_Menu_Main_f();
+                //S_StopAllSounds(true);
+                //Cbuf_AddText  ("play music/Solitude_MainTheme_Low.wav");
+            }
+            break;
+    }
 }
 
 //=============================================================================
@@ -1306,8 +1481,13 @@ void M_Options_Key (int k)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
-		Host_WriteConfiguration();
-		M_Menu_Main_f ();
+    case K_YBUTTON:
+        if (sv.active) { //user is in pause menu
+            M_Menu_Pause_f();
+        } else {
+            Host_WriteConfiguration();
+            M_Menu_Main_f ();
+        }
 		break;
 
 	case K_ENTER:
@@ -1346,14 +1526,14 @@ void M_Options_Key (int k)
 		return;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		options_cursor--;
 		if (options_cursor < 0)
 			options_cursor = OPTIONS_ITEMS-1;
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		options_cursor++;
 		if (options_cursor >= OPTIONS_ITEMS)
 			options_cursor = 0;
@@ -1380,29 +1560,22 @@ void M_Options_Key (int k)
 //=============================================================================
 /* KEYS MENU */
 
-const char *quakebindnames[][2] =
+char *quakebindnames[][2] =
 {
-	{"+attack",		"attack"},
-	{"impulse 10",		"next weapon"},
-	{"impulse 12",		"prev weapon"},
-	{"+jump",		"jump / swim up"},
-	{"+forward",		"walk forward"},
-	{"+back",		"backpedal"},
-	{"+left",		"turn left"},
-	{"+right",		"turn right"},
-	{"+speed",		"run"},
-	{"+moveleft",		"step left"},
-	{"+moveright",		"step right"},
-	{"+strafe",		"sidestep"},
-	{"+lookup",		"look up"},
-	{"+lookdown",		"look down"},
-	{"centerview",		"center view"},
-	{"+mlook",		"mouse look"},
-	{"+klook",		"keyboard look"},
-	{"+moveup",		"swim up"},
-	{"+movedown",		"swim down"},
-	{"+voip",		"Voice Chat"}
+        {"+attack", 		"Attack"},
+        {"impulse 10", 		"Cycle weapons"},
+        {"impulse 13", 		"Pickup / Reload"},
+        {"impulse 27", 		"Change Grenade"},
+        {"impulse 28", 		"Throw Grenade"},
+        {"impulse 29", 		"Melee"},
+        {"impulse 11", 		"Zoom"},
+        {"+jump", 			"Jump / Swim up"},
+        {"+forward", 		"Forward"},
+        {"+back", 			"Back"},
+        {"+moveleft", 		"Left" },
+        {"+moveright", 		"Right" }
 };
+
 #define	NUMQUAKECOMMANDS	(sizeof(quakebindnames)/sizeof(quakebindnames[0]))
 
 static struct
@@ -1610,7 +1783,7 @@ void M_Keys_Key (int k)
 
 	if (bind_grab)
 	{	// defining a key
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		if ((k != K_ESCAPE) && (k != '`'))
 		{
 			sprintf (cmd, "bind \"%s\" \"%s\"\n", Key_KeynumToString (k), bindnames[keys_cursor].cmd);
@@ -1631,7 +1804,7 @@ void M_Keys_Key (int k)
 
 	case K_LEFTARROW:
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		do
 		{
 			keys_cursor--;
@@ -1651,7 +1824,7 @@ void M_Keys_Key (int k)
 
 	case K_DOWNARROW:
 	case K_RIGHTARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		do
 		{
 			keys_cursor++;
@@ -1759,6 +1932,48 @@ int		msgNumber;
 enum m_state_e	m_quit_prevstate;
 qboolean	wasInMenus;
 
+char *quitMessage [] =
+{
+/* .........1.........2.... */
+        "    Ready to retire     ",
+        "         Chief?         ",
+        "                        ",
+        "   O NO             X YES   ",
+
+        " Milord, methinks that  ",
+        "   thou art a lowly     ",
+        " quitter. Is this true? ",
+        "                        ",
+        " Do I need to bust your ",
+        "  face open for trying  ",
+        "        to quit?        ",
+        "                        ",
+        " Man, I oughta smack you",
+        "   for trying to quit!  ",
+        "     Press X to get     ",
+        "      smacked out.      ",
+        " What, you want to stop ",
+        "   playing VitaQuake?   ",
+        "     Press X or O to    ",
+        "   return to LiveArea.  ",
+        " Press X to quit like a ",
+        "   big loser in life.   ",
+        "  Return back to stay   ",
+        "  proud and successful! ",
+        "   If you press X to    ",
+        "  quit, I will summon   ",
+        "  Satan all over your   ",
+        "      memory card!      ",
+        "  Um, Asmodeus dislikes ",
+        " his children trying to ",
+        " quit. Press X to return",
+        "   to your Tinkertoys.  ",
+        "  If you quit now, I'll ",
+        "  throw a blanket-party ",
+        "   for you next time!   ",
+        "                        "
+};
+
 void M_Menu_Quit_f (void)
 {
 	if (m_state == m_quit)
@@ -1768,35 +1983,17 @@ void M_Menu_Quit_f (void)
 	m_quit_prevstate = m_state;
 	m_state = m_quit;
 	m_entersound = true;
-	msgNumber = rand()&7;
+	msgNumber = 0;
 
 	IN_UpdateGrabs();
 }
-
-
-void M_Quit_Key (int key)
-{
-	if (key == K_ESCAPE)
-	{
-		if (wasInMenus)
-		{
-			m_state = m_quit_prevstate;
-			m_entersound = true;
-		}
-		else
-		{
-			key_dest = key_game;
-			m_state = m_none;
-			IN_UpdateGrabs();
-		}
-	}
-}
-
 
 void M_Quit_Char (int key)
 {
 	switch (key)
 	{
+    case K_YBUTTON: // triangle
+    case K_BBUTTON: // circle
 	case 'n':
 	case 'N':
 		if (wasInMenus)
@@ -1812,6 +2009,7 @@ void M_Quit_Char (int key)
 		}
 		break;
 
+    case K_ABUTTON: // x
 	case 'y':
 	case 'Y':
 		key_dest = key_console;
@@ -1822,9 +2020,12 @@ void M_Quit_Char (int key)
 	default:
 		break;
 	}
-
 }
 
+void M_Quit_Key (int key)
+{
+    M_Quit_Char(key);
+}
 
 qboolean M_Quit_TextEntry (void)
 {
@@ -1832,34 +2033,24 @@ qboolean M_Quit_TextEntry (void)
 }
 
 
-void M_Quit_Draw (void) //johnfitz -- modified for new quit message
+void M_Quit_Draw (void)
 {
-	char	msg1[40];
-	char	msg2[] = "by Ozkan Sezer, Eric Wasylishen, others";/* msg2/msg3 are mostly [40] */
-	char	msg3[] = "Press y to quit";
-	int		boxlen;
+    if (wasInMenus)
+    {
+        m_state = m_quit_prevstate;
+        m_recursiveDraw = true;
+        M_Draw ();
+        m_state = m_quit;
+    }
+    int xoff = 80;
+    int yoff = 20;
 
-	if (wasInMenus)
-	{
-		m_state = m_quit_prevstate;
-		m_recursiveDraw = true;
-		M_Draw ();
-		m_state = m_quit;
-	}
-
-	sprintf(msg1, ENGINE_NAME_AND_VER);
-
-	//okay, this is kind of fucked up.  M_DrawTextBox will always act as if
-	//width is even. Also, the width and lines values are for the interior of the box,
-	//but the x and y values include the border.
-	boxlen = q_max(strlen(msg1), q_max((sizeof(msg2)-1),(sizeof(msg3)-1))) + 1;
-	if (boxlen & 1) boxlen++;
-	M_DrawTextBox	(160-4*(boxlen+2), 76, boxlen, 4);
-
-	//now do the text
-	M_Print			(160-4*strlen(msg1), 88, msg1);
-	M_Print			(160-4*(sizeof(msg2)-1), 96, msg2);
-	M_PrintWhite		(160-4*(sizeof(msg3)-1), 104, msg3);
+    Draw_Fill(0,0,1000,1000, BLACK, 0.30);
+    Draw_OffCenterWindow(0, -20, 0.5, 0.2, "Quit", MENU_ALPHA);
+//    M_Print (xoff+64, yoff+84,  quitMessage[msgNumber*4+0]);
+//    M_Print (xoff+64, yoff+92,  quitMessage[msgNumber*4+1]);
+//    M_Print (xoff+64, yoff+100, quitMessage[msgNumber*4+2]);
+    M_PrintWhite (xoff+64, yoff+116, quitMessage[msgNumber*4+3]);
 }
 
 //=============================================================================
@@ -2021,14 +2212,14 @@ void M_LanConfig_Key (int key)
 		break;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		lanConfig_cursor--;
 		if (lanConfig_cursor < 0)
 			lanConfig_cursor = NUM_LANCONFIG_CMDS-1;
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		lanConfig_cursor++;
 		if (lanConfig_cursor >= NUM_LANCONFIG_CMDS)
 			lanConfig_cursor = 0;
@@ -2151,50 +2342,20 @@ typedef struct
 
 level_t		levels[] =
 {
-	{"start", "Entrance"},	// 0
+        {"citadel", "Citadel"}, //0
+        {"narsp", "Narrows"},
+        {"Longest", "Longest"},
+        {"chill", "Chill Out"},
+        {"pri2", "Prisoner"},
+        {"base", "Minibase"},
+        {"plaza", "Plaza"},
+        {"spider", "Spiderweb"},
+        {"bloody", "Blood Gutch"},
+        {"lockout", "Lockout"},
+        {"lock", "Lockout2"},
 
-	{"e1m1", "Slipgate Complex"},				// 1
-	{"e1m2", "Castle of the Damned"},
-	{"e1m3", "The Necropolis"},
-	{"e1m4", "The Grisly Grotto"},
-	{"e1m5", "Gloom Keep"},
-	{"e1m6", "The Door To Chthon"},
-	{"e1m7", "The House of Chthon"},
-	{"e1m8", "Ziggurat Vertigo"},
-
-	{"e2m1", "The Installation"},				// 9
-	{"e2m2", "Ogre Citadel"},
-	{"e2m3", "Crypt of Decay"},
-	{"e2m4", "The Ebon Fortress"},
-	{"e2m5", "The Wizard's Manse"},
-	{"e2m6", "The Dismal Oubliette"},
-	{"e2m7", "Underearth"},
-
-	{"e3m1", "Termination Central"},			// 16
-	{"e3m2", "The Vaults of Zin"},
-	{"e3m3", "The Tomb of Terror"},
-	{"e3m4", "Satan's Dark Delight"},
-	{"e3m5", "Wind Tunnels"},
-	{"e3m6", "Chambers of Torment"},
-	{"e3m7", "The Haunted Halls"},
-
-	{"e4m1", "The Sewage System"},				// 23
-	{"e4m2", "The Tower of Despair"},
-	{"e4m3", "The Elder God Shrine"},
-	{"e4m4", "The Palace of Hate"},
-	{"e4m5", "Hell's Atrium"},
-	{"e4m6", "The Pain Maze"},
-	{"e4m7", "Azure Agony"},
-	{"e4m8", "The Nameless City"},
-
-	{"end", "Shub-Niggurath's Pit"},			// 31
-
-	{"dm1", "Place of Two Deaths"},				// 32
-	{"dm2", "Claustrophobopolis"},
-	{"dm3", "The Abandoned Base"},
-	{"dm4", "The Bad Place"},
-	{"dm5", "The Cistern"},
-	{"dm6", "The Dark Zone"}
+        {"construction", "Construction"}, //11
+        {"fire", "Fire!"} //12
 };
 
 //MED 01/06/97 added hipnotic levels
@@ -2256,15 +2417,9 @@ typedef struct
 } episode_t;
 
 episode_t	episodes[] =
-{
-	{"Welcome to Quake", 0, 1},
-	{"Doomed Dimension", 1, 8},
-	{"Realm of Black Magic", 9, 7},
-	{"Netherworld", 16, 7},
-	{"The Elder World", 23, 8},
-	{"Final Level", 31, 1},
-	{"Deathmatch Arena", 32, 6}
-};
+        {
+                {"Slayer Maps", 0, 11}
+        };
 
 //MED 01/06/97  added hipnotic episodes
 episode_t   hipnoticepisodes[] =
@@ -2565,14 +2720,14 @@ void M_GameOptions_Key (int key)
 		break;
 
 	case K_UPARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		gameoptions_cursor--;
 		if (gameoptions_cursor < 0)
 			gameoptions_cursor = NUM_GAMEOPTIONS-1;
 		break;
 
 	case K_DOWNARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		gameoptions_cursor++;
 		if (gameoptions_cursor >= NUM_GAMEOPTIONS)
 			gameoptions_cursor = 0;
@@ -2747,7 +2902,7 @@ void M_ServerList_Key (int k)
 
 	case K_UPARROW:
 	case K_LEFTARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		slist_cursor--;
 		if (slist_cursor >= hostCacheCount)
 			slist_cursor = hostCacheCount - 1;
@@ -2755,7 +2910,7 @@ void M_ServerList_Key (int k)
 
 	case K_DOWNARROW:
 	case K_RIGHTARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		slist_cursor++;
 		if (slist_cursor >= hostCacheCount)
 			slist_cursor = 0;
@@ -2798,6 +2953,7 @@ static struct
 	{"menu_video", M_Menu_Video_f},
 	{"help", M_Menu_Help_f},
 	{"menu_quit", M_Menu_Quit_f},
+    {"menu_pause", M_Menu_Pause_f},
 };
 
 //=============================================================================
@@ -2895,7 +3051,7 @@ void M_Mods_Key (int k)
 
 	case K_DOWNARROW:
 	case K_RIGHTARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		if (mod_selected && mod_selected->next)
 			mod_selected = mod_selected->next;
 		else
@@ -2904,7 +3060,7 @@ void M_Mods_Key (int k)
 
 	case K_UPARROW:
 	case K_LEFTARROW:
-		S_LocalSound ("misc/menu1.wav");
+		S_LocalSound ("misc/menuoption.wav");
 		if (mod_selected)
 		{
 			target = mod_selected == modlist ? NULL : mod_selected;
@@ -3006,9 +3162,20 @@ void M_ToggleMenu (int mode)
 	}
 	else
 	{
-		M_Menu_Main_f ();
+        if(sv.active)
+        {
+            // results in entry to M_Menu_Pause_f
+            m_state = m_pause;
+            key_dest = key_menu;
+        }
+        else
+        {
+            // a disconnected player will be taken to the main menu instead
+            M_Menu_Main_f ();
+        }
 	}
 }
+
 static void M_ToggleMenu_f (void)
 {
 	M_ToggleMenu((Cmd_Argc() < 2) ? -1 : atoi(Cmd_Argv(1)));
@@ -3049,7 +3216,7 @@ void M_Draw (void)
 			S_ExtraUpdate ();
 		}
 
-		GL_SetCanvas (CANVAS_MENUQC);
+		GL_SetCanvas (CANVAS_MENU_STRETCH);
 		glEnable (GL_BLEND);	//in the finest tradition of glquake, we litter gl state calls all over the place. yay state trackers.
 		glDisable (GL_ALPHA_TEST);	//in the finest tradition of glquake, we litter gl state calls all over the place. yay state trackers.
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
@@ -3091,7 +3258,7 @@ void M_Draw (void)
 		m_recursiveDraw = false;
 	}
 
-	GL_SetCanvas (CANVAS_MENU); //johnfitz
+	GL_SetCanvas (CANVAS_MENU_STRETCH); //johnfitz
 
 	switch (m_state)
 	{
@@ -3118,6 +3285,10 @@ void M_Draw (void)
 		M_MultiPlayer_Draw ();
 		break;
 
+    case m_pause:
+        M_Pause_Draw ();
+        break;
+
 	case m_setup:
 		M_Setup_Draw ();
 		break;
@@ -3143,12 +3314,12 @@ void M_Draw (void)
 		break;
 
 	case m_quit:
-		if (!fitzmode)
-		{ /* QuakeSpasm customization: */
-			/* Quit now! S.A. */
-			key_dest = key_console;
-			Host_Quit_f ();
-		}
+//		if (!fitzmode)
+//		{ /* QuakeSpasm customization: */
+//			/* Quit now! S.A. */
+//			key_dest = key_console;
+//			Host_Quit_f ();
+//		}
 		M_Quit_Draw ();
 		break;
 
@@ -3214,6 +3385,13 @@ void M_Keydown (int key)
 	case m_multiplayer:
 		M_MultiPlayer_Key (key);
 		return;
+
+    case m_pause:
+        M_Pause_Key (key);
+        return;
+
+    case m_firefight:
+        return;
 
 	case m_setup:
 		M_Setup_Key (key);

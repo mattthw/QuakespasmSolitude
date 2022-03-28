@@ -66,7 +66,7 @@ char	**com_argv;
 #define CMDLINE_LENGTH	256		/* johnfitz -- mirrored in cmd.c */
 char	com_cmdline[CMDLINE_LENGTH];
 
-qboolean standard_quake = true, rogue, hipnotic;
+qboolean standard_quake = true, rogue, hipnotic, solitude;
 
 // this graphic needs to be in the pak file to use registered features
 static unsigned short pop[] =
@@ -1757,17 +1757,25 @@ void COM_InitArgv (int argc, char **argv)
 	largv[com_argc] = argvdummy;
 	com_argv = largv;
 
-	if (COM_CheckParm ("-rogue"))
-	{
-		rogue = true;
-		standard_quake = false;
-	}
+    if (COM_CheckParm ("-rogue"))
+    {
+        rogue = true;
+        standard_quake = false;
+    }
 
 	if (COM_CheckParm ("-hipnotic") || COM_CheckParm ("-quoth")) //johnfitz -- "-quoth" support
 	{
 		hipnotic = true;
 		standard_quake = false;
 	}
+
+//    if (COM_CheckParm ("-solitude"))
+//    {
+//        solitude = true;
+//        standard_quake = false;
+//    }
+    solitude = true;
+    standard_quake = false;
 }
 
 /*
@@ -2772,6 +2780,10 @@ static void COM_AddGameDirectory (const char *dir)
 		rogue = true;
 		standard_quake = false;
 	}
+    if (!q_strcasecmp(dir,"Solitude")) {
+        solitude = true;
+        standard_quake = false;
+    }
 	if (!q_strcasecmp(dir,"hipnotic") || !q_strcasecmp(dir,"quoth")) {
 		hipnotic = true;
 		standard_quake = false;
@@ -2899,6 +2911,7 @@ void COM_ResetGameDirectories(char *newgamedirs)
 	}
 	hipnotic = false;
 	rogue = false;
+    solitude = false;
 	standard_quake = true;
 	//wipe the list of mod gamedirs
 	*com_gamenames = 0;
@@ -3120,6 +3133,9 @@ void COM_InitFilesystem (void) //johnfitz -- modified based on topaz's tutorial
 		COM_AddGameDirectory ("hipnotic");
 	if (COM_CheckParm ("-quoth"))
 		COM_AddGameDirectory ("quoth");
+
+//    if (COM_CheckParm ("-solitude"))
+    COM_AddGameDirectory ("Solitude");
 
 
 	for(i = 0;;)

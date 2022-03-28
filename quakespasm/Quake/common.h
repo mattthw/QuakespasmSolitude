@@ -19,7 +19,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
-
+#include <stdbool.h>
 #ifndef _Q_COMMON_H
 #define _Q_COMMON_H
 
@@ -339,7 +339,7 @@ long FS_filelength (fshandle_t *fh);
 
 
 extern struct cvar_s	registered;
-extern qboolean		standard_quake, rogue, hipnotic;
+extern qboolean		standard_quake, rogue, hipnotic, solitude;
 extern qboolean		fitzmode;
 	/* if true, run in fitzquake mode disabling custom quakespasm hacks */
 

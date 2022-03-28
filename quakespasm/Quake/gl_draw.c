@@ -606,6 +606,74 @@ void Draw_Character (int x, int y, int num)
 	glEnd ();
 }
 
+void D_PrintWhite (int cx, int cy, char *str)
+{
+    while (*str)
+    {
+        Draw_Character (cx, cy, *str);
+        str++;
+        cx += 8;
+    }
+}
+
+int PixWidth(float percent)
+{
+    return percent * (MENU_SCALE * 320);
+}
+
+int PixHeight(float percent)
+{
+    return percent * (MENU_SCALE * 200);
+}
+
+void Draw_WindowIns(int x, int y, float width, float height, float alpha)
+{
+    Draw_WindowInsCol(x, y, width, height, BG_COLOR, alpha);
+}
+
+void Draw_WindowInsCol(int x, int y, float width, float height, int color, float alpha)
+{
+    int bgwidth = (320*MENU_SCALE)*width;
+    int bgheight = (200*MENU_SCALE)*height;
+
+    Draw_Fill (x, y, bgwidth, bgheight, color, alpha);
+}
+
+void Draw_CenterWindow(float width, float height, char *str, float alpha)
+{
+    Draw_OffCenterWindow(0, 0, width, height, str, alpha);
+}
+
+void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, float alpha)
+{
+    int bgwidth = (320*MENU_SCALE)*width;
+    int bgheight = (200*MENU_SCALE)*height;
+    int inside_yoff = y+(200*MENU_SCALE-bgheight)/2;
+    int inside_xoff = x+(320*MENU_SCALE-bgwidth)/2;
+    int top_margin = 20;
+    int textmargin = (top_margin-CHARZ)/2;
+    int side_margin = 1;
+    int bottom_margin = 1;
+
+    Draw_Fill (inside_xoff-side_margin, inside_yoff-top_margin, bgwidth+(2*side_margin), bgheight+top_margin+bottom_margin, BG_BORDER, alpha);
+    Draw_Fill (inside_xoff, inside_yoff, bgwidth, bgheight, BG_COLOR, alpha);
+
+    D_PrintWhite(inside_xoff+CHARZ, inside_yoff-top_margin+textmargin, str);
+}
+
+void Draw_WindowPix(int x, int y, int bgwidth, int bgheight, char *str, float alpha)
+{
+    int top_margin = 20;
+    int textmargin = (top_margin-CHARZ)/2;
+    int side_margin = 1;
+    int bottom_margin = 1;
+
+    Draw_Fill (x-side_margin, y-top_margin, bgwidth+(2*side_margin), bgheight+top_margin+bottom_margin, BG_BORDER, alpha);
+    Draw_Fill (x, y, bgwidth, bgheight, BG_COLOR, alpha);
+
+    D_PrintWhite(x+CHARZ, y-top_margin+textmargin, str);
+}
+
 /*
 ================
 Draw_String -- johnfitz -- modified to call Draw_CharacterQuad
@@ -799,6 +867,17 @@ void Draw_TileClear (int x, int y, int w, int h)
 	glEnd ();
 }
 
+void Draw_Cursor (int x, int y, int w, int h, bool focused)
+{
+    int cursor_color = focused ? YELLOW : GREY;
+    int f = (int)(realtime * 10)%12;
+    float alpha = (0.5 + (f+1)/10.0);
+    if (!focused) {
+        alpha = 0.8;
+    }
+    Draw_Fill(x, y, w, h, cursor_color, alpha);
+}
+
 /*
 =============
 Draw_Fill
@@ -900,23 +979,19 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho (0, glwidth/s, glheight/s, 0, -99999, 99999);
 		glViewport (glx, gly, glwidth, glheight);
 		break;
+    case CANVAS_MENU_STRETCH:
+        glOrtho (0, 320*MENU_SCALE, 200*MENU_SCALE, 0, -99999, 99999);
+        glViewport (glx, gly, glwidth, glheight);
+        break;
 	case CANVAS_CSQC:
 		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
 		glOrtho (0, glwidth/s, glheight/s, 0, -99999, 99999);
 		glViewport (glx, gly, glwidth, glheight);
 		break;
 	case CANVAS_SBAR:
-		s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
-		if (cl.gametype == GAME_DEATHMATCH)
-		{
-			glOrtho (0, glwidth / s, 48, 0, -99999, 99999);
-			glViewport (glx, gly, glwidth, 48*s);
-		}
-		else
-		{
-			glOrtho (0, 320, 48, 0, -99999, 99999);
-			glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 48*s);
-		}
+        s = CLAMP (1.0, scr_sbarscale.value, (float)glwidth / 320.0);
+        glOrtho (0, 320, 48, 0, -99999, 99999);
+        glViewport (glx + (glwidth - 320*s) / 2, gly, 320*s, 48*s);
 		break;
 	case CANVAS_WARPIMAGE:
 		glOrtho (0, 128, 0, 128, -99999, 99999);

@@ -172,6 +172,18 @@ keyname_t keynames[] =
 	{"LTRIGGER", K_LTRIGGER},
 	{"RTRIGGER", K_RTRIGGER},
 
+    // PSP / PSVita Buttons
+    {"CROSS", K_ABUTTON},
+    {"SQUARE", K_XBUTTON},
+    {"TRIANGLE", K_YBUTTON},
+    {"CIRCLE", K_BBUTTON},
+    {"LEFTTRIGGER", K_LTRIGGER},
+    {"RIGHTTRIGGER", K_RTRIGGER},
+    {"LEFTSHOULDER", K_LSHOULDER},
+    {"RRIGHTSHOULDER", K_RSHOULDER},
+    {"SELECT", K_PAUSE},
+    {"START", K_PAUSE},
+
 	{NULL,		0}
 };
 

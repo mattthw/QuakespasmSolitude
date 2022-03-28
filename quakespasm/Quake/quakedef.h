@@ -158,6 +158,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	IT_ROCKET_LAUNCHER	32
 #define	IT_LIGHTNING		64
 #define	IT_SUPER_LIGHTNING	128
+#define IT_EXTRA_WEAPON     7
 #define	IT_SHELLS		256
 #define	IT_NAILS		512
 #define	IT_ROCKETS		1024
@@ -362,6 +363,23 @@ extern int		current_skill;	// skill level for currently loaded level (in case
 extern qboolean		isDedicated;
 
 extern int		minimum_memory;
+
+
+//menu color defines
+#define BG_COLOR 220
+#define YELLOW 107
+#define GREY 4
+#define BLACK 0
+#define BG_BORDER 1
+#define MENU_ALPHA 1.0
+
+//menu UI defines
+#define MENU_SCALE 1.75
+#define CHARZ 8
+#define MVS_P 0.085//0.067 //menu vertical spacing percent
+#define MVS PixHeight(MVS_P) //menu vertical spacing
+#define TEXT_YMARGIN (MVS-CHARZ)/2 //margin below or above text in a MVS row
+#define TEXT_XMARGIN 15
 
 #endif	/* QUAKEDEFS_H */
 

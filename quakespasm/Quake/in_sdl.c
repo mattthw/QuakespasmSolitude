@@ -501,7 +501,30 @@ void IN_Init (void)
 #ifdef VITA
 	sceMotionReset();
 	sceMotionStartSampling();
+    IN_ResetInputs();
 #endif
+}
+void IN_ResetInputs(void)
+{
+    // Set default PSVITA controls
+//    Cbuf_AddText("unbindall\n");
+    Cbuf_AddText("bind CROSS +jump\n"); // Cross
+    Cbuf_AddText("bind SQUARE \"impulse 13\"\n"); // Square
+    Cbuf_AddText("bind CIRCLE \"impulse 29\"\n"); // Circle
+    Cbuf_AddText("bind TRIANGLE \"impulse 10\"\n"); // Triangle
+    Cbuf_AddText("bind LSHOULDER \"impulse 28\"\n"); // Left Trigger
+    Cbuf_AddText("bind RSHOULDER +attack\n"); // Right Trigger
+    Cbuf_AddText("bind UPARROW \"impulse 11\"\n"); // Up
+    Cbuf_AddText("bind DOWNARROW \"impulse 29\"\n"); // Down
+    Cbuf_AddText("bind LEFTARROW \"impulse 27\"\n"); // Left
+    Cbuf_AddText("bind RIGHTARROW \"impulse 27\"\n"); // Right
+    Cbuf_AddText("bind SELECT +showscores\n"); // Select
+    //Cbuf_AddText("bind TOUCH +showscores\n"); // Touchscreen
+//    Cbuf_AddText("sensitivity 4.0\n"); // Right Analog Sensitivity
+//
+//    Cbuf_AddText("psvita_front_sensitivity_y 0.35\n");
+//    Cbuf_AddText("psvita_front_sensitivity_x 0.25\n");
+//    Cbuf_AddText("psvita_touchmode 1\n");
 }
 
 void IN_Shutdown (void)
