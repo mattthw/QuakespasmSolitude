@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<livearea style="psmobile" format-ver="01.00" content-rev="1">
+	<livearea-background>
+		<image>bg.png</image>
+	</livearea-background>
+	 
+	<gate>
+		<startup-image>startup.png</startup-image>
+	</gate>
+
+	
+	<frame id="frame2">
+		<liveitem>
+			<text valign="bottom" align="left" text-align="left" text-valign="bottom" line-space="3" ellipsis="on">
+				<str color="#ffffff" size="50" bold="on" shadow="on">Solitude</str>
+			</text>
+		</liveitem>
+	</frame>
+	<frame id="frame3">
+		<liveitem>
+			<target>psla:-custom</target>
+			<text valign="top" align="left" text-align="left" word-wrap="off" ellipsis="off">
+				<str size="20" color="#ffffff" shadow="on">Finish the Fight.</str>
+			</text>
+		</liveitem>
+	</frame>
+
+	<!-- <frame id="frame3">
+		<liveitem>
+			<target>psla:-custom</target>
+			<text valign="top" align="left" text-align="left" text-valign="top" word-wrap="off" ellipsis="off">
+				<str size="20" color="#ffffff" shadow="on">  Launch with args</str>
+			</text>
+		</liveitem>
+	</frame> -->
+		
+	<frame id="frame4">
+		<liveitem>
+			<text align="left" text-align="left" word-wrap="off" ellipsis="on">
+				<str size="18" color="#ffffff" shadow="on">v1.0.0 Thanks to FlamingIce, Rinnegatamante, and other contributors</str>
+			</text>
+		</liveitem>
+	</frame>
+</livearea>
