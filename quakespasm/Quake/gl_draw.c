@@ -402,8 +402,8 @@ qpic_t	*Draw_TryCachePic (const char *path, unsigned int texflags)
 qpic_t	*Draw_CachePic (const char *path)
 {
 	qpic_t *pic = Draw_TryCachePic(path, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
-//	if (!pic)
-//		Sys_Error ("Draw_CachePic: failed to load %s", path);
+	if (!pic)
+		Sys_Error ("Draw_CachePic: failed to load %s", path);
 	return pic;
 }
 
@@ -867,13 +867,16 @@ void Draw_TileClear (int x, int y, int w, int h)
 	glEnd ();
 }
 
+#define new_min(x,y) (((x) >= (y)) ? (y) : (x))
 void Draw_Cursor (int x, int y, int w, int h, bool focused)
 {
     int cursor_color = focused ? YELLOW : GREY;
-    int f = (int)(realtime * 10)%12;
-    float alpha = (0.5 + (f+1)/10.0);
+    //todo: get this working
+    float alpha = (((int)(realtime*10)) % 10) /10;
     if (!focused) {
-        alpha = 0.8;
+        alpha = 0.3;
+    } else {
+        alpha = new_min(0.3, alpha);
     }
     Draw_Fill(x, y, w, h, cursor_color, alpha);
 }
