@@ -26,6 +26,22 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern	qboolean premul_hud;
 int		sb_updates;		// if >= vid.numpages, no update needed
 
+// custom cvars for solitude
+cvar_t cl_killmedals = {"cl_killmedals", "0"};
+cvar_t cl_plasmanade = {"cl_plasmanade", "2"};
+cvar_t cl_nadenum = {"cl_nadenum", "5"};
+cvar_t cl_round = {"cl_round", "0"};
+cvar_t cl_life = {"cl_life", "1"};
+cvar_t cl_slowmo = {"cl_slowmo", "5"};
+cvar_t cl_respawn = {"cl_respawn", "0"};
+cvar_t cl_activate = {"cl_activate", "0"};	//For slowmo
+cvar_t cl_scope = {"cl_scope", "0"};
+cvar_t cl_ww = {"cl_ww", "0"};		//World weapon print message
+cvar_t cl_ch_red = {"cl_ch_red", "0"};
+cvar_t cl_ch_blue = {"cl_ch_blue", "1"};
+cvar_t cl_overlay = {"cl_overlay", "0"};
+cvar_t hide_hud = {"hide_hud", "0"};
+
 #define STAT_MINUS		10	// num frame for '-' stats digit
 
 qpic_t		*sb_nums[2][11];
@@ -297,6 +313,22 @@ void Sbar_Init (void)
 {
 	Cmd_AddCommand ("+showscores", Sbar_ShowScores);
 	Cmd_AddCommand ("-showscores", Sbar_DontShowScores);
+
+    //Client variables
+    Cvar_RegisterVariable (&cl_killmedals);	//Kill medals
+    Cvar_RegisterVariable (&cl_plasmanade); //Grenade types
+    Cvar_RegisterVariable (&cl_nadenum);	//A counter for your grenades.
+    Cvar_RegisterVariable (&cl_ww);	//World weapons
+    Cvar_RegisterVariable (&cl_round);
+    Cvar_RegisterVariable (&cl_life);
+    Cvar_RegisterVariable (&cl_slowmo);
+    Cvar_RegisterVariable (&cl_activate);
+    Cvar_RegisterVariable (&cl_scope);
+    Cvar_RegisterVariable (&cl_respawn);
+    Cvar_RegisterVariable (&cl_ch_red);
+    Cvar_RegisterVariable (&cl_ch_blue);
+    Cvar_RegisterVariable (&cl_overlay);
+    Cvar_RegisterVariable (&hide_hud);
 
 	Sbar_LoadPics ();
 }
