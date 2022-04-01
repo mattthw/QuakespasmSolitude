@@ -87,7 +87,7 @@ Sorry, but unless someone wants to decompile the progs.dat, or if someone can ge
 ### General Workflow (macOS Silicon)
 > Note: you must launch trenchbroom from the terminal with command ``cd /Applications/TrenchBroom.app && ./Contents/MacOS/TrenchBroom``. Otherwise the compilation tools will fail. This is because they rely on terminal variables.
 1. Install [Quakespasm](https://sourceforge.net/projects/quakespasm/), [alt  silicon build](https://github.com/BryanHaley/Quakespasm-AppleSilicon) to some location
-   1. Make sure to add ```./id1/``` and ``pak1.pak`` to ``<your directory>/Quake/id1/``. I cannot provide pak1.pak, you can get it from Quake source code by purchasing a retail copy.
+   1. Make sure to add ```./id1/``` and ``pak1.pak`` to ``<your game directory>/Quake/id1/``. I cannot provide pak1.pak, you can get it from Quake source code by purchasing a retail copy.
 2. Create a folder inside ``Quakespasm`` called ``./maps/`` if it does not yet exist. This is where Quake looks for maps.
 3. Create a folder inside ``Quakespasm`` called ``./working/``. This is where we will create/edit/save maps
 4. Create ``wads`` folder in ``Quakespasm/working/wads`` and add [project wads](https://github.com/mattthw/QuakespasmSolitude/releases?q=wad&expanded=true). These are used by TrenchBroom to load textures
