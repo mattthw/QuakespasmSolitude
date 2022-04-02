@@ -406,7 +406,6 @@ void() monster_hell_knight =
 	}
 	precache_model2 ("progs/hknight.mdl");
 	precache_model2 ("progs/k_spike.mdl");
-	precache_model2 ("progs/h_hellkn.mdl");
 
 	precache_sound2 ("hknight/attack1.wav");
 	precache_sound2 ("hknight/death1.wav");

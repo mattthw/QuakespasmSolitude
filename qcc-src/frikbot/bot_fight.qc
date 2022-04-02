@@ -43,7 +43,6 @@ this notice in its entirety.
 */
 
 .entity avoid;
-
 float(entity e) bot_size_player =
 {
 	local float sz;
@@ -124,9 +123,10 @@ void() bot_dodge_stuff =
 			}
 			foe = find(foe, classname, "missile");
 		}
+		
 		if (!self.avoid)
 		{
-			foe = find(world, classname, "spike");
+			foe = find(world, classname, "d");
 			while(foe)
 			{
 				if (foe.owner != self)
@@ -138,7 +138,7 @@ void() bot_dodge_stuff =
 						self.avoid = foe;
 					}
 				}
-				foe = find(foe, classname, "spike");
+				foe = find(foe, classname, "d");
 			}
 		}
 	}
@@ -339,9 +339,11 @@ void(float brange) bot_weapon_switch =
 		}
 	}
 };
-
-void() bot_shoot = 
+float max_nades;
+void(float enemy_range) bot_shoot = 
 {
+local float r;
+	r = random();
 	// quick little function to stop making him shoot the wrong way ! Argh
 	local float g;
 	g = angcomp(self.v_angle_x, self.b_angle_x);
@@ -350,6 +352,10 @@ void() bot_shoot =
 	g = angcomp(self.v_angle_y, self.b_angle_y);
 	if (fabs(g) > 30)
 		return; // not again!
+	max_nades = self.nade_lives + self.plasma_lives;
+	if(max_nades != 0 && r <= 0.01 && enemy_range <= 50 && deathmatch != SWAT)
+	self.impulse = 28;	
+	else
 	self.button0 = TRUE;
 };
 
@@ -402,7 +408,7 @@ void() bot_fight_style =
 			if (trace_ent.classname == "player")
 				if ((trace_ent.team == self.team && teamplay) || (coop))
 					return;
-			bot_shoot();
+			bot_shoot(0);
 		}
 	}
 	else

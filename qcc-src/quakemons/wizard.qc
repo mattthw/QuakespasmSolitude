@@ -256,15 +256,6 @@ void()	wiz_death8	=[	$death8,		wiz_death8	] {};
 void() wiz_die =
 {
 // check for gib
-	if (self.health < -40)
-	{
-		sound (self, CHAN_VOICE, "player/udeath.wav", 1, ATTN_NORM);
-		ThrowHead ("progs/h_wizard.mdl", self.health);
-		ThrowGib ("progs/gib2.mdl", self.health);
-		ThrowGib ("progs/gib2.mdl", self.health);
-		ThrowGib ("progs/gib2.mdl", self.health);
-		return;
-	}
 
 	wiz_death1 ();
 };
@@ -289,7 +280,6 @@ void() monster_wizard =
 		return;
 	}
 	precache_model ("progs/wizard.mdl");
-	precache_model ("progs/h_wizard.mdl");
 	precache_model ("progs/w_spike.mdl");
 
 	precache_sound ("wizard/hit.wav");		// used by c code
@@ -317,4 +307,3 @@ void() monster_wizard =
 		
 	flymonster_start ();
 };
- 

@@ -90,6 +90,33 @@ void() main =
 	precache_file ("gfx/p_load.lmp");
 	precache_file ("gfx/p_save.lmp");
 	precache_file ("gfx/p_multi.lmp");	
+	
+	//Crosshairs
+	precache_file ("gfx/ch/ch_ar.lmp");	
+	precache_file ("gfx/ch/ch_rar.lmp");
+	precache_file ("gfx/ch/ch_smg.lmp");
+	precache_file ("gfx/ch/ch_rsmg.lmp");
+	
+	//Menu stuff
+	precache_file ("gfx/menu/multi_0.lmp");
+	precache_file ("gfx/menu/multi_1.lmp");
+	precache_file ("gfx/menu/options_0.lmp");
+	precache_file ("gfx/menu/options_0.lmp");
+	precache_file ("gfx/menu/help_0.lmp");
+	precache_file ("gfx/menu/help_1.lmp");
+	precache_file ("gfx/menu/quit_0.lmp");
+	precache_file ("gfx/menu/quit_1.lmp");
+	
+	precache_file ("gfx/menu/mp/adhoc_0.lmp");
+	precache_file ("gfx/menu/mp/adhoc_1.lmp");
+	precache_file ("gfx/menu/mp/inf_0.lmp");
+	precache_file ("gfx/menu/mp/inf_1.lmp");
+	precache_file ("gfx/menu/mp/setup_0.lmp");
+	precache_file ("gfx/menu/mp/setup_1.lmp");
+	precache_file ("gfx/menu/mp/join_0.lmp");
+	precache_file ("gfx/menu/mp/join_1.lmp");
+	precache_file ("gfx/menu/mp/create_0.lmp");
+	precache_file ("gfx/menu/mp/create_1.lmp");
 
 	
 
@@ -150,7 +177,7 @@ void() worldspawn =
 // custom map attributes
 	if (self.model == "maps/e1m8.bsp")
 		cvar_set ("sv_gravity", "100");
-#endif
+#endif				// for the sniper projectile
 
 // the area based ambient sounds MUST be the first precache_sounds
 
@@ -193,7 +220,8 @@ void() worldspawn =
 	precache_sound ("player/pain1.wav");
 
 // player death sounds
-	precache_sound ("player/death1.wav");
+	precache_sound ("player/beep1.wav");
+	precache_sound ("player/beep2.wav");
 
 	precache_sound ("boss1/sight1.wav");
 
@@ -214,15 +242,18 @@ void() worldspawn =
 	precache_sound ("misc/water1.wav");                     // swimming
 	precache_sound ("misc/water2.wav");                     // swimming
 
-// Invulnerability sounds
-	precache_sound ("items/protect.wav");
-	precache_sound ("items/protect2.wav");
-	precache_sound ("items/protect3.wav");
-
-
 	precache_model ("progs/player.mdl");
+   //vwep start
+	precache_model ("progs/player_nail.mdl");
+	precache_model ("progs/player_shot.mdl");
+	precache_model ("progs/player_snail.mdl");
+	precache_model ("progs/player_sshot.mdl");
+	precache_model ("progs/player_needler.mdl");
+	precache_model ("progs/player_rocket.mdl");
+	precache_model ("progs/player_sniper.mdl");
+	precache_model ("progs/player_plasma.mdl");
+
 	precache_model ("progs/eyes.mdl");
-	precache_model ("progs/h_player.mdl");
 	precache_sound ("player/tornoff2.wav");
 
 	precache_model ("progs/s_bubble.spr");  // drowning bubbles

@@ -1,3 +1,8 @@
+void() misc_EliteSpawn;
+void() monster_elite;
+void() info_enemy_spawn =
+{
+};
 /*
 ==============================================================================
 
@@ -73,7 +78,7 @@ void() laugh =
 {
 local float r;
 r = random();
-if (r <= 0.5)
+if (r <= 0.05)
 sound (self, CHAN_AUTO, "ogre/laugh1.wav", 1, ATTN_NORM);
 else if ( r <= 0.10)
 sound (self, CHAN_AUTO, "ogre/laugh2.wav", 1, ATTN_NORM);
@@ -311,7 +316,7 @@ void()	ogre_die10	=[	$death10,	ogre_die11	] {};
 void()	ogre_die11	=[	$death11,	ogre_die12	] {};
 void()	ogre_die12	=[	$death12,	ogre_die13	] {};
 void()	ogre_die13	=[	$death13,	ogre_die14	] {};
-void()	ogre_die14	=[	$death14,	ogre_die14	] {};
+void()	ogre_die14	=[	$death14,	ogre_die14	] {self.think = monster_elite; self.nextthink = (time + 3); remove(self); SPAWN -= 1;};
 
 void()	ogre_bdie1	=[	$bdeath1,	ogre_bdie2	] {};
 void()	ogre_bdie2	=[	$bdeath2,	ogre_bdie3	] {ai_forward(5);};
@@ -323,7 +328,7 @@ void()	ogre_bdie6	=[	$bdeath6,	ogre_bdie7	] {ai_forward(7);};
 void()	ogre_bdie7	=[	$bdeath7,	ogre_bdie8	] {ai_forward(25);};
 void()	ogre_bdie8	=[	$bdeath8,	ogre_bdie9	] {};
 void()	ogre_bdie9	=[	$bdeath9,	ogre_bdie10	] {};
-void()	ogre_bdie10	=[	$bdeath10,	ogre_bdie10	] {};
+void()	ogre_bdie10	=[	$bdeath10,	ogre_bdie10	] {self.think = monster_elite; self.nextthink = (time + 3); remove(self);SPAWN -= 1;};
 
 void() ogre_die =
 {
@@ -347,30 +352,14 @@ void() ogre_melee =
 
 /*QUAKED monster_ogre (1 0 0) (-32 -32 -24) (32 32 64) Ambush
 
+void() EliteSpawn;
 */
+//Just a regular elite spawn
 void() monster_ogre =
 {
-	if (deathmatch)
-	{
-	remove(self);
-	}
-	precache_model ("progs/ogre.mdl");
-	precache_model ("progs/h_ogre.mdl");
-	precache_model ("progs/grenade.mdl");
-
-	precache_sound ("ogre/laugh1.wav");
-	precache_sound ("ogre/laugh2.wav");
-	precache_sound ("ogre/ogdrag.wav");
-	precache_sound ("ogre/ogdth.wav");
-	precache_sound ("ogre/ogidle.wav");
-	precache_sound ("ogre/ogidle2.wav");
-	precache_sound ("ogre/ogpain1.wav");
-	precache_sound ("ogre/ogsawatk.wav");
-	precache_sound ("ogre/ogwake.wav");
 
 	self.solid = SOLID_SLIDEBOX;
 	self.movetype = MOVETYPE_STEP;
-
 	setmodel (self, "progs/ogre.mdl");
 
 	setsize (self, VEC_HULL2_MIN, VEC_HULL2_MAX);
@@ -388,10 +377,79 @@ void() monster_ogre =
 	
 	walkmonster_start();
 };
+//Spawning of an elite that repeatedly spawns
+void() monster_elite =
+{
+	local entity place, old_self;
+	local float r;
+	newmis = spawn();
+	old_self = self;
+	self = newmis;
+	r = floor(random()*6);
+	if (self.origin == '0 0 0')
+	place = find (world, classname, "spawn_point");
+	if (r == 0)
+	place = find (world, classname, "spawn_point");
+	else if (r == 1)
+	place = find (world, classname, "spawn_point2");
+	else if (r == 2)
+	place = find (world, classname, "spawn_point3");
+
+	self.origin = place.origin;
+	self.solid = SOLID_SLIDEBOX;
+	self.movetype = MOVETYPE_STEP;
+	self.classname = "Elite";
+	setmodel (self, "progs/ogre.mdl");
+	
+	setsize (self, VEC_HULL_MIN, VEC_HULL_MAX);
+	self.health = 80;
+
+	self.th_stand = ogre_stand1;
+	self.th_walk = ogre_walk1;
+	self.th_run = ogre_run1;
+	self.th_die = ogre_die;
+	self.th_melee = ogre_melee;
+	self.th_missile = ogre_nail1;
+	self.th_pain = ogre_pain;
+
+	walkmonster_start();
+	
+self = old_self;
+};
 
 void() monster_ogre_marksman =
 {
 	monster_ogre ();
 };
+/*
+Used to Precache The elite without messing up the spawn function
+*/
+void() spawn_point =
+{
 
+local float r;
+r = floor(random()*6);
+self.movetype = MOVETYPE_NONE;
+self.solid = SOLID_NOT;
+if (r == 0)
+self.classname = "spawn_point";
+else if (r == 1)
+self.classname = "spawn_poin2";
+else if (r == 2)
+self.classname = "spawn_point3";
+};
+
+
+void() misc_EliteSpawn =
+{
+local entity mario;
+mario = spawn();
+mario.solid = SOLID_NOT;
+mario.movetype = MOVETYPE_NONE;
+mario.classname = "Mario";
+SPAWN += 1;
+
+mario.think = monster_elite;
+mario.nextthink = (time + 5);
+};
 

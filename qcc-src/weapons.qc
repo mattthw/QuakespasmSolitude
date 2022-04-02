@@ -8,9 +8,15 @@ void(vector org, float damage) SpawnBlood;
 void() SuperDamageSound;
 void () player_reload1;
 void () player_stand1;
+void (entity client) pre_player_pull;
+void() Setup_Gametype;
+void(entity client) Update_Slowmo;
+void(entity client) Slowmo;
+void(entity client, float howmuch) Add_Slowmo;
 // called by worldspawn
 void() W_Precache =
 {
+	precache_model ("progs/pod.mdl");
 	precache_sound ("weapons/r_exp3.wav"); 		 // new rocket explosion
 	precache_sound ("weapons/rocket1i.wav");        // spike gun
 	precache_sound ("weapons/uzi.wav");  		// Uzi
@@ -20,16 +26,21 @@ void() W_Precache =
 	precache_sound ("weapons/bounce.wav");   		// grenade bounce
 	precache_sound ("weapons/sniper.wav"); 		// sniperrifle
 	precache_sound ("weapons/shottie.wav"); 		// shottie
-	precache_sound ("weapons/shotgn2.wav"); 		// Ar2
 	precache_sound ("weapons/needler.wav"); 		// needler 
 	precache_sound ("weapons/ar1.wav"); 		//Sound effects for asault rifle
-	precache_model ("GFX/s_fblood.spr");		//Flood blood	
-	precache_model ("progs/PL_BULL.spr");		//Flood blood
-	precache_model ("progs/h_dog.mdl");			// Head for floodpod
-	precache_model ("sprites/s_smoke2.spr");		//Flood blood
-	precache_sound ("weapons/bigneedler.wav");		//
+	//precache_model ("GFX/s_fblood.spr");		//Flood blood	
+	precache_model ("progs/PL_BULL.spr");
+	precache_model ("sprites/s_smoke2.spr");
+	precache_sound ("weapons/bigneedler.wav");
 	precache_model ("progs/needler_dust.spr");
+	precache_model ("progs/plasma_glow.spr");
+	precache_model ("progs/plasma.mdl");
+	precache_sound ("weapons/ppist.wav");	
+	precache_sound ("weapons/grenpick.wav");
 
+
+	//Voice announcer
+	precache_sound ("slayer.wav");
 	// Solitude precaches
 	
 	// Weapons (first-person)
@@ -40,6 +51,8 @@ void() W_Precache =
 	precache_model ("progs/v_plpist.mdl");
 	precache_model ("progs/v_needle.mdl");
 	precache_model ("progs/v_plrifle.mdl");
+	precache_model ("progs/v_nail.mdl");
+	precache_model ("progs/v_skull.mdl");
 	
 	// Weapons sounds
 	//Reload
@@ -75,7 +88,9 @@ void() W_Precache =
 	precache_model ("progs/g_sniper.mdl");
 	precache_model ("progs/g_needler.mdl");
 	precache_model ("progs/g_plpist.mdl");	
-	precache_sound ("weapons/ppist.wav");
+	precache_model ("progs/g_skull.mdl");
+	precache_model ("progs/bullet.mdl");
+	
 	
 	// projectiles
 	precache_model ("progs/sniperbullet.mdl");		
@@ -87,18 +102,15 @@ void() W_Precache =
 	precache_model ("sprites/muzzleflash2.spr");
 	precache_model ("sprites/pistolmuzzleflash.spr");
 	precache_model ("sprites/muzzleN.spr");		// Needler Muzzle flash	
-	precache_model ("progs/plasma.spr");
 	
 	//misc precaches
 	precache_sound ("weapons/zoom.wav");
 	precache_sound ("weapons/zoom2.wav");
-	precache_sound ("weapons/coil.wav");
 	
 
 	//Needler Extra
 	precache_sound ("weapons/nb.wav");
 	precache_sound ("weapons/crystal.wav");
-	precache_sound ("weapons/coil.wav");
 
 	//Equip sounds
 	precache_sound ("weapons/equip/ar.wav");
@@ -109,12 +121,11 @@ void() W_Precache =
 	precache_sound ("weapons/equip/sniper.wav");
 	precache_sound ("weapons/equip/ppist.wav");
 	precache_sound ("weapons/equip/smg.wav");
-
 	
-	//Shells
-	precache_model ("progs/shell.mdl");
-	precache_model ("progs/shellshot.mdl");
-
+	//New Solitude caches
+	precache_sound ("weapons/PR_fire.wav");
+	
+	
 
 
 
@@ -143,10 +154,11 @@ muzzle.owner = self;
 muzzle.solid = SOLID_NOT;
 
 setmodel(muzzle,"sprites/muzzleflash1.spr");
-setorigin(muzzle,self.origin + v_forward * 23 + v_right * 6 + '0 0 19');
+setorigin(muzzle,self.origin + v_forward * 28 + v_right * 6 + '0 0 19');
 muzzle.think = muzzleflash_think;
 muzzle.nextthink = time + 0.01;
-};void() muzzleflash_think1 = {
+};
+void() muzzleflash_think1 = {
 self.frame = self.frame + 1;
 self.think = SUB_Remove;
 self.nextthink = time + 0.01;
@@ -163,10 +175,11 @@ muzzle.movetype = MOVETYPE_NONE;
 
 
 setmodel(muzzle,"sprites/muzzleflash.spr");
-setorigin(muzzle,self.origin + v_forward * 35 + v_right * 6 + '0 0 15');
+setorigin(muzzle,self.origin + v_forward * 35 + v_right * 5+ '0 0 15');
 muzzle.think = muzzleflash_think1;
 muzzle.nextthink = time + 0.01;
-};void() muzzleflash_think2 = {
+};
+void() muzzleflash_think2 = {
 self.frame = self.frame + 1;
 self.think = SUB_Remove;
 self.nextthink = time + 0.02;
@@ -202,7 +215,9 @@ setmodel(muzzle,"sprites/pistolmuzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 30 + v_right * 8 + '0 0 20');
 muzzle.think = muzzleflash_think2;
 muzzle.nextthink = time + 0.01;
-};void() muzzleflash_think3 = {
+};
+
+void() muzzleflash_think3 = {
 self.frame = self.frame + 1;
 self.think = SUB_Remove;
 self.nextthink = time + 0.01;
@@ -247,21 +262,6 @@ muzzle.nextthink = time + 0.01;
 #define crandom() (2*(random()-0.5))
 
 void() W_UpdateWeapon;
-
-// The weapon the player spawns with
-void () W_StartWeapon =
-{
-	self.items = WEAPON_AR + WEAPON_PPISTOL;
-	self.ammo_nails = W_GetMaxClip(self.weapon, 4);
-	self.exnails = 560;
-	self.ammo_ppistol = 100;
-	self.currentammo = W_GetMaxClip(self.weapon, 4);
-	
-	self.weapon = WEAPON_AR;
-	W_UpdateWeapon();
-	
-	W_UpdateAmmoCounts(self);
-};
 /*
 Ammo update functions
 */
@@ -269,7 +269,6 @@ Ammo update functions
 //Mexicouger: Handle the Ammo count HUD here, rather than PlayerPreThink. It is way more efficient Memory wise.(10-15 fps)
 void(entity ent) W_UpdateAmmoCounts =
 {
-	AmmoCounter();
 	// solitude
 	switch (ent.weapon)
 	{
@@ -327,8 +326,28 @@ void(entity ent) W_UpdateAmmoCounts =
 float (float t_wep) W_BulletDamage =
 {
 	switch (t_wep) {
+		case WEAPON_SNIPER:
+		if (trace_endpos_z > trace_ent.origin_z + 20)
+		{
+		return 200;
+		}
+		return 70;
+			break;
+		case WEAPON_PISTOL:
+		if (trace_endpos_z > trace_ent.origin_z + 20)
+		{
+		return 40;
+		}
+		return 15;
+			break;
+		case IT_SUPER_NAILGUN:
+			return 1.5;
+			break;
+		case WEAPON_AR:
+			return 6.5;
+			break;
 		case WEAPON_SHOT:
-			return 8;
+			return 15;
 			break;
 		default:
 			return 4;
@@ -477,14 +496,30 @@ float (entity ent) W_CanFire =
 	}
 	return TRUE;
 };
+void() Draw_Scope =
+{
 
+if (self.pfov < 90)
+	{	
+	stuffcmd (self, "cl_scope 1\n");
+	//stuffcmd(self, "cl_yawspeed 0.3\n");
+	stuffcmd (self, "r_drawviewmodel 0\n");
+	}
+else
+	{
+	stuffcmd (self, "cl_scope 0\n");
+	//stuffcmd(self, "cl_yawspeed 1\n");
+	stuffcmd (self, "r_drawviewmodel 1\n");
+	}
+
+};
 void ( float famt ) Set_FOV =
 {
 	stuffcmd( self, "fov " );
 	stuffcmd( self, ftos( famt ) );
 	stuffcmd( self, "\n" );
+	Draw_Scope();
 };
-
 void () WeaponZoom =
 {
 	float tozoom;
@@ -504,15 +539,24 @@ void () WeaponZoom =
 				sound (self, CHAN_AUTO, "weapons/zoom2.wav", 1, ATTN_NORM);
 						}
 			break;
-		default:
+		case WEAPON_PISTOL:
 			tozoom = 45;
-			break;
+			sound (self, CHAN_AUTO, "weapons/zoom2.wav", 1, ATTN_NORM);
+		break;
+		case WEAPON_RL:
+			tozoom = 45;
+			sound (self, CHAN_AUTO, "weapons/zoom2.wav", 1, ATTN_NORM);
+		break;
+	default:
+		tozoom = 90;
 	}
+
+	
 	if (self.pfov == tozoom)
 		tozoom = FOV_DEFAULT;
-	
+
+	self.pfov = tozoom;	
 	Set_FOV( tozoom );
-	self.pfov = tozoom;
 };
 	
 /*
@@ -666,18 +710,28 @@ void(float damage, vector dir, INTEGER mod) TraceAttack =
 
 	org = trace_endpos - dir*4;
 
-	if (trace_ent.takedamage)
+	if (trace_ent.takedamage && trace_ent.health <= 30)
 	{
 		blood_count = blood_count + 1;
 		blood_org = org;
 		AddMultiDamage (trace_ent, damage, mod);
+	}
+	else if (trace_ent.health > 30)
+	{
+	particle (org, '0 0 0', 109, 6);
+	puff_org = org;
+	AddMultiDamage (trace_ent, damage, mod);
+	}
+	else if (!trace_ent.takedamage)
+	{
+	particle (org, '0 0 0', 11, 8);
+	puff_org = org;
 	}
 	else
 	{
 		puff_count = puff_count + 1;
 	}
 };
-
 /*
 ================
 FireBullets
@@ -705,6 +759,7 @@ void(float shotcount, vector dir, vector spread, INTEGER mod) FireBullets =
 	{
 		direction = dir + crandom()*spread_x*v_right + crandom()*spread_y*v_up;
 		traceline (src, src + direction*2048, FALSE, self);
+			
 		if (trace_fraction != 1.0)
 			TraceAttack (W_BulletDamage(self.weapon), direction, mod);
 
@@ -732,179 +787,63 @@ Rocket Launcher Explosion
 */
 void() Rocket_Explode0 =
 {
-
-	if (other == self.owner)
-		return;		// don't explode on owner
+		
+	self.velocity = '0 0 0';
 
 	if (pointcontents(self.origin) == CONTENT_SKY)
 	{
 		remove(self);
 		return;
 	}
-	T_RadiusDamage (self, self.owner, 190, 160, world, MOD_ROCKET);
+	T_RadiusDamage (self, self.owner, 180, 180, world, MOD_ROCKET);
 
-	self.origin = self.origin - 8*normalize(self.velocity);
+	self.origin = self.origin - 15*normalize(self.velocity);
 
 
 	CreateExplosion (self.origin);
 	remove(self);
 };
-/*
-==============================
-
-Pistol Touch
-
-==============================
-*/
-void(vector org) PistolTouch =
+void() remove_bullet =
 {
+remove(self);
+};
+void(vector org) Pistol_Touch =
+{
+	local vector p_a, p_b;
+	local float zdif;
 	self.velocity = '0 0 0';
-		
 	if (pointcontents(self.origin) == CONTENT_SKY)
 	{
-		remove(self);
+		remove_bullet();
 		return;
 	}
-	else if (other.takedamage) {
-		if (other.health >= 30)
-			{
-			particle (self.origin, '0 4 5', 110, 6);
-			particle (self.origin, '0 4 5', 109, 6);
-			}
-		else
-			spawn_touchblood (8);
-			if (other.health <= 30)
-			T_Damage (other, self, self.owner, 15);
-			else
-			T_Damage (other, self, self.owner, 20);
-
-			
-			}
-	else
-	{
-		particle (self.origin, '0 0 0', 6, 8);
-		particle (self.origin, '0 0 0', 11, 8);
-		puff_org = self.origin;
-	}
-	remove(self);
-};
-/*
-==============================
-
-Assault rifle Touch
-
-==============================
-*/
-void(vector org) ARTouch =
-{
-	self.velocity = '0 0 0';
+if (other.takedamage)
+	 {
+		p_a_z = self.origin_z;
+		p_b_z = other.origin_z;
 		
-	if (pointcontents(self.origin) == CONTENT_SKY)
-	{
-		remove(self);
-		return;
-	}
-	else if (other.takedamage) {
-		if (other.health >= 30)
+		zdif = vlen(p_a - p_b);
+		if (zdif > 20)	
 			{
-			particle (self.origin, '0 4 5', 110, 6);
-			particle (self.origin, '0 4 5', 109, 6);
+			T_Damage (other, self, self.owner, 50, MOD_SOLITUDE);
+			//Add_Slowmo(self.owner, 1);
 			}
 		else
-			spawn_touchblood (8);
-			if (other.health <= 30)
-			T_Damage (other, self, self.owner, 5);
-			else
-			T_Damage (other, self, self.owner, 5.3);
-
-			
-			}
-	else
-	{
-		//particle (self.origin, '0 0 0', 6, 8);
-		particle (self.origin, '0 0 0', 11, 6);
-		puff_org = self.origin;
-	}
-
-	remove(self);
-};
-
-/*
-==============================
-
-SMG Touch
-
-==============================
-*/
-void(vector org) SMGTouch =
-{
-	self.velocity = '0 0 0';
-		
-	if (pointcontents(self.origin) == CONTENT_SKY)
-	{
-		remove(self);
-		return;
-	}
-	else if (other.takedamage) {
-		if (other.health >= 30)
 			{
-			particle (self.origin, '0 4 5', 110, 6);
-			particle (self.origin, '0 4 5', 109, 6);
-			}
-		else
 			spawn_touchblood (8);
-			if (other.health <= 30)
-			T_Damage (other, self, self.owner, 4);
-			else
-			T_Damage (other, self, self.owner, 4.8);
-
-			
+			T_Damage (other, self, self.owner, 6, MOD_SOLITUDE);
 			}
+	}
 	else
 	{
-		particle (self.origin, '0 0 0', 6, 8);
-		particle (self.origin, '0 0 0', 11, 8);
+		particle (self.origin, '0 0 0', 6, 10);
 		puff_org = self.origin;
-	}
-	remove(self);
+	}	
+	self.model = "";
+	self.nextthink = time + 1;
+	self.think = remove_bullet;
 };
 
-void(vector org) shotshells =
-{
-local entity rock;
-local float rand;
-local vector dir;
-rand = random();
-rock = spawn ();  
-rock.classname = "gun_shells";
-rock.movetype = MOVETYPE_BOUNCE;
-rock.owner = self;
-// This is all about how fast the debris goes. (My biggest problem)
-makevectors (self.v_angle);
-rock.velocity = v_right;
-rock.velocity = (rock.velocity * 50);
-
-
-rock.angles = vectoangles (rock.velocity);
-rock.avelocity = '300 300 300' * random();
-
-rock.solid = SOLID_NOT;
-
-dir = aim (self, 1000);
-// Rock duration (How long the rocks are alive until they disapear
-//rock.touch = Debrisbounce;
-rock.nextthink = time + 3;
-rock.think = SUB_Remove;
-
-// The whole setting up the model thing. Sets up the sprite and location.
-setorigin (rock, ((org + (v_forward * 5)) + '0 0 12'));
-if (self.weapon == WEAPON_SHOT) {
-setmodel (rock, "progs/shellshot.mdl");
-}
-else
-setmodel (rock, "progs/shell.mdl");
-};
-void() player_pull;
 /*
 ================
 W_FirePistol
@@ -916,16 +855,17 @@ void() W_FirePistol =
 	local entity missile;
 	
 	sound (self, CHAN_WEAPON, "weapons/pistol.wav", 1, ATTN_NORM); 
-
 	VK_smallkick(self);
-	
 	self.ammo_shells -= 1;
 	W_UpdateAmmoCounts(self);
-	shotshells(self.origin + (v_forward * 13) + '0 0 12');
-	
+
+	switch(deathmatch)
+		{
+
+	case SWAT:
+	{
 	dir = aim (self, 1000);
 	pistolsmoke (self.origin);
-
 	missile = spawn ();
 	missile.owner = self;
 	missile.movetype = MOVETYPE_FLYMISSILE;
@@ -937,21 +877,26 @@ void() W_FirePistol =
 	makevectors (self.v_angle);
 	missile.velocity = aim(self, 1000);
 	missile.velocity =  v_forward;
-	missile.velocity = missile.velocity * 100000;
+	missile.velocity = missile.velocity * 4000;
 	missile.angles = vectoangles(missile.velocity);
 	
-	missile.touch = PistolTouch;
-	
-// set missile duration
-	missile.nextthink = time + 5;
-	missile.think = SUB_Remove;
+	missile.touch = Pistol_Touch;
 
+	setmodel (missile, "progs/bullet.mdl");
 	setsize (missile, '0 0 0', '0 0 0');		
 	setorigin (missile, self.origin + v_forward*8 + '0 0 16');	
-
-
-	
+	break;
+	}
+	default:
+	{
+	dir = aim (self, 100000);
+	pistolsmoke (self.origin);
+	FireBullets (1, dir, '0 0 0', MOD_SOLITUDE);
+	break;
+	}
+		}
 };
+
 /*
 ================
 W_FireSkull
@@ -1016,26 +961,60 @@ void ( float t_weap, float w_heat ) W_AddHeat =
 			break;
 	}
 };
+void() Glow_Touch =
+{
+	self.velocity = '0 0 0';
+	self.think = SUB_Remove;
+	self.nextthink = time + .3;
+	self.touch = SUB_Null;
+	self.nextthink = time + .15;
+};
+void() W_FireGlow =
+{
+	local entity plasma;
 
+	plasma = spawn ();
+	plasma.owner = self;
+	plasma.movetype = 9;
+	plasma.solid = 2;
+	if (self.classname != "player")
+	{
+	plasma.velocity = normalize(self.enemy.origin - self.origin);
+	plasma.velocity = plasma.velocity * 2000;
+	plasma.angles = vectoangles(plasma.velocity);
+	}
+	else
+	{
+	makevectors (self.v_angle);
+	plasma.velocity = v_forward;
+	plasma.velocity = (plasma.velocity * 3000);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
+	plasma.angles = vectoangles (plasma.velocity);
+	}
+	plasma.touch = Glow_Touch;
+	setmodel (plasma, "progs/plasma_glow.spr");
+	
+	setsize (plasma, '0 0 0', '0 0 0');
+	setorigin (plasma, ((self.origin + (v_forward * 8) + (v_right * 1)) + '0 0 16'));  //setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));
+};
 void () Plasma_Diffuse =
 {
 	self.velocity = '0 0 0';
 	self.think = SUB_Remove;
 	self.nextthink = time + .3;
 	self.touch = SUB_Null;
-	if (other.classname == "player") 
-	{
+	if (other.takedamage)
+		{
 		if (other.health >= 30)
 		{
-		particle (self.origin, '0 0 0', 110, 6);
 		particle (self.origin, '0 0 0', 109, 6);	
 		}
 		else
 		spawn_touchblood (8);
+		}
 		T_Damage (other, self, self.owner, 10*self.health, MOD_SOLITUDE);
 		self.nextthink = time + .15;
-	}
 };
+
 
 void( float w_heat ) W_FirePPistol =
 {
@@ -1068,14 +1047,27 @@ void( float w_heat ) W_FirePPistol =
 	plasma.owner = self;
 	plasma.movetype = 9;
 	plasma.solid = 2;
+	plasma.effects = EF_FLAG4;
+	plasma.classname = "missile";
+	if (self.classname != "player")
+	{
+	plasma.velocity = normalize(self.enemy.origin - self.origin);
+	plasma.velocity = plasma.velocity * 2000;
+	plasma.angles = vectoangles(plasma.velocity);
+	}
+	else
+	{
 	makevectors (self.v_angle);
 	plasma.velocity = v_forward;
 	plasma.velocity = (plasma.velocity * 3000);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
 	plasma.angles = vectoangles (plasma.velocity);
+	}
 	plasma.touch = Plasma_Diffuse;
 	plasma.nextthink = (time + 5);
 	plasma.think = Plasma_Diffuse;
-	setmodel (plasma, "progs/plasma.spr");
+	setmodel (plasma, "progs/plasma.mdl");
+	W_FireGlow();
+	
 	setsize (plasma, '0 0 0', '0 0 0');
 	setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));  //setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));
 	FireBullets(1, dir, '0.01 0.01 0', MOD_SOLITUDE);
@@ -1083,6 +1075,7 @@ void( float w_heat ) W_FirePPistol =
 		ptake = 10;
 	
 	W_AddHeat ( self.weapon, ptake * 10);
+	
 };
 
 /*
@@ -1096,13 +1089,12 @@ void () W_FireShotgun =
 
 	sound (self, CHAN_WEAPON, "weapons/shottie.wav", 1, ATTN_NORM);
 	muzzleflash3(); // shottie flash
-	//self.punchangle_x = CONTENT_EMPTY;
+	self.punchangle_x = CONTENT_EMPTY;
 	self.ammo_shells2 -= 1;
 	self.currentammo -= 1;
 	W_UpdateAmmoCounts(self);
 	dir = aim (self, 100000);
-	FireBullets (10, dir, '0.15 0.15 0', MOD_SOLITUDE);
-	shotshells(self.origin);
+	FireBullets (10, dir, '0.2 0.2 0', MOD_SOLITUDE);
 	pistolsmoke (self.origin + (v_forward * 13) + '0 0 14');
 };
 
@@ -1113,43 +1105,18 @@ Fire the Assault rifle
 */
 void () W_FireAR =
 {
-	local vector spread;
-	local entity missile;
+	local vector dir;
 	local float r;
-	spread = '0.05 0.05 0.02';
 	r = random();
-	muzzleflash2(); //ar flash
 
 	self.ammo_nails -= 1;
 	W_UpdateAmmoCounts(self);
-	if (r <= 0.5)
 sound (self, CHAN_WEAPON, "weapons/ar1.wav", 1, ATTN_NORM); 
-	else if (r <= 1)
-sound (self, CHAN_WEAPON, "weapons/shotgn2.wav", 1, ATTN_NORM); 
+
 	self.punchangle_x = -2;
-
-	missile = spawn ();
-	missile.owner = self;
-	missile.movetype = MOVETYPE_FLYMISSILE;
-	missile.solid = SOLID_BBOX;
-	missile.classname = "AR";
-		
-// set missile speed	
-
-	makevectors (self.v_angle);
-	missile.velocity = aim(self, 1000);
-	missile.velocity =  v_forward + crandom()*spread_x*v_right + crandom()*spread_y*v_up;
-	missile.velocity = missile.velocity * 100000;
-	missile.angles = vectoangles(missile.velocity);
-	
-	missile.touch = ARTouch;
-	
-// set missile duration
-	missile.nextthink = time + 5;
-	missile.think = SUB_Remove;
-
-	setsize (missile, '0 0 0', '0 0 0');		
-	setorigin (missile, self.origin + v_forward*8 + '0 0 16');	
+	muzzleflash2(); //ar flash
+	dir = aim (self, 100000);
+	FireBullets (1, dir, '0.05 0.05 0.02', MOD_SOLITUDE);
 
 };
 
@@ -1162,105 +1129,30 @@ Fire the SMG
 */
 void() W_FireUzi =
 {
-	local vector dir, spread;
-	local float r;
-	local entity missile;
-	spread = '0.06 0.06 0.02';
-	
-	r = random();
+	local vector dir;
+
 	muzzleflash3();
 	sound (self, CHAN_WEAPON, "weapons/uzi.wav", 1, ATTN_NORM);
-	VK_smallkick(self);
-	self.punchangle_x = CONTENT_EMPTY;
 	self.ammo_hshells -= 1;
-	self.currentammo = self.ammo_hshells;
 	W_UpdateAmmoCounts(self);
-	dir = aim (self, 1000);
-if (r <= 0.33)  {
-}
-else if (r <= 0.66) {
-}
-else if (r <= 0.99) {
-shotshells(self.origin);
-}
-else{}
 
-	missile = spawn ();
-	missile.owner = self;
-	missile.movetype = MOVETYPE_FLYMISSILE;
-	missile.solid = SOLID_BBOX;
-	missile.classname = "SMG";
-		
-// set missile speed	
+	self.punchangle_x = -2;
+	muzzleflash3();
+	dir = aim (self, 100000);
+	FireBullets (1, dir, '0.06 0.06 0.02', MOD_SOLITUDE);
 
-	makevectors (self.v_angle);
-	missile.velocity = aim(self, 1000);
-	missile.velocity =  v_forward + crandom()*spread_x*v_right + crandom()*spread_y*v_up;
-	missile.velocity = missile.velocity * 100000;
-	missile.angles = vectoangles(missile.velocity);
-	
-	missile.touch = SMGTouch;
-	
-// set missile duration
-	missile.nextthink = time + 5;
-	missile.think = SUB_Remove;
-
-	setsize (missile, '0 0 0', '0 0 0');		
-	setorigin (missile, self.origin + v_forward*8 + '0 0 16');	
 };
 
 void () W_FireNail2 =
 {
 	local vector dir;
 
-	sound (self, CHAN_WEAPON, "weapons/shotgn2.wav", WEAPON_SHOTGUN, ATTN_NORM);
+	//sound (self, CHAN_WEAPON, "weapons/shotgn2.wav", WEAPON_SHOTGUN, ATTN_NORM);
 	self.punchangle_x = CONTENT_EMPTY;
 	self.ammo_shells2 = (self.ammo_shells2 - WEAPON_SHOTGUN);
 	self.currentammo = (self.ammo_shells2 - WEAPON_SHOTGUN);
 	dir = aim (self, 100000);
 	FireBullets (WEAPON_SHOTGUN, dir, '0.07 0.07 0', MOD_SOLITUDE);
-};
-
-/*
-============================
-What happens when the sniper bullet touches something
-=============================
-*/
-void () SB_Touch =
-{
-	local vector p_a, p_b;
-	local float zdif;
-	
-	self.velocity = '0 0 0';
-		
-	if (other.takedamage) {
-		p_a_z = self.origin_z;
-		p_b_z = other.origin_z;
-		
-		zdif = vlen(p_a - p_b);
-		//_bprint(ftos(zdif),"\n");
-		if (zdif > 20) {
-			T_Damage (other, self, self.owner, 150, MOD_SOLITUDE);
-			centerprint (self, "Headshot!\n"); }
-		else
-			{
-			if (other.health >= 30)
-			{
-			particle (self.origin, '0 0 0', 110, 6);
-			particle (self.origin, '0 0 0', 109, 6);
-			}
-			else
-			spawn_touchblood (8);
-			T_Damage (other, self, self.owner, 70, MOD_SOLITUDE);
-			}
-	}
-	else
-	{	
-		particle (self.origin, '0 0 0', 6, 6);
-		particle (self.origin, '0 0 0', 11, 6);
-		puff_org = self.origin;
-	}
-	remove(self);
 };
 
 /*
@@ -1270,31 +1162,18 @@ Fire the Sniper Rifle
 */
 void() W_FireSniper =
 {
-	local entity fshell;
+	local vector dir;
 
 	sound (self, CHAN_WEAPON, "weapons/sniper.wav", 1, ATTN_NORM); 
 
 	VK_bigkick(self);
-	shotshells(self.origin + (v_forward * 13) + '0 0 16');
 	self.ammo_sniper -= 1;
 	W_UpdateAmmoCounts(self);
 	
 	muzzleflash2();
-	fshell = spawn ();
-	fshell.owner = self;
-	fshell.movetype = 9;
-	fshell.solid = 2;
-	makevectors (self.v_angle);
-	fshell.velocity = v_forward;
-	fshell.velocity = (fshell.velocity * 999999);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
-	fshell.angles = vectoangles (fshell.velocity);
-	fshell.touch = SB_Touch;
-	fshell.nextthink = (time + 5);
-	fshell.think = SUB_Remove;
-	setmodel (fshell, "progs/sniperbullet.mdl");
-	setsize (fshell, '0 0 0', '0 0 0');
-	setorigin (fshell, ((self.origin + (v_forward * 8)) + '0 0 16'));  //setorigin (fshell, ((self.origin + (v_forward * 8)) + '0 0 16'));
-	pistolsmoke (self.origin + (v_forward * 13) + '0 0 8');
+	dir = aim (self, 100000);
+	pistolsmoke (self.origin + (v_forward * 13) + '0 0 14');
+	FireBullets (1, dir, '0 0 0', MOD_SOLITUDE);
 };
 
 void () NeedleExplode =
@@ -1302,10 +1181,7 @@ void () NeedleExplode =
 	self.enemy.needles -= 1;
 	T_Damage (self.enemy, self, self.owner, 4, MOD_SOLITUDE);
 	sound (self, CHAN_WEAPON, "weapons/crystal.wav", 1, ATTN_NORM);
-	particle (self.origin, '6 6 6', 149, 20);
-	particle (self.origin, '12 12 0', 149, 20);
-	particle (self.origin, '-12 -12 0', 149, 20);
-	particle (self.origin, '-6 -6 -6', 149, 20);
+	particle (self.origin, '6 6 6', 149, 40);
 	createpinkdust(self.origin);
 	remove(self);
 };
@@ -1361,6 +1237,7 @@ void ( entity f_plyr, entity t_plyr, float at_height ) Add_Needle =
 	needle.touch = SUB_Null;
 	needle.solid = SOLID_NOT;
 	needle.movetype = MOVETYPE_FLY;
+	needle.effects = EF_FLAG3;
 	needle.health = time + 3;
 	needle.armorvalue = f_p_height;
 	needle.enemy = t_plyr;
@@ -1437,6 +1314,7 @@ void () Bounce_Off_Walls =
 
 void () Needler_Touch =
 {
+	
 	if (other.takedamage != FALSE && other.health > 0) {
 		T_Damage (other, self, self.owner, 7, MOD_SOLITUDE);	
 		Add_Needle(self.owner, other, self.origin_x);
@@ -1455,12 +1333,12 @@ void() NeedlerHome =
 	local vector dir, vtemp, wantdir;
 	local entity te;
 	local float maxmove;
-	maxmove = 55;		// maximum xyz value we're allowed to change in mid-air
+	maxmove = 60;		// maximum xyz value we're allowed to change in mid-air was 55
 
 	if (self.enemy != world && self.enemy.health > 0) {
 		vtemp = (self.enemy.origin + '0 0 10');
 		dir = normalize ((vtemp - self.origin));
-		wantdir = (dir * 550);
+		wantdir = (dir * 550); // was 550
 		wantdir_x = wantdir_x - self.velocity_x;
 		if (wantdir_x > maxmove)
 			wantdir_x = maxmove;
@@ -1481,7 +1359,8 @@ void() NeedlerHome =
 		self.velocity += wantdir;//(dir * 550);
 	}
 	else {
-		te = findradius(self.origin, 950);
+		//te = findradius(self.origin, 950);
+		te = findradius(self.origin, 200);
 		while (te)
 		{
 			if ( (te.classname == "player" || te.flags & FL_MONSTER) && te.health > 0 && te != self.owner)
@@ -1496,8 +1375,7 @@ void() NeedlerHome =
 	
 	self.nextthink = (time + 0.5);
 	self.think = NeedlerHome;
-};
-	
+};	
 void() W_FireNeedler =
 {
 	local entity fshell;
@@ -1519,10 +1397,21 @@ void() W_FireNeedler =
 	fshell.owner = self;
 	fshell.movetype = 9;
 	fshell.solid = 2;
+	fshell.effects = EF_FLAG3;
+	fshell.classname = "missile";
+	if (self.classname != "player")
+	{
+	fshell.velocity = normalize(self.enemy.origin - self.origin);
+	fshell.velocity = fshell.velocity * 550;
+	fshell.angles = vectoangles(fshell.velocity);
+	}
+	else
+	{
 	makevectors (self.v_angle);
 	fshell.velocity = v_forward + crandom()*spread_x*v_right + crandom()*spread_y*v_up;
 	fshell.velocity = (fshell.velocity * 550);
-	fshell.angles = vectoangles (fshell.velocity);
+	fshell.angles = vectoangles (fshell.velocity);	
+	}
 	fshell.touch = Needler_Touch;
 	fshell.armorvalue = time + 15;		// amount of time the needler projectile should stay alive
 	fshell.nextthink = (time + 0.2);
@@ -1541,18 +1430,18 @@ void() W_FireNeedler =
 void () W_FirePlasmaRifle =
 {
 	local entity plasma;
-	local vector spread;
+	local vector spread, dir, jitter;
 	spread = '0.02 0.02 0';
 	
 	self.prifle_heat += 1;
-	sound (self, CHAN_WEAPON, "weapons/tink1.wav", 1, ATTN_NORM); 
+	sound (self, CHAN_WEAPON, "weapons/PR_fire.wav", 1, ATTN_NORM); 
 
 	
 	//VK_smallkick(self);
 		
 	self.ammo_prifle -= 1;
-	if (self.ammo_prifle < 0)
-		self.ammo_prifle = 0;
+	//if (self.ammo_prifle < 0)
+		//self.ammo_prifle = 0;
 	W_UpdateAmmoCounts(self);
 
 	plasma = spawn ();
@@ -1561,7 +1450,12 @@ void () W_FirePlasmaRifle =
 	plasma.movetype = 9;
 	plasma.solid = 2;
 	makevectors (self.v_angle);
-	plasma.velocity =  v_forward + crandom()*spread_x*v_right + crandom()*spread_y*v_up;
+	traceline (self.origin, self.origin + v_forward*700000000, TRUE, self);
+	jitter_x = (crandom()*spread_x)*vlen(trace_endpos - self.origin);
+	jitter_y = (crandom()*spread_y)*vlen(trace_endpos - self.origin);
+	dir = normalize ((((self.origin + '0 0 -17') + (v_right * 10)) - (trace_endpos + jitter)));
+	//plasma.velocity =  v_forward + crandom()*spread_x*v_right + crandom()*spread_y*v_up;
+	plasma.velocity =  dir * -1;
 	plasma.velocity = (plasma.velocity * 6000);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
 	plasma.angles = vectoangles (plasma.velocity);
 	plasma.touch = Plasma_Diffuse;
@@ -1569,12 +1463,14 @@ void () W_FirePlasmaRifle =
 	plasma.think = Plasma_Diffuse;
 	setmodel (plasma, "progs/PL_BULL.spr");
 	setsize (plasma, '0 0 0', '0 0 0');
-	setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));  //setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));
+	setorigin (plasma, ((self.origin + '0 0 5') + (v_right * 10)));
+	//setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));  //setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));
 	
-	W_AddHeat ( self.weapon, 10);
-};
-
-float(vector veca, vector vecb) crossproduct = 
+	//W_StickyNadeLauncher();
+	
+	W_AddHeat ( self.weapon, 5);
+	//self.weaponheat++;
+};float(vector veca, vector vecb) crossproduct = 
 {
 	local float result;
 	result = veca_x * vecb_y - vecb_x * veca_y;
@@ -1595,7 +1491,7 @@ void () W_Melee =
 		return;
 	}
 	self.punchangle_x = CONTENT_SOLID;
-	org = (trace_endpos - (v_forward * 2));
+	org = (trace_endpos - (v_forward * 4));
 	
 	makevectors (trace_ent.v_angle);
 	def = v_right;
@@ -1792,6 +1688,7 @@ void () Stick =
 	{
 		self.think = Stick;
 		self.touch = Stick;
+		self.effects = EF_FLAG2;
 		self.origin = self.enemy.origin;
 	}
 	else
@@ -1843,9 +1740,10 @@ void () StickyNade_Stick =
 	
 	if (self.enemy != world && self.enemy.health > 0) {
 		zd_z = self.armorvalue;
-		
+
 		self.origin = self.enemy.origin + zd;
 	}
+	
 	
 	if (self.weapon < time) {
 		GrenadeExplode();
@@ -1926,13 +1824,15 @@ void () W_ThrowGrenade =
 	missile.owner = self;
 	missile.movetype = MOVETYPE_BOUNCE;
 	missile.solid = SOLID_BBOX;
-	missile.classname = "grenade";
+	missile.classname = "missile";
+
 	makevectors (self.v_angle);
+	
 	// looking straight up, don't do "up" velocity
-	if (self.v_angle_x <= -80)
-		vel_up = 150 + (self.v_angle_x * 2);
+	if (self.v_angle_x <= -70)
+		vel_up = 180 + (self.v_angle_x * 2);
 	else
-		vel_up = 130;
+		vel_up = 180;
 
 	missile.velocity = (v_forward * 320) + (v_up * vel_up) + (v_right * 5);
 	
@@ -1943,9 +1843,15 @@ void () W_ThrowGrenade =
 	//missile.nextthink = (time + 1.5);
 	//missile.think = GrenadeExplode;
 	if (self.selnade == GRENADE_STICKY) 
+		{
+		missile.effects = EF_FLAG2;
 		setmodel (missile, "progs/plasgren.mdl");
+		}
 	else 
+		{
+		missile.effects = EF_DIMLIGHT;
 		setmodel (missile, "progs/fraggren.mdl");
+		}
 	
 	setsize (missile, VEC_ORIGIN, VEC_ORIGIN);
 	setorigin (missile, ((self.origin + '0 0 16') + (v_right * CONTENT_SKY)));
@@ -2049,7 +1955,7 @@ void() W_UpdateWeapon =
 		self.ammo_type = AT_SHELLS;
 		break;
 	case WEAPON_SKULL:
-		self.weaponmodel = "GameTypes/OddBall/v_skull.mdl";
+		self.weaponmodel = "progs/v_skull.mdl";
 		self.items = self.items | IT_SHELLS;
 		self.ammo_type = AT_SHELLS;
 		break;
@@ -2059,7 +1965,7 @@ void() W_UpdateWeapon =
 		self.ammo_type = AT_SHELLS;
 		break;
 	case WEAPON_AR:
-		self.weaponmodel = "progs/v_nail.mdl";
+		self.weaponmodel = "progs/v_nail.mdl";	
 		self.items = self.items | IT_NAILS;
 		self.ammo_type = AT_NAILS;
 		break;
@@ -2120,8 +2026,8 @@ void(float weap) W_WeaponSwitch =
 	// always update ammo count
 	W_UpdateAmmoCounts(self);
 	
-	Set_FOV ( FOV_DEFAULT );
 	self.pfov = FOV_DEFAULT;
+	Set_FOV ( FOV_DEFAULT );
 };
 
 float() W_BestWeapon =
@@ -2344,7 +2250,16 @@ void() W_Attack =
 		self.weaponframe_time = time + 0.1;
 		break;
 	case WEAPON_PRIFLE:
-		muzzleflash();
+			if (self.exprifle >= 100) {
+			//if (self.weaponheat >= 100) {
+				self.wepanim = 0;
+				self.exprifle = 99;
+				W_UpdateAmmoCounts(self);
+				self.weaponframe = 1;
+				player_reload1();
+				sound (self, CHAN_AUTO, "weapons/Plsama Rifle/PR_overheat.wav", 1, ATTN_NORM);
+			}
+			
 		self.weaponframe = 1;
 		self.wepanim = 1;
 		self.weaponframe_time = time + 0.065;
@@ -2376,7 +2291,7 @@ void() W_Attack =
 	{
 	case WEAPON_PISTOL:
 		W_FirePistol ();
-		r = 0.3;
+		r = 0.3;	
 		break;
 	case WEAPON_SKULL:
 		W_FireSkull ();
@@ -2384,7 +2299,7 @@ void() W_Attack =
 		break;
 	case WEAPON_SHOT:
 		W_FireShotgun ();
-		r = 0.65;
+		r = 1.0;
 		break;
 	case WEAPON_AR:
 		W_FireAR();
@@ -2422,11 +2337,11 @@ void() W_Attack =
 	case WEAPON_PRIFLE:
 		W_FirePlasmaRifle();
 		if (self.prifle_heat > 8)
-			r = 0.125;
+			r = 0.4;
 		else if (self.prifle_heat > 3)
-			r = 0.15;
+			r = 0.25;
 		else
-			r = 0.175;
+			r = 0.2;
 		break;
 	}
 
@@ -2671,7 +2586,7 @@ void() ServerflagsCommand =
 // self heal
 void () Heal =
 {
-if (self.health >= 120)
+if (self.health >= (self.max_health - 10))
 particle (self.origin, '0 0 15',110, 10);
 else
 particle (self.origin, '0 0 10', 110, 1);
@@ -2681,6 +2596,7 @@ particle (self.origin, '0 0 10', 110, 1);
 // Solitude Reload
 void () reload =
 {
+	
 	if (self.reload_time > time)
 		return;
 	if ( (self.weapon == WEAPON_SHOT) && (self.weaponframe != 0) )
@@ -2702,7 +2618,7 @@ void () reload =
 			case WEAPON_AR:
 			{
 				sound (self, CHAN_WEAPON, "weapons/reload/ar.wav", 1, ATTN_NORM);
-				self.weaponframe = 5;
+				self.weaponframe = 6;
 				break;
 			}
 			case WEAPON_SNIPER:
@@ -2734,11 +2650,63 @@ void () reload =
 				break;
 			}
 		}
+		self.pfov = FOV_DEFAULT;
+		Set_FOV (FOV_DEFAULT);
 		self.attack_finished = (time + 0.2);
 		player_reload1 ();		// now that we set the start frame, begin the reload
 	}
 };
+// ------------------------
+void() bot_cam_think =
+// ------------------------
+{
 
+	msg_entity = self;                         
+	WriteByte (MSG_ONE, 5);    
+	WriteEntity (MSG_ONE, self.goalentity);
+
+	WriteByte (MSG_ONE, 10);  
+	WriteAngle(MSG_ONE, self.goalentity.angles_x);    
+	WriteAngle(MSG_ONE, self.goalentity.angles_y);    
+	WriteAngle(MSG_ONE, self.goalentity.angles_z);
+
+	self.angles = self.goalentity.angles;
+	self.fixangle = TRUE;
+	
+	self.think = bot_cam_think;
+	self.nextthink = time + 0.01;
+};
+
+// ------------------------
+void() make_bot_cam =
+// ------------------------
+{
+
+	self.goalentity = find(self.goalentity, classname, "player");
+
+	if (self.goalentity.classname != "player" || self.goalentity.health <= 0)
+		{
+		msg_entity = self;                         
+		WriteByte (MSG_ONE, 5);    
+		WriteEntity (MSG_ONE, self);           
+		WriteByte (MSG_ONE, 10);  
+		WriteAngle(MSG_ONE, self.angles_x);    
+		WriteAngle(MSG_ONE, self.angles_y);    
+		WriteAngle(MSG_ONE, self.angles_z);
+		bprint("Back into your body.\n");
+		W_SetCurrentAmmo ();
+		player_stand1 ();
+		return;
+		}
+
+	self.weaponmodel = "";
+	self.think = bot_cam_think;
+	self.nextthink = time + 0.01;
+	bprint("Looking through ");
+	bprint(self.goalentity.netname);
+	bprint("'s eyes.\n");
+
+};
 /*
 ============
 ImpulseCommands
@@ -2747,32 +2715,9 @@ ImpulseCommands
 */
 void() ImpulseCommands =
 {
-      if (self.impulse == 106)
-      {
-      if (self.crouch == 0)
-      {
-        self.crouch = 1;
-        setsize (self, '-16 -16 -24', '16 16 0');
-        self.view_ofs = '0 0 10';
-        stuffcmd(self,"cl_forwardspeed 100 \n");
-        stuffcmd(self,"cl_backspeed 90 \n");
-        stuffcmd(self,"cl_sidespeed 100 \n");
-      }
-      else if (self.crouch== 1)
-      {
-        self.crouch= 0;
-        setsize (self, '-16 -16 -24', '16 16 32');
-        self.view_ofs = '0 0 22';
-        stuffcmd(self,"cl_forwardspeed 200 \n");
-        stuffcmd(self,"cl_backspeed 200 \n");
-        stuffcmd(self,"cl_sidespeed 200 \n");
-     player_stand1 ();
-    }
-    }
-	if (self.weaponheat)
-		return;
-
-	switch (self.impulse) {
+	if (self.impulse == 203)
+		make_bot_cam();
+     	switch (self.impulse) {
 	case 1 .. 8:
 		W_ChangeWeapon ();
 		break;
@@ -2781,7 +2726,7 @@ void() ImpulseCommands =
 		break;
 	case 10:
 		CycleWeaponCommand();
-		player_pull();
+		pre_player_pull(self);
 		break;
 	case 11:
 		WeaponZoom ();
@@ -2798,75 +2743,31 @@ void() ImpulseCommands =
 		}
 //		if (time < self.attack_finished)
 //			return;	
+		self.pfov = FOV_DEFAULT;		
 		Set_FOV ( FOV_DEFAULT );
-		self.pfov = FOV_DEFAULT;
 		reload ();
 		break;
-	case 14:
-		ThrowWeapon(WEAPON_PISTOL, 0);
-		break;
-	case 30:
-		ThrowWeapon(WEAPON_SKULL, 0);
-		break;
-	case 15:
-		ThrowWeapon(WEAPON_SHOT, 0);
-		break;
-	case 16:
-		ThrowWeapon(WEAPON_AR, 0);
-		break;
-	case 17:
-		ThrowWeapon(WEAPON_UZI, 0);
-		break;
-	case 18:
-		ThrowWeapon(WEAPON_RL, 0);
-		break;
-	case 19:
-		ThrowWeapon(WEAPON_SNIPER, 0);
-		break;
-	case 20:
-		ThrowWeapon(WEAPON_PPISTOL, 0);
-		break;
-	case 21:
-		ThrowWeapon(WEAPON_SWORD, 0);
-		break;
-	case 22:
-		ThrowWeapon(WEAPON_NEEDLER, 0);
-		break;
-	case 23:
-		ThrowWeapon(WEAPON_PRIFLE, 0);
-		break;
-	case 25:
-		ThrowWeapon(666, 0);
-		break;
-	case 26:
-		ThrowWeapon(667, 0);
-		break;
-	case 50:
-		stuffcmd( self, "play sound/music/Solitude_MainTheme_Low.wav\n" );
-		break;
 	case 29:
 	{
-		Set_FOV ( FOV_DEFAULT );
 		self.pfov = FOV_DEFAULT;
-		pre_player_melee ();
-		break;
-	}
-	case 29:
-	{
 		Set_FOV ( FOV_DEFAULT );
-		self.pfov = FOV_DEFAULT;
 		pre_player_melee ();
 		break;
 	}
 	case 27:
 	{
+	if (deathmatch == SWAT)
+		{
+		self.impulse = 11;
+		return;
+		}
 		if (self.selnade == 1)
 		{
 			if (self.nade_lives <= 0)
 			return;
 			self.nade_lives = self.nade_lives;
 			self.selnade = 0;
-			NadeCounter();
+			NadeCounter(self);
 			sound (self, CHAN_WEAPON, "weapons/grenpick.wav", 1, ATTN_NORM);
 	
 		}
@@ -2878,23 +2779,43 @@ void() ImpulseCommands =
 			return;
 				self.plasma_lives = self.plasma_lives;
 				self.selnade = 1;
-				NadeCounter();
+				NadeCounter(self);
 				sound (self, CHAN_WEAPON, "weapons/pbounce.wav", 1, ATTN_NORM);
 			}
 		}
 		break;
 	}
+	
 	case 28:	//Limiter for stopping a Nade throw if you don't have enough nades.
 	{
-		Set_FOV ( FOV_DEFAULT );
+	if (deathmatch == SWAT)
+		{
+		if (self.ishuman == TRUE)//Bots can't slowmo
+		self.impulse = 39;
+		return;
+		}
+
+		if (self.attack_finished > time)
+		return;
 		self.pfov = FOV_DEFAULT;
+		Set_FOV ( FOV_DEFAULT );
+	if (self.selnade == 0 && self.nade_lives == 0)
+	{
+	self.impulse = 27;
+	return;
+	}
+	else if (self.selnade == 1 && self.plasma_lives == 0)
+	{
+	self.impulse = 27;
+	return;
+	}
 	if (self.selnade == GRENADE_REGULAR)
 	{
-		if (self.nade_lives > 0) 
+		if (self.nade_lives != 0) 
 		{
 		pre_player_throw_grenade ();
 		self.nade_lives -= 1;
-		NadeCounter();
+		NadeCounter(self);
 		return; 
 		}
 		else
@@ -2902,16 +2823,36 @@ void() ImpulseCommands =
 	}
 	else
 	{	
-	if (self.plasma_lives > 0) {
+	if (self.plasma_lives != 0) {
 		pre_player_throw_grenade ();
 		self.plasma_lives -= 1;
-		NadeCounter();
+		NadeCounter(self);
 		return; }
 		else
 		centerprint (self, "No Plasma Grenades\n");
 	}
+	self.attack_finished = time + 2;
 	break;
 	}
+	case 39:
+		{
+	
+	if (SLOWMO_TOGGLE == OFF)
+	{
+	SLOWMO_TOGGLE = ON;
+	self.slowmo_flags = SLOWMO_ABLE;
+	}
+	else
+	{
+	SLOWMO_TOGGLE = OFF;
+	localcmd ("cl_overlay 0\n");
+	localcmd ("cl_activate 0\n");
+	localcmd ("host_framerate 0\n");
+	Update_Slowmo(self);
+	self.slowmo_flags = SLOWMO_UNABLE;
+	}
+		}
+	break;
 	}
 
 
@@ -2937,7 +2878,6 @@ void() W_HandlePlayerFrame =
 		
 	if (self.weaponframe_time >= time)
 		return;
-
 	switch (self.weapon)
 	{
 	case WEAPON_PISTOL:
@@ -2947,7 +2887,6 @@ void() W_HandlePlayerFrame =
 		self.weaponframe_time = time + 0.1;
 		if (self.weaponframe > 3)
 			self.weaponframe = 0;
-			
 		//_bprint(ftos(self.weaponframe),"\n");
 		break;
 	case WEAPON_SKULL:
@@ -3054,12 +2993,22 @@ void() W_HandlePlayerFrame =
 			self.weaponframe = 0;
 		break;
 	case WEAPON_PRIFLE:
-		if (self.weaponframe > 3)		// assume that we're not firing and that animations should be handled in player.qc or elsewhere
-			return;
-		self.weaponframe = self.weaponframe + 1;
-		self.weaponframe_time = time + 0.1;
-		if (self.weaponframe > 3)
-			self.weaponframe = 0;
+			if (self.exprifle >= 100) {
+			//if (self.weaponheat >= 100) {
+				self.wepanim = 0;
+				self.exprifle = 99;
+				W_UpdateAmmoCounts(self);
+				self.weaponframe = 1;
+				player_reload1();
+				#ifdef dppc
+				pointparticles(particleeffectnum("pr_OverHeat") ,self.origin, '0 0 1', 1);
+				#endif
+				//sound (self, CHAN_AUTO, "weapons/Plsama Rifle/PR_overheat.wav", 1, ATTN_NORM);
+			}
+			
+		self.weaponframe = 1;
+		self.wepanim = 1;
+		self.weaponframe_time = time + 0.065;
 		break;
 	default:
 		// Solitude
@@ -3073,7 +3022,6 @@ void() W_HandlePlayerFrame =
 	
 	self.wepanim = 0;	// turn hack off
 };
-
 /*
 ============
 W_WeaponFrame
@@ -3087,17 +3035,15 @@ void() W_WeaponFrame =
 
 	W_HandlePlayerFrame();
 
-
 	if ((self.health < self.ohealth))
 	{
 		self.regen = (time + 3);
 	}
 	self.ohealth = self.health;
-	if (((time > self.regen) && (self.health < 130)))
+	if (((time > self.regen) && (self.health < self.max_health)) && deathmatch != SWAT)
 	{
 		Heal ();
-	}
-	
+	}	
 	if (time < self.attack_finished)
 		return;
 
@@ -3189,89 +3135,7 @@ void () W_SetCurrentAmmo =
 {
 	self.weaponframe = 0;
 	W_UpdateAmmoCounts(self);
-/*
-	player_run ();
-	self.items = (self.items - (self.items & (((IT_SHELLS | IT_NAILS) | IT_ROCKETS) | IT_CELLS)));
-	if ((self.weapon == IT_AXE))
-	{
-		self.currentammo = MSG_BROADCAST;
-		self.weaponmodel = "progs/v_axe.mdl";
-		self.weaponframe = MSG_BROADCAST;
-	}
-	else
-	{
-		if ((self.weapon == IT_SHOTGUN))
-		{
-			self.currentammo = self.ammo_shells;
-			self.weaponmodel = "progs/v_shot.mdl";
-			self.weaponframe = MSG_BROADCAST;
-			self.items = (self.items | IT_SHELLS);
-		}
-		else
-		{
-			if ((self.weapon == IT_SUPER_SHOTGUN))
-			{
-				self.currentammo = self.ammo_shells2;
-				self.weaponmodel = "progs/v_shot2.mdl";
-				self.weaponframe = MSG_BROADCAST;
-			}
-			else
-			{
-				if ((self.weapon == IT_NAILGUN))
-				{
-					self.currentammo = self.ammo_nails;
-					self.weaponmodel = "progs/v_nail.mdl";
-					self.weaponframe = MSG_BROADCAST;
-				}
-				else
-				{
-					if ((self.weapon == IT_SUPER_NAILGUN))
-					{
-						self.currentammo = self.ammo_hshells;
-						self.weaponmodel = "progs/v_shotgun.mdl";
-						self.weaponframe = MSG_BROADCAST;
-					}
-					else
-					{
-						if ((self.weapon == IT_GRENADE_LAUNCHER))
-						{
-							self.currentammo = self.ammo_rockets;
-							self.weaponmodel = "progs/v_rock.mdl";
-							self.weaponframe = MSG_BROADCAST;
-							self.items = (self.items | IT_ROCKETS);
-						}
-						else
-						{
-							if ((self.weapon == IT_ROCKET_LAUNCHER))
-							{
-								self.currentammo = self.ammo_rockets;
-								self.weaponmodel = "progs/v_rocket.mdl";
-								self.weaponframe = MSG_BROADCAST;
-								self.items = (self.items | IT_ROCKETS);
-							}
-							else
-							{
-								if ((self.weapon == IT_LIGHTNING))
-								{
-									self.currentammo = self.ammo_cells;
-									self.weaponmodel = "progs/v_light.mdl";
-									self.weaponframe = MSG_BROADCAST;
-									self.items = (self.items | IT_CELLS);
-								}
-								else
-								{
-									self.currentammo = MSG_BROADCAST;
-									self.weaponmodel = "";
-									self.weaponframe = MSG_BROADCAST;
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	*/
+	CheckModel();
 }
 
  

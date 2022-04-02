@@ -153,17 +153,6 @@ void()	demon1_die9		=[	$death9,		demon1_die9 ] {};
 
 void() demon_die =
 {
-// check for gib
-	if (self.health < -80)
-	{
-		sound (self, CHAN_VOICE, "player/udeath.wav", 1, ATTN_NORM);
-		ThrowHead ("progs/h_demon.mdl", self.health);
-		ThrowGib ("progs/gib1.mdl", self.health);
-		ThrowGib ("progs/gib1.mdl", self.health);
-		ThrowGib ("progs/gib1.mdl", self.health);
-		return;
-	}
-
 // regular death
 	demon1_die1 ();
 };
@@ -186,7 +175,6 @@ void() monster_demon1 =
 		return;
 	}
 	precache_model ("progs/demon.mdl");
-	precache_model ("progs/h_demon.mdl");
 
 	precache_sound ("demon/ddeath.wav");
 	precache_sound ("demon/dhit2.wav");
@@ -354,4 +342,3 @@ void()	Demon_JumpTouch =
 	self.nextthink = time + 0.1;
 };
 
- 

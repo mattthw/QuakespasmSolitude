@@ -223,17 +223,6 @@ void() dog_dieb9		=[	$deathb9,	dog_dieb9	] {};
 
 void() dog_die =
 {
-// check for gib
-	if (self.health < -35)
-	{
-		sound (self, CHAN_VOICE, "player/udeath.wav", 1, ATTN_NORM);
-		ThrowGib ("progs/gib3.mdl", self.health);
-		ThrowGib ("progs/gib3.mdl", self.health);
-		ThrowGib ("progs/gib3.mdl", self.health);
-		ThrowHead ("progs/h_dog.mdl", self.health);
-		return;
-	}
-
 // regular death
 	sound (self, CHAN_VOICE, "dog/ddeath.wav", 1, ATTN_NORM);
 	self.solid = SOLID_NOT;
@@ -327,7 +316,6 @@ void() monster_dog =
 		remove(self);
 		return;
 	}
-	precache_model ("progs/h_dog.mdl");
 	precache_model ("progs/dog.mdl");
 
 	precache_sound ("dog/dattack1.wav");
@@ -354,4 +342,3 @@ void() monster_dog =
 
 	walkmonster_start();
 };
- 

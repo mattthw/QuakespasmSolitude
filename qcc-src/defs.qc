@@ -46,6 +46,10 @@ string          mapname;
 
 #ifdef NETQUAKE
 float deathmatch;
+#define SLAYER	1
+#define FIREFIGHT 2
+#define SWAT 	3
+
 float coop;
 float teamplay;
 #endif
@@ -393,9 +397,12 @@ float   EF_BRIGHTLIGHT  = 4;
 float   EF_DIMLIGHT     = 8;
 float   EF_FLAG1                = 16;
 float   EF_FLAG2                = 32;
+float	  EF_FLAG3			  = 64;	//Pink light effect
+float	  EF_FLAG4			  = 128;	//Green Light effect
 // GLQuakeWorld Stuff
 // float 	EF_BLUE		=	64;	// Blue Globe effect for Quad
 // float	EF_RED		=	128;	// Red Globe effect for Pentagram
+
 
 // messages
 #define MSG_BROADCAST 0 // unreliable to all
@@ -586,18 +593,14 @@ enum {
 	struct { // fields used with players
 		float weaponframe_time;		// weapon frame advance time
 		float suicide_time;     	// time to allow suicide after spawn
-		float healdecay; 			// time when health will decay
+		//float healdecay; 			// time when health will decay
 		float show_hostile;		// used to alert monsters
 		float lightning_sound;		// used for lightning sound playback
 		float fly_sound;			// used with trigger_push and maintaining wind sound
-		float invincible_time;		// pentagram state
 		float invincible_sound;		// pentagram sound playback
-		float invisible_time;		// ring state
-		float invisible_sound;		// ring sound playback
+		//float invisible_sound;		// ring sound playback
 		float invisible_finished;	// ring current duration
-		float super_time;			// quad state
 		float super_sound;		// quad sound playback
-		float rad_time;			// rad suit state
 		float radsuit_finished;		// rad suit current duration
 		float dmgtime;			// time slime/lava will damage
 		float swim_flag;			// swim sound playback
@@ -605,10 +608,10 @@ enum {
 		float waterdmg;			// damage water will deal when drowning
 		float jump_flag;			// last z velocity used for falling damage
 	};
-	struct { // fields used with items
-		float healamount;	// amount healed with health item
-		//float ammo_count;	// ammo amount 
-	};
+	// struct { // fields used with items
+	// 	//float healamount;	// amount healed with health item
+	// 	//float ammo_count;	// ammo amount 
+	// };
 	struct { // fields used with generic projectiles
 		float damage_direct;		// damage done with a direct hit
 		float damage_exp; 		// damage done from radius damage
@@ -652,9 +655,9 @@ enum {
 		INTEGER bubble_count;   // keeps track of the number of bubbles
 		INTEGER bubble_state;	// associated with bubble progression
 	};
-	struct { // fields used with items
-		INTEGER healtype;	// type of health with health item
-	};
+	// struct { // fields used with items
+	// 	//INTEGER healtype;	// type of health with health item
+	// };
 	struct { // fields used with generic projectiles
 		INTEGER mod_direct;		// mod type for direct hit
 		INTEGER mod_exp; 			// mod type for radius damage
@@ -838,15 +841,58 @@ void() SUB_Remove;
 //
 void(entity targ, entity inflictor, entity attacker, float damage, INTEGER mod) T_Damage;
 
-float (entity e, float healamount, float ignore) T_Heal; // health function
-
 BOOL(entity targ, entity inflictor) CanDamage;
-.float crouch;
-float score_lastTic;
 .float alpha;
 .float nade_lives;	// The number of Grenades a player has.
 .float plasma_lives;
 .float kill_time;
 .float kill_amount;		//For reseting kill medals
-.float groundwep;		//For weapon pickup Icons
-.float reset;
+//.float groundwep;		//For weapon pickup Icons
+.float reloading;
+//.float reset;
+/*
+============================================
+Firefight Defs
+These are all global functions except elite.
+=============================================
+*/
+float F_LIVES;	//This is a global float because Bot allies are on your side.
+float round_kills; //These are added up to a sum. It is the max kills required to goto the next wave
+float round;	//What round you are currently in
+.float elite;	//What type of Elite it is
+#define  ELITE_NORMAL		0
+#define  ELITE_RED		1
+#define  ELITE_BLUE		2
+float MAX_MONS;		//Total Monsters for a wave in Firefight.
+float TOTAL_MONS;		//Total Monsters in game.
+/*
+=================================================================
+Special Bonus Skulls for Firefight
+=================================================================
+*/
+float CATCH;		//Bonus round where Enemies Spam grenades.
+
+
+/*
+===================================================
+Swat
+===================================================
+*/
+.float slowmo;		//How much slowmo a client currently has
+float MAX_SLOWMO;		//The maximum Slowmo a client can have
+float SLOWMO_TOGGLE;	//To show whether Slowmo is on/off
+#define OFF		0
+#define ON		1
+.float slowmo_flags;	//Used to make the slowmo not repeatedly spawn(Messes HUD up)
+#define SLOWMO_UNABLE 0
+#define SLOWMO_ABLE 1
+
+/*
+=======================================================
+Misc
+======================================================
+*/
+float VOICE_COUNT;
+float crosshair_time;
+float icon_time;
+.float canpick;

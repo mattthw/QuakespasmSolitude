@@ -1,4 +1,4 @@
-# GNU Makefile for QuakeSpasm unix targets.
+# GNU Makefile for QuakeSpasm vita target.
 # You need the SDL library fully installed.
 # "make DEBUG=1" to build a debug client.
 # "make SDL_CONFIG=/path/to/sdl-config" for unusual SDL installations.
@@ -30,25 +30,16 @@ MP3LIB=mad
 VORBISLIB=vorbis
 
 # ---------------------------
-# Helper functions
-# ---------------------------
-
-check_gcc = $(shell if echo | $(CC) $(1) -Werror -S -o /dev/null -xc - > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi;)
-
-# ---------------------------
-
-HOST_OS := $(shell uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]')
-
 DEBUG   ?= 0
 
 # ---------------------------
 # build variables
 # ---------------------------
-
-CC ?= gcc
+PREFIX  = arm-vita-eabi
+CC = $(PREFIX)-gcc
 LINKER = $(CC)
 
-STRIP ?= strip
+STRIP ?= $(PREFIX)-strip
 
 #CPUFLAGS= -mtune=i686
 #CPUFLAGS= -march=pentium4
@@ -57,7 +48,10 @@ STRIP ?= strip
 CPUFLAGS=
 LDFLAGS =
 DFLAGS ?=
-CFLAGS ?= -Wall -Wno-trigraphs
+CFLAGS ?= -Wl,--allow-multiple-definition,-q -g\
+	-Wall -Wno-trigraphs -I$(VITASDK)/arm-vita-eabi/include/SDL2 -fno-short-enums \
+	-DVITA -I$(VITASDK)/arm-vita-eabi/include/opus -fno-optimize-sibling-calls \
+	-DUSE_ZLIB
 CFLAGS += $(CPUFLAGS)
 ifneq ($(DEBUG),0)
 DFLAGS += -DDEBUG
@@ -65,9 +59,7 @@ CFLAGS += -g
 do_strip=
 else
 DFLAGS += -DNDEBUG
-CFLAGS += -O2
-CFLAGS += $(call check_gcc,-fweb,)
-CFLAGS += $(call check_gcc,-frename-registers,)
+CFLAGS += -O3
 cmd_strip=$(STRIP) $(1)
 define do_strip
 	$(call cmd_strip,$(1));
@@ -80,43 +72,11 @@ ifeq ($(DO_USERDIRS),1)
 CFLAGS += -DDO_USERDIRS=1
 endif
 
-### X11BASE only gets used if its in an unusual place
-
-X11DIRS := /usr/X11R7 /usr/local/X11R7 /usr/X11R6 /usr/local/X11R6
-X11BASE_GUESS := $(shell \
-	if [ -e /usr/include/X11/Xlib.h ] && \
-		[ -e /usr/lib/libX11.a ]; then exit 0; fi; \
-	if [ -e /usr/local/include/X11/Xlib.h ] && \
-		[ -e /usr/local/lib/libX11.a ]; then exit 0; fi; \
-	for DIR in $(X11DIRS); do \
-            if [ -e $$DIR/include/X11/Xlib.h ] && \
-		[ -e $$DIR/lib/libX11.a ]; then echo $$DIR; break; fi; \
-	done )
-
-X11BASE	?= $(X11BASE_GUESS)
-
-ifneq ($(X11BASE),)
-LDFLAGS+= -L$(X11BASE)/lib
-CFLAGS += -I$(X11BASE)/include
-endif
-
 ifeq ($(USE_SDL2),1)
 CFLAGS += -DUSE_SDL2
 endif
 
-ifeq ($(USE_SDL2),1)
-SDL_CONFIG ?= sdl2-config
-else
-SDL_CONFIG ?= sdl-config
-endif
-SDL_CFLAGS := $(shell $(SDL_CONFIG) --cflags)
-SDL_LIBS   := $(shell $(SDL_CONFIG) --libs)
-
-ifeq ($(HOST_OS),sunos)
-NET_LIBS   :=-lsocket -lnsl -lresolv
-else
 NET_LIBS   :=
-endif
 
 ifneq ($(VORBISLIB),vorbis)
 ifneq ($(VORBISLIB),tremor)
@@ -158,9 +118,7 @@ ifeq ($(USE_CODEC_OPUS),1)
 # but they include the headers without the opus directory
 # prefix and rely on pkg-config. ewww...
 CFLAGS+= -DUSE_CODEC_OPUS
-CFLAGS+= $(shell pkg-config --cflags opusfile)
-CODECLIBS+= $(shell pkg-config --libs   opusfile)
-CODECLIBS+= $(shell pkg-config --libs   opus)
+CODECLIBS+= -lopusfile -lopus
 endif
 ifeq ($(USE_CODEC_VORBIS),1)
 CFLAGS+= -DUSE_CODEC_VORBIS $(cpp_vorbisdec)
@@ -182,14 +140,19 @@ ifeq ($(USE_CODEC_UMX),1)
 CFLAGS+= -DUSE_CODEC_UMX
 endif
 
-COMMON_LIBS:= -ldl -lm -lGL
+COMMON_LIBS:= -lvitaGL -lvitashark -lvorbisfile -lvorbis -logg  -lspeexdsp -lmpg123 -lScePspnetAdhoc_stub \
+	-lc -lSceLibKernel_stub -lmathneon -lSDL2 -lSceKernelDmacMgr_stub \
+	-lSceNet_stub -lSceNetCtl_stub -lpng -lSceDisplay_stub -lSceGxm_stub -lSceShaccCg_stub \
+	-lSceSysmodule_stub -lSceCtrl_stub -lSceTouch_stub -lSceMotion_stub -lm -lSceAppMgr_stub \
+	-lSceAppUtil_stub -lScePgf_stub -ljpeg -lSceRtc_stub -lScePower_stub -lcurl -lssl -lcrypto -lz \
+	-lSceHid_stub -lSceCommonDialog_stub -lSceAudio_stub
 
 ifeq ($(USE_ZLIB),1)
 CFLAGS+= -DUSE_ZLIB
 COMMON_LIBS+= -lz
 endif
 
-LIBS := $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS)
+LIBS := $(NET_LIBS) $(CODECLIBS) $(COMMON_LIBS)
 
 # ---------------------------
 # targets
@@ -197,7 +160,7 @@ LIBS := $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS)
 
 .PHONY:	clean debug release
 
-DEFAULT_TARGET := quakespasm
+DEFAULT_TARGET := quakehalo.vpk
 
 # ---------------------------
 # rules
@@ -221,7 +184,7 @@ MUSIC_OBJS:= bgmusic.o \
 	snd_mikmod.o \
 	snd_xmp.o \
 	snd_umx.o
-COMOBJ_SND := snd_voip.o snd_dma.o snd_mix.o snd_mem.o $(MUSIC_OBJS)
+COMOBJ_SND := snd_voip.o snd_dma.o snd_mix.o snd_mem.o $(MUSIC_OBJS) fnmatch.o
 SYSOBJ_SND := snd_sdl.o
 SYSOBJ_CDA := cd_sdl.o
 SYSOBJ_INPUT := in_sdl.o
@@ -298,22 +261,30 @@ OBJS := strlcat.o \
 	zone.o \
 	$(SYSOBJ_SYS) $(SYSOBJ_MAIN) $(SYSOBJ_RES)
 
-# ------------------------
-# Linux build rules
-# ------------------------
+quakehalo.vpk: quakehalo.velf
+	vita-make-fself -c -s $< build/eboot.bin
+	vita-mksfoex -s TITLE_ID=SOLITUDE0 -d ATTRIBUTE2=12 "Solitude" param.sfo
+	cp -f param.sfo build/sce_sys/param.sfo
+	vita-pack-vpk -s param.sfo -b build/eboot.bin \
+		--add build/sce_sys/icon0.png=sce_sys/icon0.png \
+		--add build/sce_sys/livearea/contents/bg.png=sce_sys/livearea/contents/bg.png \
+		--add build/sce_sys/livearea/contents/startup.png=sce_sys/livearea/contents/startup.png \
+		--add build/sce_sys/livearea/contents/template.xml=sce_sys/livearea/contents/template.xml \
+		quakehalo.vpk
 
-quakespasm:	$(OBJS)
-	$(LINKER) $(OBJS) $(LDFLAGS) $(LIBS) $(SDL_LIBS) -o $@
-	$(call do_strip,$@)
+%.velf: %.elf
+	cp $< $<.unstripped.elf
+	$(PREFIX)-strip -g $<
+	vita-elf-create $< $@
+	
+quakehalo.elf: $(OBJS)
+	$(CC) $(CFLAGS) $^ $(LDFLAGS) $(LIBS) $(SDL_LIBS) -o $@
 
 image.o: lodepng.c lodepng.h stb_image_write.h
 
-release:	quakespasm
+release:	quakehalo
 debug:
 	$(error Use "make DEBUG=1")
 
 clean:
-	rm -f $(shell find . \( -name '*~' -o -name '#*#' -o -name '*.o' -o -name '*.res' -o -name $(DEFAULT_TARGET) \) -print)
-
-install:	quakespasm
-	cp quakespasm /usr/local/games/quake
+	@rm -rf quakehalo.velf quakehalo.elf $(OBJS) quakehalo.elf.unstripped.elf quakehalo.vpk build/eboot.bin build/sce_sys/param.sfo ./param.sfo

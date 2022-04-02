@@ -345,7 +345,7 @@ void() zombie_paine30	=[	$paine30,	zombie_run1		] {};
 void() zombie_die =
 {
 	sound (self, CHAN_VOICE, "zombie/z_gib.wav", 1, ATTN_NORM);
-	ThrowHead ("progs/h_zombie.mdl", self.health);
+	//ThrowHead ("progs/h_zombie.mdl", self.health);
 	ThrowGib ("progs/gib1.mdl", self.health);
 	ThrowGib ("progs/gib2.mdl", self.health);
 	ThrowGib ("progs/gib3.mdl", self.health);
@@ -434,7 +434,6 @@ void() monster_zombie =
 	}
 
 	precache_model ("progs/zombie.mdl");
-	precache_model ("progs/h_zombie.mdl");
 	precache_model ("progs/zom_gib.mdl");
 
 	precache_sound ("zombie/z_idle.wav");

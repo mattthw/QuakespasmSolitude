@@ -168,7 +168,7 @@ void()	tbaby_die2	=[	$exp,		tbaby_run1	]
 	sound (self, CHAN_VOICE, "blob/death1.wav", 1, ATTN_NORM);
 	self.origin = self.origin - 8*normalize(self.velocity);
 
-	TE_tarexplosion(self.origin);
+	//TE_tarexplosion(self.origin);
 	CreateExplosion(self.origin);
 	remove(self);
 };

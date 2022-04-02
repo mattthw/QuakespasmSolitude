@@ -2,7 +2,7 @@
 /*QUAKED info_null (0 0.5 0) (-4 -4 -4) (4 4 4)
 Used as a positional target for spotlights, etc.
 */
-var void() info_null = SUB_Remove;
+//var void() info_null = SUB_Remove;
 
 /*QUAKED info_notnull (0 0.5 0) (-4 -4 -4) (4 4 4)
 Used as a positional target for lightning.
@@ -290,7 +290,6 @@ void() spikeshooter_use =
 			15,
 			MOD_LASER,
 			5);
-		newmis.effects |= EF_DIMLIGHT;
 		newmis.alpha = 0.5;
 	}
 	else
@@ -600,13 +599,12 @@ void() ambient_light_buzz =
 void() ambient_swamp1 =
 {
 	precache_sound ("ambience/swamp1.wav");
-	ambientsound (self.origin, "ambience/swamp1.wav", 0.5, ATTN_STATIC);
+	ambientsound (self.origin, "ambience/swamp1.wav", 0.8, ATTN_NONE);
 };
 /*QUAKED ambient_swamp2 (0.3 0.1 0.6) (-10 -10 -8) (10 10 8)
 */
 void() ambient_swamp2 =
 {
 	precache_sound ("ambience/swamp2.wav");
-	ambientsound (self.origin, "ambience/swamp2.wav", 0.5, ATTN_STATIC);
+	ambientsound (self.origin, "ambience/swamp2.wav", 0.8, ATTN_NONE);
 };
- 

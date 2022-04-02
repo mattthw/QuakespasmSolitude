@@ -6,6 +6,11 @@ void() player_pain;
 void() player_stand1;
 void (vector org) spawn_tfog;
 void (vector org, entity death_owner) spawn_tdeath;
+void() Setup_Gametype;
+void(entity client) Setup_Slowmo;
+void(entity client, float howmuch) Add_Slowmo;
+void(entity client) Medal;
+BOOL(entity targ, entity attacker) OnSameTeam;
 
 float   modelindex_eyes, modelindex_player;
 
@@ -39,10 +44,9 @@ void() SetChangeParms =
 	}
 
 // cap super health
-	if (self.health > 130)
-		self.health = 130;
-	if (self.health < 50)
-		self.health = 50;
+
+	if (self.health > self.max_health)
+	self.health = self.max_health;
 	parm1 = self.items;
 	parm2 = self.health;
 	parm3 = self.armorvalue;
@@ -53,7 +57,6 @@ void() SetChangeParms =
 	else
 		parm4 = self.ammo_shells_real;
 	*/
-	parm5 = self.ammo_nails_real;
 	parm6 = self.ammo_rockets_real;
 	parm7 = self.ammo_cells_real;
 	parm8 = self.weapon;
@@ -62,32 +65,36 @@ void() SetChangeParms =
 	parm10 = self.exshells;
 	parm11 = self.exnails;
 	parm12 = self.exrockets;
-	parm13 = self.excells;
+	//parm13 = self.pfov;
 	parm14 = self.ammo_shells2;
 	parm15 = self.exshells2;
+	if (deathmatch != SWAT)
 	parm16 = self.nade_lives;
 };
 
 void() SetNewParms =
 {
-	parm1 = WEAPON_AR + WEAPON_PPISTOL;			// start Assault rifle
+	parm1 = WEAPON_AR + WEAPON_PISTOL;			// start Assault rifle
+	if (deathmatch != SWAT)
 	parm2 = 130;
+	else
+	parm2 = 30;
 	parm3 = 0;
 	parm4 = 0;
 	//parm4 = 25;
-	parm5 = 0;
 	parm6 = 0;
 	parm7 = 0;
 	parm8 = WEAPON_AR;			// start Assault rifle
 	parm9 = 0;
 	// Solitude
-	parm10 = 60;
+	parm10 = 40;
 	parm11 = 560;
 	parm12 = MSG_BROADCAST;
-	parm13 = MSG_BROADCAST;
+	//parm13 = 90;
 	parm14 = SVC_INTERMISSION;
 	parm15 = 60;
-	parm16 = 4;
+	if (deathmatch != SWAT)
+	parm16 = 4;	
 };
 
 void() DecodeLevelParms =
@@ -102,7 +109,6 @@ void() DecodeLevelParms =
 	self.health = parm2;
 	self.armorvalue = parm3;
 	self.ammo_shells_real = parm4;
-	self.ammo_nails_real = parm5;
 	self.ammo_rockets_real = parm6;
 	self.ammo_cells_real = parm7;
 	self.weapon = parm8;
@@ -113,11 +119,14 @@ void() DecodeLevelParms =
 	self.exshells = 0;
 	self.exnails = 0;
 	self.exrockets = 0;
-	self.excells = 0;
+	self.pfov = 90;
 	self.ammo_shells2 = 0;
 	self.exshells2 = 0;
+	if (deathmatch != SWAT)
+	{
 	self.nade_lives = parm16;
 	self.plasma_lives = parm16;
+	}
 	// weapon we start with:
 };
 
@@ -409,7 +418,7 @@ void(entity ent) CopyToDeadbody =
 	setsize (deadbody, ent.mins, ent.maxs);
 
 	deadbody.think = SUB_Remove;
-	deadbody.nextthink = time + 5;
+	deadbody.nextthink = time + 3;
 };
 
 // called by ClientKill and DeadThink
@@ -586,136 +595,7 @@ called each time a player enters a new level
 */
 void() PutClientInServer =
 {
-	local   entity spot;
-	local float wtemp;
-
-	self.classname = "player";
-	self.health = 130;
-	self.takedamage = DAMAGE_AIM;
-	self.solid = SOLID_SLIDEBOX;
-	self.movetype = MOVETYPE_WALK;
-	self.show_hostile = 0;
-	self.max_health = 130;
-	self.flags = FL_CLIENT;
-	self.air_finished = time + 12;
-	self.waterdmg = 2; // initial water damage
-	self.super_damage_finished = 0;
-	self.radsuit_finished = 0;
-	self.invisible_finished = 0;
-	self.invincible_finished = 0;
-	self.effects = 0;
-	self.invincible_time = 0;
-	self.suicide_time = time + 3;
-	self.weaponstate = WS_IDLE;
-	DecodeLevelParms ();
-	// dumb hack until I get the real weapon system in
-	wtemp = self.weapon;
-
-	if (deathmatch == 4)
-	{
-		self.ammo_shells_real = 0;
-		if (numberserverinfokey("axe") == 0)
-		{
-			self.ammo_nails_real = 255;
-			self.ammo_shells_real = 255;
-			self.ammo_rockets_real = 255;
-			self.ammo_cells_real = 255;
-			self.items |= IT_NAILGUN
-			| IT_SUPER_NAILGUN
-			| IT_SUPER_SHOTGUN
-			| IT_ROCKET_LAUNCHER
-			| IT_LIGHTNING;
-		}
-		else
-			wtemp = IT_AXE;
-
-		self.items |= IT_ARMOR3 | IT_INVULNERABILITY;
-		self.items = self.items - (self.items & (IT_ARMOR1 | IT_ARMOR2));
-		self.armorvalue = 200;
-		self.armortype = 0.8;
-		self.health = 250;
-		self.invincible_time = 1;
-		self.invincible_finished = time + 3;
-	}
-
-	if (deathmatch == 5)
-	{
-		self.ammo_nails_real = 80;
-		self.ammo_shells_real = 30;
-		self.ammo_rockets_real = 10;
-		self.ammo_cells_real = 30;
-		self.items |= IT_NAILGUN
-			| IT_SUPER_NAILGUN
-			| IT_SUPER_SHOTGUN
-			| IT_ROCKET_LAUNCHER
-			| IT_GRENADE_LAUNCHER
-			| IT_LIGHTNING
-			| IT_ARMOR3
-			| IT_INVULNERABILITY;
-		self.items = self.items - (self.items & (IT_ARMOR1 | IT_ARMOR2));
-		self.armorvalue = 200;
-		self.armortype = 0.8;
-		self.health = 200;
-		self.invincible_time = 1;
-		self.invincible_finished = time + 3;
-	}
-
-	self.weapon = 0;
-	W_WeaponSwitch (wtemp);
-
-	self.attack_finished = time;
-	self.th_pain = player_pain;
-	self.th_die = PlayerDie;
-	
-	self.deadflag = DEAD_NO;
-	
-	spot = SelectSpawnPoint ();
-
-	self.origin = spot.origin + '0 0 1';
-	self.angles = spot.angles;
-	self.fixangle = TRUE;           // turn this way immediately
-
-// oh, this is a hack!
-	setmodel (self, "progs/eyes.mdl");
-	modelindex_eyes = self.modelindex;
-
-	setmodel (self, "progs/player.mdl");
-	modelindex_player = self.modelindex;
-
-	setsize (self, VEC_HULL_MIN, VEC_HULL_MAX);
-	
-	self.view_ofs = '0 0 22';
-
-// Mod - Xian (May.20.97)
-// Bug where player would have velocity from their last kill
-
-	self.velocity = '0 0 0';
-
-	player_stand1 ();
-	
-	makevectors(self.angles);
-	spawn_tfog (self.origin + v_forward*20);
-
-	spawn_tdeath (self.origin, self);
-
-	// Set Rocket Jump Modifiers
-	rj = numberserverinfokey("rj");
-	
-	W_StartWeapon ();
-	
-	self.needles = 0;
-	
-	
-	self.pfov = FOV_DEFAULT;
-	Set_FOV( self.pfov );
-
-	self.reset = 0;
-	self.groundwep = 0;
-	self.weaponheat = 0;
-	
-	stuffcmd(self,"chase_active 0\n");
-	NadeCounter();
-	AmmoCounter();
+Setup_Gametype();	//Rest is done In gametypes.qc
 };
 
 
@@ -824,7 +704,23 @@ void() NextLevel =
 		o.nextthink = time + 0.1;
 	}
 };
+void() firefight_death_setup =
+{
+if (deathmatch == FIREFIGHT && self.health == 1)
+	{
 
+	//FIXME!
+	if (F_LIVES < 0 && self.owner.ishuman == FALSE)
+	self.health = 11;
+
+	if (F_LIVES < 0 && bot_count > 0 && self.owner.ishuman == TRUE)
+	self.health = 11;
+
+	else if (F_LIVES < 0 && self.owner.ishuman == TRUE)
+	localcmd ("restart\n");
+	}
+
+};
 /*
 ============
 CheckRules
@@ -848,12 +744,19 @@ void () player_respawn_think =
 	if (self.owner.classname != "player" || self.owner == world || self.owner.health > 0) {
 		remove(self);
 		return;
-	}
-	self.health -= 1;
-	sprint(self.owner, "You will respawn in ");
-	sprint(self.owner, ftos(self.health));
-	sprint(self.owner, " seconds.\n");
 	
+	}
+	firefight_death_setup();
+	self.health -= 1;
+	if (self.owner.ishuman == TRUE)
+		{
+	if (self.health > 0 && self.health < 4)
+	stuffcmd (self.owner, "play player/beep1.wav\n");
+	stuffcmd (self.owner, "cl_respawn ");
+	stuffcmd (self.owner, ftos(self.health));
+	stuffcmd (self.owner, " \n");
+		}
+
 	if (self.health < 1) {
 		oself = self;
 	
@@ -862,6 +765,8 @@ void () player_respawn_think =
 		self.button0 = 0;
 		self.button1 = 0;
 		self.button2 = 0;
+		if (self.ishuman == TRUE)
+		stuffcmd (self, "play player/beep2.wav\n");
 		true_respawn();
 		
 		self = oself;
@@ -877,13 +782,13 @@ void () Player_SetupDeath =
 	local entity dt;
 	
 	dt = spawn();
+	if (deathmatch == SWAT)
+	dt.health = 5;
+	else
 	dt.health = 8;
 	dt.owner = self;
 	dt.think = player_respawn_think;
 	dt.nextthink = time + 1;
-	sprint(self, "You will respawn in ");
-	sprint(self, ftos(dt.health));
-	sprint(self, " seconds.\n");
 	self.setup_death = #FALSE;
 	self.weaponframe = 0;
 };
@@ -898,7 +803,6 @@ void() PlayerDeathThink =
 	if (self.setup_death == #TRUE) {
 		Player_SetupDeath();
 	}
-	
 	if ((self.flags & FL_ONGROUND))
 	{
 		forward = vlen (self.velocity);
@@ -912,7 +816,7 @@ void() PlayerDeathThink =
 // wait for all buttons released
 	if (self.deadflag == DEAD_DEAD)
 	{
-		if (self.button2 || self.button1 || self.button0)
+		if (self.button2 || self.button1|| self.button0)
 			return;
 		self.deadflag = DEAD_RESPAWNABLE;
 		return;
@@ -1100,6 +1004,52 @@ void() CheckWaterJump =
 	}
 };
 
+void() CH_Red =
+{
+	if (self.ishuman == FALSE)
+	return;
+
+	local   vector  src, dir;
+	dir = aim (self, 100000);
+	
+	makevectors(self.v_angle);
+
+	src = self.origin + v_forward*10;
+	src_z = self.absmin_z + self.size_z * 0.7;
+
+	if (self.weapon == IT_SUPER_SHOTGUN)
+	traceline (src, src + dir*100, FALSE, self);
+	else if (self.weapon == IT_SHOTGUN)
+	traceline (src, src + dir*1500, FALSE, self);
+	else if (self.weapon == WEAPON_SNIPER)
+	traceline (src, src + dir*1800, FALSE, self);
+	else if (self.weapon == IT_SUPER_NAILGUN)
+	traceline (src, src + dir*400, FALSE, self);
+	else if (self.weapon == IT_NAILGUN)
+	traceline (src, src + dir*550, FALSE, self);
+	else if (self.weapon == WEAPON_RL)
+	traceline (src, src + dir*800, FALSE, self);
+	else if (self.weapon == IT_LIGHTNING)
+	traceline (src, src + dir*500, FALSE, self);
+	else
+	traceline (src, src + dir*300, FALSE, self);
+	puff_org = trace_endpos - dir*4;
+
+	// if (trace_ent.takedamage)
+	// {
+	// stuffcmd (self, "cl_ch_red 1\n");
+	// }
+
+	// else if (!trace_ent.takedamage)
+	// stuffcmd (self, "cl_ch_red 0\n");
+	
+	// if (self.canpick == 0)
+	// stuffcmd (self, "cl_ww 0\n"); TODO mattthw: remove this.
+
+	crosshair_time = time + 0.1;
+	
+};
+
 /*
 ================
 PlayerPreThink
@@ -1109,14 +1059,6 @@ Called every frame before physics are run
 */
 void() PlayerPreThink =
 {
-if (self.weapon == IT_SKULL)
-{
-	if (score_lastTic < time)
-	{
-		self.frags = self.frags + 1;
-		score_lastTic = time + 1;
-	}
-}
 	if (BotPreFrame()) // FrikBot
 		return;
 	if (intermission_running)
@@ -1143,7 +1085,10 @@ if (self.weapon == IT_SKULL)
 		PlayerDeathThink ();
 		return;
 	}
+	if (self.slowmo_flags == SLOWMO_ABLE)
+		Setup_Slowmo(self);
 	
+
 	if (self.deadflag == DEAD_DYING)
 		return; // dying, so do nothing
 
@@ -1156,27 +1101,40 @@ if (self.weapon == IT_SKULL)
 	{
 		W_WeaponSwitch (W_BestWeapon ());
 	}
-self.reset = self.reset + 0.005;
-self.groundwep = self.groundwep - 0.5;
-
-	if (self.groundwep <= 0.0)
-	{
-	stuffcmd (self, "cl_ww 0\n");
-	}
-
-	if (self.reset >= 1.000)
-	{
-	localcmd ("cl_doublek 0\n");
-	localcmd ("cl_triplek 0\n");
-	localcmd ("cl_killt 0\n");
-	localcmd ("cl_killtrocity 0\n");
-	self.reset = 0;
-	}
-
 	
+	if (crosshair_time < time)
+	CH_Red();
+
+	/*
+	sprint (self," ");
+	sprint (self, ftos(self.medal_time));
+	sprint (self, " \n");
+	*/
+
 	
 };
-	
+void() voice_play =
+{
+if (deathmatch == FIREFIGHT)
+sound (self.owner, CHAN_WEAPON, "firefight.wav", 1, ATTN_NONE);
+else if (deathmatch == SLAYER)
+sound (self.owner, CHAN_WEAPON, "slayer.wav", 1, ATTN_NONE);
+remove(self);
+};
+
+void() Voice_announcer =
+{
+local entity avoice;
+if (VOICE_COUNT == 1)
+{
+return;
+}
+avoice = spawn();
+VOICE_COUNT = 1;
+avoice.think = voice_play;
+avoice.nextthink = time + 0.7;
+
+};	
 /*
 ================
 CheckPowerups
@@ -1188,161 +1146,15 @@ void() CheckPowerups =
 {
 	if (self.health <= 0)
 		return;
+	
+	if (self.ishuman == TRUE)
+	Voice_announcer();
+	
+	if (self.ishuman == FALSE)
+	stuffcmd (self, "r_drawviewmodel 0\n");
 
-// invisibility
-	if (self.invisible_finished)
-	{
-// sound and screen flash when items starts to run out
-		if (self.invisible_sound < time)
-		{
-			sound (self, CHAN_AUTO, "items/inv3.wav", 0.5, ATTN_IDLE);
-			self.invisible_sound = time + ((random() * 3) + 1);
-		}
-
-
-		if (self.invisible_finished < time + 3)
-		{
-			if (self.invisible_time == 1)
-			{
-				sprint1 (self, PRINT_HIGH, "Ring of Shadows magic is fading\n");
-				stuffcmd (self, "bf\n");
-				sound (self, CHAN_AUTO, "items/inv2.wav", 1, ATTN_NORM);
-				self.invisible_time = time + 1;
-			}
-			
-			if (self.invisible_time < time)
-			{
-				self.invisible_time = time + 1;
-				stuffcmd (self, "bf\n");
-			}
-		}
-
-		if (self.invisible_finished < time)
-		{       // just stopped
-			self.items = self.items - IT_INVISIBILITY;
-			self.invisible_finished = 0;
-			self.invisible_time = 0;
-		}
-		
-	// use the eyes
-		self.frame = 0;
-		self.modelindex = modelindex_eyes;
-	}
-	else
-		self.modelindex = modelindex_player;    // don't use eyes
-
-// invincibility
-	if (self.invincible_finished)
-	{
-// sound and screen flash when items starts to run out
-		if (self.invincible_finished < time + 3)
-		{
-			if (self.invincible_time == 1)
-			{
-				sprint1 (self, PRINT_HIGH, "Protection is almost burned out\n");
-				stuffcmd (self, "bf\n");
-				sound (self, CHAN_AUTO, "items/protect2.wav", 1, ATTN_NORM);
-				self.invincible_time = time + 1;
-			}
-			
-			if (self.invincible_time < time)
-			{
-				self.invincible_time = time + 1;
-				stuffcmd (self, "bf\n");
-			}
-		}
-		
-		if (self.invincible_finished < time)
-		{       // just stopped
-			self.items = self.items - IT_INVULNERABILITY;
-			self.invincible_time = 0;
-			self.invincible_finished = 0;
-		}
-		if (self.invincible_finished > time)
-			self.effects = self.effects | ef_pent;
-		else
-			self.effects = self.effects - (self.effects & ef_pent);
-	}
-
-// super damage
-	if (self.super_damage_finished)
-	{
-
-// sound and screen flash when items starts to run out
-
-		if (self.super_damage_finished < time + 3)
-		{
-			if (self.super_time == 1)
-			{
-				if (deathmatch == 4)
-					sprint1 (self, PRINT_HIGH, "OctaPower is wearing off\n");
-				else
-					sprint1 (self, PRINT_HIGH, "Quad Damage is wearing off\n");
-				stuffcmd (self, "bf\n");
-				sound (self, CHAN_AUTO, "items/damage2.wav", 1, ATTN_NORM);
-				self.super_time = time + 1;
-			}         
-			
-			if (self.super_time < time)
-			{
-				self.super_time = time + 1;
-				stuffcmd (self, "bf\n");
-			}
-		}
-
-		if (self.super_damage_finished < time)
-		{       // just stopped
-			self.items = self.items - IT_QUAD;
-			if (deathmatch == 4)
-			{
-				self.ammo_cells_real = 255;
-				W_UpdateAmmoCounts(self);
-				self.armorvalue = 1;
-				self.armortype = 0.8;
-				self.health = 100;
-			}
-			self.super_damage_finished = 0;
-			self.super_time = 0;
-		}
-		if (self.super_damage_finished > time)
-			self.effects = self.effects | ef_quad;
-		else
-			self.effects = self.effects - (self.effects & ef_quad);
-	}       
-
-// suit 
-	if (self.radsuit_finished)
-	{
-		self.air_finished = time + 12;          // don't drown
-
-// sound and screen flash when items starts to run out
-		if (self.radsuit_finished < time + 3)
-		{
-			if (self.rad_time == 1)
-			{
-				sprint1 (self, PRINT_HIGH, "Air supply in Biosuit expiring\n");
-				stuffcmd (self, "bf\n");
-				sound (self, CHAN_AUTO, "items/suit2.wav", 1, ATTN_NORM);
-				self.rad_time = time + 1;
-			}
-			
-			if (self.rad_time < time)
-			{
-				self.rad_time = time + 1;
-				stuffcmd (self, "bf\n");
-			}
-		}
-
-		if (self.radsuit_finished < time)
-		{       // just stopped
-			self.items = self.items - IT_SUIT;
-			self.rad_time = 0;
-			self.radsuit_finished = 0;
-		}
-	}       
-
+	CheckModel();
 };
-
 
 /*
 ================
@@ -1370,9 +1182,10 @@ void() PlayerPostThink =
 	self.jump_flag = self.velocity_z;
 	
 
-	//CheckPowerups ();
+	CheckPowerups ();
 
 	W_WeaponFrame ();
+	
 
 };
 
@@ -1403,8 +1216,11 @@ void() ClientDisconnect =
 	sound (self, CHAN_BODY, "player/tornoff2.wav", 1, ATTN_NONE);
 	set_suicide_frame ();
 };
+
 void(entity playermedal, float howmany) killmedals =
 {
+	if (playermedal.ishuman == FALSE)
+	return;
    if (howmany == 10)
       centerprint(playermedal, "Killpocalypse!\n");
    else if (howmany == 9)
@@ -1415,47 +1231,30 @@ void(entity playermedal, float howmany) killmedals =
       centerprint(playermedal, "Killimanjaro!\n");
    else if (howmany == 6)
 	{
-	playermedal.reset = 0.000;
-	stuffcmd (playermedal, "cl_killtrocity 0\n");
-      centerprint(playermedal, "Overkill!\n");
+	stuffcmd (playermedal, "cl_killmedals 5\n");
+	Medal(playermedal);
 	}
    else if (howmany == 5)
 	{
-	playermedal.reset = 0.000;
-      centerprint(playermedal, "Killtrocity!\n");
 	stuffcmd (playermedal, "play killtrocity.wav\n");
-	stuffcmd (playermedal, "cl_killtrocity 1\n");
-	stuffcmd (playermedal, "cl_killt 0\n");
-	stuffcmd (playermedal, "cl_triplek 0\n");
-	stuffcmd (playermedal, "cl_doublek 0\n");
+	stuffcmd (playermedal, "cl_killmedals 4\n");
+	Medal(playermedal);
 	}
    else if (howmany == 4)
 	{
-	playermedal.reset = 0.000;
-      centerprint(playermedal, "KillTacular!\n");
 	stuffcmd (playermedal, "play killtacular.wav\n");
-	stuffcmd (playermedal, "cl_killt 1\n");
-	stuffcmd (playermedal, "cl_killtrocity 0\n");
-	stuffcmd (playermedal, "cl_triplek 0\n");
-	stuffcmd (playermedal, "cl_doublek 0\n");
+	stuffcmd (playermedal, "cl_killmedals 3\n");
+	Medal(playermedal);
 	}
    else if (howmany == 3) {
-	playermedal.reset = 0.000;
-	centerprint(playermedal, "Triple Kill!\n");
 	stuffcmd (playermedal, "play triple.wav\n");
-	stuffcmd (playermedal, "cl_triplek 1\n");
-	stuffcmd (playermedal, "cl_doublek 0\n");
-	stuffcmd (playermedal, "cl_killt 0\n");
-	stuffcmd (playermedal, "cl_killtrocity 0\n");
+	stuffcmd (playermedal, "cl_killmedals 2\n");
+	Medal(playermedal);
 	}
    else if (howmany == 2) {
-	playermedal.reset = 0.000;
-      centerprint(playermedal, "Double Kill!\n");
 	stuffcmd(playermedal,"play double.wav\n"); 
-	stuffcmd (playermedal, "cl_doublek 1\n");
-	stuffcmd (playermedal, "cl_triplek 0\n");
-	stuffcmd (playermedal, "cl_killt 0\n");
-	stuffcmd (playermedal, "cl_killtrocity 0\n");
+	stuffcmd (playermedal, "cl_killmedals 1\n");
+	Medal(playermedal);
 	}
    else
       return;
@@ -1467,8 +1266,6 @@ ClientObituary
 called when a player dies
 ============
 */
-BOOL(entity targ, entity attacker) OnSameTeam;
-
 void(entity targ, entity attacker, INTEGER mod) ClientObituary =
 {
 	//Kill Medals
@@ -1479,7 +1276,7 @@ if (attacker.kill_time >= time)
 }
 else
    attacker.kill_amount = 1;
-if (targ.classname == "player")
+if (targ.classname == "player" || targ.flags & FL_MONSTER)
    attacker.kill_time = time + 4;
 
 if (attacker.flags & FL_CLIENT)
@@ -1500,7 +1297,7 @@ if (attacker.flags & FL_CLIENT)
 			return;
 		}
 
-		if (targ.flags & FL_CLIENT)
+		if (targ.flags & FL_CLIENT || targ.flags & FL_MONSTER)
 		{
 			KillMessage(targ.netname, attacker.netname, mod);
 			attacker.frags = attacker.frags + 1;

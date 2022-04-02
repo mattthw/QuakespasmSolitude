@@ -99,16 +99,6 @@ void() shalrath_pain =
 
 void() shalrath_die =
 {
-// check for gib
-	if (self.health < -90)
-	{
-		sound (self, CHAN_VOICE, "player/udeath.wav", 1, ATTN_NORM);
-		ThrowHead ("progs/h_shal.mdl", self.health);
-		ThrowGib ("progs/gib1.mdl", self.health);
-		ThrowGib ("progs/gib2.mdl", self.health);
-		ThrowGib ("progs/gib3.mdl", self.health);
-		return;
-	}
 
 	sound (self, CHAN_VOICE, "shalrath/death.wav", 1, ATTN_NORM);
 	shal_death1();
@@ -189,7 +179,6 @@ void() monster_shalrath =
 		return;
 	}
 	precache_model2 ("progs/shalrath.mdl");
-	precache_model2 ("progs/h_shal.mdl");
 	precache_model2 ("progs/v_spike.mdl");
 	
 	precache_sound2 ("shalrath/attack.wav");

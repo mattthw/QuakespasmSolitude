@@ -63,7 +63,6 @@ void ( entity t_wep, float weptype ) SetWeaponAmmo =
 {
 	local float stammo;
 	stammo = W_GetMaxClip( weptype, 1 );
-
 	switch( weptype ) {
 		case WEAPON_PISTOL:
 			t_wep.exshells = 24;
@@ -78,11 +77,11 @@ void ( entity t_wep, float weptype ) SetWeaponAmmo =
 			t_wep.ammo_shells2 = stammo;
 			break;
 		case WEAPON_AR:
-			t_wep.exnails = 24;
+			t_wep.exnails = 120;
 			t_wep.ammo_nails = stammo;
 			break;
 		case WEAPON_UZI:
-			t_wep.exhshells = 24;
+			t_wep.exhshells = 180;
 			t_wep.ammo_hshells = stammo;
 			break;
 		case WEAPON_RL:
@@ -231,7 +230,7 @@ string ( float wtype ) weapon_getlaymodel =
 			return ("progs/g_pistol.mdl");
 			break;
 		case WEAPON_SKULL:
-			//return ("GameTypes/OddBall/g_skull.mdl");
+			return ("progs/g_skull.mdl");
 			break;
 		case WEAPON_AR:
 			return ("progs/g_nail.mdl");
@@ -263,49 +262,6 @@ string ( float wtype ) weapon_getlaymodel =
 	}
 };
 	
-void (float wtype, float ttype) ThrowWeapon =
-{
-	local entity newthrow;
-	newthrow = spawn();
-	newthrow.owner = self;
-	newthrow.movetype = MOVETYPE_BOUNCE;
-	newthrow.solid = SOLID_BBOX;
-	newthrow.classname = "weapon_pickup";
-	newthrow.flags = FL_ITEM;
-	newthrow.think = weapon_becometouch;
-	newthrow.nextthink = time + 1;
-	
-	newthrow.weapon = wtype;
-	
-	if (ttype == 1)	{	// throwing an existing weapon
-		CopyAmmo(self, newthrow, wtype, 1);
-		newthrow.lives = 1;
-	}
-	else
-		SetWeaponAmmo(newthrow, wtype);
-	
-	makevectors (self.v_angle);
-	if (self.v_angle_x)
-	{
-		newthrow.velocity = ((((v_forward * 45) + (v_up * 200)) + ((crandom () * v_right) * TE_LAVASPLASH)) + ((crandom () * v_up) * TE_LAVASPLASH));
-	}
-	else
-	{
-		newthrow.velocity = aim (self, 10000);
-		newthrow.velocity = (newthrow.velocity * 45);
-		newthrow.velocity_z = 200;
-	}
-	
-	newthrow.gravity = 3;
-	newthrow.solid = SOLID_TRIGGER;
-	
-	setsize (newthrow, '-16 -16 0', '16 16 56');
-	
-	setmodel( newthrow, weapon_getlaymodel( wtype ) );
-	
-	setorigin (newthrow, ((self.origin + '0 0 16') + (v_right * CONTENT_SKY)));
-};
-
 // respawn the weapon
 void () weapon_activate =
 {
@@ -317,7 +273,6 @@ void () weapon_activate =
 		setmodel(self, self.mdl);
 	self.touch = weapon_touch;
 }
-
 void () weapon_touch =
 {
 	local entity oself;
@@ -342,6 +297,7 @@ void () weapon_touch =
 		if ( W_GetMaxClip(self.weapon, 0) <= GetAmmoCount(other, self.weapon, 0) )
 			return;
 
+		W_UpdateAmmoCounts( self );
 		if (self.weapon & WEAPON_PPISTOL || self.weapon & WEAPON_PRIFLE)
 			SetAmmoFor( other, self.weapon, 1, self.currentammo );
 		else
@@ -373,57 +329,59 @@ void () weapon_touch =
 		}
 	}
 
+	if (other.ishuman == TRUE && other.classname == "player")
+		{
+	if (icon_time > time)
+	stuffcmd (other, "cl_ww 0\n");
+	else
+		{
+	if (time > icon_time)
+	icon_time = time + 1;
+	other.canpick = 1;
+	return;
+		}
 	if (self.weapon == IT_NAILGUN)	//Assault rifle
 	{
-	other.groundwep = 1;
 	stuffcmd (other, "cl_ww 1\n");
 	}
 	
 	else if (self.weapon == IT_LIGHTNING)//Plasma Pistol
 	{
-	other.groundwep = 1;
 	stuffcmd (other, "cl_ww 2\n");
 	}
 	
 	else if (self.weapon == IT_SUPER_SHOTGUN)	//Shootie
 	{
-	other.groundwep = 1;
 	stuffcmd (other, "cl_ww 3\n");
 	}
 	
 	else if (self.weapon == IT_EXTRA_WEAPON)	
 	{
-	other.groundwep = 1;
 	stuffcmd (other, "cl_ww 4\n");
 	}
 	
 	else if (self.weapon == IT_ROCKET_LAUNCHER)	
 	{
-	other.groundwep = 1;
 	stuffcmd (other, "cl_ww 5\n");
 	}
 	
 	else if (self.weapon == IT_SHOTGUN)	
 	{
-	other.groundwep = 1;
 	stuffcmd (other, "cl_ww 6\n");
 	}
 	
 	else if (self.weapon == IT_SUPER_NAILGUN)	
 	{
-	other.groundwep = 1;
 	stuffcmd (other, "cl_ww 7\n");
 	}
 	
 	else if (self.weapon == IT_GRENADE_LAUNCHER)	
 	{
-	other.groundwep = 1;
 	stuffcmd (other, "cl_ww 8\n");
 	}
-	
-	else
-	stuffcmd (other, "cl_ww 0\n");	
-	
+		}	
+
+	other.canpick = 0;
 	if (addweapon)
 	{
 		other.attack_finished = time + .1;	// so the player doesnt reload when picking up a new weapon
@@ -436,9 +394,9 @@ void () weapon_touch =
 			other.items = other.items - other.weapon;
 			other.items = other.items | self.weapon;
 			self = other;
-			ThrowWeapon(self.weapon, 1);
 			W_WeaponSwitch(newweapon);
 			W_SetCurrentAmmo();
+			pre_player_pull(other);
 			self = oself;
 		}
 		CopyAmmo( self, other, self.weapon, 0 );
@@ -449,6 +407,7 @@ void () weapon_touch =
 		self.think = weapon_activate;
 		return;
 	}
+
 };
 
 void () weapon_start =
@@ -457,7 +416,11 @@ void () weapon_start =
 		_bprint("weapon_start: weapon with no .weapon set!\n");
 		remove(self);
 	}
-	
+	if (deathmatch == 3)
+		{
+	remove(self);
+	return;
+		}
 	self.classname = "weapon_pickup";			// so bots can recognize it
 	self.flags = FL_ITEM;
 	

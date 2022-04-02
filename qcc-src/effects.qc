@@ -425,7 +425,7 @@ void(entity ent) VK_hugekick =
 void() muzzleflash =
 {
 #ifdef NETQUAKE
-	self.effects |= EF_MUZZLEFLASH;
+	//self.effects |= EF_MUZZLEFLASH;
 #else
 	WriteByte (MSG_MULTICAST, SVC_MUZZLEFLASH);
 	WriteEntity (MSG_MULTICAST, self);
@@ -451,232 +451,6 @@ Number of bullets.
 
 ============================================
 */
-void() AmmoCounter =
-{
-if (self.weapon == IT_SHOTGUN)	
-{
-	stuffcmd (self, "cl_ar_ammo 0\n");		
-	stuffcmd (self, "cl_shotgun_ammo 0\n");
-	stuffcmd (self, "cl_needler_ammo 0\n");
-	stuffcmd (self, "cl_rocket_ammo 0\n");
-	stuffcmd (self, "cl_weaponhud  0\n");
-	
-	if (self.ammo_shells == 12)
-	stuffcmd (self, "cl_pistol_ammo 12\n");
-	if (self.ammo_shells == 11)
-	stuffcmd (self, "cl_pistol_ammo 11\n");
-	if (self.ammo_shells == 10)
-	stuffcmd (self, "cl_pistol_ammo 10\n");
-	if (self.ammo_shells == 9)
-	stuffcmd (self, "cl_pistol_ammo 9\n");
-	if (self.ammo_shells == 8)
-	stuffcmd (self, "cl_pistol_ammo 8\n");
-	if (self.ammo_shells == 7)
-	stuffcmd (self, "cl_pistol_ammo 7\n");
-	if (self.ammo_shells == 6)
-	stuffcmd (self, "cl_pistol_ammo 6\n");
-	if (self.ammo_shells == 5)
-	stuffcmd (self, "cl_pistol_ammo 5\n");
-	if (self.ammo_shells == 4)
-	stuffcmd (self, "cl_pistol_ammo 4\n");
-	if (self.ammo_shells == 3)
-	stuffcmd (self, "cl_pistol_ammo 3\n");
-	if (self.ammo_shells == 2)
-	stuffcmd (self, "cl_pistol_ammo 2\n");
-	if (self.ammo_shells == 1)
-	stuffcmd (self, "cl_pistol_ammo 1\n");
-	if (self.ammo_shells == 0)
-	stuffcmd (self, "cl_pistol_ammo 0\n");
-	}
-	if (self.weapon == IT_SUPER_SHOTGUN)
-	{
-	stuffcmd (self, "cl_ar_ammo 0\n");
-	stuffcmd (self, "cl_pistol_ammo 0\n");
-	stuffcmd (self, "cl_needler_ammo 0\n");
-	stuffcmd (self, "cl_rocket_ammo 0\n");
-	stuffcmd (self, "cl_weaponhud  0\n");
-	
-	if (self.ammo_shells2 == 6)
-	stuffcmd (self, "cl_shotgun_ammo 6\n");
-	if (self.ammo_shells2 == 5)
-	stuffcmd (self, "cl_shotgun_ammo 5\n");
-	if (self.ammo_shells2 == 4)
-	stuffcmd (self, "cl_shotgun_ammo 4\n");
-	if (self.ammo_shells2 == 3)
-	stuffcmd (self, "cl_shotgun_ammo 3\n");
-	if (self.ammo_shells2 == 2)
-	stuffcmd (self, "cl_shotgun_ammo 2\n");
-	if (self.ammo_shells2 == 1)
-	stuffcmd (self, "cl_shotgun_ammo 1\n");
-	if (self.ammo_shells2 == 0)
-	stuffcmd (self, "cl_shotgun_ammo 0\n");
-	}
-	if (self.weapon == IT_NAILGUN)
-	{
-	stuffcmd (self, "cl_pistol_ammo 0\n");
-	stuffcmd (self, "cl_shotgun_ammo 0\n");
-	stuffcmd (self, "cl_needler_ammo 0\n");
-	stuffcmd (self, "cl_rocket_ammo 0\n");
-	stuffcmd (self, "cl_weaponhud  0\n");
-
-	if (self.ammo_nails == 32)
-	stuffcmd (self, "cl_ar_ammo 32\n");
-	if (self.ammo_nails == 31)
-	stuffcmd (self, "cl_ar_ammo 31\n");
-	if (self.ammo_nails == 30)
-	stuffcmd (self, "cl_ar_ammo 30\n");
-	if (self.ammo_nails == 29)
-	stuffcmd (self, "cl_ar_ammo 29\n");
-	if (self.ammo_nails == 28)
-	stuffcmd (self, "cl_ar_ammo 28\n");
-	if (self.ammo_nails == 27)
-	stuffcmd (self, "cl_ar_ammo 27\n");
-	if (self.ammo_nails == 26)
-	stuffcmd (self, "cl_ar_ammo 26\n");
-	if (self.ammo_nails == 25)
-	stuffcmd (self, "cl_ar_ammo 25\n");
-	if (self.ammo_nails == 24)
-	stuffcmd (self, "cl_ar_ammo 24\n");
-	if (self.ammo_nails == 23)
-	stuffcmd (self, "cl_ar_ammo 23\n");
-	if (self.ammo_nails == 22)
-	stuffcmd (self, "cl_ar_ammo 22\n");
-	if (self.ammo_nails == 21)
-	stuffcmd (self, "cl_ar_ammo 21\n");
-	if (self.ammo_nails == 20)
-	stuffcmd (self, "cl_ar_ammo 20\n");
-	if (self.ammo_nails == 19)
-	stuffcmd (self, "cl_ar_ammo 19\n");
-	if (self.ammo_nails == 18)
-	stuffcmd (self, "cl_ar_ammo 18\n");
-	if (self.ammo_nails == 17)
-	stuffcmd (self, "cl_ar_ammo 17\n");
-	if (self.ammo_nails == 16)
-	stuffcmd (self, "cl_ar_ammo 16\n");
-	if (self.ammo_nails == 15)
-	stuffcmd (self, "cl_ar_ammo 15\n");
-	if (self.ammo_nails == 14)
-	stuffcmd (self, "cl_ar_ammo 14\n");
-	if (self.ammo_nails == 13)
-	stuffcmd (self, "cl_ar_ammo 13\n");
-	if (self.ammo_nails == 12)
-	stuffcmd (self, "cl_ar_ammo 12\n");
-	if (self.ammo_nails == 11)
-	stuffcmd (self, "cl_ar_ammo 11\n");
-	if (self.ammo_nails == 10)
-	stuffcmd (self, "cl_ar_ammo 10\n");
-	if (self.ammo_nails == 9)
-	stuffcmd (self, "cl_ar_ammo 9\n");
-	if (self.ammo_nails == 8)
-	stuffcmd (self, "cl_ar_ammo 8\n");
-	if (self.ammo_nails == 7)
-	stuffcmd (self, "cl_ar_ammo 7\n");
-	if (self.ammo_nails == 6)
-	stuffcmd (self, "cl_ar_ammo 6\n");
-	if (self.ammo_nails == 5)
-	stuffcmd (self, "cl_ar_ammo 5\n");
-	if (self.ammo_nails == 4)
-	stuffcmd (self, "cl_ar_ammo 4\n");
-	if (self.ammo_nails == 3)
-	stuffcmd (self, "cl_ar_ammo 3\n");
-	if (self.ammo_nails == 2)
-	stuffcmd (self, "cl_ar_ammo 2\n");
-	if (self.ammo_nails == 1)
-	stuffcmd (self, "cl_ar_ammo 1\n");
-	if (self.ammo_nails == 0)
-	stuffcmd (self, "cl_ar_ammo 0\n");
-	}	
-	if (self.weapon == IT_ROCKET_LAUNCHER)
-	{
-	stuffcmd (self, "cl_ar_ammo 0\n");	//Turns off other ammo counters
-	stuffcmd (self, "cl_pistol_ammo 0\n");
-	stuffcmd (self, "cl_needler_ammo 0\n");
-	stuffcmd (self, "cl_shotgun_ammo 0\n");
-	stuffcmd (self, "cl_weaponhud  0\n");		//Keeps Needler Weapon Icon off
-	
-	if (self.ammo_rockets == 2)
-	stuffcmd (self, "cl_rocket_ammo 2\n");
-	if (self.ammo_rockets == 1)
-	stuffcmd (self, "cl_rocket_ammo 1\n");
-	if (self.ammo_rockets == 0)
-	stuffcmd (self, "cl_rocket_ammo 0\n");
-	}
-	if (self.weapon == IT_LIGHTNING)
-	{
-	stuffcmd (self, "cl_ar_ammo 0\n");		
-	stuffcmd (self, "cl_shotgun_ammo 0\n");
-	stuffcmd (self, "cl_needler_ammo 0\n");
-	stuffcmd (self, "cl_rocket_ammo 0\n");
-	stuffcmd (self, "cl_pistol_ammo 0\n");
-	}
-	if (self.weapon == IT_AXE)
-	{
-	stuffcmd (self, "cl_ar_ammo 0\n");		
-	stuffcmd (self, "cl_shotgun_ammo 0\n");
-	stuffcmd (self, "cl_needler_ammo 0\n");
-	stuffcmd (self, "cl_rocket_ammo 0\n");
-	stuffcmd (self, "cl_pistol_ammo 0\n");
-	}
-	if (self.weapon == WEAPON_NEEDLER)
-	{
-	stuffcmd (self, "cl_weaponhud  1\n");		//Turns needler Icon on.
-	stuffcmd (self, "cl_pistol_ammo 0\n");
-	stuffcmd (self, "cl_shotgun_ammo 0\n");
-	stuffcmd (self, "cl_ar_ammo 0\n");
-	stuffcmd (self, "cl_rocket_ammo 0\n");
-	
-	if (self.ammo_needler == 20)
-	stuffcmd (self, "cl_needler_ammo 20\n");
-	if (self.ammo_needler == 19)
-	stuffcmd (self, "cl_needler_ammo 19\n");
-	if (self.ammo_needler == 18)
-	stuffcmd (self, "cl_needler_ammo 18\n");
-	if (self.ammo_needler == 17)
-	stuffcmd (self, "cl_needler_ammo 17\n");
-	if (self.ammo_needler == 16)
-	stuffcmd (self, "cl_needler_ammo 16\n");
-	if (self.ammo_needler == 15)
-	stuffcmd (self, "cl_needler_ammo 15\n");
-	if (self.ammo_needler == 14)
-	stuffcmd (self, "cl_needler_ammo 14\n");
-	if (self.ammo_needler == 13)
-	stuffcmd (self, "cl_needler_ammo 13\n");
-	if (self.ammo_needler == 12)
-	stuffcmd (self, "cl_needler_ammo 12\n");
-	if (self.ammo_needler == 11)
-	stuffcmd (self, "cl_needler_ammo 11\n");
-	if (self.ammo_needler == 10)
-	stuffcmd (self, "cl_needler_ammo 10\n");
-	if (self.ammo_needler == 9)
-	stuffcmd (self, "cl_needler_ammo 9\n");
-	if (self.ammo_needler == 8)
-	stuffcmd (self, "cl_needler_ammo 8\n");
-	if (self.ammo_needler == 7)
-	stuffcmd (self, "cl_needler_ammo 7\n");
-	if (self.ammo_needler == 6)
-	stuffcmd (self, "cl_needler_ammo 6\n");
-	if (self.ammo_needler == 5)
-	stuffcmd (self, "cl_needler_ammo 5\n");
-	if (self.ammo_needler == 4)
-	stuffcmd (self, "cl_needler_ammo 4\n");
-	if (self.ammo_needler == 3)
-	stuffcmd (self, "cl_needler_ammo 3\n");
-	if (self.ammo_needler == 2)
-	stuffcmd (self, "cl_needler_ammo 2\n");
-	if (self.ammo_needler == 1)
-	stuffcmd (self, "cl_needler_ammo 1\n");
-	if (self.ammo_needler == 0)
-	stuffcmd (self, "cl_needler_ammo 0\n");
-	}
-	if (self.weapon == WEAPON_PRIFLE)
-	{
-	stuffcmd (self, "cl_ar_ammo 0\n");		
-	stuffcmd (self, "cl_shotgun_ammo 0\n");
-	stuffcmd (self, "cl_needler_ammo 0\n");
-	stuffcmd (self, "cl_rocket_ammo 0\n");
-	stuffcmd (self, "cl_pistol_ammo 0\n");
-	}
-};
 /*
 ==========================================
 
@@ -685,35 +459,36 @@ Of nades.
 
 ==========================================
 */
-void() NadeCounter =
+void(entity client) NadeCounter =
 {
-if (self.selnade == GRENADE_REGULAR)
+other = self;
+if (client.selnade == GRENADE_REGULAR)
 	{
-	stuffcmd (self, "cl_plasmanade 2\n");
-	if (self.nade_lives == 4)
-	stuffcmd (self, "cl_nadenum 5\n");
-	if (self.nade_lives == 3)
-	stuffcmd (self, "cl_nadenum 4\n");
-	if (self.nade_lives == 2)
-	stuffcmd (self, "cl_nadenum 3\n");
-	if (self.nade_lives == 1)
-	stuffcmd (self, "cl_nadenum 2\n");
-	if (self.nade_lives == 0)
-	stuffcmd (self, "cl_nadenum 1\n");
+	stuffcmd (client, "cl_plasmanade 2\n");
+	if (client.nade_lives == 4)
+	stuffcmd (client, "cl_nadenum 5\n");
+	if (client.nade_lives == 3)
+	stuffcmd (client, "cl_nadenum 4\n");
+	if (client.nade_lives == 2)
+	stuffcmd (client, "cl_nadenum 3\n");
+	if (client.nade_lives == 1)
+	stuffcmd (client, "cl_nadenum 2\n");
+	if (client.nade_lives == 0)
+	stuffcmd (client, "cl_nadenum 1\n");
 	}
-else if (self.selnade == GRENADE_STICKY)
+else if (client.selnade == GRENADE_STICKY)
 	{
-	stuffcmd (self, "cl_plasmanade 1\n");
-	if (self.plasma_lives == 4)
-	stuffcmd (self, "cl_nadenum 5\n");
-	if (self.plasma_lives == 3)
-	stuffcmd (self, "cl_nadenum 4\n");
-	if (self.plasma_lives == 2)
-	stuffcmd (self, "cl_nadenum 3\n");
-	if (self.plasma_lives == 1)
-	stuffcmd (self, "cl_nadenum 2\n");
-	if (self.plasma_lives == 0)
-	stuffcmd (self, "cl_nadenum 1\n");
+	stuffcmd (client, "cl_plasmanade 1\n");
+	if (client.plasma_lives == 4)
+	stuffcmd (client, "cl_nadenum 5\n");
+	if (client.plasma_lives == 3)
+	stuffcmd (client, "cl_nadenum 4\n");
+	if (client.plasma_lives == 2)
+	stuffcmd (client, "cl_nadenum 3\n");
+	if (client.plasma_lives == 1)
+	stuffcmd (client, "cl_nadenum 2\n");
+	if (client.plasma_lives == 0)
+	stuffcmd (client, "cl_nadenum 1\n");
 	}
 
 

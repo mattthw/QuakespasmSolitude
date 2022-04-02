@@ -35,7 +35,9 @@
 #include "frikbot/bot_move.qc"
 #include "frikbot/bot_ed.qc"
 
-#include "subs.qc"
+
+#include "vwep.qc"
+// #include "subs.qc"
 #include "effects.qc"
 #include "obituary.qc"
 #include "combat.qc"
@@ -44,11 +46,12 @@
 #include "weapons.qc"
 #include "NeedleAI.qc"
 
-
-
 #include "world.qc"
 #include "ctf.qc"
 #include "client.qc"
+#include "slowmo.qc"
+#include "medals.qc"
+#include "gametypes.qc"
 #include "spectate.qc"
 #include "player.qc"
 #include "doors.qc"
@@ -64,10 +67,10 @@
 #include "fight.qc"
 #include "ai.qc"
 #include "monsters.qc"
+#include "quakemons/ai_anims.qc"
 #include "quakemons/dog.qc"
-#include "quakemons/soldier.qc"
+#include "quakemons/Grunt.qc"
 #include "quakemons/enforcer.qc"
-#include "quakemons/ogre.qc"
 #include "quakemons/wizard.qc"
 #include "quakemons/demon.qc"
 #include "quakemons/knight.qc"
@@ -79,10 +82,5 @@
 #include "quakemons/zombie.qc"
 #include "quakemons/boss.qc"
 #include "quakemons/oldone.qc"
-#else
-#include "nomonst.qc"
-#endif
-
-#ifdef REPLACEMENTS
-#include "replace.qc"
-#endif 
+#include "quakemons/firefight.qc"
+#include "quakemons/elite.qc"

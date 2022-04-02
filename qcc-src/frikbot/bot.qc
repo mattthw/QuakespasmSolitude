@@ -991,6 +991,11 @@ void(float whichteam, float whatbot, float whatskill) BotConnect =
 		whatskill = 0;
 	self.b_skill = whatskill;
 
+	if (teamplay)
+	{
+		self.b_pants = uself.team - 1;
+		self.b_shirt = self.b_pants;
+	}
 	if (teamplay && !coop)
 	{
 		if (whichteam)
@@ -1263,6 +1268,9 @@ void() BotImpulses =
 	else if (self.impulse == 101)
 	{
 		f = cvar("skill");
+		if (deathmatch == FIREFIGHT)
+		BotConnect(0, 0, f);
+		else
 		BotConnect(1, 0, f);
 	}
 	else if (self.impulse == 102)
@@ -1278,4 +1286,5 @@ void() BotImpulses =
 };
 
 
- 
+
+ 

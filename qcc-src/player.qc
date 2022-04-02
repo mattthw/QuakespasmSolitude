@@ -5,7 +5,7 @@ SOLITUDE PLAYER ANIMATIONS
 
 ==============================================================================
 */
-
+void() Update_Lives;
 void() bubble_bob;
 $cd /raid/quake/id1/models/player_4
 $origin 0 -6 24
@@ -14,103 +14,74 @@ $skin skin
 
 #define PLAYER_GUN_IDLE		0
 #define PLAYER_RUN			1
-#define PLAYER_ATTACK1		2
-#define PLAYER_DIE1			3
-#define PLAYER_AXE_IDLE		4
-#define PLAYER_WALK			5
-#define PLAYER_SWIM			6
-#define PLAYER_JUMP			7
-#define PLAYER_ATTACK_STAND	8
-#define PLAYER_ATTACK_SIT	9
-#define PLAYER_THROW_NADE	10
-#define PLAYER_ATTACK_MELEE	11
-#define PLAYER_ATTACK_RUN	12
-#define PLAYER_DEATH1		13
-#define PLAYER_DEATH2		14
-#define PLAYER_RELOAD		15
-#define PLAYER_PAIN			16			// HACK!! (uses death 1 anims)
-#define PLAYER_PULL	17
+#define PLAYER_JUMP			2
+#define PLAYER_ATTACK_STAND	3
+#define PLAYER_THROW_NADE	4
+#define PLAYER_ATTACK_RUN	5
+#define PLAYER_DEATH1		6
+#define PLAYER_DEATH2		7
+#define PLAYER_RELOAD		8
+#define PLAYER_ATTACK_MELEE	9
+#define PLAYER_PULL	10
 float (float anim_type, float endframe) Player_GetFrame =
 {
 	switch (anim_type)
 	{
 		case PLAYER_GUN_IDLE:
+		//self.nodrawtoclient;
 			if (endframe)
-				return 8;
-			return 0;
-			break;
-		case PLAYER_AXE_IDLE:
+				return 0;
 			return 0;
 			break;
 		case PLAYER_RUN:
 			if (endframe)
-				return 14;
-			return 9;
-			break;
-		case PLAYER_WALK:
-			if (endframe)
-				return 19;
-			return 15;
-			break;
-		case PLAYER_SWIM:
-			if (endframe)
-				return 26;
-			return 19;
+				return 7;
+			return 1;
 			break;
 		case PLAYER_JUMP:
 			if (endframe)
-				return 22;
-			return 20;
+				return 11;
+			return 11;
 			break;
 		case PLAYER_ATTACK_STAND:
 			if (endframe)
-				return 25;
-			return 23;
-			break;
-		case PLAYER_ATTACK_SIT:
-			if (endframe)
-				return 28;
-			return 26;
+				return 18;
+			return 12;
 			break;
 		case PLAYER_THROW_NADE:
 			if (endframe)
-				return 35;
-			return 29;
+				return 24;
+			return 19;
 			break;
-		case PLAYER_ATTACK_MELEE:
+			case PLAYER_ATTACK_RUN:
 			if (endframe)
-				return 41;
-			return 36;
+				return 25;
+			return 32;
 			break;
-		case PLAYER_ATTACK_RUN:
+		case PLAYER_DEATH1:
+			if (endframe)
+				return 42;
+			return 33;
+			break;
+		case PLAYER_DEATH2:
 			if (endframe)
 				return 48;
 			return 42;
 			break;
-		case PLAYER_DEATH1:
-			if (endframe)
-				return 60;
-			return 49;
-			break;
-		case PLAYER_DEATH2:
-			if (endframe)
-				return 71;
-			return 61;
-			break;
 		case PLAYER_RELOAD:
 			if (endframe)
-				return 79;
-			return 70;
+				return 53;
+			return 49;
 			break;
-		case PLAYER_PAIN:
+		case PLAYER_ATTACK_MELEE:
 			if (endframe)
-				return 51;
+				return 53;
 			return 49;
 			break;
 		case PLAYER_PULL:
 			if (endframe)
-				return 79;
-			return 70;
+				return 53;
+			return 49;
 			break;
 		default:
 			return 0;
@@ -143,10 +114,18 @@ void()  player_run =[   0,      player_run      ]
 {
 	local float ftype;
 	
+	if (self.button0) {
+		if (vlen(self.velocity) < 20)
+			ftype = PLAYER_ATTACK_STAND;
+		else
+			ftype = PLAYER_ATTACK_RUN;
+	}
 	if (vlen(self.velocity) < 150)
-		ftype = PLAYER_WALK;
+		ftype = PLAYER_RUN;
 	else
 		ftype = PLAYER_RUN;
+	if (!self.flags & FL_ONGROUND)
+	ftype = PLAYER_JUMP;
 		
 //	if (self.waterlevel > 0)
 //		ftype = PLAYER_SWIM;
@@ -155,19 +134,14 @@ void()  player_run =[   0,      player_run      ]
 	{
 		ftype = PLAYER_GUN_IDLE;
 	}
-	
-	if (self.jump_time > time)
-		ftype = PLAYER_JUMP;
 
-	if (self.pain_time > time)
-		ftype = PLAYER_PAIN;
-		
-	if (self.weaponstate == WS_FIRING1 && self.weaponframe > 0) {
-		if (vlen(self.velocity) < 20)
-			ftype = PLAYER_ATTACK_STAND;
-		else
-			ftype = PLAYER_ATTACK_RUN;
-	}
+//	if (self.jump_time > time)
+//		ftype = PLAYER_JUMP;
+//
+//	if (self.pain_time > time)
+//		ftype = PLAYER_PAIN;
+
+	
 		
 	self.frame = Player_GetFrame(ftype, 0);
 		
@@ -185,7 +159,7 @@ void()  player_run =[   0,      player_run      ]
 void () player_shot1 = [ 113, player_shot2 ]
 {
 	self.weaponframe = 1;
-	self.effects = (self.effects | EF_MUZZLEFLASH);
+	//self.effects = (self.effects | EF_MUZZLEFLASH);
 };
 
 void () player_shot2 = [ 114, player_shot3 ]
@@ -330,7 +304,6 @@ void () player_shotgun_reload =
 	self.attack_finished = (time + 0.2);
 	self.impulse = 0;
 };
-
 void () player_uzi_reload =
 {
 	local float amt;
@@ -491,18 +464,25 @@ void () player_reload1 = [ 0, player_reload1 ]
 {
 	// allow players to interrupt reload for melee/nade throw
 	if (self.impulse == 29) {
-		pre_player_melee ();
+		self.impulse = 29;
 		return;
 	}
 	else if (self.impulse == 28) {
-		pre_player_throw_grenade ();
+		self.impulse = 28;
 		return;
 	}
+	else if (self.impulse == 10) {
+		self.impulse = 10;
+		return;
+	}
+	else if (self.impulse == 27)
+	self.impulse = 27;
 	else if (self.reload_time == -1) {
 		self.reload_time = 1;
 		player_run();
 		return;
 	}
+	self.reloading = 1;
 	
 	switch (self.weapon) {
 		case WEAPON_PISTOL:
@@ -558,14 +538,13 @@ void () player_reload1 = [ 0, player_reload1 ]
 	
 	self.fireframe = self.fireframe + 1;
 };
-
 void () player_hshot = [ 103, player_hshot ]
 {
 	if (!W_CheckNoAmmo ())
 	{
 		return;
 	}
-	self.effects = (self.effects | EF_MUZZLEFLASH);
+	//self.effects = (self.effects | EF_MUZZLEFLASH);
 	self.weaponframe = (self.weaponframe + WEAPON_SHOTGUN);
 	if ((self.weaponframe == TE_LAVASPLASH))
 	{
@@ -594,6 +573,7 @@ void () player_shot_melee =
 	if ((self.weaponframe == 33))
 	{
 		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/pistol.wav", 1, ATTN_NORM);
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
@@ -611,6 +591,7 @@ void () player_skull_melee =
 	if ((self.weaponframe == 1))
 	{
 		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/pistol.wav", 1, ATTN_NORM);
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
@@ -628,6 +609,7 @@ void () player_rl_melee =
 	if ( self.weaponframe == 62 )
 	{
 		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/pistol.wav", 1, ATTN_NORM);
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
@@ -645,6 +627,7 @@ void () player_hshot_melee =
 	if ((self.weaponframe == 23))
 	{
 		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/pistol.wav", 1, ATTN_NORM);
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
@@ -662,6 +645,7 @@ void () player_shot2_melee =
 	if ((self.weaponframe == 30))
 	{
 		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/pistol.wav", 1, ATTN_NORM);
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
@@ -679,6 +663,7 @@ void () player_nail_melee =
 	if ((self.weaponframe == SVC_FINALE))
 	{
 		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/pistol.wav", 1, ATTN_NORM);
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
@@ -696,6 +681,7 @@ void () player_sniper_melee =
 	if ((self.weaponframe == 32))
 	{
 		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/pistol.wav", 1, ATTN_NORM);
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
@@ -713,12 +699,29 @@ void () player_ppistol_melee =
 	if ((self.weaponframe == 38))
 	{
 		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/pistol.wav", 1, ATTN_NORM);
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
 	self.impulse = 0;
 };
-
+void () player_prifle_melee = 
+{
+	self.weaponframe += 1;
+	if ((self.weaponframe >= 41))
+	{
+		Melee_Finished ();
+		return;
+	}
+	if ((self.weaponframe == 34))
+	{
+		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/pistol.wav", 1, ATTN_NORM);
+	}
+	SuperDamageSound ();
+	self.attack_finished = (time + 0.2);
+	self.impulse = 0;
+};
 void () player_needler_melee = 
 {
 	self.weaponframe += 1;
@@ -730,60 +733,86 @@ void () player_needler_melee =
 	if ((self.weaponframe == 34))
 	{
 		W_Melee ();
+		sound (self, CHAN_WEAPON, "weapons/melee/needler.wav", 1, ATTN_NORM);
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
 	self.impulse = 0;
 };
+void() Melee_Lunge =
+{
+	local vector source;
+makevectors (self.v_angle);
+source = self.origin + '0 0 16';
+traceline (source, source + v_forward*80, FALSE, self);
+if (trace_ent.health > 0)
+	self.velocity = v_forward*320;
 
+
+};
 void () player_melee = [ 0, player_melee ]
 {
 	local float ftype;
 	ftype = PLAYER_ATTACK_MELEE;
-	
+	if (self.impulse == 27)
+	self.impulse = 27;
 	self.melee_time = time + .6;
+
 	switch (self.weapon) {
 		case WEAPON_SHOT:
 			startwframe(self, 28);
+			Melee_Lunge();
 			player_shot2_melee ();
 			break;
 		case WEAPON_PISTOL:
 			startwframe(self, 30);
+			Melee_Lunge();
 			player_shot_melee ();
 			break;
 		case WEAPON_SKULL:
 			startwframe(self, 1);
+			Melee_Lunge();
 			player_skull_melee ();
 			break;
 		case WEAPON_AR:
 			startwframe(self, 29);
+			Melee_Lunge();
 			player_nail_melee ();
 			break;
 		case WEAPON_UZI:
 			startwframe(self, 21);
+			Melee_Lunge();
 			player_hshot_melee ();
 			break;
 		case WEAPON_RL:
 			startwframe(self, 58);
+			Melee_Lunge();
 			player_rl_melee ();
 			break;
 		case WEAPON_SNIPER:
 			startwframe(self, 29);
+			Melee_Lunge();
 			player_sniper_melee ();
 			break;
 		case WEAPON_PPISTOL:
 			startwframe(self, 36);
+			Melee_Lunge();
 			player_ppistol_melee ();
+			break;
+		case WEAPON_PRIFLE:
+			startwframe(self, 29);
+			Melee_Lunge();
+			player_prifle_melee ();
 			break;
 		case WEAPON_NEEDLER:
 			startwframe(self, 30);
+			Melee_Lunge();
 			player_needler_melee ();
 			break;
 		default:
 			self.melee_time = 0;
 			return;
 	}
-
 	self.frame = Player_GetFrame(ftype, 0);
 
 	if ((self.frame + self.fireframe) > Player_GetFrame(ftype, 1)) {
@@ -958,7 +987,23 @@ void () player_ppistol_throw =
 	self.attack_finished = (time + 0.2);
 	self.impulse = MSG_BROADCAST;
 };
+void () player_prifle_throw =
+{
+	self.weaponframe += 1;
 
+	if (self.weaponframe >= 48)
+	{
+		Throw_Finished ();
+		return;
+	}
+	if (self.weaponframe == 45)
+	{
+		W_ThrowGrenade ();
+	}
+	SuperDamageSound ();
+	self.attack_finished = (time + 0.2);
+	self.impulse = MSG_BROADCAST;
+};
 void () player_needler_throw =
 {
 	self.weaponframe += 1;
@@ -981,8 +1026,10 @@ void () player_throw_grenade = [ 0, player_throw_grenade ]
 {
 	local float ftype;
 	ftype = PLAYER_THROW_NADE;
-	
 	self.nade_time = time + .8;
+	if (self.impulse == 27)
+	self.impulse = 27;
+	
 	switch (self.weapon) {
 		case WEAPON_PISTOL:
 			startwframe(self, 44);
@@ -1011,6 +1058,10 @@ void () player_throw_grenade = [ 0, player_throw_grenade ]
 		case WEAPON_PPISTOL:
 			startwframe(self, 43);
 			player_ppistol_throw ();
+			break;
+		case WEAPON_PRIFLE:
+			startwframe(self, 41);
+			player_prifle_throw ();
 			break;
 		case WEAPON_NEEDLER:
 			startwframe(self, 48);
@@ -1056,7 +1107,7 @@ void () player_nail2 = [ 103, player_nail2 ]
 	{
 		return;
 	}
-	self.effects = (self.effects | EF_MUZZLEFLASH);
+	//self.effects = (self.effects | EF_MUZZLEFLASH);
 	if (!self.button0)
 	{
 		player_run ();
@@ -1080,7 +1131,7 @@ void () player_ar1 = [ 103, player_ar1 ]
 	{
 		return;
 	}
-	self.effects = (self.effects | EF_MUZZLEFLASH);
+	//self.effects = (self.effects | EF_MUZZLEFLASH);
 	if (!self.button0)
 	{
 		player_run ();
@@ -1203,8 +1254,6 @@ local entity    bubble_spawner;
 
 void() DeathSound =
 {
-local float             rs;
-
 	// water death sounds
 	if (self.waterlevel == 3)
 	{
@@ -1213,12 +1262,6 @@ local float             rs;
 		return;
 	}
 	
-	rs = rint ((random() * 1) + 1);
-	if (rs == 1)
-		stuffcmd (self, "play player/death1.wav\n");
-	if (rs == 2)
-		stuffcmd (self, "play player/death1.wav\n");
-	
 };
 
 void() PlayerDead =
@@ -1226,6 +1269,15 @@ void() PlayerDead =
 	self.nextthink = -1;
 // allow respawn after a certain time
 	self.deadflag = DEAD_DEAD;
+	stuffcmd (self, "cl_scope 0\n");
+	if (deathmatch == FIREFIGHT)
+	{
+	if (F_LIVES < 0 && self.owner.ishuman == FALSE)
+	bot_count -= 1;
+	F_LIVES -= 1;
+	Update_Lives();
+	}
+	
 };
 
 vector(float dm) VelocityForDamage =
@@ -1307,7 +1359,7 @@ void(string gibname, float dm) ThrowHead =
 
 void() GibPlayer =
 {
-	ThrowHead ("progs/h_player.mdl", self.health);
+	//ThrowHead ("progs/h_player.mdl", self.health);
 	ThrowGib ("progs/gib1.mdl", self.health);
 	ThrowGib ("progs/gib2.mdl", self.health);
 	ThrowGib ("progs/gib3.mdl", self.health);
@@ -1337,7 +1389,6 @@ void() PlayerDropStuff =
 	{
 		if (self.super_damage_finished > time)
 		{
-			DropQuad (self.super_damage_finished - time);
 			s = ftos(rint(self.super_damage_finished - time));
 			t = " lost a quad with ";
 			if (deathmatch == 4)
@@ -1352,12 +1403,10 @@ void() PlayerDropStuff =
 		{
 			s = ftos(rint(self.invisible_finished - time));
 			bprint4 (PRINT_LOW, self.netname, " lost a ring with ", s, " seconds remaining\n");
-			DropRing (self.invisible_finished - time);
 		}
 	}
 
 	//DropBackpack();
-	ThrowWeapon(self.weapon, 1);
 }
 
 void () Player_RunDeath = [ 0, Player_RunDeath ]
@@ -1401,49 +1450,26 @@ CTF_Flag_Drop();
 	self.invincible_finished = 0;
 	self.super_damage_finished = 0;
 	self.radsuit_finished = 0;
-	self.modelindex = modelindex_player;    // don't use eyes
+	CheckModel();
 
-	self.weaponmodel="";
-	self.view_ofs = '0 0 -8';
+	self.weaponmodel="";	
+	stuffcmd(self,"chase_active 2\n");
+	//self.view_ofs = '0 0 22';
 	self.deadflag = DEAD_DYING;
 	self.solid = SOLID_NOT;
 	self.flags = self.flags - (self.flags & FL_ONGROUND);
-	self.movetype = MOVETYPE_TOSS;
+	self.movetype = MOVETYPE_NONE;
+
 	if (self.velocity_z < 10)
 		self.velocity_z = self.velocity_z + random()*300;
-	/*
-	if (self.nade_lives == 4)
-	{
-	DeathNade(self.origin)
-	DeathNade(self.origin)
-	DeathNade(self.origin)
-	DeathNade(self.origin)
-	}
-	if (self.nade_lives == 3)
-	{
-	DeathNade(self.origin)
-	DeathNade(self.origin)
-	DeathNade(self.origin)
-	}
-	if (self.nade_lives == 2)
-	{
-	DeathNade(self.origin)
-	DeathNade(self.origin)
-	}
-	if (self.nade_lives == 1)
-	{
-	DeathNade(self.origin)
-	}
-	*/
-	DeathSound();
+		DeathSound();
 	
 	self.angles_x = 0;
 	self.angles_z = 0;
 	
 	Set_FOV( FOV_DEFAULT );
 	self.pfov = FOV_DEFAULT;
-	
-	stuffcmd(self,"chase_active 1\n");
+
 	self.setup_death = #TRUE;
 	
 	Player_AnimateDeath ();
@@ -1589,7 +1615,23 @@ if (self.weaponframe == 46)
 	self.attack_finished = (time + 0.2);
 	self.impulse = MSG_BROADCAST;
 };	
+void() player_plrifle_pull = 
+{
+self.weaponframe += 1;
+if (self.weaponframe >= 60)
+	{
+	pull_finished();
+	return;
+	}
+if (self.weaponframe == 55)
+	{
+	sound (self, CHAN_WEAPON, "weapons/equip/ppist.wav", 1, ATTN_NORM);
+	}
 
+	SuperDamageSound ();
+	self.attack_finished = (time + 0.2);
+	self.impulse = MSG_BROADCAST;
+};
 void() player_ar_pull = 
 {
 self.weaponframe += 1;
@@ -1631,41 +1673,21 @@ void() player_pull = [ 0, player_pull ]
 {
 	local float ftype;
 	ftype = PLAYER_PULL;
+	self = self;
 	
 	// allow players to interrupt reload for melee/nade throw
 	if (self.impulse == 29) {
-		pre_player_melee ();
+		self.impulse = 29;
 		return;
 	}
-	else if (self.impulse == 28) {
-		
+	else if (self.impulse == 28)
 		{
-		Set_FOV ( FOV_DEFAULT );
-		self.pfov = FOV_DEFAULT;
-	if (self.selnade == GRENADE_REGULAR)
-	{
-		if (self.nade_lives > 0) {
-		pre_player_throw_grenade ();
-		self.nade_lives -= 1;
-		sprint (self, ftos(self.nade_lives));
-		sprint (self, " grenades\n");
-		return; }
-		else
-		centerprint (self, "No Grenades\n");
-	}
-	else
-	{	
-	if (self.plasma_lives > 0) {
-		pre_player_throw_grenade ();
-		self.plasma_lives -= 1;
-		sprint (self, ftos(self.plasma_lives));
-		sprint (self, " Plasma grenades\n");
-		return; }
-		else
-		centerprint (self, "No Plasma Grenades\n");
-	}
+		self.impulse = 28;
+		return;
 		}
-}
+	else if (self.impulse == 27)
+	self.impulse = 27;
+
 	else if (self.pull_time == -1) {
 		self.pull_time = time + .6;
 		player_run();
@@ -1701,6 +1723,10 @@ void() player_pull = [ 0, player_pull ]
 			startwframe (self, 50);
 			player_ppist_pull ();
 			break;
+		case WEAPON_PRIFLE:
+			startwframe (self, 50);
+			player_plrifle_pull ();
+			break;
 		case WEAPON_NEEDLER:
 			startwframe (self, 58);
 			player_needler_pull ();
@@ -1732,10 +1758,11 @@ void() player_pull = [ 0, player_pull ]
 	self.fireframe = self.fireframe + 1;
 };
 
-void () pre_player_pull =
+void (entity client) pre_player_pull =
 {
+	other = self;
 	player_pull ();
-	self.weaponframe = 0;
-	self.fireframe = 0;
-	self.frame = Player_GetFrame(PLAYER_PULL, 0);
+	//client.weaponframe = 0;
+	client.fireframe = 0;
+	client.frame = Player_GetFrame(PLAYER_PULL, 0);
 };

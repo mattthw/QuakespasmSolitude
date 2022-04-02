@@ -215,17 +215,6 @@ void()	enf_fdie11	=[	$fdeath11,	enf_fdie11	] {};
 
 void() enf_die =
 {
-// check for gib
-	if (self.health < -35)
-	{
-		sound (self, CHAN_VOICE, "player/udeath.wav", 1, ATTN_NORM);
-		ThrowHead ("progs/h_mega.mdl", self.health);
-		ThrowGib ("progs/gib1.mdl", self.health);
-		ThrowGib ("progs/gib2.mdl", self.health);
-		ThrowGib ("progs/gib3.mdl", self.health);
-		return;
-	}
-
 // regular death
 	sound (self, CHAN_VOICE, "enforcer/death1.wav", 1, ATTN_NORM);
 	if (random() > 0.5)
@@ -247,7 +236,6 @@ void() monster_enforcer =
 	}
 
 	precache_model2 ("progs/enforcer.mdl");
-	precache_model2 ("progs/h_mega.mdl");
 	precache_model2 ("progs/laser.mdl");
 
 	precache_sound2 ("enforcer/death1.wav");

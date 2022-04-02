@@ -123,8 +123,9 @@ void() _PRJ_Touch =
 		break;
 	case PE_EXPLOSION:
 		self.origin = self.origin - 8 * normalize(self.velocity);
-	case PE_EXPLOSIONGROUND:
-		TE_explosion(self.origin);
+	case PE_EXPLOSIONGROUND:			//Now is For plasma
+		plasmaexplo(self.origin);
+		sound (self, CHAN_WEAPON, "weapons/plasma_blow.wav", 1, ATTN_NORM);
 		break;
 	case PE_ZOMBIEGIB:
 		sound (self, CHAN_WEAPON, "zombie/z_hit.wav", 1, ATTN_NORM);
@@ -192,6 +193,7 @@ void(float() touchfunc) PRJ_SetTouch =
 	newmis.proj_touch = touchfunc;
 };
 
+// main spawning function
 // main spawning function
 void(entity parent, string modl, vector org, vector vel, INTEGER effect, INTEGER damg, INTEGER damgmod, float expiretime) PRJ_FireProjectile =
 {

@@ -1,21 +1,19 @@
 // Solitude defs
 #define DEFAULT_GRAVITY			340
 #define DEFAULT_MAXSPEED		170			// max walk speed on ground
-
 .float next_jump_time;		// next time the player can jump (usually after landing)
 .float setup_death;			// setup respawn timer on player death
 void () Player_SetupDeath;
 
 .float needles;				// how many needler needles a player has in him
 
-void () W_StartWeapon;
 float (float wep, float cliptype) W_GetMaxClip;
-void (float wtype, float ttype) ThrowWeapon;
 void () player_throw_grenade;
 void () pre_player_throw_grenade;
 void () pre_player_melee;
 void ( entity t_ent, float weptype, float cliptype, float newamt ) SetAmmoFor;
 void () NeedlerHome;
+
 
 .float selnade; // the type of nade being thrown
 #define GRENADE_REGULAR		0
@@ -24,8 +22,6 @@ void () NeedlerHome;
 .float weaponheat;
 
 .entity pp_cooldown;
-
-.float aflag;
 
 .float pickup_time, canpickup_time;
 

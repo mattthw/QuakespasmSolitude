@@ -51,7 +51,7 @@ void() MarioHome =
 void () Mario_Touch =
 {
 	if (other.takedamage != FALSE && other.health > 0) {
-		T_Damage (other, self, self.owner, 50, MOD_SOLITUDE);	
+		T_Damage (other, self, self.owner, 20, MOD_SOLITUDE);	
 		Add_Needle(self.owner, other, self.origin_x);
 	}
 	else if (self.lives > 0) {
@@ -88,6 +88,7 @@ void() W_FireMario =
 	fshell.health = 15;
 	fshell.classname = "Needle-spikes";
 	fshell.movetype = 9;
+	fshell.effects = EF_FLAG3;
 	fshell.solid = SOLID_BBOX;
 	fshell.takedamage = DAMAGE_AIM;
 	fshell.th_die = dust;
@@ -103,7 +104,7 @@ void() W_FireMario =
 	self.think = W_FireMario;
 	self.nextthink = (time + 1.5);				// number of times the needle will bounce off walls
 	setmodel (fshell, "progs/Bigneedproy.mdl");
-	setsize (fshell, '-12 -12 -12', '12 12 12');
+	setsize (fshell, '-15 -15 -15', '15 15 15');
 	setorigin (fshell, ((self.origin + (v_forward * 8)) + '0 0 16'));  //setorigin (fshell, ((self.origin + (v_forward * 8)) + '0 0 16'));
 
 	

@@ -277,16 +277,6 @@ void() sham_death11     =[      $death11,      sham_death11    ] {};
 
 void() sham_die =
 {
-// check for gib
-	if (self.health < -60)
-	{
-		sound (self, CHAN_VOICE, "player/udeath.wav", 1, ATTN_NORM);
-		ThrowHead ("progs/h_shams.mdl", self.health);
-		ThrowGib ("progs/gib1.mdl", self.health);
-		ThrowGib ("progs/gib2.mdl", self.health);
-		ThrowGib ("progs/gib3.mdl", self.health);
-		return;
-	}
 
 // regular death
 	sound (self, CHAN_VOICE, "shambler/sdeath.wav", 1, ATTN_NORM);
@@ -307,7 +297,6 @@ void() monster_shambler =
 	}
 	precache_model ("progs/shambler.mdl");
 	precache_model ("progs/s_light.mdl");
-	precache_model ("progs/h_shams.mdl");
 	precache_model ("progs/bolt.mdl");
 	
 	precache_sound ("shambler/sattck1.wav");

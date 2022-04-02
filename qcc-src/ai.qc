@@ -104,9 +104,6 @@ local entity	temp;
 	self = other;
 	other = temp;
 
-	if (self.classname == "monster_ogre")
-		sound (self, CHAN_VOICE, "ogre/ogdrag.wav", 1, ATTN_IDLE);// play chainsaw drag sound
-
 //dprint ("t_movetarget\n");
 	self.goalentity = self.movetarget = find (world, targetname, other.target);
 	self.ideal_yaw = vectoyaw(self.goalentity.origin - self.origin);
@@ -271,8 +268,14 @@ void() SightSound =
 
 	switch (self.classname)
 	{
-	case "monster_ogre":
-		s = "ogre/ogwake.wav";
+	case "normal_elite":
+		s = "elite/ogwake.wav";
+		break;
+	case "red_elite":
+		s = "elite/ogwake.wav";
+		break;	
+	case "white_elite":
+		s = "elite/ogwake.wav";
 		break;
 	case "monster_knight":
 		s = "knight/ksight.wav";
@@ -353,7 +356,6 @@ slower noticing monsters.
 BOOL() FindTarget =
 {
 	local entity	client;
-	local float		r;
 
 // if the first spawnflag bit is set, the monster will only wake up on
 // really seeing the player, not another monster getting angry
@@ -381,39 +383,12 @@ BOOL() FindTarget =
 		return FALSE;
 	if (client.items & IT_INVISIBILITY)
 		return FALSE;
-
-	r = range (client);
-	if (r == RANGE_FAR)
-		return FALSE;
-		
-	if (!visible (client))
-		return FALSE;
-
-	if (r == RANGE_NEAR)
-	{
-		if (client.show_hostile < time && !infront (client))
-			return FALSE;
-	}
-	else if (r == RANGE_MID)
-	{
-		if ( /* client.show_hostile < time || */ !infront (client))
-			return FALSE;
-	}
 	
 //
 // got one
 //
-	self.enemy = client;
-	if (self.enemy.classname != "player")
-	{
-		self.enemy = self.enemy.enemy;
-		if (self.enemy.classname != "player")
-		{
-			self.enemy = world;
-			return FALSE;
-		}
-	}
-	
+self.enemy = client;
+   if (self.enemy.classname == "player") 
 	FoundTarget ();
 
 	return TRUE;
@@ -486,8 +461,8 @@ void(float dist) ai_walk =
 	*/
 
 	// check for noticing a player
-	if (FindTarget ())
-		return;
+	//if (FindTarget ())
+		//return;
 
 	movetogoal (dist);
 };
@@ -593,7 +568,7 @@ BOOL(float enemy_range) CheckAnyAttack =
 	{
 	case "monster_army":
 		return SoldierCheckAttack (enemy_range);
-	case "monster_ogre":
+	case "monster_elite":
 		return OgreCheckAttack (enemy_range);
 	case "monster_shambler":
 		return ShamCheckAttack (enemy_range);
@@ -747,5 +722,3 @@ void(float dist) ai_run =
 // head straight in
 	movetogoal (dist);		// done in C code...
 };
-
- 
