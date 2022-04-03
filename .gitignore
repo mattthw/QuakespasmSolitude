@@ -4,3 +4,38 @@
 *.bin
 *.vpk
 *.sfo
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# macOS
+._*
+.DS_Store
+
+# Build
+Quake/quakespasm
+AppleSilicon/Quakespasm
+AppleSilicon/Quakespasm.app
+AppleSilicon/Quakespasm-SDL2-AppleSilicon.app
+AppleSilicon/Quakespasm.zip
+AppleSilicon/libs
+AppleSilicon/id1
