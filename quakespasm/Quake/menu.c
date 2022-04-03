@@ -264,7 +264,7 @@ bool theme_started = false;
 void PlayMenuTheme(bool override) {
     //    Cbuf_AddText ("playdemo title.dem\n"); broken since there is a missing audio track. causes loop. do in config if wanted
     if (!theme_started || override) {
-        Cbuf_AddText("play music/theme\n");
+        Cbuf_AddText("play music/ambient.mp3\n");
         theme_started = true;
     }
 }
@@ -2220,10 +2220,12 @@ level_t		levels[] =
         {"base", "base", "Minibase"},
         {"plaza", "plaza", "Plaza"},
         {"spider", "spider", "Spiderweb"},
+        {"pit", "random", "Pit"},
+        {"pit2", "random", "Pit (remake)"},
         //{"lockout", "lockout", "Lockout"},
 
-        {"construction", "construction", "Construction"}, //11
-        {"fire", "fire", "Fire!"} //12
+        {"construction", "construction", "Construction"},
+        {"fire", "fire", "Fire!"}
 };
 
 typedef struct
@@ -2235,12 +2237,12 @@ typedef struct
 
 episode_t	episodes[] =
         {
-                {"Slayer Maps", 0, 10}
+                {"Slayer Maps", 0, 12}
         };
 
 episode_t	episodes_ff[] =
         {
-                {"Firefight Maps", 10, 2}
+                {"Firefight Maps", 12, 2}
         };
 
 extern cvar_t sv_public;
@@ -3389,4 +3391,3 @@ void M_ConfigureNetSubsystem(void)
 	if (IPXConfig || TCPIPConfig)
 		net_hostport = lanConfig_port;
 }
-
