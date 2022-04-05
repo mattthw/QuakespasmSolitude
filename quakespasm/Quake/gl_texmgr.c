@@ -1605,16 +1605,18 @@ invalid:
 			translation[i] = i;
 
 		shirt = glt->shirt * 16;
-		if (shirt < 128)
-		{
-			for (i = 0; i < 16; i++)
-				translation[TOP_RANGE+i] = shirt + i;
-		}
-		else
-		{
-			for (i = 0; i < 16; i++)
-				translation[TOP_RANGE+i] = shirt+15-i;
-		}
+
+        // We are not going to support recoloring of the visor
+//		if (shirt < 128)
+//		{
+//			for (i = 0; i < 16; i++)
+//				translation[TOP_RANGE+i] = shirt + i;
+//		}
+//		else
+//		{
+//			for (i = 0; i < 16; i++)
+//				translation[TOP_RANGE+i] = shirt+15-i;
+//		}
 
 		pants = glt->pants * 16;
 		if (pants < 128)

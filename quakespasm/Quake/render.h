@@ -27,8 +27,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define	MAXCLIPPLANES	11
 
-#define	TOP_RANGE		16			// soldier uniform colors
-#define	BOTTOM_RANGE	96
+/*
+ * https://quakewiki.org/wiki/Quake_palette
+ * you can use the palette numbers to set a range of color which we should replace. eg. 16 is brown, 96 is gold
+ */
+#define	TOP_RANGE		96			// spartan visor
+#define	BOTTOM_RANGE	0           // spartan body and possibly weapon (lol)
 
 //=============================================================================
 
