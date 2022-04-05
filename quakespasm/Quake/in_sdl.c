@@ -494,6 +494,8 @@ void IN_Init (void)
 	Cvar_RegisterVariable(&pstv_rumble);
 	Cvar_RegisterVariable(&retrotouch);
 	Cvar_SetCallback (&retrotouch, IN_Retrotouch_f);
+    // HACK: fix bug where retrotouch seems to ignore config unless explicitly set during game session.
+    sceTouchSetSamplingState(SCE_TOUCH_PORT_BACK, (int)retrotouch.value);
 #endif
 	IN_UpdateGrabs();
 	IN_StartupJoystick();

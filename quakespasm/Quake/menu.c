@@ -2221,7 +2221,8 @@ level_t		levels[] =
         {"plaza", "plaza", "Plaza"},
         {"spider", "spider", "Spiderweb"},
         {"pit", "random", "Pit"},
-        {"pit2", "random", "Pit (remake)"},
+        {"pit2", "random", "Pit (v2)"},
+        {"pit3", "random", "Pit (v2-fast)"},
         //{"lockout", "lockout", "Lockout"},
 
         {"construction", "construction", "Construction"},
@@ -2237,12 +2238,12 @@ typedef struct
 
 episode_t	episodes[] =
         {
-                {"Slayer Maps", 0, 12}
+                {"Slayer Maps", 0, 13}
         };
 
 episode_t	episodes_ff[] =
         {
-                {"Firefight Maps", 12, 2}
+                {"Firefight Maps", 13, 2}
         };
 
 extern cvar_t sv_public;
