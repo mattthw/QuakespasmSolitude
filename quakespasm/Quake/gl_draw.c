@@ -605,7 +605,21 @@ void Draw_Character (int x, int y, int num)
 
 	glEnd ();
 }
-
+/**
+ * Print colored text
+ * @param cx
+ * @param cy
+ * @param str
+ */
+void D_Print (int cx, int cy, const char *str)
+{
+    while (*str)
+    {
+        M_DrawCharacter (cx, cy, (*str)+128);
+        str++;
+        cx += 8;
+    }
+}
 void D_PrintWhite (int cx, int cy, char *str)
 {
     while (*str)
@@ -659,6 +673,65 @@ void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, fl
     Draw_Fill (inside_xoff, inside_yoff, bgwidth, bgheight, BG_COLOR, alpha);
 
     D_PrintWhite(inside_xoff+CHARZ, inside_yoff-top_margin+textmargin, str);
+}
+
+#define new_max(x,y) (((x) >= (y)) ? (x) : (y))
+#define new_min(x,y) (((x) <= (y)) ? (x) : (y))
+
+/**
+ * Draw a centered menu box.
+ * @param title is title of the window
+ * @param rows num rows
+ * @param rowheight % of screen height for row height. (ex. 0.10)
+ * @param cols num columns
+ * @param colwidth % of screen width for col width. (ex. 0.10)
+ * @param alpha
+ * @param cursor -1 for none
+ * @returns position of top left
+ */
+struct MenuCoords Draw_WindowGrid(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor) {
+    // fundamentals
+    int screen_width = (320 /* quake uses 320 as screen width */ * MENU_SCALE);
+    int screen_height = (200 /* quake uses 200 as screen height */ * MENU_SCALE);
+    int header = 1; //header ?
+    int border = 1; // border? (single line drawn around sides and bottom)
+    int colpix = (colwidth * screen_width);
+    int rowpix = (rowheight * screen_height);
+    int y_padding = ((rowpix - CHARZ /* 8 is charset char width */)/2);
+    int x_padding = 15;
+    // establish total width & height of menu
+    int menu_width = new_min(cols * colpix + 2*border, screen_width);//do not draw out of bounds
+    int menu_height = new_min((rows + header) * rowpix + border, screen_height); //do not draw out of bounds
+    int header_height = header * rowpix;
+    int x = (screen_width - menu_width)/2;
+    int y = (screen_height - menu_height)/2;
+    // build struct
+    struct MenuCoords mc;
+    for (int i = 0; i < cols; i++) {
+        for (int j = 0; j < rows; j++) {
+            mc.grid[i][j].x = x + i * colpix;
+            mc.grid[i][j].xp = x + i * colpix + x_padding;
+            mc.grid[i][j].y = y + (header*rowpix) + (j*rowpix);
+            mc.grid[i][j].yp = y + (header*rowpix) + (j*rowpix) + y_padding;
+        }
+    }
+    mc.cols = cols;
+    mc.rows = rows;
+    // draw background
+    Draw_Fill(x, y, menu_width, menu_height, BG_COLOR, alpha);
+    // draw cursor
+    if (cursor >= 0) {
+        Draw_Cursor(mc.grid[0][0].x + border, mc.grid[0][cursor].y, colpix, rowpix, true);
+    }
+    // draw header
+    Draw_Fill(x, y, menu_width, header_height, 2, 1);
+    // draw borders
+    Draw_Fill(x, y, 1, menu_height, 2, 1);
+    Draw_Fill(x+menu_width, y, 1, menu_height, 2, 1);
+    Draw_Fill(x, y+menu_height, menu_width, 1, 2, 1);
+    // print title
+    D_Print(x + x_padding, y + y_padding, title);
+    return mc;
 }
 
 void Draw_WindowPix(int x, int y, int bgwidth, int bgheight, char *str, float alpha)
@@ -876,7 +949,7 @@ void Draw_Cursor (int x, int y, int w, int h, bool focused)
     if (!focused) {
         alpha = 0.3;
     } else {
-        alpha = new_min(0.3, alpha);
+        alpha = new_min(0.1, alpha);
     }
     Draw_Fill(x, y, w, h, cursor_color, alpha);
 }

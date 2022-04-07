@@ -28,6 +28,19 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern	qpic_t		*draw_disc;	// also used on sbar
 
+
+struct Coord {
+    int x;
+    int xp; // with padding for text
+    int y;
+    int yp; // with padding for text
+};
+struct MenuCoords {
+    struct Coord grid[10][20];
+    int cols;
+    int rows;
+};
+
 void Draw_Init (void);
 void Draw_Character (int x, int y, int num);
 int PixWidth(float percent);
@@ -36,6 +49,7 @@ void Draw_WindowInsCol(int x, int y, float width, float height, int color, float
 void Draw_WindowIns(int x, int y, float width, float height, float alpha);
 void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, float alpha);
 void Draw_OffCenterWindowPix(int x, int y, int width, int height, char *str, float alpha);
+struct MenuCoords Draw_WindowGrid(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor);
 void Draw_WindowPix(int x, int y, int bgwidth, int bgheight, char *str, float alpha);
 void Draw_CenterWindow(float width, float height, char *str, float alpha);
 void Draw_DebugChar (char num);

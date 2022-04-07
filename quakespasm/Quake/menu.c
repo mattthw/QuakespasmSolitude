@@ -122,6 +122,36 @@ void M_DrawCharacter (int cx, int line, int num)
 	Draw_Character (cx, line, num);
 }
 
+void M_DrawCharacterColored (int cx, int line, int num)
+{
+    Draw_Character (cx, line, num+128);
+}
+
+/**
+ * Draw playstation (X) using modified conchars sheet
+ * @param x
+ * @param y
+ */
+void M_DrawX (int x, int y) {
+    y -= CHARZ/2;
+    Draw_Character (x, y+CHARZ, 6+128);
+    Draw_Character (x+CHARZ, y+CHARZ, 7+128);
+    Draw_Character (x, y, 8+128);
+    Draw_Character (x+CHARZ, y, 9+128);
+}
+/**
+ * Draw playstation (O) using modified conchars sheet
+ * @param x
+ * @param y
+ */
+void M_DrawO (int x, int y) {
+    y -= CHARZ/2;
+    Draw_Character (x, y, 6);
+    Draw_Character (x+CHARZ, y, 7);
+    Draw_Character (x, y+CHARZ, 8);
+    Draw_Character (x+CHARZ, y+CHARZ, 9);
+}
+
 void M_Print (int cx, int cy, const char *str)
 {
 	while (*str)
@@ -289,8 +319,9 @@ void M_Main_Draw (void)
 {
     //background
     Draw_Fill(main_x_offset_pixels, main_y_offset_pixels, main_pixel_width, main_pixel_height, BG_COLOR, 0.5); //blue bg
-    Draw_Fill(main_x_offset_pixels, PixHeight(1)-MVS, main_pixel_width, MVS, BLACK, 0.5); //black bar bottom
-    M_PrintWhite(main_x_offset_pixels+main_pixel_width-(9*8), PixHeight(1)-MVS+TEXT_YMARGIN, "X Select"); //tip
+    Draw_Fill(main_x_offset_pixels, PixHeight(1)-MVS, main_pixel_width, MVS, 1, 0.5); //black bar bottom
+    M_PrintWhite(main_x_offset_pixels+main_pixel_width-(8*CHARZ), PixHeight(1)-MVS+TEXT_YMARGIN, " Select"); //tip
+    M_DrawX(main_x_offset_pixels+main_pixel_width-(10*CHARZ), PixHeight(1)-MVS+TEXT_YMARGIN);
     //cursor
     Draw_Cursor(main_x_offset_pixels, main_y_offset_pixels+mvs(m_main_cursor), main_pixel_width, CURSOR_HEIGHT, !main_multi);
     //menu items
@@ -900,12 +931,6 @@ int PauseOptsCount(void)
     }
 }
 
-#define P_HEIGHT 			mvs(PauseOptsCount())
-#define P_YOFF				PixHeight(0.3)
-
-#define P_WIDTH 			PixWidth(0.4)
-#define P_XOFF				(PixWidth(1)-P_WIDTH)/2
-
 int		pause_cursor;
 
 void M_Menu_Pause_f (void)
@@ -920,21 +945,18 @@ void M_Menu_Pause_f (void)
 void M_Pause_Draw (void)
 {
 
-    //background
-    Draw_WindowPix(P_XOFF, P_YOFF, P_WIDTH, P_HEIGHT, "Pause", 0.8);
-    //cursor
-    Draw_Cursor(P_XOFF, P_YOFF+mvs(pause_cursor), P_WIDTH, MVS, true);
-    //menu items
-    if ((int)deathmatch.value == 2) //firefight
+        if ((int)deathmatch.value == 2) //firefight
     {
-        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(0)+TEXT_YMARGIN, "Options");
-        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(1)+TEXT_YMARGIN, "Disconnect");
-    } else {
-        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(0)+TEXT_YMARGIN, "Add Bot");
-        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(1)+TEXT_YMARGIN, "Remove Bot");
-        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(2)+TEXT_YMARGIN, "Options");
-        M_Print(P_XOFF+TEXT_XMARGIN, P_YOFF+mvs(3)+TEXT_YMARGIN, "Disconnect");
-    }
+            struct MenuCoords coords = Draw_WindowGrid("Pause", 2, MVS_P, 1, 0.35, 0.5, pause_cursor);
+            M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Options");
+            M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Disconnect");
+        } else {
+            struct MenuCoords coords = Draw_WindowGrid("Pause", 4, MVS_P, 1, 0.35, 0.5, pause_cursor);
+            M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Add Bot");
+            M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Remove Bot");
+            M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Options");
+            M_PrintWhite (coords.grid[0][3].xp, coords.grid[0][3].yp, "Disconnect");
+        }
 }
 
 void M_Pause_Key (int key)
@@ -1889,9 +1911,14 @@ void M_Quit_Draw (void)
     int xoff = 80;
     int yoff = 20;
 
-    Draw_Fill(0,0,1000,1000, BLACK, 0.30);
-    Draw_OffCenterWindow(0, -20, 0.5, 0.2, "Quit", MENU_ALPHA);
-    M_PrintWhite (xoff+64, yoff+116, quitMessage[msgNumber*4+3]);
+    Draw_Fill(0,0,1000,1000, BLACK, 0.20);
+//    Draw_OffCenterWindow(coords.grid[0][0].xp, coords.grid[0][0].yh, 0.5, 0.2, "Quit", MENU_ALPHA);
+    struct MenuCoords coords = Draw_WindowGrid("Quit", 2, MVS_P, 2, 0.2, 0.5, -1);
+    M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Ready to retire, Chief?");
+    M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Yes");
+    M_DrawX(coords.grid[0][1].xp + 4*CHARZ, coords.grid[0][1].yp);
+    M_PrintWhite (coords.grid[1][1].xp, coords.grid[1][1].yp, "No");
+    M_DrawO(coords.grid[1][1].xp + 3*CHARZ, coords.grid[1][1].yp);
 }
 
 //=============================================================================
@@ -2268,7 +2295,8 @@ void M_Matchmaking_f (void)
     //default MP settings
     Cvar_SetValue ("skill", 0);
     Cvar_SetValue ("deathmatch", 1);
-    Cbuf_AddText ("fraglimit 20\n");
+    Cbuf_AddText ("fraglimit 10\n");
+    Cvar_SetValue ("timelimit", 10);
     startepisode = 0;
     if (!mm_rentry)
         startlevel = rand() % episodes[startepisode].levels;
@@ -2308,16 +2336,18 @@ void M_Matchmaking_Draw (void)
     }
     //background
     Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEIGHT_PIX, MM_BG, 0.5); //bg full
-    Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEADER_HEIGHT, BLACK, 0.5); //bg header
+    Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEADER_HEIGHT, 1, 0.5); //bg header
     Draw_Fill(MM_XOFF, MM_HEADER_HEIGHT, MM_WIDTH_PIX, fg_height, MM_FG, 0.5); //bg foreground
-    Draw_Fill(MM_XOFF, MM_HEIGHT_PIX-mvs(1), MM_WIDTH_PIX, MM_FOOTER_HEIGHT, BLACK, 0.5); //bg bottom
-    Draw_Fill(MM_XOFF+MM_WIDTH_PIX, 0, 1, MM_HEIGHT_PIX, BLACK+1, 0.5); //vertical border on right
+    Draw_Fill(MM_XOFF, MM_HEIGHT_PIX-mvs(1), MM_WIDTH_PIX, MM_FOOTER_HEIGHT, 1, 0.5); //bg bottom
+    Draw_Fill(MM_XOFF+MM_WIDTH_PIX, 0, 1, MM_HEIGHT_PIX, 1, 0.5); //vertical border on right
     //cursor
     Draw_Cursor(MM_XOFF, MM_HEADER_HEIGHT+mvs(matchmaking_cursor), MM_WIDTH_PIX, MVS, true);
     //header
     M_PrintWhite (MM_XOFF+TEXT_XMARGIN, MM_HEADER_HEIGHT-mvs(1)+TEXT_YMARGIN, "MATCHMAKING");
     //footer
-    M_PrintWhite (MM_WIDTH_PIX-23*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN, "0 Back X Select/Change");
+    M_PrintWhite (MM_WIDTH_PIX-25*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN, "  Back    Select/Change");
+    M_DrawO(MM_WIDTH_PIX-26*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN);
+    M_DrawX(MM_WIDTH_PIX-18*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN);
 
     //======================== 0
     //force update protocol char[]
