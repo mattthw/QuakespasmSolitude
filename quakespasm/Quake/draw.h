@@ -39,6 +39,8 @@ struct MenuCoords {
     struct Coord grid[10][20];
     int cols;
     int rows;
+    int colw;
+    int rowh;
 };
 
 void Draw_Init (void);

@@ -675,9 +675,6 @@ void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, fl
     D_PrintWhite(inside_xoff+CHARZ, inside_yoff-top_margin+textmargin, str);
 }
 
-#define new_max(x,y) (((x) >= (y)) ? (x) : (y))
-#define new_min(x,y) (((x) <= (y)) ? (x) : (y))
-
 /**
  * Draw a centered menu box.
  * @param title is title of the window
@@ -740,11 +737,13 @@ struct MenuCoords Draw_WindowGrid(char* title, int rows, float rowheight, int co
     }
     mc.cols = cols;
     mc.rows = rows;
+    mc.colw = colpix;
+    mc.rowh = rowpix;
     // draw background
     Draw_Fill(x, y, menu_width, menu_height, BG_COLOR, alpha);
     // draw cursor
     if (cursor >= 0) {
-        Draw_Cursor(mc.grid[0][0].x + border, mc.grid[0][cursor].y, colpix, rowpix, true);
+        Draw_Cursor(mc.grid[0][0].x, mc.grid[0][cursor].y, colpix, rowpix, true);
     }
     // draw header
     Draw_Fill(x, y, menu_width, header_height, 2, 1);

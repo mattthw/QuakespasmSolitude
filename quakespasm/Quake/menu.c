@@ -950,14 +950,14 @@ void M_Pause_Draw (void)
 
         if ((int)deathmatch.value == 2) //firefight
     {
-            struct MenuCoords coords = Draw_WindowGrid("Pause", 2, MVS_P, 1, 0.35, 0.667, pause_cursor, false);
-            M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Options");
+            struct MenuCoords coords = Draw_WindowGrid("Options", 2, MVS_P, 1, 0.35, 1, pause_cursor, false);
+            M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Settings");
             M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Disconnect");
         } else {
-            struct MenuCoords coords = Draw_WindowGrid("Pause", 4, MVS_P, 1, 0.35, 0.667, pause_cursor, false);
+            struct MenuCoords coords = Draw_WindowGrid("Options", 4, MVS_P, 1, 0.35, 1, pause_cursor, false);
             M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Add Bot");
             M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Remove Bot");
-            M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Options");
+            M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Settings");
             M_PrintWhite (coords.grid[0][3].xp, coords.grid[0][3].yp, "Disconnect");
         }
 }
@@ -2240,27 +2240,33 @@ typedef struct
 	const char	*name;
     const char  *thumbnail;
 	const char	*description;
+    const char  *mapBio[4];
+    const char  *author;
 } level_t;
 
 level_t		levels[] =
 {
-        {"citadel", "citadel", "Citadel"}, //0
-        {"bloody", "bloody", "Blood Gutch"},
-        {"lock", "lockout", "Lockout2"},
-        {"narsp", "random", "Narrows"},
-        {"Longest", "Longest", "Longest"},
-        {"chill", "random", "Chill Out"},
-        {"pri2", "random", "Prisoner"},
-        {"base", "base", "Minibase"},
-        {"plaza", "plaza", "Plaza"},
-        {"spider", "spider", "Spiderweb"},
-        {"pit", "random", "Pit"},
-        {"pit2", "random", "Pit (v2)"},
-        {"pit3", "random", "Pit (v2-fast)"},
+        // Refined map pack [4]
+        {"citadel", "citadel", "Citadel",{"A Forerunner","structure built","in Epitaph.",""}, "Matt"}, //0
+        {"+bloodgulch2", "bgulch", "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
+        {"pit3", "pit3", "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
+        {"narsp", "narsp", "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
+        // Classic map pack [6]
+        {"Longest", "Longest", "Longest", {"","","",""}, "Unknown"},
+        {"chill", "random", "Chill Out", {"","","",""}, "Unknown"},
+        {"pri2", "random", "Prisoner", {"","","",""}, "Unknown"},
+        {"base", "base", "Minibase", {"","","",""}, "Unknown"},
+        {"plaza", "plaza", "Plaza", {"","","",""}, "Unknown"},
+        {"spider", "spider", "Spiderweb", {"","","",""}, "Unknown"},
+        // Bonus map pack
+        {"pit", "random", "Pit (original)", {"","","",""}, "Jukki"},
+        {"pit2", "random", "Pit (v2)", {"","","",""}, "Jukki, Matt"},
+        {"lock", "lockout", "Lockout2", {"","","",""}, "Unknown"},
         //{"lockout", "lockout", "Lockout"},
 
-        {"construction", "construction", "Construction"},
-        {"fire", "fire", "Fire!"}
+        // Firefight map pack
+        {"construction", "construction", "Construction", {"","","",""}, "Unknown"},
+        {"fire", "fire", "Fire!", {"","","",""}, "Unknown"}
 };
 
 typedef struct
@@ -2272,9 +2278,9 @@ typedef struct
 int NUM_EPISODES = 3;
 episode_t	episodes[] =
         {
-                {"Map Pack 1", 0, 5},
-                {"Map Pack 2", 5, 5},
-                {"Map Pack 3", 10, 3}
+                {"Refined Maps", 0, 4},
+                {"Classic Maps", 4, 6},
+                {"Bonus Maps", 10, 3}
         };
 int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
@@ -2288,24 +2294,31 @@ extern cvar_t sv_public;
 
 //========= || MATCHMAKING || ============
 
-//size_t		mlist_cursor;
-//size_t		mlist_first;
-//bool mlist_sorted;
+size_t		mlist_cursor;
+size_t		mlist_first;
 int	startepisode;
 int	startlevel,prevlevel,nextlevel;
 int maxplayers;
 qboolean cursorfocused = 1;
 
-qboolean wasInMatchmaking = 0;
+const char *MlistPrintServer (size_t index) {
+
+    static char	string[64];
+    if (index >= episodes[startepisode].levels)
+        return "";
+
+    q_snprintf(string, sizeof(string), "%-15.15s\n", levels[episodes[startepisode].firstLevel + index].description);
+
+    return string;
+}
 
 void M_Matchmaking_Map_f (void) {
     key_dest = key_menu;
     m_state = m_matchmaking_map;
     m_entersound = true;
     cursorfocused = false;
-//    mlist_cursor = 0;
-//    mlist_first = 0;
-//    mlist_sorted = false;
+    mlist_cursor = 0;
+    mlist_first = 0;
     IN_UpdateGrabs();
 }
 
@@ -2318,29 +2331,50 @@ void M_Matchmaking_Map_Draw (void) {
     // now draw this menu
     m_state = m_matchmaking_map;
 
-//    size_t	mlist_shown;
-//    if (!mlist_sorted)
-//    {
-//        mlist_sorted = true;
-//        //MlistSort ();
-//    }
+    size_t	mlist_shown;
+    mlist_shown = episodes[startepisode].levels;
+    if (mlist_shown > 8)
+        mlist_shown = 8;
+    if (mlist_first+mlist_shown-1 < mlist_cursor)
+        mlist_first = mlist_cursor-(mlist_shown-1);
+    if (mlist_first > mlist_cursor)
+        mlist_first = mlist_cursor;
 
+    // background tint
     Draw_Fill(0,0,1000,1000, BLACK, 0.667);
-    struct MenuCoords coords = Draw_WindowGrid("Map Selection", 4, MVS_P, 2, 0.3, 1.0, 2, true);
+    // title
+    static char title[128];
+    q_snprintf(title, sizeof(title), "%-15.15s  %-15.15s\n\n", "Map Selection:", episodes[startepisode].description);
+    // window
+    struct MenuCoords coords = Draw_WindowGrid(title, 9, MVS_P, 2, 0.3, 1.0, mlist_cursor-mlist_first, true);
     //footer
-    M_PrintWhite (coords.grid[0][coords.rows].xp, coords.grid[0][coords.rows].yp, "   Back      Select");
+    M_PrintWhite (coords.grid[0][coords.rows].xp, coords.grid[0][coords.rows].yp, "   Back      Select   L/R: Map Pack");
     M_DrawO(coords.grid[0][coords.rows].xp, coords.grid[0][coords.rows].yp);
     M_DrawX(coords.grid[0][coords.rows].xp + 10*CHARZ, coords.grid[0][coords.rows].yp);
-
-    // episode name
-    M_Print (coords.grid[0][0].xp, coords.grid[0][0].yp, episodes[startepisode].description);
     // map name
-    M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, levels[episodes[startepisode].firstLevel + prevlevel].description);
-    M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, levels[episodes[startepisode].firstLevel + startlevel].description);
-    M_PrintWhite (coords.grid[0][3].xp, coords.grid[0][3].yp, levels[episodes[startepisode].firstLevel + nextlevel].description);
+    for (int n = 0; n < mlist_shown; n++) {
+        M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, MlistPrintServer (mlist_first+n));
+    }
     // map thumbnail
-    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[startepisode].firstLevel + startlevel].thumbnail));
-    M_DrawTransPic(coords.grid[1][2].xp, coords.grid[1][2].yp - (mappic->height)/2, mappic);
+    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].thumbnail));
+    M_DrawTransPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic);
+
+    // map bio
+    int map_y = coords.grid[1][4].yp;
+    M_Print(coords.grid[1][4].x, coords.grid[1][4].yp, "Map Description:");
+    static char	string[64];
+    q_snprintf(string, sizeof(string), "debug: %-1.1d %-1.1d\n", coords.colw, 4*coords.rowh);
+    M_Print(0, 0, string);
+    map_y += CHARZ * 1.5;
+    M_PrintWhite (coords.grid[1][4].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[0]);
+    map_y += CHARZ * 1.5;
+    M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[1]);
+    map_y += CHARZ * 1.5;
+    M_PrintWhite (coords.grid[1][6].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[2]);
+    map_y += CHARZ * 1.5;
+    M_PrintWhite (coords.grid[1][6].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[3]);
+    M_Print(coords.grid[1][7].x, coords.grid[1][7].yp, "Author:");
+    M_PrintWhite (coords.grid[1][8].xp, coords.grid[1][7].yp + CHARZ*1.5, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].author);
 }
 
 
@@ -2357,24 +2391,6 @@ void M_Matchmaking_Map_Submenu_Key (int xdir, int ydir)
 
     if (startepisode >= epcount)
         startepisode = 0;
-
-    // levels
-    if (startlevel < 0)
-        startlevel = levcount - 1;
-    if (startlevel >= levcount)
-        startlevel = 0;
-
-    nextlevel = startlevel + 1;
-    if (nextlevel < 0)
-        nextlevel = levcount - 1;
-    if (nextlevel >= levcount)
-        nextlevel = 0;
-
-    prevlevel = startlevel - 1;
-    if (prevlevel < 0)
-        prevlevel = levcount - 1;
-    if (prevlevel >= levcount)
-        prevlevel = 0;
 }
 
 void M_Matchmaking_Map_Key (int key) {
@@ -2392,25 +2408,35 @@ void M_Matchmaking_Map_Key (int key) {
         case 'y':
         case 'Y':
             chosen_level.episode = startepisode;
-            chosen_level.level = startlevel;
+            chosen_level.level = mlist_cursor-mlist_first;
             m_state = m_gameoptions;
             cursorfocused = true;
             S_LocalSound ("misc/menuoption.wav");
             break;
         case K_UPARROW:
             S_LocalSound ("misc/menuoption.wav");
-            M_Matchmaking_Map_Submenu_Key(0,-1);
+            mlist_cursor--;
+            if (mlist_cursor >= episodes[startepisode].levels)
+                mlist_cursor = episodes[startepisode].levels - 1;
             break;
         case K_DOWNARROW:
             S_LocalSound ("misc/menuoption.wav");
-            M_Matchmaking_Map_Submenu_Key(0,1);
+            mlist_cursor++;
+            if (mlist_cursor >= episodes[startepisode].levels)
+                mlist_cursor = 0;
             break;
+        case K_LTRIGGER:
         case K_LEFTARROW:
             S_LocalSound ("misc/menuoption.wav");
+            mlist_cursor = 0;
+            mlist_first = 0;
             M_Matchmaking_Map_Submenu_Key(-1,0);
             break;
+        case K_RTRIGGER:
         case K_RIGHTARROW:
             S_LocalSound ("misc/menuoption.wav");
+            mlist_cursor = 0;
+            mlist_first = 0;
             M_Matchmaking_Map_Submenu_Key(1,0);
             break;
 
@@ -2466,8 +2492,8 @@ int matchmaking_cursor = 6; //indexing off 0
 void M_Matchmaking_Draw (void)
 {
     // fetch 'random' map thumbnail early so we can use its dimmensions
-    qpic_t *randmap = Draw_CachePic("gfx/maps/random.lmp");
-    int fg_height = MM_HEIGHT_PIX - (MM_HEADER_HEIGHT + MM_FOOTER_HEIGHT +randmap->height);
+    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail));
+    int fg_height = MM_HEIGHT_PIX - (MM_HEADER_HEIGHT + MM_FOOTER_HEIGHT +mappic->height);
     // build cursor positions
     int matchmaking_cursor_table[NUM_GAMEOPTIONS];
     for (int i = 0; i < NUM_GAMEOPTIONS; i++) {
@@ -2475,10 +2501,10 @@ void M_Matchmaking_Draw (void)
     }
     //background
     Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEIGHT_PIX, MM_BG, 0.5); //bg full
-    Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEADER_HEIGHT, 1, 0.5); //bg header
+    Draw_Fill(MM_XOFF, 0, MM_WIDTH_PIX, MM_HEADER_HEIGHT, BLACK, 0.5); //bg header
     Draw_Fill(MM_XOFF, MM_HEADER_HEIGHT, MM_WIDTH_PIX, fg_height, MM_FG, 0.5); //bg foreground
-    Draw_Fill(MM_XOFF, MM_HEIGHT_PIX-mvs(1), MM_WIDTH_PIX, MM_FOOTER_HEIGHT, 1, 0.5); //bg bottom
-    Draw_Fill(MM_XOFF+MM_WIDTH_PIX, 0, 1, MM_HEIGHT_PIX, 1, 0.5); //vertical border on right
+    Draw_Fill(MM_XOFF, MM_HEIGHT_PIX-mvs(1), MM_WIDTH_PIX, MM_FOOTER_HEIGHT, BLACK, 0.5); //bg footer
+    Draw_Fill(MM_XOFF+MM_WIDTH_PIX, 0, 1, MM_HEIGHT_PIX, BLACK, 0.5); //vertical border on right
     //cursor
     Draw_Cursor(MM_XOFF, MM_HEADER_HEIGHT+mvs(matchmaking_cursor), MM_WIDTH_PIX, MVS, cursorfocused);
     //header
@@ -2557,8 +2583,6 @@ void M_Matchmaking_Draw (void)
     //========================= 6
     M_PrintWhite (MM_XOFF+TEXT_XMARGIN, matchmaking_cursor_table[6], "START GAME");
     //========================= Draw image
-
-    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail));
     M_DrawTransPic(MM_XOFF+(MM_WIDTH_PIX-mappic->width)/2, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT-mappic->height, mappic);
 }
 
@@ -2702,7 +2726,7 @@ void M_Matchmaking_Key (int key)
                 SCR_BeginLoadingPlaque ();
                 Cbuf_AddText ("chase_active 0\n");
                 Cbuf_AddText ( va ("deathmatch %u\n", (int)deathmatch.value) );
-                Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + startlevel].name) );
+                Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
                 // remove old bots. add single bot
                 for (int i = 0; i < 8; i++) {
                     Cbuf_AddText ("impulse 102\n");
@@ -2941,7 +2965,6 @@ void M_Menu_ServerList_f (void)
 void M_ServerList_Draw (void)
 {
 	size_t	n, slist_shown;
-//	qpic_t	*p;
 
 	if (!slist_sorted)
 	{
