@@ -49,7 +49,7 @@ void Draw_WindowInsCol(int x, int y, float width, float height, int color, float
 void Draw_WindowIns(int x, int y, float width, float height, float alpha);
 void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, float alpha);
 void Draw_OffCenterWindowPix(int x, int y, int width, int height, char *str, float alpha);
-struct MenuCoords Draw_WindowGrid(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor);
+struct MenuCoords Draw_WindowGrid(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor, int footer);
 void Draw_WindowPix(int x, int y, int bgwidth, int bgheight, char *str, float alpha);
 void Draw_CenterWindow(float width, float height, char *str, float alpha);
 void Draw_DebugChar (char num);

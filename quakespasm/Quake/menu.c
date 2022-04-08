@@ -38,6 +38,7 @@ void M_Menu_Main_f (void);
 		void M_Menu_Load_f (void);
 		void M_Menu_Save_f (void);
     void M_Matchmaking_f (void);
+        void M_Matchmaking_Map_f (void);
 		void M_Menu_Setup_f (void);
 		void M_Menu_LanConfig_f (void);
 		void M_Menu_Search_f (enum slistScope_e scope);
@@ -56,6 +57,7 @@ void M_Main_Draw (void);
 		void M_Save_Draw (void);
     void M_Main_Multi_Draw (void);
     void M_Matchmaking_Draw (void);
+        void M_Matchmaking_Map_Draw (void);
 		void M_Setup_Draw (void);
 		void M_LanConfig_Draw (void);
 		void M_Search_Draw (void);
@@ -83,6 +85,7 @@ void M_Main_Key (int key);
 		void M_Load_Key (int key);
 		void M_Save_Key (int key);
     void M_Matchmaking_Key (int key);
+        void M_Matchmaking_Map_Key (int key);
 		void M_Setup_Key (int key);
 		void M_LanConfig_Key (int key);
 		void M_Search_Key (int key);
@@ -294,7 +297,7 @@ bool theme_started = false;
 void PlayMenuTheme(bool override) {
     //    Cbuf_AddText ("playdemo title.dem\n"); broken since there is a missing audio track. causes loop. do in config if wanted
     if (!theme_started || override) {
-        Cbuf_AddText("play music/ambient.mp3\n");
+        Cbuf_AddText("play music/theme.wav\n");
         theme_started = true;
     }
 }
@@ -947,11 +950,11 @@ void M_Pause_Draw (void)
 
         if ((int)deathmatch.value == 2) //firefight
     {
-            struct MenuCoords coords = Draw_WindowGrid("Pause", 2, MVS_P, 1, 0.35, 0.5, pause_cursor);
+            struct MenuCoords coords = Draw_WindowGrid("Pause", 2, MVS_P, 1, 0.35, 0.667, pause_cursor, false);
             M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Options");
             M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Disconnect");
         } else {
-            struct MenuCoords coords = Draw_WindowGrid("Pause", 4, MVS_P, 1, 0.35, 0.5, pause_cursor);
+            struct MenuCoords coords = Draw_WindowGrid("Pause", 4, MVS_P, 1, 0.35, 0.667, pause_cursor, false);
             M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Add Bot");
             M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Remove Bot");
             M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Options");
@@ -1911,9 +1914,8 @@ void M_Quit_Draw (void)
     int xoff = 80;
     int yoff = 20;
 
-    Draw_Fill(0,0,1000,1000, BLACK, 0.20);
-//    Draw_OffCenterWindow(coords.grid[0][0].xp, coords.grid[0][0].yh, 0.5, 0.2, "Quit", MENU_ALPHA);
-    struct MenuCoords coords = Draw_WindowGrid("Quit", 2, MVS_P, 2, 0.2, 0.5, -1);
+    Draw_Fill(0,0,1000,1000, BLACK, 0.667);
+    struct MenuCoords coords = Draw_WindowGrid("Quit", 2, MVS_P, 2, 0.2, 1.0, -1, false);
     M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Ready to retire, Chief?");
     M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Yes");
     M_DrawX(coords.grid[0][1].xp + 4*CHARZ, coords.grid[0][1].yp);
@@ -1972,11 +1974,14 @@ void M_LanConfig_Draw (void)
     int		numaddresses, i;
     qhostaddr_t addresses[16];
     const char	*startJoin;
+    float width = 0.4;
+    int rows = 6;
+    if (StartingGame) {
+        width = 0.25;
+        rows = 4;
+    }
 
-	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
-	p = Draw_CachePic ("gfx/p_multi.lmp");
-	basex = (320-p->width)/2;
-	M_DrawPic (basex, 4, p);
+    struct MenuCoords mc = Draw_WindowGrid("Matchmaking", rows, MVS_P, 2, width, 0.667, -1, false);
 
 	if (StartingGame)
 		startJoin = "New Game";
@@ -1986,94 +1991,92 @@ void M_LanConfig_Draw (void)
 		protocol = "IPX";
 	else
 		protocol = "TCP/IP";
-	M_Print (basex, 32, va ("%s - %s", startJoin, protocol));
-	basex += 8;
+	M_PrintWhite(mc.grid[0][0].xp, mc.grid[0][0].yp, va ("%s - %s", startJoin, protocol));
 
-	y = 52;
-	M_Print (basex, y, "Address:");
+	M_Print (mc.grid[0][1].xp, mc.grid[0][1].yp, "Address:");
+    y = mc.grid[0][1].yp;
 #if 1
 	numaddresses = NET_ListAddresses(addresses, sizeof(addresses)/sizeof(addresses[0]));
 	if (!numaddresses)
 	{
-		M_Print (basex+9*8, y, "NONE KNOWN");
-		y += 8;
+		M_PrintWhite(mc.grid[1][1].xp, y, "NONE KNOWN");
+		y += MVS;
 	}
 	else for (i = 0; i < numaddresses; i++)
 	{
-		M_Print (basex+9*8, y, addresses[i]);
-		y += 8;
+		M_PrintWhite(mc.grid[1][1].xp, y, addresses[i]);
+		y += MVS;
 	}
 #else
 	if (IPXConfig)
 	{
-		M_Print (basex+9*8, y, my_ipx_address);
-		y+=8;
+		M_Print (mc.grid[1][1].xp, y, my_ipx_address);
+		y+=MVS;
 	}
 	else
 	{
 		if (ipv4Available && ipv6Available)
 		{
-			M_Print (basex+9*8, y, my_ipv4_address);
-			y+=8;
-			M_Print (basex+9*8, y, my_ipv6_address);
-			y+=8;
+			M_Print (mc.grid[1][1].xp, y, my_ipv4_address);
+			y+=MVS;
+			M_Print (mc.grid[1][1].xp, y, my_ipv6_address);
+			y+=MVS;
 		}
 		else
 		{
 			if (ipv4Available)
-				M_Print (basex+9*8, y, my_ipv4_address);
+				M_Print (mc.grid[1][1].xp, y, my_ipv4_address);
 			if (ipv6Available)
-				M_Print (basex+9*8, y, my_ipv6_address);
-			y+=8;
+				M_Print (mc.grid[1][1].xp, y, my_ipv6_address);
+			y+=MVS;
 		}
 	}
 #endif
 
-	y+=8;	//for the port's box
-	M_Print (basex, y, "Port");
-	M_DrawTextBox (basex+8*8, y-8, 6, 1);
-	M_Print (basex+9*8, y, lanConfig_portname);
+//	y+=MVS;	//for the port's box
+	M_Print (mc.grid[0][2].xp, y, "Port");
+	M_DrawTextBox (mc.grid[1][2].xp, y-CHARZ, 6, 1);
+	M_PrintWhite (mc.grid[1][2].xp + CHARZ, y, lanConfig_portname);
 	if (lanConfig_cursor == 0)
 	{
-		M_DrawCharacter (basex+9*8 + 8*strlen(lanConfig_portname), y, 10+((int)(realtime*4)&1));
-		M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
+		M_DrawCharacter (mc.grid[1][2].xp + 8*strlen(lanConfig_portname), y, 10+((int)(realtime*4)&1));
+		M_DrawCharacter (mc.grid[1][2].x, y, 12+((int)(realtime*4)&1));
 	}
-	y += 20;
+	y += MVS;
 
 	if (JoiningGame)
 	{
-		M_Print (basex, y, "Search for local games...");
+		M_Print (mc.grid[0][3].xp, y, "Search for local games...");
 		if (lanConfig_cursor == 1)
-			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
-		y+=8;
+			M_DrawCharacter (mc.grid[0][3].x, y, 12+((int)(realtime*4)&1));
+		y+=MVS;
 
-		M_Print (basex, y, "Search for public games...");
+		M_Print (mc.grid[0][3].xp, y, "Search for public games...");
 		if (lanConfig_cursor == 2)
-			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
-		y+=8;
+			M_DrawCharacter (mc.grid[0][3].x, y, 12+((int)(realtime*4)&1));
+		y+=MVS;
 
-		M_Print (basex, y, "Join game at:");
-		y+=24;
-		M_DrawTextBox (basex+8, y-8, 22, 1);
-		M_Print (basex+16, y, lanConfig_joinname);
+		M_Print (mc.grid[0][4].xp, y, "Join game at:");
+		M_DrawTextBox (mc.grid[1][4].xp, y-CHARZ, 22, 1);
+		M_PrintWhite (mc.grid[1][4].xp + CHARZ, y, lanConfig_joinname);
 		if (lanConfig_cursor == 3)
 		{
-			M_DrawCharacter (basex+16 + 8*strlen(lanConfig_joinname), y, 10+((int)(realtime*4)&1));
-			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
+			M_DrawCharacter (mc.grid[1][4].xp + CHARZ + CHARZ*strlen(lanConfig_joinname), y, 10+((int)(realtime*4)&1));
+			M_DrawCharacter (mc.grid[1][4].x-CHARZ, y, 12+((int)(realtime*4)&1));
 		}
-		y += 16;
+		y += MVS;
 	}
 	else
 	{
-		M_DrawTextBox (basex, y-8, 2, 1);
-		M_Print (basex+8, y, "OK");
+//		M_DrawTextBox (mc.grid[0][3].xp, y-CHARZ, 2, 1);
+		M_Print (mc.grid[0][3].xp, y, "OK");
 		if (lanConfig_cursor == 1)
-			M_DrawCharacter (basex-8, y, 12+((int)(realtime*4)&1));
-		y += 16;
+			M_DrawCharacter (mc.grid[0][3].x, y, 12+((int)(realtime*4)&1));
+		y += MVS;
 	}
 
 	if (*m_return_reason)
-		M_PrintWhite (basex, 148, m_return_reason);
+		M_PrintWhite (mc.grid[0][5].xp, mc.grid[0][5].yp, m_return_reason);
 }
 
 /***
@@ -2227,7 +2230,11 @@ qboolean M_LanConfig_TextEntry (void)
 
 //=============================================================================
 /* GAME OPTIONS MENU */
-
+typedef struct {
+    int episode;
+    int level;
+} eplev; // chosen level & episode
+eplev chosen_level = {0,0};
 typedef struct
 {
 	const char	*name;
@@ -2262,12 +2269,14 @@ typedef struct
 	int		firstLevel;
 	int		levels;
 } episode_t;
-
+int NUM_EPISODES = 3;
 episode_t	episodes[] =
         {
-                {"Slayer Maps", 0, 13}
+                {"Map Pack 1", 0, 5},
+                {"Map Pack 2", 5, 5},
+                {"Map Pack 3", 10, 3}
         };
-
+int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
         {
                 {"Firefight Maps", 13, 2}
@@ -2279,9 +2288,136 @@ extern cvar_t sv_public;
 
 //========= || MATCHMAKING || ============
 
+//size_t		mlist_cursor;
+//size_t		mlist_first;
+//bool mlist_sorted;
 int	startepisode;
-int	startlevel;
+int	startlevel,prevlevel,nextlevel;
 int maxplayers;
+qboolean cursorfocused = 1;
+
+qboolean wasInMatchmaking = 0;
+
+void M_Matchmaking_Map_f (void) {
+    key_dest = key_menu;
+    m_state = m_matchmaking_map;
+    m_entersound = true;
+    cursorfocused = false;
+//    mlist_cursor = 0;
+//    mlist_first = 0;
+//    mlist_sorted = false;
+    IN_UpdateGrabs();
+}
+
+void M_Matchmaking_Map_Draw (void) {
+
+    // set to matchmaking for recursive draw
+    m_state = m_gameoptions;
+    m_recursiveDraw = true;
+    M_Draw ();
+    // now draw this menu
+    m_state = m_matchmaking_map;
+
+//    size_t	mlist_shown;
+//    if (!mlist_sorted)
+//    {
+//        mlist_sorted = true;
+//        //MlistSort ();
+//    }
+
+    Draw_Fill(0,0,1000,1000, BLACK, 0.667);
+    struct MenuCoords coords = Draw_WindowGrid("Map Selection", 4, MVS_P, 2, 0.3, 1.0, 2, true);
+    //footer
+    M_PrintWhite (coords.grid[0][coords.rows].xp, coords.grid[0][coords.rows].yp, "   Back      Select");
+    M_DrawO(coords.grid[0][coords.rows].xp, coords.grid[0][coords.rows].yp);
+    M_DrawX(coords.grid[0][coords.rows].xp + 10*CHARZ, coords.grid[0][coords.rows].yp);
+
+    // episode name
+    M_Print (coords.grid[0][0].xp, coords.grid[0][0].yp, episodes[startepisode].description);
+    // map name
+    M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, levels[episodes[startepisode].firstLevel + prevlevel].description);
+    M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, levels[episodes[startepisode].firstLevel + startlevel].description);
+    M_PrintWhite (coords.grid[0][3].xp, coords.grid[0][3].yp, levels[episodes[startepisode].firstLevel + nextlevel].description);
+    // map thumbnail
+    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[startepisode].firstLevel + startlevel].thumbnail));
+    M_DrawTransPic(coords.grid[1][2].xp, coords.grid[1][2].yp - (mappic->height)/2, mappic);
+}
+
+
+void M_Matchmaking_Map_Submenu_Key (int xdir, int ydir)
+{
+    int epcount, levcount;
+    startepisode += xdir;
+    startlevel += ydir;
+    epcount = NUM_EPISODES;
+    levcount = episodes[startepisode].levels;
+
+    if (startepisode < 0)
+        startepisode = epcount - 1;
+
+    if (startepisode >= epcount)
+        startepisode = 0;
+
+    // levels
+    if (startlevel < 0)
+        startlevel = levcount - 1;
+    if (startlevel >= levcount)
+        startlevel = 0;
+
+    nextlevel = startlevel + 1;
+    if (nextlevel < 0)
+        nextlevel = levcount - 1;
+    if (nextlevel >= levcount)
+        nextlevel = 0;
+
+    prevlevel = startlevel - 1;
+    if (prevlevel < 0)
+        prevlevel = levcount - 1;
+    if (prevlevel >= levcount)
+        prevlevel = 0;
+}
+
+void M_Matchmaking_Map_Key (int key) {
+    switch (key)
+    {
+        case K_YBUTTON: // triangle
+        case K_BBUTTON: // circle
+        case 'n':
+        case 'N':
+            m_state = m_gameoptions;
+            m_entersound = true;
+            cursorfocused = true;
+            break;
+        case K_ABUTTON: // x
+        case 'y':
+        case 'Y':
+            chosen_level.episode = startepisode;
+            chosen_level.level = startlevel;
+            m_state = m_gameoptions;
+            cursorfocused = true;
+            S_LocalSound ("misc/menuoption.wav");
+            break;
+        case K_UPARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            M_Matchmaking_Map_Submenu_Key(0,-1);
+            break;
+        case K_DOWNARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            M_Matchmaking_Map_Submenu_Key(0,1);
+            break;
+        case K_LEFTARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            M_Matchmaking_Map_Submenu_Key(-1,0);
+            break;
+        case K_RIGHTARROW:
+            S_LocalSound ("misc/menuoption.wav");
+            M_Matchmaking_Map_Submenu_Key(1,0);
+            break;
+
+        default:
+            break;
+    }
+}
 
 void M_Matchmaking_f (void)
 {
@@ -2300,7 +2436,10 @@ void M_Matchmaking_f (void)
     startepisode = 0;
     if (!mm_rentry)
         startlevel = rand() % episodes[startepisode].levels;
+    chosen_level.episode = startepisode;
+    chosen_level.level = startlevel;
     mm_rentry = false;
+    cursorfocused = true;
     PlayMenuTheme(false);
 }
 
@@ -2341,7 +2480,7 @@ void M_Matchmaking_Draw (void)
     Draw_Fill(MM_XOFF, MM_HEIGHT_PIX-mvs(1), MM_WIDTH_PIX, MM_FOOTER_HEIGHT, 1, 0.5); //bg bottom
     Draw_Fill(MM_XOFF+MM_WIDTH_PIX, 0, 1, MM_HEIGHT_PIX, 1, 0.5); //vertical border on right
     //cursor
-    Draw_Cursor(MM_XOFF, MM_HEADER_HEIGHT+mvs(matchmaking_cursor), MM_WIDTH_PIX, MVS, true);
+    Draw_Cursor(MM_XOFF, MM_HEADER_HEIGHT+mvs(matchmaking_cursor), MM_WIDTH_PIX, MVS, cursorfocused);
     //header
     M_PrintWhite (MM_XOFF+TEXT_XMARGIN, MM_HEADER_HEIGHT-mvs(1)+TEXT_YMARGIN, "MATCHMAKING");
     //footer
@@ -2414,12 +2553,12 @@ void M_Matchmaking_Draw (void)
         M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[4], "Legendary");
     //======================== 5
     M_Print (MM_XOFF+TEXT_XMARGIN, matchmaking_cursor_table[5], "MAP");
-    M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[5], levels[episodes[startepisode].firstLevel + startlevel].description);
+    M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[5], levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description);
     //========================= 6
     M_PrintWhite (MM_XOFF+TEXT_XMARGIN, matchmaking_cursor_table[6], "START GAME");
     //========================= Draw image
 
-    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[startepisode].firstLevel + startlevel].thumbnail));
+    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail));
     M_DrawTransPic(MM_XOFF+(MM_WIDTH_PIX-mappic->width)/2, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT-mappic->height, mappic);
 }
 
@@ -2573,9 +2712,9 @@ void M_Matchmaking_Key (int key)
 //                Cbuf_Execute();
 //                m_state = m_none; // set state to none so console loads?
                 return;
-            }
-            else if (matchmaking_cursor == 0)
-            {
+            } else if (matchmaking_cursor == 5) {
+                M_Matchmaking_Map_f();
+            } else if (matchmaking_cursor == 0) {
                 m_multiplayer_cursor = 1;
                 M_Menu_LanConfig_f();
             }
@@ -2745,11 +2884,8 @@ void M_Search_Draw (void)
 	qpic_t	*p;
 	int x;
 
-	p = Draw_CachePic ("gfx/p_multi.lmp");
-	M_DrawPic ( (320-p->width)/2, 4, p);
-	x = (320/2) - ((12*8)/2) + 4;
-	M_DrawTextBox (x-8, 32, 12, 1);
-	M_Print (x, 40, "Searching...");
+    struct MenuCoords mc = Draw_WindowGrid("Matchmaking", 2, MVS_P, 1, 0.4, 0.667, -1, false);
+	M_PrintWhite (mc.grid[0][0].xp, mc.grid[0][0].yp, "Finding match...");
 
 	if(slistInProgress)
 	{
@@ -2769,7 +2905,7 @@ void M_Search_Draw (void)
 		return;
 	}
 
-	M_PrintWhite ((320/2) - ((22*8)/2), 64, "No Quake servers found");
+    M_PrintWhite (mc.grid[0][1].xp, mc.grid[0][1].yp, "No Quake servers found");
 	if ((realtime - searchCompleteTime) < 3.0)
 		return;
 
@@ -2805,7 +2941,7 @@ void M_Menu_ServerList_f (void)
 void M_ServerList_Draw (void)
 {
 	size_t	n, slist_shown;
-	qpic_t	*p;
+//	qpic_t	*p;
 
 	if (!slist_sorted)
 	{
@@ -2814,21 +2950,27 @@ void M_ServerList_Draw (void)
 	}
 
 	slist_shown = hostCacheCount;
-	if (slist_shown > (200-32)/8)
-		slist_shown = (200-32)/8;
+	if (slist_shown > (200-50)/CHARZ)
+		slist_shown = (200-50)/CHARZ;
 	if (slist_first+slist_shown-1 < slist_cursor)
 		slist_first = slist_cursor-(slist_shown-1);
 	if (slist_first > slist_cursor)
 		slist_first = slist_cursor;
 
-	p = Draw_CachePic ("gfx/p_multi.lmp");
-	M_DrawPic ( (320-p->width)/2, 4, p);
+    struct MenuCoords mc = Draw_WindowGrid("Matchmaking", slist_shown, 14, 1, 0.667, 0.667, slist_cursor-slist_first, true);
+    //footer
+    M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Back      Join");
+    M_DrawO(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp);
+    M_DrawX(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp);
+    // draw servers
 	for (n = 0; n < slist_shown; n++)
-		M_Print (16, 32 + 8*n, NET_SlistPrintServer (slist_first+n));
-	M_DrawCharacter (0, 32 + (slist_cursor-slist_first)*8, 12+((int)(realtime*4)&1));
+		M_PrintWhite (mc.grid[0][n].xp, mc.grid[0][n].yp, NET_SlistPrintServer (slist_first+n));
 
-	if (*m_return_reason)
-		M_PrintWhite (16, 148, m_return_reason);
+    // draw error
+	if (*m_return_reason) {
+        struct MenuCoords mce = Draw_WindowGrid("Error", 1, 14, 1, 40, 1.0, -1, false);
+        M_PrintWhite (mce.grid[0][0].xp, mce.grid[0][0].yp, m_return_reason);
+    }
 }
 
 
@@ -3265,6 +3407,10 @@ void M_Draw (void)
         M_Matchmaking_Draw ();
 		break;
 
+    case m_matchmaking_map:
+        M_Matchmaking_Map_Draw ();
+        break;
+
 	case m_search:
 		M_Search_Draw ();
 		break;
@@ -3359,6 +3505,10 @@ void M_Keydown (int key)
 	case m_gameoptions:
         M_Matchmaking_Key (key);
 		return;
+
+    case m_matchmaking_map:
+        M_Matchmaking_Map_Key (key);
+        break;
 
 	case m_search:
 		M_Search_Key (key);
