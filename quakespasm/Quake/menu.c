@@ -724,7 +724,7 @@ int	m_multiplayer_cursor;
 //=============================================================================
 /* SETUP MENU */
 
-int		setup_cursor = 4;
+int		setup_cursor = 3;
 int		setup_cursor_table[] = {40, 56, 80, 104, 140};
 
 char	setup_hostname[16];
@@ -734,7 +734,7 @@ int		setup_oldbottom;
 int		setup_top;
 int		setup_bottom;
 
-#define	NUM_SETUP_CMDS	5
+#define	NUM_SETUP_CMDS	4
 
 void M_Menu_Setup_f (void)
 {
@@ -752,38 +752,36 @@ void M_Menu_Setup_f (void)
 
 void M_Setup_Draw (void)
 {
-	qpic_t	*p;
+    qpic_t	*p;
+    // window
+    struct MenuCoords mc = Draw_WindowGridOffset("Spartan Customization", 4, MVS, 2, 0.267, 0.8, setup_cursor, true, -0.19);
+    //footer
+    M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Cancel     or L/R: Change");
+    M_DrawO(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp);
+    M_DrawX(mc.grid[0][mc.rows].xp + 11*CHARZ, mc.grid[0][mc.rows].yp);
 
-	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
-	p = Draw_CachePic ("gfx/p_multi.lmp");
-	M_DrawPic ( (320-p->width)/2, 4, p);
+    M_PrintWhite (mc.grid[0][0].xp, mc.grid[0][0].yp, "Hostname");
+	M_DrawTextBox (mc.grid[1][0].x, mc.grid[1][0].y, 16, 1);
+    M_PrintWhite (mc.grid[1][0].xp, mc.grid[1][0].yp, setup_hostname);
 
-	M_Print (64, 40, "Hostname");
-	M_DrawTextBox (160, 32, 16, 1);
-	M_Print (168, 40, setup_hostname);
+    M_PrintWhite (mc.grid[0][1].xp, mc.grid[0][1].yp, "Your name");
+	M_DrawTextBox (mc.grid[1][1].x, mc.grid[1][1].y, 16, 1);
+    M_PrintWhite (mc.grid[1][1].xp, mc.grid[1][1].yp, setup_myname);
 
-	M_Print (64, 56, "Your name");
-	M_DrawTextBox (160, 48, 16, 1);
-	M_Print (168, 56, setup_myname);
+    M_PrintWhite (mc.grid[0][2].xp, mc.grid[0][2].yp, "Spartan color");
 
-	M_Print (64, 80, "Shirt color");
-	M_Print (64, 104, "Pants color");
+    M_PrintWhite (mc.grid[0][3].xp, mc.grid[0][3].yp, "Save Changes");
 
-	M_DrawTextBox (64, 140-8, 14, 1);
-	M_Print (72, 140, "Accept Changes");
-
-	p = Draw_CachePic ("gfx/bigbox.lmp");
-	M_DrawTransPic (160, 64, p);
-	p = Draw_CachePic ("gfx/menuplyr.lmp");
-	M_DrawTransPicTranslate (172, 72, p, setup_top, setup_bottom);
-
-	M_DrawCharacter (56, setup_cursor_table [setup_cursor], 12+((int)(realtime*4)&1));
+	p = Draw_CachePic ("gfx/menuspartan.lmp");
+    int spartanx = ((320 * MENU_SCALE) - p->width)/2 + (0.2667 * (320 * MENU_SCALE));
+    int spartany = ((200 * MENU_SCALE) - p->height)/2;
+	M_DrawTransPicTranslate (spartanx, spartany, p, setup_top, setup_bottom);
 
 	if (setup_cursor == 0)
-		M_DrawCharacter (168 + 8*strlen(setup_hostname), setup_cursor_table [setup_cursor], 10+((int)(realtime*4)&1));
+		M_DrawCharacter (mc.grid[1][0].xp + 8*strlen(setup_hostname), mc.grid[1][0].yp, 10+((int)(realtime*4)&1));
 
 	if (setup_cursor == 1)
-		M_DrawCharacter (168 + 8*strlen(setup_myname), setup_cursor_table [setup_cursor], 10+((int)(realtime*4)&1));
+		M_DrawCharacter (mc.grid[1][1].xp + 8*strlen(setup_myname), mc.grid[1][1].yp, 10+((int)(realtime*4)&1));
 }
 
 
@@ -824,9 +822,7 @@ void M_Setup_Key (int k)
 			return;
 		S_LocalSound ("misc/menu3.wav");
 		if (setup_cursor == 2)
-			setup_top = setup_top - 1;
-		if (setup_cursor == 3)
-			setup_bottom = setup_bottom - 1;
+            setup_bottom = setup_bottom - 1;
 		break;
 	case K_RIGHTARROW:
 		if (setup_cursor < 2)
@@ -834,18 +830,18 @@ void M_Setup_Key (int k)
 forward:
 		S_LocalSound ("misc/menu3.wav");
 		if (setup_cursor == 2)
-			setup_top = setup_top + 1;
-		if (setup_cursor == 3)
-			setup_bottom = setup_bottom + 1;
+            setup_bottom = setup_bottom + 1;
 		break;
 
 	case K_ENTER:
 	case K_KP_ENTER:
 	case K_ABUTTON:
-		if (setup_cursor == 0 || setup_cursor == 1)
-			return;
+        if (setup_cursor == 0)
+            IN_SwitchKeyboard(setup_hostname, 16);
+        else if (setup_cursor == 1)
+            IN_SwitchKeyboard(setup_myname, 16);
 
-		if (setup_cursor == 2 || setup_cursor == 3)
+		if (setup_cursor == 2)
 			goto forward;
 
 		// setup_cursor == 4 (OK)
@@ -855,8 +851,10 @@ forward:
 			Cvar_Set("hostname", setup_hostname);
 		if (setup_top != setup_oldtop || setup_bottom != setup_oldbottom)
 			Cbuf_AddText( va ("color %i %i\n", setup_top, setup_bottom) );
-		m_entersound = true;
-		M_Menu_Main_f();
+        if (setup_cursor == 3) {
+            m_entersound = true;
+            M_Menu_Main_f();
+        }
 		break;
 	
 	case K_XBUTTON:
