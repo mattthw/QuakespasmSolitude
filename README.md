@@ -78,6 +78,8 @@ Sorry, but unless someone wants to decompile the progs.dat, or if someone can ge
 - [Parsing of old solitude maps](https://docs.google.com/forms/d/e/1FAIpQLSeWVJZsibrkOvGFM-eU71NBU7y_i1WiL9-np2pGlpMS5n62mw/viewform?usp=sf_link)
 - [Frank's Craptacular House of Mac Quake Stuffs
   ](http://quake.chaoticbox.com/) - Tools for quake on macOS
+- [Marco's Quake Tools](http://icculus.org/~marco/sources/q1tools.html) C programs for targa <-> lmp format
+  - the programs are rehosted in this repository under ``/solitude/artwork``` in case the website goes down.
 - https://quakewiki.org/wiki/Getting_Started_Mapping
 - How to take screenshots (so I remember later):
     ```
