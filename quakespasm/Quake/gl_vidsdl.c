@@ -2413,24 +2413,17 @@ VID_MenuDraw
 */
 static void VID_MenuDraw (void)
 {
-	int i, y;
-	qpic_t *p;
-	const char *title;
+	int i;
 	float r;
-	
-	y = 4;
+    float alpha = 0.8;
+    if (sv.active)
+        alpha = 1;
 
-	//p = Draw_CachePic ("gfx/vidmodes.lmp");
-	p = Draw_CachePic ("gfx/p_option.lmp");
-	M_DrawPic ( (320-p->width)/2, y, p);
-
-	y += 28;
-
-	// title
-	title = "Advanced Options";
-	M_PrintWhite ((320-8*strlen(title))/2, y, title);
-
-	y += 16;
+    struct MenuCoords mc = Draw_WindowGrid("Advanced Options", 19, MVS*0.6, 2, 0.4, alpha, video_options_cursor, true);
+    //footer
+    M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Back      Select   L/R: Move Slider");
+    M_DrawO(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp);
+    M_DrawX(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp);
 
 	// options
 	for (i = 0; i < VIDEO_OPTIONS_ITEMS; i++)
@@ -2438,68 +2431,63 @@ static void VID_MenuDraw (void)
 		switch (i)
 		{
 		case VID_OPT_FPS:
-			M_Print (16, y, "    Show Framerate");
-			M_DrawCheckbox (220, y, scr_showfps.value);
+			M_PrintWhite(mc.grid[0][0].xp, mc.grid[0][0].yp, "Show Framerate");
+			M_DrawCheckbox (mc.grid[1][0].xp, mc.grid[1][0].yp, scr_showfps.value);
 			break;
 		case VID_OPT_XHAIR:
-			M_Print (16, y, "    Show Crosshair");
-			M_DrawCheckbox (220, y, crosshair.value);
+            M_PrintWhite (mc.grid[0][1].xp, mc.grid[0][1].yp, "Show Crosshair");
+			M_DrawCheckbox (mc.grid[1][1].xp, mc.grid[1][1].yp, crosshair.value);
 			break;
 		case VID_OPT_BILINEAR:
-			M_Print (16, y, "Bilinear Filtering");
-			M_DrawCheckbox (220, y, strcmp(gl_texturemode.string, "GL_NEAREST"));
+            M_PrintWhite (mc.grid[0][2].xp, mc.grid[0][2].yp, "Bilinear Filtering");
+			M_DrawCheckbox (mc.grid[1][2].xp, mc.grid[1][2].yp, strcmp(gl_texturemode.string, "GL_NEAREST"));
 			break;
 		case VID_OPT_WATER_OPACITY:
-			M_Print (16, y, "     Water Opacity");
+            M_PrintWhite (mc.grid[0][3].xp, mc.grid[0][3].yp, "Water Opacity");
 			r = r_wateralpha.value;
-			M_DrawSlider (220, y, r);
+			M_DrawSlider (mc.grid[1][3].xp, mc.grid[1][3].yp, r);
 			break;
 		case VID_OPT_SMOOTH_ANIM:
-			M_Print (16, y, " Smooth Animations");
-			M_DrawCheckbox (220, y, (int)r_lerpmodels.value);
+            M_PrintWhite (mc.grid[0][4].xp, mc.grid[0][4].yp, "Smooth Animations");
+			M_DrawCheckbox (mc.grid[1][4].xp, mc.grid[1][4].yp, (int)r_lerpmodels.value);
 			break;
 		case VID_OPT_VSYNC:
-			M_Print (16, y, "     Vertical sync");
-			M_DrawCheckbox (220, y, (int)vid_vsync.value);
+            M_PrintWhite (mc.grid[0][5].xp, mc.grid[0][5].yp, "Vertical sync");
+			M_DrawCheckbox (mc.grid[1][5].xp, mc.grid[1][5].yp, (int)vid_vsync.value);
 			break;
 		case VID_OPT_RUMBLE:
-			M_Print (16, y, "     Rumble Effect");
-			M_DrawCheckbox (220, y, pstv_rumble.value);
+            M_PrintWhite (mc.grid[0][6].xp, mc.grid[0][6].yp, "Rumble Effect");
+			M_DrawCheckbox (mc.grid[1][6].xp, mc.grid[1][6].yp, pstv_rumble.value);
 			break;
 		case VID_OPT_RETROTOUCH:
-			M_Print (16, y, "    Use Retrotouch");
-			M_DrawCheckbox (220, y, retrotouch.value);
+            M_PrintWhite (mc.grid[0][7].xp, mc.grid[0][7].yp, "Use Retrotouch");
+			M_DrawCheckbox (mc.grid[1][7].xp, mc.grid[1][7].yp, retrotouch.value);
 			break;
 		case VID_OPT_GYROSCOPE:
-			M_Print (16, y, "     Use Gyroscope");
-			M_DrawCheckbox (220, y, motioncam.value);
+            M_PrintWhite (mc.grid[0][8].xp, mc.grid[0][8].yp, "Use Gyroscope");
+			M_DrawCheckbox (mc.grid[1][8].xp, mc.grid[1][8].yp, motioncam.value);
 			break;
 		case VID_OPT_GYRO_HORI:
-			M_Print (16, y, "Gyro X Sensitivity");
+            M_PrintWhite (mc.grid[0][9].xp, mc.grid[0][9].yp, "Gyro X Sensitivity");
 			r = motion_horizontal_sensitivity.value/10;
-			M_DrawSlider (220, y, r);
+			M_DrawSlider (mc.grid[1][9].xp, mc.grid[1][9].yp, r);
 			break;
 		case VID_OPT_GYRO_VERT:
-			M_Print (16, y, "Gyro Y Sensitivity");
+            M_PrintWhite (mc.grid[0][10].xp, mc.grid[0][10].yp, "Gyro Y Sensitivity");
 			r = motion_vertical_sensitivity.value/10;
-			M_DrawSlider (220, y, r);
+			M_DrawSlider (mc.grid[1][10].xp, mc.grid[1][10].yp, r);
 			break;
 		case VID_OPT_WEAPON_POS:
-			M_Print (16, y, "   Weapon Position");
+            M_PrintWhite (mc.grid[0][11].xp, mc.grid[0][11].yp, "Weapon Position");
 			if (w_pos_idx == -1) {
 				if (!r_drawviewmodel.value) w_pos_idx = 3;
 				else if (r_viewmodeloffset.value < 0) w_pos_idx = 2;
 				else if (r_viewmodeloffset.value > 0) w_pos_idx = 1;
 				else w_pos_idx = 0;
 			}
-			M_Print (220, y, w_pos[w_pos_idx]);
+			M_PrintWhite(mc.grid[1][11].xp, mc.grid[1][11].yp, w_pos[w_pos_idx]);
 			break;
 		}
-
-		if (video_options_cursor == i)
-			M_DrawCharacter (168, y, 12+((int)(realtime*4)&1));
-
-		y += 8;
 	}
 }
 

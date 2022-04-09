@@ -1232,115 +1232,116 @@ void M_DrawCheckbox (int x, int y, int on)
 		M_DrawCharacter (x, y, 129);
 #endif
 	if (on)
-		M_Print (x, y, "on");
+		M_PrintWhite (x, y, "on");
 	else
-		M_Print (x, y, "off");
+        M_PrintWhite (x, y, "off");
 }
 
 void M_Options_Draw (void)
 {
 	float		r, l;
-	qpic_t	*p;
+    float alpha = 0.8;
+    if (sv.active)
+        alpha = 1;
 
-	M_DrawTransPic (16, 4, Draw_CachePic ("gfx/qplaque.lmp") );
-	p = Draw_CachePic ("gfx/p_option.lmp");
-	M_DrawPic ( (320-p->width)/2, 4, p);
-
+    struct MenuCoords mc = Draw_WindowGrid("Options", 19, MVS*0.6, 2, 0.4, alpha, options_cursor, true);
+    //footer
+    M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Back      Select   L/R: Move Slider");
+    M_DrawO(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp);
+    M_DrawX(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp);
 	// Draw the items in the order of the enum defined above:
 	// OPT_CUSTOMIZE:
-	M_Print (16, 32,			"              Controls");
+    M_PrintWhite (mc.grid[0][0].xp ,mc.grid[0][0].yp, "Controls");
 	// OPT_CONSOLE:
-	M_Print (16, 32 + 8*OPT_CONSOLE,	"          Goto console");
+    M_PrintWhite (mc.grid[0][1].xp ,mc.grid[0][1].yp, "Goto console");
 	// OPT_DEFAULTS:
-	M_Print (16, 32 + 8*OPT_DEFAULTS,	"          Reset config");
+    M_PrintWhite (mc.grid[0][2].xp ,mc.grid[0][2].yp, "Reset config");
 
 	// OPT_SCALE:
-	M_Print (16, 32 + 8*OPT_SCALE,		"                 Scale");
+    M_PrintWhite (mc.grid[0][3].xp ,mc.grid[0][3].yp, "Scale");
 	l = (vid.width / 320.0) - 1;
 	r = l > 0 ? (scr_conscale.value - 1) / l : 0;
-	M_DrawSlider (220, 32 + 8*OPT_SCALE, r);
+	M_DrawSlider (mc.grid[1][3].xp ,mc.grid[0][3].yp, r);
 
 	// OPT_SCRSIZE:
-	M_Print (16, 32 + 8*OPT_SCRSIZE,	"           Screen size");
+    M_PrintWhite (mc.grid[0][4].xp ,mc.grid[0][4].yp, "Screen size");
 	r = (scr_viewsize.value - 30) / (120 - 30);
-	M_DrawSlider (220, 32 + 8*OPT_SCRSIZE, r);
+	M_DrawSlider (mc.grid[1][4].xp ,mc.grid[0][4].yp, r);
 
 	// OPT_GAMMA:
-	M_Print (16, 32 + 8*OPT_GAMMA,		"            Brightness");
+    M_PrintWhite (mc.grid[0][5].xp ,mc.grid[0][5].yp, "Brightness");
 	r = (1.0 - vid_gamma.value) / 0.5;
-	M_DrawSlider (220, 32 + 8*OPT_GAMMA, r);
+	M_DrawSlider (mc.grid[1][5].xp ,mc.grid[0][5].yp, r);
 
 	// OPT_CONTRAST:
 #ifdef VITA
-	M_Print (16, 32 + 8*OPT_FOV,	    "         Field of View");
+    M_PrintWhite (mc.grid[0][6].xp ,mc.grid[0][6].yp, "Field of View");
 	r = (scr_fov.value - 75) / 55;
-	M_DrawSlider (220, 32 + 8*OPT_FOV, r);
+	M_DrawSlider (mc.grid[1][6].xp ,mc.grid[0][6].yp, r);
 #else
-	M_Print (16, 32 + 8*OPT_CONTRAST,	"              Contrast");
+    M_PrintWhite (mc.grid[0][6].xp ,mc.grid[0][6].yp, "Contrast");
 	r = vid_contrast.value - 1.0;
-	M_DrawSlider (220, 32 + 8*OPT_CONTRAST, r);
+	M_DrawSlider (mc.grid[1][6].xp ,mc.grid[0][6].yp, r);
 #endif
 
 	// OPT_MOUSESPEED:
-	M_Print (16, 32 + 8*OPT_MOUSESPEED,	"           Mouse Speed");
+    M_PrintWhite (mc.grid[0][7].xp ,mc.grid[0][7].yp, "Mouse Speed");
 	r = (sensitivity.value - 1)/10;
-	M_DrawSlider (220, 32 + 8*OPT_MOUSESPEED, r);
+	M_DrawSlider (mc.grid[1][7].xp ,mc.grid[0][7].yp, r);
 
 	// OPT_SBALPHA:
-	M_Print (16, 32 + 8*OPT_SBALPHA,	"       Statusbar alpha");
+    M_PrintWhite (mc.grid[0][8].xp ,mc.grid[0][8].yp, "Statusbar alpha");
 	r = (1.0 - scr_sbaralpha.value) ; // scr_sbaralpha range is 1.0 to 0.0
-	M_DrawSlider (220, 32 + 8*OPT_SBALPHA, r);
+	M_DrawSlider (mc.grid[1][8].xp ,mc.grid[0][8].yp, r);
 
 	// OPT_SNDVOL:
-	M_Print (16, 32 + 8*OPT_SNDVOL,		"          Sound Volume");
+    M_PrintWhite (mc.grid[0][9].xp ,mc.grid[0][9].yp, "Sound Volume");
 	r = sfxvolume.value;
-	M_DrawSlider (220, 32 + 8*OPT_SNDVOL, r);
+	M_DrawSlider (mc.grid[1][9].xp ,mc.grid[0][9].yp, r);
 
 	// OPT_MUSICVOL:
-	M_Print (16, 32 + 8*OPT_MUSICVOL,	"          Music Volume");
+    M_PrintWhite (mc.grid[0][10].xp ,mc.grid[0][10].yp, "Music Volume");
 	r = bgmvolume.value;
-	M_DrawSlider (220, 32 + 8*OPT_MUSICVOL, r);
+	M_DrawSlider (mc.grid[1][10].xp ,mc.grid[0][10].yp, r);
 
 	// OPT_MUSICEXT:
-	M_Print (16, 32 + 8*OPT_MUSICEXT,	"        External Music");
-	M_DrawCheckbox (220, 32 + 8*OPT_MUSICEXT, bgm_extmusic.value);
+    M_PrintWhite (mc.grid[0][11].xp ,mc.grid[0][11].yp, "External Music");
+	M_DrawCheckbox (mc.grid[1][11].xp ,mc.grid[0][11].yp, bgm_extmusic.value);
 
 	// OPT_ALWAYRUN:
-	M_Print (16, 32 + 8*OPT_ALWAYRUN,	"            Always Run");
+    M_PrintWhite (mc.grid[0][12].xp ,mc.grid[0][12].yp, "Always Run");
 	if (cl_alwaysrun.value)
-		M_Print (220, 32 + 8*OPT_ALWAYRUN, "quakespasm");
+		M_PrintWhite (mc.grid[1][12].xp ,mc.grid[0][12].yp, "quakespasm");
 	else if (cl_forwardspeed.value > 200.0)
-		M_Print (220, 32 + 8*OPT_ALWAYRUN, "vanilla");
+        M_PrintWhite (mc.grid[1][12].xp ,mc.grid[0][12].yp, "vanilla");
 	else
-		M_Print (220, 32 + 8*OPT_ALWAYRUN, "off");
+        M_PrintWhite (mc.grid[1][12].xp ,mc.grid[0][12].yp, "off");
 
 	// OPT_INVMOUSE:
-	M_Print (16, 32 + 8*OPT_INVMOUSE,	"          Invert Mouse");
-	M_DrawCheckbox (220, 32 + 8*OPT_INVMOUSE, m_pitch.value < 0);
+    M_PrintWhite (mc.grid[0][13].xp ,mc.grid[0][13].yp, "Invert Mouse");
+	M_DrawCheckbox (mc.grid[1][13].xp ,mc.grid[0][13].yp, m_pitch.value < 0);
 
 	// OPT_ALWAYSMLOOK:
-	M_Print (16, 32 + 8*OPT_ALWAYSMLOOK,	"            Mouse Look");
-	M_DrawCheckbox (220, 32 + 8*OPT_ALWAYSMLOOK, in_mlook.state & 1);
+    M_PrintWhite (mc.grid[0][14].xp ,mc.grid[0][14].yp, "Mouse Look");
+	M_DrawCheckbox (mc.grid[1][14].xp ,mc.grid[0][14].yp, in_mlook.state & 1);
 
 	// OPT_LOOKSPRING:
-	M_Print (16, 32 + 8*OPT_LOOKSPRING,	"            Lookspring");
-	M_DrawCheckbox (220, 32 + 8*OPT_LOOKSPRING, lookspring.value);
+    M_PrintWhite (mc.grid[0][15].xp ,mc.grid[0][15].yp, "Lookspring");
+	M_DrawCheckbox (mc.grid[1][15].xp ,mc.grid[0][15].yp, lookspring.value);
 
 	// OPT_LOOKSTRAFE:
-	M_Print (16, 32 + 8*OPT_LOOKSTRAFE,	"            Lookstrafe");
-	M_DrawCheckbox (220, 32 + 8*OPT_LOOKSTRAFE, lookstrafe.value);
+    M_PrintWhite (mc.grid[0][16].xp ,mc.grid[0][16].yp, "Lookstrafe");
+	M_DrawCheckbox (mc.grid[1][16].xp ,mc.grid[0][16].yp, lookstrafe.value);
 	
 #ifdef VITA
 	// OPT_MODS
-	M_Print (16, 32 + 8*OPT_MODS,	"            Select Mod");
+	M_PrintWhite (mc.grid[0][17].xp ,mc.grid[0][17].yp, "Select Mod");
 #endif
 
 	// OPT_VIDEO:
 	if (vid_menudrawfn)
-		M_Print (16, 32 + 8*OPT_VIDEO,	"      Advanced Options");
+        M_PrintWhite (mc.grid[0][18].xp ,mc.grid[0][18].yp, "Advanced Options");
 
-// cursor
-	M_DrawCharacter (200, 32 + options_cursor*8, 12+((int)(realtime*4)&1));
 }
 
 
@@ -1580,16 +1581,22 @@ void M_Keys_Draw (void)
 	int x, y;
 	int		keys[3];
 	const char	*name;
-	qpic_t	*p;
 	size_t keys_shown;
+    int vertical_spacing = MVS*0.6;
+    float alpha = 0.8;
+    if (sv.active)
+        alpha = 1;
 
-	p = Draw_CachePic ("gfx/ttl_cstm.lmp");
-	M_DrawPic ( (320-p->width)/2, 4, p);
-
-	if (bind_grab)
-		M_Print (12, 32, "Press a key or button for this action");
-	else
-		M_Print (18, 32, "Enter to change, backspace to clear");
+    // window
+    struct MenuCoords mc = Draw_WindowGrid("Controls", 19, vertical_spacing, 2, 0.4, alpha, keys_cursor-keys_first, true);
+    // footer
+    if (bind_grab) {
+        M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "Press a button for this action");
+    } else {
+        M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Back      Change   square: Delete");
+        M_DrawO(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp);
+        M_DrawX(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp);
+    }
 
 	keys_shown = numbindnames;
 	if (keys_shown > (200-48)/8)
@@ -1602,46 +1609,45 @@ void M_Keys_Draw (void)
 // search for known bindings
 	for (i = keys_first; i < keys_first+keys_shown; i++)
 	{
-		y = 48 + 8*(i-keys_first);
+		y = mc.grid[0][0].yp + vertical_spacing*(i-keys_first);
 
 		if (!strcmp(bindnames[i].cmd, "-"))
 		{
-			M_PrintWhite ((320-strlen(bindnames[i].desc)*8)/2, y, bindnames[i].desc);
+			M_PrintWhite (mc.grid[0][0].xp, y, bindnames[i].desc);
 			continue;
 		}
 
-		M_Print (16, y, bindnames[i].desc);
+        M_PrintWhite (mc.grid[0][0].xp, y, bindnames[i].desc);
 
 		M_FindKeysForCommand (bindnames[i].cmd, keys);
 
 		if (keys[0] == -1)
 		{
-			M_Print (140, y, "???");
+			M_PrintWhite(mc.grid[1][0].xp, y, "???");
 		}
 		else
 		{
 			name = Key_KeynumToString (keys[0]);
-			M_Print (140, y, name);
+            M_PrintWhite (mc.grid[1][0].xp, y, name);
 			x = strlen(name) * 8;
 			if (keys[1] != -1)
 			{
 				name = Key_KeynumToString (keys[1]);
-				M_Print (140 + x + 8, y, "or");
-				M_Print (140 + x + 32, y, name);
+                M_PrintWhite (mc.grid[1][0].xp + x + 8, y, "or");
+                M_PrintWhite (mc.grid[1][0].xp + x + 32, y, name);
 				x = x + 32 + strlen(name) * 8;
 				if (keys[2] != -1)
 				{
-					M_Print (140 + x + 8, y, "or");
-					M_Print (140 + x + 32, y, Key_KeynumToString (keys[2]));
+                    M_PrintWhite (mc.grid[1][0].xp + x + 8, y, "or");
+                    M_PrintWhite (mc.grid[1][0].xp + x + 32, y, Key_KeynumToString (keys[2]));
 				}
 			}
 		}
 	}
 
-	if (bind_grab)
-		M_DrawCharacter (130, 48 + (keys_cursor-keys_first)*8, '=');
-	else
-		M_DrawCharacter (130, 48 + (keys_cursor-keys_first)*8, 12+((int)(realtime*4)&1));
+	if (bind_grab) {
+        M_DrawCharacterColored (mc.grid[1][0].x, mc.grid[1][0].y + (keys_cursor-keys_first)*vertical_spacing, '=');
+    }
 }
 
 
@@ -1976,12 +1982,22 @@ void M_LanConfig_Draw (void)
     const char	*startJoin;
     float width = 0.4;
     int rows = 6;
+    float alpha = 0.667;
     if (StartingGame) {
         width = 0.25;
         rows = 4;
+        // set to matchmaking for recursive draw
+        m_state = m_gameoptions;
+        m_recursiveDraw = true;
+        M_Draw ();
+        // now draw this menu
+        m_state = m_lanconfig;
+        // background tint
+        Draw_Fill(0,0,1000,1000, BLACK, 0.667);
+        alpha = 1.0;
     }
 
-    struct MenuCoords mc = Draw_WindowGrid("Matchmaking", rows, MVS_P, 2, width, 0.667, -1, false);
+    struct MenuCoords mc = Draw_WindowGrid("Matchmaking", rows, MVS_P, 2, width, alpha, -1, false);
 
 	if (StartingGame)
 		startJoin = "New Game";
