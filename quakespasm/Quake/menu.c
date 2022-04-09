@@ -823,6 +823,7 @@ void M_Setup_Key (int k)
 		S_LocalSound ("misc/menu3.wav");
 		if (setup_cursor == 2)
             setup_bottom = setup_bottom - 1;
+            setup_top = setup_bottom; // spartan has one color
 		break;
 	case K_RIGHTARROW:
 		if (setup_cursor < 2)
@@ -831,6 +832,7 @@ forward:
 		S_LocalSound ("misc/menu3.wav");
 		if (setup_cursor == 2)
             setup_bottom = setup_bottom + 1;
+            setup_top = setup_bottom; // spartan has one color
 		break;
 
 	case K_ENTER:
@@ -2459,31 +2461,6 @@ void M_Matchmaking_Map_Key (int key) {
     }
 }
 
-void M_Matchmaking_f (void)
-{
-    key_dest = key_menu;
-    m_state = m_gameoptions;
-    m_entersound = true;
-    if (maxplayers == 0)
-        maxplayers = svs.maxclients;
-    if (maxplayers < 2)
-        maxplayers = svs.maxclientslimit;
-    //default MP settings
-    Cvar_SetValue ("skill", 0);
-    Cvar_SetValue ("deathmatch", 1);
-    Cbuf_AddText ("fraglimit 10\n");
-    Cvar_SetValue ("timelimit", 10);
-    startepisode = 0;
-    if (!mm_rentry)
-        startlevel = rand() % episodes[startepisode].levels;
-    chosen_level.episode = startepisode;
-    chosen_level.level = startlevel;
-    mm_rentry = false;
-    cursorfocused = true;
-    PlayMenuTheme(false);
-}
-
-
 #define MM_WIDTH_PERCENT 0.4
 #define MM_WIDTH_PIX PixWidth(MM_WIDTH_PERCENT)
 #define MM_HEIGHT_PERCENT 1
@@ -2502,6 +2479,53 @@ void M_Matchmaking_f (void)
 
 #define	NUM_GAMEOPTIONS	7 //indexing off 1
 int matchmaking_cursor = 6; //indexing off 0
+
+// gametypes available
+typedef enum gametype_t {
+    SLAYER = 0,
+    TEAM_SLAYER = 1,
+    SWAT = 2
+} gametype_t;
+
+typedef struct opts_t {
+    int teamplay;
+    int coop;
+    int deathmatch;
+    int skill;
+    int timelimit;
+    int fraglimit;
+    enum gametype_t gametype;
+} opts_t;
+
+// default options
+struct opts_t opts = {
+        .teamplay = 0,
+        .coop = 0,
+        .deathmatch = 1,
+        .skill = 0,
+        .timelimit = 10,
+        .fraglimit = 10,
+        .gametype = SLAYER
+};
+
+void M_Matchmaking_f (void)
+{
+    key_dest = key_menu;
+    m_state = m_gameoptions;
+    m_entersound = true;
+    if (maxplayers == 0)
+        maxplayers = svs.maxclients;
+    if (maxplayers < 2)
+        maxplayers = svs.maxclientslimit;
+    startepisode = 0;
+    if (!mm_rentry)
+        startlevel = rand() % episodes[startepisode].levels;
+    chosen_level.episode = startepisode;
+    chosen_level.level = startlevel;
+    mm_rentry = false;
+    cursorfocused = true;
+    PlayMenuTheme(false);
+}
 
 void M_Matchmaking_Draw (void)
 {
@@ -2542,52 +2566,39 @@ void M_Matchmaking_Draw (void)
     M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[0], protocol);
     //======================== 1
     M_Print (MM_XOFF+TEXT_XMARGIN, matchmaking_cursor_table[1], "GAME");
-    switch((int)deathmatch.value)
+    switch(opts.gametype)
     {
         case 0:
-            M_PrintWhite  (MM_X_SELECTION, matchmaking_cursor_table[1], "Co-op");
+            M_PrintWhite(MM_X_SELECTION, matchmaking_cursor_table[1], "Slayer");
             break;
         case 1:
-            M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[1], "Slayer");
-            if((int)deathmatch.value > 1000)
-                Cvar_SetValue ("fraglimit", 50);
-            Cvar_SetValue ("deathmatch", 1);
-            Cbuf_AddText ("deathmatch 1\n");
-            Cvar_SetValue ("coop", 0);
-            Cbuf_AddText ("coop 0\n");
-            Cvar_SetValue ("teamplay", 0);
+            M_PrintWhite(MM_X_SELECTION, matchmaking_cursor_table[1], "Team Slayer");
             break;
-        case 3:
-            M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[1], "Swat");
-            if((int)deathmatch.value > 1000)
-                Cvar_SetValue ("fraglimit", 50);
-            Cvar_SetValue ("deathmatch", 3);
-            Cbuf_AddText ("deathmatch 3\n");
-            Cvar_SetValue ("coop", 0);
-            Cvar_SetValue ("teamplay", 0);
+        case 2:
+            M_PrintWhite(MM_X_SELECTION, matchmaking_cursor_table[1], "Swat");
             break;
     }
     //======================== 2
     M_Print (MM_XOFF+TEXT_XMARGIN, matchmaking_cursor_table[2], "SCORE");
-    if (fraglimit.value == 0)
+    if (opts.fraglimit == 0)
         M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[2], "Unlimited");
-    else if (fraglimit.value < 1000)
-        M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[2], va("%i", (int)fraglimit.value));
+    else if (opts.fraglimit < 1000)
+        M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[2], va("%i Kills", (int)opts.fraglimit));
     else
         M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[2], "Rounds");
     //======================== 3
     M_Print (MM_XOFF+TEXT_XMARGIN, matchmaking_cursor_table[3], "TIME");
-    if (timelimit.value == 0)
+    if (opts.timelimit == 0)
         M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[3], "Unlimited");
     else
-        M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[3], va("%i Minutes", (int)timelimit.value));
+        M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[3], va("%i Minutes", (int)opts.timelimit));
     //======================== 4
     M_Print (MM_XOFF+TEXT_XMARGIN, matchmaking_cursor_table[4], "BOT SKILL");
-    if (skill.value == 0)
+    if (opts.skill == 0)
         M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[4], "Easy");
-    else if (skill.value == 1)
+    else if (opts.skill == 1)
         M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[4], "Normal");
-    else if (skill.value == 2)
+    else if (opts.skill == 2)
         M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[4], "Hard");
     else
         M_PrintWhite (MM_X_SELECTION, matchmaking_cursor_table[4], "Legendary");
@@ -2605,74 +2616,33 @@ void M_Matchmaking_Submenu_Key (int dir)
     int epcount, levcount;
     switch (matchmaking_cursor)
     {
-        case 1: //game mode
-            Cvar_SetValue ("deathmatch", (int)deathmatch.value + dir);
-            if ((int)deathmatch.value < 1) //rollover
-            {
-                Cvar_SetValue ("deathmatch", 3);
-                Cbuf_AddText ("deathmatch 3\n");
-            }
-            else if((int)deathmatch.value > 3) //rollover
-            {
-                Cvar_SetValue ("deathmatch", 1);
-                Cbuf_AddText ("deathmatch 1\n");
-            }
-            else if ((int)deathmatch.value == 2) //firefight
-            {
-                Cvar_SetValue ("deathmatch", (int)deathmatch.value + dir);
-                Cbuf_AddText ( va ("deathmatch %u\n", (int)deathmatch.value + dir) );
-            }
-
-            if((int)deathmatch.value == 1) //slayer
-            {
-                if((int)fraglimit.value > 1000)
-                    Cbuf_AddText ("fraglimit 50\n");
-                Cbuf_AddText ("deathmatch 1\n");
-                Cvar_SetValue ("deathmatch", 1);
-                Cvar_SetValue ("coop", 0);
-                Cvar_SetValue ("teamplay", 0);
-                startepisode = 0;
-            }
-            else if((int)deathmatch.value == 3) //Swat
-            {
-                if((int)fraglimit.value > 1000)
-                    Cbuf_AddText ("fraglimit 50\n");
-                Cbuf_AddText ("deathmatch 3\n");
-                Cvar_SetValue ("deathmatch", 3);
-                Cvar_SetValue ("coop", 0);
-                Cvar_SetValue ("teamplay", 0);
-                startepisode = 0;
-            }
-            else
-            {
-                startepisode = 0;
-                startlevel = 0;
-            }
-
-            if(sv.active)
-                Cbuf_AddText ("disconnect\n");
+        case 1: //gametype
+            opts.gametype = opts.gametype + dir;
+            if (opts.gametype > 2)
+                opts.gametype = 0;
+            else if (opts.gametype < 0)
+                opts.gametype = 2;
             break;
-
-        case 2: //game mode frags
-            Cvar_SetValue ("fraglimit", fraglimit.value + dir*5);
-            if (fraglimit.value > 100)
-                Cvar_SetValue ("fraglimit", 0);
-            if (fraglimit.value < 0)
-                Cvar_SetValue ("fraglimit", 100);
+        case 2: //score limit
+            opts.fraglimit += dir*5;
+            if (opts.fraglimit > 100)
+                opts.fraglimit = 0;
+            if (opts.fraglimit < 0)
+                opts.fraglimit = 100;
             break;
-        case 3: //time set
-            Cvar_SetValue ("timelimit", timelimit.value + dir*5);
-            if (timelimit.value > 60)
-                Cvar_SetValue ("timelimit", 0);
-            if (timelimit.value < 0)
-                Cvar_SetValue ("timelimit", 60);
+        case 3: //time limit
+            opts.timelimit += dir*5;
+            if (opts.timelimit > 60)
+                opts.timelimit = 0;
+            if (opts.timelimit < 0)
+                opts.timelimit = 60;
             break;
         case 4: //difficulty
-            Cvar_SetValue ("skill", skill.value + dir);
-            if (skill.value > 3)
-                Cvar_SetValue ("skill", 0);
-            if (skill.value < 0)
-                Cvar_SetValue ("skill", 3);
+            opts.skill += dir;
+            if (opts.skill > 3)
+                opts.skill = 0;
+            if (opts.skill < 0)
+                opts.skill = 3;
             break;
         case 5: //map
             startlevel += dir;
@@ -2713,14 +2683,14 @@ void M_Matchmaking_Key (int key)
             break;
 
         case K_LEFTARROW:
-            if (matchmaking_cursor == 6 || matchmaking_cursor == 0)
+            if (matchmaking_cursor >= 5 || matchmaking_cursor == 0)
                 break;
             S_LocalSound ("misc/menuoption.wav");
             M_Matchmaking_Submenu_Key (-1);
             break;
 
         case K_RIGHTARROW:
-            if (matchmaking_cursor == 6 || matchmaking_cursor == 0)
+            if (matchmaking_cursor >= 5 || matchmaking_cursor == 0)
                 break;
             S_LocalSound ("misc/menuoption.wav");
             M_Matchmaking_Submenu_Key (1);
@@ -2730,7 +2700,11 @@ void M_Matchmaking_Key (int key)
             S_LocalSound ("misc/menuenter.wav");
             if (matchmaking_cursor == 6)
             {
-                S_LocalSound ("misc/menuback.wav");
+//                S_LocalSound ("misc/menuback.wav"); // why was this here?
+
+                /*
+                 * Pre-setup. Disconnect form last match, etc.
+                 */
                 // make sure we disconnected from lat match
                 if (sv.active) {
                     Cbuf_AddText ("disconnect\n");
@@ -2739,14 +2713,37 @@ void M_Matchmaking_Key (int key)
                 Cbuf_AddText ( va ("maxplayers %u\n", 8) );
                 SCR_BeginLoadingPlaque ();
                 Cbuf_AddText ("chase_active 0\n");
-                Cbuf_AddText ( va ("deathmatch %u\n", (int)deathmatch.value) );
-                Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
-                // remove old bots. add single bot
-                for (int i = 0; i < 8; i++) {
-                    Cbuf_AddText ("impulse 102\n");
+                /*
+                 * Setup based on user selected settings
+                 */
+                switch (opts.gametype) {
+                    case 0: // Slayer
+                        opts.deathmatch = 1;
+                        opts.teamplay = 0;
+                        opts.coop = 0;
+                        break;
+                    case 1: // Team Slayer
+                        opts.deathmatch = 1;
+                        opts.teamplay = 1;
+                        opts.coop = 0;
+                        break;
+                    case 2: // Swat
+                        opts.deathmatch = 3;
+                        opts.teamplay = 0;
+                        opts.coop = 0;
+                        break;
                 }
-                Cvar_SetValue ("skill", skill.value);
-                Cbuf_AddText ("impulse 100\n");
+                Cbuf_AddText ( va ("deathmatch %u\n", (int)opts.deathmatch) );
+                Cbuf_AddText ( va ("teamplay %u\n", (int)opts.teamplay) );
+                Cbuf_AddText ( va ("fraglimit %u\n", (int)opts.fraglimit) );
+                Cbuf_AddText ( va ("timelimit %u\n", (int)opts.timelimit) );
+                Cbuf_AddText ( va ("skill %u\n", (int)opts.skill) );
+                Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
+//                // remove old bots. add single bot
+//                for (int i = 0; i < 8; i++) {
+//                    Cbuf_AddText ("impulse 102\n");
+//                }
+//                Cbuf_AddText ("impulse 100\n");
 //                Cbuf_Execute();
 //                m_state = m_none; // set state to none so console loads?
                 return;
