@@ -720,7 +720,7 @@ int	m_multiplayer_cursor;
 //=============================================================================
 /* SETUP MENU */
 
-int		setup_cursor = 3;
+int		setup_cursor = 2;
 int		setup_cursor_table[] = {40, 56, 80, 104, 140};
 
 char	setup_hostname[16];
@@ -2277,14 +2277,15 @@ typedef struct
     const char  *mapBio[4];
     const char  *author;
 } level_t;
-
+int targas[] = {2,3,4,12};
 level_t		levels[] =
 {
         // Refined map pack [4]
         {"citadel", "citadel", "Citadel",{"A Forerunner","structure built","in Epitaph.",""}, "Matt"}, //0
         {"+bloodgulch2", "bgulch", "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
-        {"pit3", "pit3", "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
+        {"pit3", "pit2", "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
         {"narsp", "narsp", "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
+        {"skyringbl2", "skyringbl2", "Sky Ring", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Unknown"},
         // Classic map pack [6]
         {"Longest", "Longest", "Longest", {"","","",""}, "Unknown"},
         {"chill", "random", "Chill Out", {"","","",""}, "Unknown"},
@@ -2294,7 +2295,7 @@ level_t		levels[] =
         {"spider", "spider", "Spiderweb", {"","","",""}, "Unknown"},
         // Bonus map pack
         {"pit", "random", "Pit (original)", {"","","",""}, "Jukki"},
-        {"pit2", "random", "Pit (v2)", {"","","",""}, "Jukki, Matt"},
+        {"pit2", "pit2", "Pit (v2)", {"","","",""}, "Jukki, Matt"},
         {"lock", "lockout", "Lockout2", {"","","",""}, "Unknown"},
         //{"lockout", "lockout", "Lockout"},
 
@@ -2303,6 +2304,13 @@ level_t		levels[] =
         {"fire", "fire", "Fire!", {"","","",""}, "Unknown"}
 };
 
+qboolean usetarga(int levelIndex) {
+    for (int i = 0; i < sizeof(targas)/sizeof(int); i++) {
+        if (targas[i] == levelIndex)
+            return true;
+    }
+    return false;
+}
 typedef struct
 {
 	const char	*description;
@@ -2312,9 +2320,9 @@ typedef struct
 int NUM_EPISODES = 3;
 episode_t	episodes[] =
         {
-                {"Refined Maps", 0, 4},
-                {"Classic Maps", 4, 6},
-                {"Bonus Maps", 10, 3}
+                {"Refined Maps", 0, 5},
+                {"Classic Maps", 5, 6},
+                {"Bonus Maps", 11, 3}
         };
 int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
@@ -2391,8 +2399,14 @@ void M_Matchmaking_Map_Draw (void) {
         M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, MlistPrintServer (mlist_first+n));
     }
     // map thumbnail
-    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].thumbnail));
-    M_DrawTransPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic);
+    char format[10];
+    if (usetarga(episodes[startepisode].firstLevel + (mlist_cursor-mlist_first))) {
+        strcpy(format, "tga");
+    } else {
+        strcpy(format, "lmp");
+    }
+    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].thumbnail, format));
+    Draw_StretchPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic, coords.colw, coords.rowh*4);
 
     // map bio
     int map_y = coords.grid[1][4].yp;
@@ -2486,7 +2500,7 @@ void M_Matchmaking_Map_Key (int key) {
 #define MM_FOOTER_HEIGHT mvs(1)
 
 #define	NUM_GAMEOPTIONS	7 //indexing off 1
-int matchmaking_cursor = 6; //indexing off 0
+int matchmaking_cursor = 0; //indexing off 0
 
 // gametypes available
 typedef enum gametype_t {
@@ -2568,12 +2582,22 @@ void M_Draw_Hint (int type, struct MenuCoords mc) {
 void M_Matchmaking_Draw (void)
 {
     Draw_MenuBg();
-    // fetch 'random' map thumbnail early so we can use its dimmensions
-    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail));
+    char format[10];
+    if (usetarga(episodes[chosen_level.episode].firstLevel + chosen_level.level)) {
+        strcpy(format, "tga");
+    } else {
+        strcpy(format, "lmp");
+    }
+    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail, format));
     int fg_height = MM_HEIGHT_PIX - (MM_HEADER_HEIGHT + MM_FOOTER_HEIGHT +mappic->height);
 
     //background
     struct MenuCoords mc = Draw_WindowGridLeft("Matchmaking",11,MVS,2,0.2, 0.8, matchmaking_cursor, 1.0, 3.0);
+    // map thumbnail
+    double picheight = mc.rowh*4;
+    double picwidth = (picheight)*1.7; //lets keep 16x9 ratio
+    double pic_x = ((mc.colw*mc.cols)-picwidth)/2;
+    Draw_StretchPic(pic_x, mc.grid[1][mc.rows].y-picheight, mappic, picwidth, picheight);
 
     switch (matchmaking_cursor) {
         case 1:
@@ -2641,8 +2665,6 @@ void M_Matchmaking_Draw (void)
     M_PrintWhite (mc.grid[1][5].xp, mc.grid[1][5].yp, levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description);
     //========================= 6
     M_PrintWhite (mc.grid[0][6].xp, mc.grid[1][6].yp, "START GAME");
-    //========================= Draw image
-    M_DrawTransPic(((mc.colw*mc.cols)-mappic->width)/2, mc.grid[1][mc.rows].y-mappic->height, mappic);
 }
 
 void M_Matchmaking_Submenu_Key (int dir)
@@ -2651,10 +2673,10 @@ void M_Matchmaking_Submenu_Key (int dir)
     switch (matchmaking_cursor)
     {
         case 1: //gametype
-            opts.gametype = opts.gametype + dir;
+            opts.gametype += dir;
             if (opts.gametype > 2)
                 opts.gametype = 0;
-            else if (opts.gametype < 0)
+            if (opts.gametype < 0)
                 opts.gametype = 2;
             break;
         case 2: //score limit
