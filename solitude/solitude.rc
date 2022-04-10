@@ -1,0 +1,7 @@
+
+// load the base configuration
+exec autoexec.cfg
+
+// load the last saved configuration
+exec config.cfg
+

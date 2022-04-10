@@ -1,0 +1,27 @@
+// load the base configuration
+exec default.cfg
+
+// load the last saved configuration
+exec config.cfg
+
+// run a user script file if present
+exec autoexec.cfg
+
+    // Solitude mod settings
+    sv_maxspeed 200
+    sv_maxvelocity 5000
+    cl_forwardspeed 200
+    cl_backspeed 200
+    cl_sidespeed 200
+
+    //menu music
+    play music/theme
+
+    //hide console
+    toggleconsole
+
+// stuff command line statements
+stuffcmds 
+// play demos (removed)
+//startdemos title.dem
+//playdemo  title.dem
