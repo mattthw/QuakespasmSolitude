@@ -19,7 +19,7 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
-
+#include "quakedef.h"
 #ifndef _QUAKE_MENU_H
 #define _QUAKE_MENU_H
 
@@ -71,7 +71,7 @@ void M_PrintWhite (int cx, int cy, const char *str);
 
 void M_Draw (void);
 void M_DrawCharacter (int cx, int line, int num);
-
+void M_Draw_Hint (int type, struct MenuCoords mc);
 void M_DrawPic (int x, int y, qpic_t *pic);
 void M_DrawTransPic (int x, int y, qpic_t *pic);
 void M_DrawCheckbox (int x, int y, int on);

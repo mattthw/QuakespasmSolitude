@@ -727,100 +727,19 @@ void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, fl
  * @param colwidth % of screen width for col width. (ex. 0.10)
  * @param alpha
  * @param cursor -1 for none
- * @param footer true if we should include a footer. It will be included in the grid.
- * @returns position of top left
- */
-struct MenuCoords Draw_WindowGrid(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor, int footer) {
-    // fundamentals
-    int screen_width = (320 /* quake uses 320 as screen width */ * MENU_SCALE);
-    int screen_height = (200 /* quake uses 200 as screen height */ * MENU_SCALE);
-    int header = 1; //header ?
-    int border = 1; // border? (single line drawn around sides and bottom)
-    int colpix;
-    if (colwidth <= 1) {
-        // decimal percent
-        colpix = (colwidth * screen_width);
-    } else {
-        // exact pixels
-        colpix = colwidth;
-    }
-    int rowpix;
-    if (rowheight <= 1) {
-        // decimal percent
-        rowpix = (rowheight * screen_height);
-    } else {
-        // exact pixels
-        rowpix = rowheight;
-    }
-    // establish total width & height of menu
-    int menu_width = new_min(cols * colpix + 2*border, screen_width);//do not draw out of bounds
-    int header_height = header * new_max(rowpix, MVS);
-    int footer_height = header_height;
-    int menu_height = new_min(header_height + (footer_height*footer) + (rows * rowpix) + border, screen_height); //do not draw out of bounds
-    int x = (screen_width - menu_width)/2;
-    int y = (screen_height - menu_height)/2;
-    // padding
-    int y_padding_header = ((header_height - CHARZ /* 8 is charset char width */)/2);
-    int y_padding_footer = y_padding_header;
-    int y_padding = ((rowpix - CHARZ /* 8 is charset char width */)/2);
-    int x_padding = 15;
-    // build struct
-    struct MenuCoords mc;
-    for (int i = 0; i < cols; i++) {
-        for (int j = 0; j < rows + footer; j++) {
-            mc.grid[i][j].x = x + i * colpix;
-            mc.grid[i][j].xp = x + i * colpix + x_padding;
-            mc.grid[i][j].y = y + header_height + (j*rowpix);
-            mc.grid[i][j].yp = y + header_height + (j*rowpix) + y_padding;
-            if (j == rows) {
-                // give the y padded coordinate for the footer to be nice
-                mc.grid[i][j].yp = y + header_height + (j*rowpix) + y_padding_footer;
-            }
-        }
-    }
-    mc.cols = cols;
-    mc.rows = rows;
-    mc.colw = colpix;
-    mc.rowh = rowpix;
-    // draw background
-    Draw_Fill(x, y, menu_width, menu_height, BG_COLOR, alpha);
-    // draw cursor
-    if (cursor >= 0) {
-        Draw_Cursor(mc.grid[0][0].x, mc.grid[0][cursor].y, colpix, rowpix, true);
-    }
-    // draw header
-    Draw_Fill(x, y, menu_width, header_height, 2, 1);
-    // print title
-    D_Print(x + x_padding, y + y_padding_header, title);
-    // draw footer
-    if (footer)
-        Draw_Fill(x, mc.grid[0][mc.rows].y, menu_width, footer_height, 2, 0.7);
-    // draw borders
-    Draw_Fill(x, y, 1, menu_height, 2, 1);
-    Draw_Fill(x+menu_width, y, 1, menu_height, 2, 1);
-    Draw_Fill(x, y+menu_height, menu_width, 1, 2, 1);
-    return mc;
-}
-
-
-/**
- * Draw a centered menu box.
- * @param title is title of the window
- * @param rows num rows
- * @param rowheight % of screen height for row height. (ex. 0.10)
- * @param cols num columns
- * @param colwidth % of screen width for col width. (ex. 0.10)
- * @param alpha
- * @param cursor -1 for none
- * @param footer true if we should include a footer. It will be included in the grid.
+ * @param int cursor_cols how many columns the cursor should stretch
+ * @param incl_footer true if we should include a footer. It will be included in the grid.
  * @param off offset from center left or right
  * @returns position of top left
  */
-struct MenuCoords Draw_WindowGridOffset(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor, int footer, float off) {
+struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, float detail_alpha, int colr_bg, int colr_h, int cursor, int cursor_cols, float incl_footer, float incl_header, float off) {
     // fundamentals
     int screen_width = (320 /* quake uses 320 as screen width */ * MENU_SCALE);
     int screen_height = (200 /* quake uses 200 as screen height */ * MENU_SCALE);
-    int header = 1; //header ?
+    double header = incl_header; //header scale
+    double footer = incl_footer; // footer scale
+    double title_scale = 1.0 + (0.3 * incl_header);
+    double title_height = title_scale * CHARZ;
     int border = 1; // border? (single line drawn around sides and bottom)
     int x_offset;
     if (off <= 1) {
@@ -847,13 +766,13 @@ struct MenuCoords Draw_WindowGridOffset(char* title, int rows, float rowheight, 
     // establish total width & height of menu
     int menu_width = new_min(cols * colpix + 2*border, screen_width);//do not draw out of bounds
     int header_height = header * new_max(rowpix, MVS);
-    int footer_height = header_height;
+    int footer_height = footer * new_max(rowpix, MVS);;
     int menu_height = new_min(header_height + (footer_height*footer) + (rows * rowpix) + border, screen_height); //do not draw out of bounds
-    int x = (screen_width - menu_width)/2 + x_offset;
+    int x = new_max((screen_width - menu_width)/2 + x_offset, 0);
     int y = (screen_height - menu_height)/2;
     // padding
-    int y_padding_header = ((header_height - CHARZ /* 8 is charset char width */)/2);
-    int y_padding_footer = y_padding_header;
+    int y_padding_header = header_height - title_height - 4*incl_header;//((header_height - CHARZ /* 8 is charset char width */)/2);
+    int y_padding_footer = (footer_height - CHARZ /* 8 is charset char width */)/2;
     int y_padding = ((rowpix - CHARZ /* 8 is charset char width */)/2);
     int x_padding = 15;
     // build struct
@@ -875,23 +794,35 @@ struct MenuCoords Draw_WindowGridOffset(char* title, int rows, float rowheight, 
     mc.colw = colpix;
     mc.rowh = rowpix;
     // draw background
-    Draw_Fill(x, y, menu_width, menu_height, BG_COLOR, alpha);
+    Draw_Fill(x, y+header_height, menu_width, menu_height-header_height-footer_height, colr_bg, alpha);
     // draw cursor
     if (cursor >= 0) {
-        Draw_Cursor(mc.grid[0][0].x, mc.grid[0][cursor].y, colpix, rowpix, true);
+        Draw_Cursor(mc.grid[0][0].x, mc.grid[0][cursor].y, colpix*cursor_cols, rowpix, true);
     }
     // draw header
-    Draw_Fill(x, y, menu_width, header_height, 2, 1);
+    Draw_Fill(x, y, menu_width, header_height, colr_h, detail_alpha);
     // print title
-    D_Print(x + x_padding, y + y_padding_header, title);
+    Draw_ColoredStringScale(x + x_padding, y + y_padding_header, title, 1,1,1,0.8,title_scale);
     // draw footer
     if (footer)
-        Draw_Fill(x, mc.grid[0][mc.rows].y, menu_width, footer_height, 2, 0.7);
+        Draw_Fill(x, mc.grid[0][mc.rows].y, menu_width, footer_height+1, colr_h, 0.7);
     // draw borders
-    Draw_Fill(x, y, 1, menu_height, 2, 1);
-    Draw_Fill(x+menu_width, y, 1, menu_height, 2, 1);
-    Draw_Fill(x, y+menu_height, menu_width, 1, 2, 1);
+    Draw_Fill(x, y, 1, menu_height, colr_h, 1);
+    Draw_Fill(x+menu_width, y, 1, menu_height, colr_h, 1);
+    Draw_Fill(x, y+menu_height, menu_width, 1, colr_h, 1);
     return mc;
+}
+
+struct MenuCoords Draw_WindowGrid(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor, float incl_footer) {
+    return Draw_WindowGridBase(title, rows, rowheight, cols, colwidth, alpha, 1.0, BG_COLOR, 2, cursor, 1, incl_footer, 1.1, 0.0);
+}
+
+struct MenuCoords Draw_WindowGridOffset(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor, float incl_footer, float off) {
+    return Draw_WindowGridBase(title, rows, rowheight, cols, colwidth, alpha, 1.0, BG_COLOR, 2, cursor, 1, incl_footer, 1.1, off);
+}
+
+struct MenuCoords Draw_WindowGridLeft(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor, float incl_footer, float incl_header) {
+    return Draw_WindowGridBase(title, rows, rowheight, cols, colwidth, alpha, 0.8, BG_COLOR, 222, cursor, cols, incl_footer, incl_header, -1000);
 }
 
 void Draw_WindowPix(int x, int y, int bgwidth, int bgheight, char *str, float alpha)

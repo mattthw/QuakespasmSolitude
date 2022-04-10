@@ -2439,9 +2439,15 @@ static void VID_MenuDraw (void)
 
     struct MenuCoords mc = Draw_WindowGrid("Advanced Options", 19, MVS*0.6, 2, 0.4, alpha, video_options_cursor, true);
     //footer
-    M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Back      Select   L/R: Move Slider");
-    Draw_Button(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, b_abutton);
-    Draw_Button(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp, b_abutton);
+    switch (video_options_cursor) {
+        case 3:
+        case 9:
+        case 10:
+            M_Draw_Hint(SCROLL, mc);
+            break;
+        default:
+            M_Draw_Hint(SELECT, mc);
+    }
 
 	// options
 	for (i = 0; i < VIDEO_OPTIONS_ITEMS; i++)

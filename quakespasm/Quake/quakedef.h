@@ -385,5 +385,13 @@ extern int		minimum_memory;
 #define TEXT_YMARGIN (MVS-CHARZ)/2 //margin below or above text in a MVS row
 #define TEXT_XMARGIN 15
 
+typedef enum InpType {
+    SELECT = 0,
+    SCROLL = 1,
+    INPUT = 2,
+    SELECT_SCROLL = 3,
+    SELECT_DELETE = 4
+} InpType;
+
 #endif	/* QUAKEDEFS_H */
 
