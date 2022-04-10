@@ -1075,6 +1075,7 @@ void Host_Init (void)
 		R_Init ();
 		S_Init ();
 		CDAudio_Init ();
+        HUD_Init();
 		BGM_Init();
 		Sbar_Init ();
 		CL_Init ();

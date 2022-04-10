@@ -23,6 +23,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "bgmusic.h"
 
+// button images
+extern qpic_t      *b_up;
+extern qpic_t      *b_down;
+extern qpic_t      *b_left;
+extern qpic_t      *b_right;
+extern qpic_t      *b_lthumb;
+extern qpic_t      *b_rthumb;
+extern qpic_t      *b_lshoulder;
+extern qpic_t      *b_rshoulder;
+extern qpic_t      *b_abutton;
+extern qpic_t      *b_bbutton;
+extern qpic_t      *b_ybutton;
+extern qpic_t      *b_xbutton;
+extern qpic_t      *b_lt;
+extern qpic_t      *b_rt;
+
+qpic_t *menu_bg;
+
 extern cvar_t scr_fov;
 
 void (*vid_menucmdfn)(void); //johnfitz
@@ -128,31 +146,6 @@ void M_DrawCharacter (int cx, int line, int num)
 void M_DrawCharacterColored (int cx, int line, int num)
 {
     Draw_Character (cx, line, num+128);
-}
-
-/**
- * Draw playstation (X) using modified conchars sheet
- * @param x
- * @param y
- */
-void M_DrawX (int x, int y) {
-    y -= CHARZ/2;
-    Draw_Character (x, y+CHARZ, 6+128);
-    Draw_Character (x+CHARZ, y+CHARZ, 7+128);
-    Draw_Character (x, y, 8+128);
-    Draw_Character (x+CHARZ, y, 9+128);
-}
-/**
- * Draw playstation (O) using modified conchars sheet
- * @param x
- * @param y
- */
-void M_DrawO (int x, int y) {
-    y -= CHARZ/2;
-    Draw_Character (x, y, 6);
-    Draw_Character (x+CHARZ, y, 7);
-    Draw_Character (x, y+CHARZ, 8);
-    Draw_Character (x+CHARZ, y+CHARZ, 9);
 }
 
 void M_Print (int cx, int cy, const char *str)
@@ -261,7 +254,7 @@ void M_DrawTextBox (int x, int y, int width, int lines)
 
 int m_save_demonum;
 
-int mvs(int cursorpos)
+int mvs(double cursorpos)
 {
     return cursorpos*MVS;
 }
@@ -320,11 +313,13 @@ void M_Menu_Main_f (void)
 
 void M_Main_Draw (void)
 {
-    //background
+    // Menu Background
+    Draw_MenuBg();
+    //background of menu
     Draw_Fill(main_x_offset_pixels, main_y_offset_pixels, main_pixel_width, main_pixel_height, BG_COLOR, 0.5); //blue bg
     Draw_Fill(main_x_offset_pixels, PixHeight(1)-MVS, main_pixel_width, MVS, 1, 0.5); //black bar bottom
     M_PrintWhite(main_x_offset_pixels+main_pixel_width-(8*CHARZ), PixHeight(1)-MVS+TEXT_YMARGIN, " Select"); //tip
-    M_DrawX(main_x_offset_pixels+main_pixel_width-(10*CHARZ), PixHeight(1)-MVS+TEXT_YMARGIN);
+    Draw_Button(main_x_offset_pixels+main_pixel_width-(10*CHARZ), PixHeight(1)-MVS+TEXT_YMARGIN, b_abutton);
     //cursor
     Draw_Cursor(main_x_offset_pixels, main_y_offset_pixels+mvs(m_main_cursor), main_pixel_width, CURSOR_HEIGHT, !main_multi);
     //menu items
@@ -753,12 +748,13 @@ void M_Menu_Setup_f (void)
 void M_Setup_Draw (void)
 {
     qpic_t	*p;
+    Draw_MenuBg();
     // window
     struct MenuCoords mc = Draw_WindowGridOffset("Spartan Customization", 4, MVS, 2, 0.267, 0.8, setup_cursor, true, -0.19);
     //footer
     M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Cancel     or L/R: Change");
-    M_DrawO(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp);
-    M_DrawX(mc.grid[0][mc.rows].xp + 11*CHARZ, mc.grid[0][mc.rows].yp);
+    Draw_Button(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, b_bbutton);
+    Draw_Button(mc.grid[0][mc.rows].xp + 11*CHARZ, mc.grid[0][mc.rows].yp, b_abutton);
 
     M_PrintWhite (mc.grid[0][0].xp, mc.grid[0][0].yp, "Hostname");
 	M_DrawTextBox (mc.grid[1][0].x, mc.grid[1][0].y, 16, 1);
@@ -948,18 +944,18 @@ void M_Menu_Pause_f (void)
 void M_Pause_Draw (void)
 {
 
-        if ((int)deathmatch.value == 2) //firefight
+    if ((int)deathmatch.value == 2) //firefight
     {
-            struct MenuCoords coords = Draw_WindowGrid("Options", 2, MVS_P, 1, 0.35, 1, pause_cursor, false);
-            M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Settings");
-            M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Disconnect");
-        } else {
-            struct MenuCoords coords = Draw_WindowGrid("Options", 4, MVS_P, 1, 0.35, 1, pause_cursor, false);
-            M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Add Bot");
-            M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Remove Bot");
-            M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Settings");
-            M_PrintWhite (coords.grid[0][3].xp, coords.grid[0][3].yp, "Disconnect");
-        }
+        struct MenuCoords coords = Draw_WindowGrid("Options", 2, MVS_P, 1, 0.35, 1, pause_cursor, false);
+        M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Settings");
+        M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Disconnect");
+    } else {
+        struct MenuCoords coords = Draw_WindowGrid("Options", 4, MVS_P, 1, 0.35, 1, pause_cursor, false);
+        M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Add Bot");
+        M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Remove Bot");
+        M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Settings");
+        M_PrintWhite (coords.grid[0][3].xp, coords.grid[0][3].yp, "Disconnect");
+    }
 }
 
 void M_Pause_Key (int key)
@@ -1243,12 +1239,14 @@ void M_Options_Draw (void)
     float alpha = 0.8;
     if (sv.active)
         alpha = 1;
+    if (!sv.active)
+        Draw_MenuBg();
 
     struct MenuCoords mc = Draw_WindowGrid("Options", 19, MVS*0.6, 2, 0.4, alpha, options_cursor, true);
     //footer
     M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Back      Select   L/R: Move Slider");
-    M_DrawO(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp);
-    M_DrawX(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp);
+    Draw_Button(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, b_bbutton);
+    Draw_Button(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp, b_abutton);
 	// Draw the items in the order of the enum defined above:
 	// OPT_CUSTOMIZE:
     M_PrintWhite (mc.grid[0][0].xp ,mc.grid[0][0].yp, "Controls");
@@ -1586,6 +1584,8 @@ void M_Keys_Draw (void)
     float alpha = 0.8;
     if (sv.active)
         alpha = 1;
+    if (!sv.active)
+        Draw_MenuBg();
 
     // window
     struct MenuCoords mc = Draw_WindowGrid("Controls", 19, vertical_spacing, 2, 0.4, alpha, keys_cursor-keys_first, true);
@@ -1594,8 +1594,8 @@ void M_Keys_Draw (void)
         M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "Press a button for this action");
     } else {
         M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Back      Change   square: Delete");
-        M_DrawO(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp);
-        M_DrawX(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp);
+        Draw_Button(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, b_bbutton);
+        Draw_Button(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp, b_abutton);
     }
 
 	keys_shown = numbindnames;
@@ -1924,9 +1924,9 @@ void M_Quit_Draw (void)
     struct MenuCoords coords = Draw_WindowGrid("Quit", 2, MVS_P, 2, 0.2, 1.0, -1, false);
     M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Ready to retire, Chief?");
     M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Yes");
-    M_DrawX(coords.grid[0][1].xp + 4*CHARZ, coords.grid[0][1].yp);
+    Draw_Button(coords.grid[0][1].xp + 4*CHARZ, coords.grid[0][1].yp, b_abutton);
     M_PrintWhite (coords.grid[1][1].xp, coords.grid[1][1].yp, "No");
-    M_DrawO(coords.grid[1][1].xp + 3*CHARZ, coords.grid[1][1].yp);
+    Draw_Button(coords.grid[1][1].xp + 3*CHARZ, coords.grid[1][1].yp, b_bbutton);
 }
 
 //=============================================================================
@@ -1995,6 +1995,8 @@ void M_LanConfig_Draw (void)
         // background tint
         Draw_Fill(0,0,1000,1000, BLACK, 0.667);
         alpha = 1.0;
+    } else {
+        Draw_MenuBg();
     }
 
     struct MenuCoords mc = Draw_WindowGrid("Matchmaking", rows, MVS_P, 2, width, alpha, -1, false);
@@ -2365,8 +2367,8 @@ void M_Matchmaking_Map_Draw (void) {
     struct MenuCoords coords = Draw_WindowGrid(title, 9, MVS_P, 2, 0.3, 1.0, mlist_cursor-mlist_first, true);
     //footer
     M_PrintWhite (coords.grid[0][coords.rows].xp, coords.grid[0][coords.rows].yp, "   Back      Select   L/R: Map Pack");
-    M_DrawO(coords.grid[0][coords.rows].xp, coords.grid[0][coords.rows].yp);
-    M_DrawX(coords.grid[0][coords.rows].xp + 10*CHARZ, coords.grid[0][coords.rows].yp);
+    Draw_Button(coords.grid[0][coords.rows].xp, coords.grid[0][coords.rows].yp, b_bbutton);
+    Draw_Button(coords.grid[0][coords.rows].xp + 10*CHARZ, coords.grid[0][coords.rows].yp, b_abutton);
     // map name
     for (int n = 0; n < mlist_shown; n++) {
         M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, MlistPrintServer (mlist_first+n));
@@ -2529,6 +2531,7 @@ void M_Matchmaking_f (void)
 
 void M_Matchmaking_Draw (void)
 {
+    Draw_MenuBg();
     // fetch 'random' map thumbnail early so we can use its dimmensions
     qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail));
     int fg_height = MM_HEIGHT_PIX - (MM_HEADER_HEIGHT + MM_FOOTER_HEIGHT +mappic->height);
@@ -2546,11 +2549,12 @@ void M_Matchmaking_Draw (void)
     //cursor
     Draw_Cursor(MM_XOFF, MM_HEADER_HEIGHT+mvs(matchmaking_cursor), MM_WIDTH_PIX, MVS, cursorfocused);
     //header
-    M_PrintWhite (MM_XOFF+TEXT_XMARGIN, MM_HEADER_HEIGHT-mvs(1)+TEXT_YMARGIN, "MATCHMAKING");
+//    M_PrintWhite (MM_XOFF+TEXT_XMARGIN, MM_HEADER_HEIGHT-mvs(1)+TEXT_YMARGIN, "MATCHMAKING");
+    Draw_ColoredStringScale(MM_XOFF+TEXT_XMARGIN, MM_HEADER_HEIGHT-mvs(1.5)+TEXT_YMARGIN, "MATCHMAKING",1,1,1, 1, 1.5f);
     //footer
     M_PrintWhite (MM_WIDTH_PIX-25*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN, "  Back    Select/Change");
-    M_DrawO(MM_WIDTH_PIX-26*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN);
-    M_DrawX(MM_WIDTH_PIX-18*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN);
+    Draw_Button(MM_WIDTH_PIX-26*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN, b_bbutton);
+    Draw_Button(MM_WIDTH_PIX-18*CHARZ, MM_HEIGHT_PIX-MM_FOOTER_HEIGHT+TEXT_YMARGIN, b_abutton);
 
     //======================== 0
     //force update protocol char[]
@@ -2784,6 +2788,7 @@ void M_Firefight_Draw (void)
     qpic_t	*p, *gt, *bg, *bar, *skillp, *mapfire, *mapconstruction, *maprandom;
     int		x, chg;
 
+    Draw_MenuBg();
     // mapfire = Draw_CachePic ("gfx/maps/fire.lmp");
     // mapconstruction = Draw_CachePic ("gfx/maps/construction.lmp");
     bg = Draw_CachePic ("gfx/MENU/matchmakingback.lmp");
@@ -2919,6 +2924,7 @@ void M_Search_Draw (void)
 	qpic_t	*p;
 	int x;
 
+    Draw_MenuBg();
     struct MenuCoords mc = Draw_WindowGrid("Matchmaking", 2, MVS_P, 1, 0.4, 0.667, -1, false);
 	M_PrintWhite (mc.grid[0][0].xp, mc.grid[0][0].yp, "Finding match...");
 
@@ -2977,6 +2983,8 @@ void M_ServerList_Draw (void)
 {
 	size_t	n, slist_shown;
 
+    Draw_MenuBg();
+
 	if (!slist_sorted)
 	{
 		slist_sorted = true;
@@ -2994,8 +3002,8 @@ void M_ServerList_Draw (void)
     struct MenuCoords mc = Draw_WindowGrid("Matchmaking", slist_shown, 14, 1, 0.667, 0.667, slist_cursor-slist_first, true);
     //footer
     M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "   Back      Join");
-    M_DrawO(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp);
-    M_DrawX(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp);
+    Draw_Button(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, b_bbutton);
+    Draw_Button(mc.grid[0][mc.rows].xp + 10*CHARZ, mc.grid[0][mc.rows].yp, b_abutton);
     // draw servers
 	for (n = 0; n < slist_shown; n++)
 		M_PrintWhite (mc.grid[0][n].xp, mc.grid[0][n].yp, NET_SlistPrintServer (slist_first+n));
@@ -3213,6 +3221,10 @@ void M_Mods_Draw (void)
 	char *tmp;
 	filelist_item_t	*mod;
 
+    if (!sv.active) {
+        Draw_MenuBg();
+    }
+
 	M_PrintWhite (160 - 13*8, 0, "Detected game directories:");
 	for (mod = modlist, n=0; mod; mod = mod->next, n++)
 	{
@@ -3396,10 +3408,6 @@ void M_Draw (void)
 	case m_save:
 		M_Save_Draw ();
 		break;
-
-//	case m_multiplayer:
-//		M_MultiPlayer_Draw ();
-//		break;
 
     case m_firefight:
         M_Firefight_Draw();

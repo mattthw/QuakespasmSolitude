@@ -56,6 +56,9 @@ struct MenuCoords Draw_WindowGridOffset(char* title, int rows, float rowheight, 
 void Draw_WindowPix(int x, int y, int bgwidth, int bgheight, char *str, float alpha);
 void Draw_CenterWindow(float width, float height, char *str, float alpha);
 void Draw_DebugChar (char num);
+void Draw_Button(int x, int y, qpic_t *pic);
+void Draw_MenuBg();
+void Draw_StretchPic (int x, int y, qpic_t *pic, int x_value, int y_value);
 void Draw_Pic (int x, int y, qpic_t *pic);
 void Draw_SubPic (float x, float y, float w, float h, qpic_t *pic, float s1, float t1, float s2, float t2);
 void Draw_TransPicTranslate (int x, int y, qpic_t *pic, int top, int bottom); //johnfitz -- more parameters
@@ -65,6 +68,8 @@ void Draw_Fill (int x, int y, int w, int h, int c, float alpha); //johnfitz -- a
 void Draw_Cursor (int x, int y, int w, int h, bool focused); //johnfitz -- added alpha
 void Draw_FadeScreen (void);
 void Draw_String (int x, int y, const char *str);
+void Draw_ColoredString (int x, int y, const char *str, float r, float g, float b, float a);
+void Draw_ColoredStringScale (int x, int y, const char *str, float r, float g, float b, float a, float s);
 qpic_t *Draw_PicFromWad2 (const char *name, unsigned int texflags);
 qpic_t *Draw_PicFromWad (const char *name);
 qpic_t *Draw_CachePic (const char *path);

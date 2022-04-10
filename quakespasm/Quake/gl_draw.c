@@ -38,6 +38,21 @@ gltexture_t *char_texture; //johnfitz
 qpic_t		*pic_ovr, *pic_ins; //johnfitz -- new cursor handling
 qpic_t		*pic_nul; //johnfitz -- for missing gfx, don't crash
 
+extern qpic_t      *b_up;
+extern qpic_t      *b_down;
+extern qpic_t      *b_left;
+extern qpic_t      *b_right;
+extern qpic_t      *b_lthumb;
+extern qpic_t      *b_rthumb;
+extern qpic_t      *b_lshoulder;
+extern qpic_t      *b_rshoulder;
+extern qpic_t      *b_abutton;
+extern qpic_t      *b_bbutton;
+extern qpic_t      *b_ybutton;
+extern qpic_t      *b_xbutton;
+extern qpic_t      *b_lt;
+extern qpic_t      *b_rt;
+
 //johnfitz -- new pics
 byte pic_ovr_data[8][8] =
 {
@@ -558,6 +573,34 @@ void Draw_Init (void)
 
 /*
 ================
+Draw_CharacterQuadScale
+        Draw_CharacterQuad with scale parm
+================
+*/
+void Draw_CharacterQuadScale (int x, int y, char num, float s)
+{
+    int				row, col;
+    float			frow, fcol, size;
+
+    row = num>>4;
+    col = num&15;
+
+    frow = row*0.0625;
+    fcol = col*0.0625;
+    size = 0.0625*s;
+
+    glTexCoord2f (fcol, frow);
+    glVertex2f (x, y);
+    glTexCoord2f (fcol + (float)(size/s), frow);
+    glVertex2f (x+(8*(s)), y);
+    glTexCoord2f (fcol + (float)(size/s), frow + (float)(size/s));
+    glVertex2f (x+(8*(s)), y+(8*(s)));
+    glTexCoord2f (fcol, frow + (float)(size/s));
+    glVertex2f (x, y+(8*(s)));
+}
+
+/*
+================
 Draw_CharacterQuad -- johnfitz -- seperate function to spit out verts
 ================
 */
@@ -886,6 +929,123 @@ void Draw_String (int x, int y, const char *str)
 	}
 
 	glEnd ();
+}
+
+/*
+================
+Draw_ColoredStringScale
+Draw_ColoredString with scale parm
+================
+*/
+void Draw_ColoredStringScale (int x, int y, const char *str, float r, float g, float b, float a, float s)
+{
+    if (y <= -8)
+        return;			// totally off screen
+
+    glEnable (GL_BLEND);
+    glColor4f(r, g, b, a);
+    glDisable (GL_ALPHA_TEST);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+    GL_Bind (char_texture);
+    glBegin (GL_QUADS);
+
+    while (*str)
+    {
+        if (*str != 32) //don't waste verts on spaces
+            Draw_CharacterQuadScale (x, y, *str, s);
+        str++;
+        x += 8*s;
+    }
+
+    glEnd ();
+
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    glEnable (GL_ALPHA_TEST);
+    glDisable (GL_BLEND);
+    glColor4f (1,1,1,1);
+}
+
+
+/*
+================
+Draw_ColoredString
+Assume that all rgba values are divided by 255 already
+================
+*/
+void Draw_ColoredString (int x, int y, const char *str, float r, float g, float b, float a)
+{
+    if (y <= -8)
+        return;			// totally off screen
+    glEnable (GL_BLEND);
+    glColor4f(r, g, b, a);
+    glDisable (GL_ALPHA_TEST);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    GL_Bind (char_texture);
+    glBegin (GL_QUADS);
+    while (*str)
+    {
+        if (*str != 32) //don't waste verts on spaces
+            Draw_CharacterQuad (x, y, *str);
+        str++;
+        x += 8;
+    }
+    glEnd ();
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    glEnable (GL_ALPHA_TEST);
+    glDisable (GL_BLEND);
+    glColor4f (1,1,1,1);
+}
+
+void Draw_Button(int x, int y, qpic_t *pic) {
+    // - 4 on y to center it with text of character set vertical pixel size 8
+    Draw_StretchPic(x, y - 4, pic, 16, 16);
+}
+
+/*
+=============
+Draw_StretchPic
+=============
+*/
+void Draw_StretchPic (int x, int y, qpic_t *pic, int x_value, int y_value)
+{
+	glpic_t			*gl;
+	int i;
+	if (scrap_dirty)
+		Scrap_Upload ();
+	gl = (glpic_t *)pic->data;
+	GL_Bind (gl->gltexture);
+	glBegin (GL_QUADS);
+#ifdef VITA
+	glTexCoord2f (0, 0);
+	glVertex2f (x, y);
+	glTexCoord2f (1, 0);
+	glVertex2f (x+x_value, y);
+	glTexCoord2f (1, 1);
+	glVertex2f (x+x_value, y+y_value);
+	glTexCoord2f (0, 1);
+	glVertex2f (x, y+y_value);
+#else
+	glTexCoord2f (gl->sl, gl->tl);
+	glVertex2f (x, y);
+	glTexCoord2f (gl->sh, gl->tl);
+	glVertex2f (x+x_value, y);
+	glTexCoord2f (gl->sh, gl->th);
+	glVertex2f (x+x_value, y+y_value);
+	glTexCoord2f (gl->sl, gl->th);
+	glVertex2f (x, y+y_value);
+#endif
+	glEnd ();
+}
+
+void Draw_MenuBg() {
+    qpic_t *menu_bg;
+    menu_bg = Draw_CachePic("gfx/MENU/menu_bg.tga");
+#ifdef VITA
+    Draw_StretchPic(0, 0, menu_bg, 320 * MENU_SCALE, 200 * MENU_SCALE);
+#else
+    Draw_StretchPic(0, vid.height * 0.5, menu_bg, vid.width/2, vid.height/2);
+#endif
 }
 
 /*
