@@ -38,21 +38,6 @@ gltexture_t *char_texture; //johnfitz
 qpic_t		*pic_ovr, *pic_ins; //johnfitz -- new cursor handling
 qpic_t		*pic_nul; //johnfitz -- for missing gfx, don't crash
 
-extern qpic_t      *b_up;
-extern qpic_t      *b_down;
-extern qpic_t      *b_left;
-extern qpic_t      *b_right;
-extern qpic_t      *b_lthumb;
-extern qpic_t      *b_rthumb;
-extern qpic_t      *b_lshoulder;
-extern qpic_t      *b_rshoulder;
-extern qpic_t      *b_abutton;
-extern qpic_t      *b_bbutton;
-extern qpic_t      *b_ybutton;
-extern qpic_t      *b_xbutton;
-extern qpic_t      *b_lt;
-extern qpic_t      *b_rt;
-
 //johnfitz -- new pics
 byte pic_ovr_data[8][8] =
 {
@@ -648,6 +633,25 @@ void Draw_Character (int x, int y, int num)
 
 	glEnd ();
 }
+
+void Draw_CharacterScale (int x, int y, int num, float s)
+{
+    if (y <= -8)
+        return;			// totally off screen
+
+    num &= 255;
+
+    if (num == 32)
+        return; //don't waste verts on spaces
+
+    GL_Bind (char_texture);
+    glBegin (GL_QUADS);
+
+    Draw_CharacterQuadScale(x, y, (char) num, s);
+
+    glEnd ();
+}
+
 /**
  * Print colored text
  * @param cx
@@ -967,6 +971,63 @@ void Draw_StretchPic (int x, int y, qpic_t *pic, int x_value, int y_value)
 	glVertex2f (x, y+y_value);
 //#endif
 	glEnd ();
+}
+
+struct PicAttr getHudPicAttr(float xpercent, float ypercent, qpic_t *pic) {
+    int x_value = pic->width*scr_sbarscale.value;
+    int y_value = pic->height*scr_sbarscale.value;
+    int x = (xpercent*glwidth) - (xpercent*x_value);
+    int y = (ypercent*glheight) - (ypercent*y_value);
+    struct PicAttr attr = {.x = x, .y = y, .height = y_value, .width = x_value, .xpercent = xpercent, .ypercent = ypercent};
+    return attr;
+}
+
+/*
+=============
+Draw_HudPic
+ basically Draw_StretchPic and Draw_PicAlpha which also scaled with sbar scaling
+=============
+*/
+void Draw_HudPic (struct PicAttr attr, qpic_t *pic)
+{
+    int x_value = attr.width;
+    int y_value = attr.height;
+    int x = attr.x;
+    int y = attr.y;
+    float xpercent = attr.xpercent;
+    float ypercent = attr.ypercent;
+    float alpha = 1;//scr_sbaralpha.value;
+    glpic_t			*gl;
+
+    if (alpha <= 1.0) {
+        glEnable (GL_BLEND);
+        glColor4f (1,1,1,alpha);
+        glDisable (GL_ALPHA_TEST);
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    }
+
+    if (scrap_dirty)
+        Scrap_Upload ();
+    gl = (glpic_t *)pic->data;
+    GL_Bind (gl->gltexture);
+    glBegin (GL_QUADS);
+    glTexCoord2f (gl->sl, gl->tl);
+    glVertex2f (x, y);
+    glTexCoord2f (gl->sh, gl->tl);
+    glVertex2f (x+x_value, y);
+    glTexCoord2f (gl->sh, gl->th);
+    glVertex2f (x+x_value, y+y_value);
+    glTexCoord2f (gl->sl, gl->th);
+    glVertex2f (x, y+y_value);
+    glEnd ();
+
+    if (alpha <= 1.0)
+    {
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+        glEnable(GL_ALPHA_TEST);
+        glDisable (GL_BLEND);
+        glColor4f (1,1,1,1);
+    }
 }
 
 void Draw_MenuBg() {

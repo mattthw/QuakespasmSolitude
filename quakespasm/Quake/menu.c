@@ -23,22 +23,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "bgmusic.h"
 
-// button images
-extern qpic_t      *b_up;
-extern qpic_t      *b_down;
-extern qpic_t      *b_left;
-extern qpic_t      *b_right;
-extern qpic_t      *b_lthumb;
-extern qpic_t      *b_rthumb;
-extern qpic_t      *b_lshoulder;
-extern qpic_t      *b_rshoulder;
-extern qpic_t      *b_abutton;
-extern qpic_t      *b_bbutton;
-extern qpic_t      *b_ybutton;
-extern qpic_t      *b_xbutton;
-extern qpic_t      *b_lt;
-extern qpic_t      *b_rt;
-
 qpic_t *menu_bg;
 
 extern cvar_t scr_fov;
@@ -128,6 +112,30 @@ int m_multiplayer_cursor = 1;
 #define JoiningGame		(m_multiplayer_cursor == 0)
 #define	IPXConfig		false //(m_net_cursor == 0)
 #define	TCPIPConfig		(m_net_cursor == 1)
+
+
+/*
+===============
+scroll the string inside a glscissor region
+===============
+*/
+void M_DrawScrollString (int x, int y, int width, const char *str)
+{
+    int len, ofs, left;
+
+    glEnable (GL_SCISSOR_TEST);
+    glScissor (0, 0, glwidth*scr_menuscale.value, glheight);
+
+    len = strlen(str)*8 + 40;
+    ofs = ((int)(realtime*30))%len;
+    Sbar_DrawString (x - ofs, y, str);
+    Sbar_DrawCharacter (x - ofs + len - 32, y, '/');
+    Sbar_DrawCharacter (x - ofs + len - 24, y, '/');
+    Sbar_DrawCharacter (x - ofs + len - 16, y, '/');
+    Sbar_DrawString (x - ofs + len, y, str);
+
+    glDisable (GL_SCISSOR_TEST);
+}
 
 void M_ConfigureNetSubsystem(void);
 
@@ -329,6 +337,8 @@ void M_Main_Draw (void)
     M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(2), "Options");
     M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(3), "Spartan");
     M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(4), "Quit");
+
+    M_DrawScrollString(0,0,320*MENU_SCALE, "Welcome to Halo Solitude! This port is a work in progress.");
 
     if (main_multi)
         M_Main_Multi_Draw ();

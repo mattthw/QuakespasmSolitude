@@ -56,22 +56,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define DEFAULT_REFRESHRATE	60
 
-// button images
-extern qpic_t      *b_up;
-extern qpic_t      *b_down;
-extern qpic_t      *b_left;
-extern qpic_t      *b_right;
-extern qpic_t      *b_lthumb;
-extern qpic_t      *b_rthumb;
-extern qpic_t      *b_lshoulder;
-extern qpic_t      *b_rshoulder;
-extern qpic_t      *b_abutton;
-extern qpic_t      *b_bbutton;
-extern qpic_t      *b_ybutton;
-extern qpic_t      *b_xbutton;
-extern qpic_t      *b_lt;
-extern qpic_t      *b_rt;
-
 // FIXME: If we don't re-define this here, there seems to be issues related to softfp vs hardfp
 #define SLIDER_RANGE 10
 static void M_DrawSlider (int x, int y, float range)

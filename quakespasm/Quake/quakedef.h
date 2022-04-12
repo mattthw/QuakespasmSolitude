@@ -385,6 +385,10 @@ extern int		minimum_memory;
 #define TEXT_YMARGIN (MVS-CHARZ)/2 //margin below or above text in a MVS row
 #define TEXT_XMARGIN 15
 
+#define DM_SLAYER 1
+#define DM_FIREFIGHT 2
+#define DM_SWAT 3
+
 typedef enum InpType {
     SELECT = 0,
     SCROLL = 1,

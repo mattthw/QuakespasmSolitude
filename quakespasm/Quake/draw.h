@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // to touch the vid buffer
 
 extern	qpic_t		*draw_disc;	// also used on sbar
-
+extern canvastype currentcanvas;
 
 struct Coord {
     int x;
@@ -43,8 +43,18 @@ struct MenuCoords {
     int rowh;
 };
 
+struct PicAttr {
+    float width;
+    float height;
+    int x;
+    int y;
+    float xpercent;
+    float ypercent;
+};
+
 void Draw_Init (void);
 void Draw_Character (int x, int y, int num);
+void Draw_CharacterScale (int x, int y, int num, float s);
 int PixWidth(float percent);
 int PixHeight(float percent);
 void Draw_WindowInsCol(int x, int y, float width, float height, int color, float alpha);
@@ -60,6 +70,8 @@ void Draw_DebugChar (char num);
 void Draw_Button(int x, int y, qpic_t *pic);
 void Draw_MenuBg();
 void Draw_StretchPic (int x, int y, qpic_t *pic, int x_value, int y_value);
+struct PicAttr getHudPicAttr(float xpercent, float ypercent, qpic_t *pic);
+void Draw_HudPic (struct PicAttr attr, qpic_t *pic);
 void Draw_Pic (int x, int y, qpic_t *pic);
 void Draw_SubPic (float x, float y, float w, float h, qpic_t *pic, float s1, float t1, float s2, float t2);
 void Draw_TransPicTranslate (int x, int y, qpic_t *pic, int top, int bottom); //johnfitz -- more parameters

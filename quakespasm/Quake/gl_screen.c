@@ -733,13 +733,11 @@ void SCR_DrawLoading (void)
 	if (!scr_drawloading)
 		return;
 
-	GL_SetCanvas (CANVAS_MENU_STRETCH); //johnfitz
-
-    Draw_Fill(-500,-500,1000,1000,BLACK, 1.0); //back fill TODO: rescale image to fit and remove this
+	GL_SetCanvas (CANVAS_DEFAULT); //johnfitz
 
     pic = Draw_CachePic ("gfx/loading.tga");
-    Draw_StretchPic(0, 0, pic, 320*MENU_SCALE, 200*MENU_SCALE); //johnfitz -- stretched menus
-    Draw_ColoredStringScale((320*MENU_SCALE)*0.1, 180*MENU_SCALE, "Loading...", 1,1,1,0.8,2.0f);
+    Draw_StretchPic(0, 0, pic, glwidth, glheight); //johnfitz -- stretched menus
+    Draw_ColoredStringScale(glwidth*0.1, glheight*0.9, "Loading...", 1,1,1,0.8,2.0f);
 
 	scr_tileclear_updates = 0; //johnfitz
 }
