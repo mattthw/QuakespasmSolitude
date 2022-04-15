@@ -1545,7 +1545,7 @@ void TexMgr_ReloadImage (gltexture_t *glt, int shirt, int pants)
 {
 	byte	translation[256];
 	byte	*src, *dst, *data = NULL, *translated;
-	int	mark, size, i;
+	int	mark, size, i, j;
 	qboolean malloced = false;
 	enum srcformat fmt = glt->source_format;
 //
@@ -1604,9 +1604,8 @@ invalid:
 		for (i = 0; i < 256; i++)
 			translation[i] = i;
 
-		shirt = glt->shirt * 16;
-
-        // We are not going to support recoloring of the visor
+        // We are not going to support recoloring of the visor (shirt colors)
+//      shirt = glt->shirt * 16;
 //		if (shirt < 128)
 //		{
 //			for (i = 0; i < 16; i++)
@@ -1635,9 +1634,20 @@ invalid:
 		dst = translated = (byte *) Hunk_Alloc (size);
 		src = data;
 
-		for (i = 0; i < size; i++)
-			*dst++ = translation[*src++];
-
+        for (i = 0; i < glt->height; i++) {
+            for (j = 0; j < glt->width; j++) {
+                /* HACK!
+                 * The skins in this game include guns, the color on the guns are often times the same color as the
+                 * skin. This means normal quake recoloring also recolors the guns :'(. Therefore we will only recolor
+                 * the first 256*256 pixels of the bitmap.
+                 * */
+                if (size <= (256*256) || j < glt->width*0.667 /* image width when weapon starts: 256 / 385 = 0.667 */) {
+                    *dst++ = translation[*src++];
+                } else {
+                    *dst++ = *src++;
+                }
+            }
+        }
 		data = translated;
 	}
 //
