@@ -264,9 +264,45 @@ char *getWeaponName(int w) {
             return "SMG";
         case IT_GRENADE_LAUNCHER:
             return "Sniper";
+        case IT_AXE:
+            return "Energy Sword";
         default:
             return "Unknown";
     }
+}
+
+char *getPickupWeaponString (int value) {
+    switch (value) {
+        case 1:
+            return "pickup Assault Rifle";
+        case 2:
+            return "pickup Plasma Pistol";
+        case 3:
+            return "pickup Shotgun";
+        case 4:
+            return "pickup Needler";
+        case 5:
+            return "pickup Rocket Launcher";
+        case 6:
+            return "pickup Pistol";
+        case 7:
+            return "pickup SMG";
+        case 8:
+            return "pickup Sniper";
+        case 9: //todo: add pickup CL QuakeC code for energy sword
+            return "pickup Energy Sword";
+        default:
+            return "";
+    }
+}
+
+void drawCrosshair(void) {
+    //nothing
+}
+
+void drawPickupWeapon(void) {
+    char *string = getPickupWeaponString((int)cl_ww.value);
+    Draw_ColoredStringScale(glwidth*0.65, glheight*0.6, string, 127/255.0, 191/255.0, 255/255.0,1,0.8f*scr_sbarscale.value);
 }
 void drawWeapon(void) {
     char primary[30];
@@ -364,8 +400,12 @@ void drawHealth(void)
 
 //=============================================================================
 
+struct teaminfo {
+    int scoreTotal;
+    int color;
+};
 int		fragsort[MAX_SCOREBOARD];
-
+struct teaminfo     teamscores[2];
 extern char	scoreboardtext[MAX_SCOREBOARD][20];
 extern int		scoreboardtop[MAX_SCOREBOARD];
 extern int		scoreboardbottom[MAX_SCOREBOARD];
@@ -401,6 +441,41 @@ void SortFrags (void)
     }
 }
 
+// broken
+void TeamSort (void)
+{
+    int		i, j, k;
+
+    //setup players to sort
+    scoreboardlines = 0;
+    for (i = 0; i < cl.maxclients; i++)
+    {
+        if (cl.scores[i].name[0])
+        {
+            fragsort[scoreboardlines] = i;
+            scoreboardlines++;
+        }
+    }
+
+    // sort by color
+    for (i = 0; i < scoreboardlines; i++)
+    {
+        for (j = 0; j < scoreboardlines - 1 - i; j++)
+        {
+            if (cl.scores[fragsort[j]].colors < cl.scores[fragsort[j+1]].colors)
+            {
+                k = fragsort[j];
+                fragsort[j] = fragsort[j+1];
+                fragsort[j+1] = k;
+            }
+        }
+    }
+//    char text[256];
+//    HUD_itoa(scoreboardlines, text);
+//    q_snprintf(text, sizeof (text), "scoreboardlines=%d\n", scoreboardlines);
+//    Cbuf_AddText(text);
+}
+
 int	ColorForMap (int m)
 {
     return m < 128 ? m + 8 : m + 8;
@@ -424,8 +499,6 @@ void MiniDeathmatchOverlay (void)
 //    scr_copyeverything = 1;
 //    scr_fullupdate = 0;
 
-    // scores
-    SortFrags ();
 
     // draw the text
     l = scoreboardlines;
@@ -434,6 +507,7 @@ void MiniDeathmatchOverlay (void)
         l = 2;
     }
 
+    // draw game type
     char gametype[20];
     if (deathmatch.value == DM_SLAYER && teamplay.value == 0) {
         strcpy(gametype, "Slayer");
@@ -446,29 +520,87 @@ void MiniDeathmatchOverlay (void)
     }
     Draw_ColoredStringScale(glwidth*0.08, glheight*(0.75), gametype, 171/255.0, 231/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
 
-    for (i=0; i<l; i++) //only show two lines
-    {
-        k = fragsort[i];
-        s = &cl.scores[k];
-        if (!s->name[0])
-            continue;
+    // begin draw scores
+    if (teamplay.value) {
+        TeamSort();
+        struct teaminfo teamA;
+        struct teaminfo teamB;
+        teamA.color = cl.scores[0].colors;
+        teamB.color = -1;
+        teamA.scoreTotal = 0;
+        teamB.scoreTotal = 0;
+        // add up scores
+        for (i = 0; i < cl.maxclients; i++)
+        {
+            if (cl.scores[i].name[0])
+            {
+                if (cl.scores[0].colors == cl.scores[i].colors) {
+                    teamA.scoreTotal = teamA.scoreTotal + cl.scores[i].frags;
+                } else {
+                    teamB.scoreTotal = teamB.scoreTotal + cl.scores[i].frags;
+                    teamB.color = cl.scores[i].colors;
+                }
+                scoreboardlines++;
+            }
+        }
+        // sort. lol.
+        if (teamA.scoreTotal > teamB.scoreTotal || (teamA.scoreTotal == teamB.scoreTotal && teamA.color == cl.scores[0].colors)) {
+            teamscores[0] = teamA;
+            teamscores[1] = teamB;
+        } else {
+            teamscores[0] = teamB;
+            teamscores[1] = teamA;
+        }
+//        if (teamscores[0].scoreTotal == fraglimit.value || teamscores[1].scoreTotal == fraglimit.value) {
+//            // HACK: force intermission once fraglimit is hit, since I cannot decompile the QuakeC code! :'(
+//            cl.intermission = 1;
+//            Cbuf_AddText("disconnect");
+//        }
 
-        // draw background
-        bottom = (s->colors & 15) <<4;
-        bottom = ColorForMap (bottom);
+        for (i=0; i < 2 && teamB.color >= 0; i++) //only show two lines
+        {
+            // draw background
+            bottom = (teamscores[i].color & 15) <<4;
+            bottom = ColorForMap (bottom);
 
-        Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 8*scr_sbarscale.value, bottom, 1);
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 8*scr_sbarscale.value, bottom, 1);
 
-        // draw number
-        f = s->frags;
-        HUD_itoa(f, num);
+            // draw number
+            f = teamscores[i].scoreTotal;
+            HUD_itoa(f, num);
 
-        Draw_ColoredStringScale(glwidth*0.08 + 8*scr_sbarscale.value, glheight*(0.8+y), num, 1, 1, 1,1,0.8f*scr_sbarscale.value);
+            Draw_ColoredStringScale(glwidth*0.08 + 8*scr_sbarscale.value, glheight*(0.8+y), num, 1, 1, 1,1,0.8f*scr_sbarscale.value);
 
-        if (k == cl.viewentity - 1)
-            Draw_CharacterScale( glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y), 13, 1.0f*scr_sbarscale.value);
+            if (teamscores[i].color == cl.scores[0].colors)
+                Draw_CharacterScale( glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y), 13, 1.0f*scr_sbarscale.value);
+            y += 0.06;
+        }
+    } else { // slayer or swat
+        SortFrags ();
+        for (i=0; i<l; i++) //only show two lines
+        {
+            k = fragsort[i];
+            s = &cl.scores[k];
+            if (!s->name[0])
+                continue;
 
-        y += 0.06;
+            // draw background
+            bottom = (s->colors & 15) <<4;
+            bottom = ColorForMap (bottom);
+
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 8*scr_sbarscale.value, bottom, 1);
+
+            // draw number
+            f = s->frags;
+            HUD_itoa(f, num);
+
+            Draw_ColoredStringScale(glwidth*0.08 + 8*scr_sbarscale.value, glheight*(0.8+y), num, 1, 1, 1,1,0.8f*scr_sbarscale.value);
+
+            if (k == cl.viewentity - 1)
+                Draw_CharacterScale( glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y), 13, 1.0f*scr_sbarscale.value);
+
+            y += 0.06;
+        }
     }
 }
 
@@ -499,6 +631,8 @@ void HUD_Draw (void) {
     drawWeapon();
     drawGrenades();
     drawMedal();
+    drawCrosshair();
+    drawPickupWeapon();
     if (!*cl.scores[1].name) {
         Draw_ColoredStringScale(0, glheight-(8*0.8f*scr_sbarscale.value), "Its too quiet, Chief! Add bots to get started.", 1,1,1,1,0.8f*scr_sbarscale.value);
     }
