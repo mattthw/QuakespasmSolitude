@@ -20,6 +20,8 @@
 #pragma PROGS_DAT fteprogs.dat
 #endif
 
+#pragma autoproto
+
 // includes
 #include "defs.qc"
 #include "sol_defs.qc"
@@ -37,7 +39,7 @@
 
 
 #include "vwep.qc"
-// #include "subs.qc"
+ #include "subs.qc"
 #include "effects.qc"
 #include "obituary.qc"
 #include "combat.qc"
@@ -84,3 +86,4 @@
 #include "quakemons/oldone.qc"
 #include "quakemons/firefight.qc"
 #include "quakemons/elite.qc"
+#endif

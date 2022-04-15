@@ -63,7 +63,10 @@ void() W_Precache =
 	precache_sound ("weapons/reload/uzi.wav"); 
 	precache_sound ("weapons/reload/rocket.wav");
 	precache_sound ("weapons/reload/shottie.wav"); // reload sounds
-	
+	// weapon drop sounds
+    precache_sound ("weapons/w_drop1.wav");
+    precache_sound ("weapons/w_drop2.wav");
+    precache_sound ("weapons/w_drop3.wav");
 	//melee
 	precache_sound ("weapons/melee/needler.wav");
 	precache_sound ("weapons/melee/pistol.wav");
@@ -73,6 +76,7 @@ void() W_Precache =
 	precache_model ("progs/plasgren.mdl");
 	precache_model ("sprites/s_plasma4.spr");
 	precache_model ("sprites/plasma3.spr");
+    precache_model ("sprites/plasma_explosion.spr");
 	precache_sound ("weapons/plasma_blow.wav");
 	precache_sound ("weapons/plasma_throw.wav");
 	precache_sound ("weapons/pbounce.wav");
@@ -124,10 +128,6 @@ void() W_Precache =
 	
 	//New Solitude caches
 	precache_sound ("weapons/PR_fire.wav");
-	
-	
-
-
 
 };
 
@@ -1673,7 +1673,7 @@ void () GrenadeExplode =
 	CreateExplosion(self.origin);
 	
 	else {
-	plasmaexplo(self.origin);
+	CreatePlasmaExplosion(self.origin);
 	sound (self, CHAN_WEAPON, "weapons/plasma_blow.wav", 1, ATTN_NORM);
 	}
 	

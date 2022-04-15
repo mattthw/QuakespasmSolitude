@@ -110,26 +110,23 @@ void() s_smokee4 = [3,		s_smokee5] {};
 void() s_smokee3 = [2,		s_smokee4] {};
 void() s_smokee2 = [1,		s_smokee3] {};
 void() s_smokee1 = [0,		s_smokee2] {};
-
 void() s_needle3 = [2,		SUB_Remove] {};
 void() s_needle2 = [1,		s_needle3] {};
 void() s_needle1 = [0,		s_needle2] {};
-
-void() s_plasma14 = [13,		SUB_Remove] {};
-void() s_plasma13 = [12,		s_plasma14] {};
-void() s_plasma12 = [11,		s_plasma13] {};
-void() s_plasma11 = [10,		s_plasma12] {};
-void() s_plasma10 = [9,		s_plasma11] {};
-void() s_plasma9 = [8,		s_plasma10] {};
-void() s_plasma8 = [7,		s_plasma9] {};
-void() s_plasma7 = [6,		s_plasma8] {};
-void() s_plasma6 = [5,		s_plasma7] {};
-void() s_plasma5 = [4,		s_plasma6] {};
-void() s_plasma4 = [3,		s_plasma5] {};
-void() s_plasma3 = [2,		s_plasma4] {};
-void() s_plasma2 = [1,		s_plasma3] {};
-void() s_plasma1 = [0,		s_plasma2] {};
-
+//void() s_plasma14 = [13,		SUB_Remove] {};
+//void() s_plasma13 = [12,		s_plasma14] {};
+//void() s_plasma12 = [11,		s_plasma13] {};
+//void() s_plasma11 = [10,		s_plasma12] {};
+//void() s_plasma10 = [9,		s_plasma11] {};
+//void() s_plasma9 = [8,		s_plasma10] {};
+//void() s_plasma8 = [7,		s_plasma9] {};
+//void() s_plasma7 = [6,		s_plasma8] {};
+//void() s_plasma6 = [5,		s_plasma7] {};
+//void() s_plasma5 = [4,		s_plasma6] {};
+//void() s_plasma4 = [3,		s_plasma5] {};
+//void() s_plasma3 = [2,		s_plasma4] {};
+//void() s_plasma2 = [1,		s_plasma3] {};
+//void() s_plasma1 = [0,		s_plasma2] {};
 void(vector org) createpinkdust =
 {
 	local entity s;
@@ -149,56 +146,7 @@ void(vector org) createpinkdust =
 	self = s; // restore old self
 	
 };
-void(vector org) createplasma =
-{
-	local entity s;
 
-
-	s = self; // save old self
-
-	self = spawn();
-
-	self.movetype = MOVETYPE_NONE;
-	self.velocity = '0 0 0';
-	self.touch = SUB_Null;
-	setmodel (self, "sprites/s_plasma4.spr");
-	setorigin (self, org);
-	self.solid = SOLID_NOT;
-	s_plasma1();
-	self = s; // restore old self
-	
-};
-
-void() s_plasmaa5 = [4,		SUB_Remove] {};
-void() s_plasmaa4 = [3,		s_plasmaa5] {createplasma(self.origin);};
-void() s_plasmaa3 = [2,		s_plasmaa4] {};
-void() s_plasmaa2 = [1,		s_plasmaa3] {};
-void() s_plasmaa1 = [0,		s_plasmaa2] {};
-
-void(vector org) plasmaexplo =
-{
-	local entity s;
-	local float r;
-	r = random();
-
-
-	s = self; // save old self
-
-	self = spawn();
-
-	self.movetype = MOVETYPE_NONE;
-	self.velocity = '0 0 0';
-	self.touch = SUB_Null;
-	setmodel (self, "sprites/plasma3.spr");
-	setorigin (self, org);
-	self.solid = SOLID_NOT;
-	
-	// So that debris comes out in random spurts over It coming out in the same number every time --Mexicouger
-
-	s_plasmaa1 ();
-
-	self = s; // restore old self
-};
 void(vector org) pistolsmoke =
 {
 	local entity s;
@@ -258,11 +206,57 @@ void(vector org) CreateExplosion =
 	self.solid = SOLID_NOT;
 	sound (self, CHAN_WEAPON, "weapons/r_exp3.wav", 1, ATTN_NORM);
 	// So that debris comes out in random spurts over It coming out in the same number every time --Mexicouger
-		s_explode1 ();
+    s_explode1 ();
 
 	self = s; // restore old self
 };
 // #endif
+
+
+void() s_plasma19 = [ 18, SUB_Remove ] {};
+void() s_plasma18 = [ 17, s_plasma19 ] {};
+void() s_plasma17 = [ 16, s_plasma18 ] {};
+void() s_plasma16 = [ 15, s_plasma17 ] {};
+void() s_plasma15 = [ 14, s_plasma16 ] {};
+void() s_plasma14 = [ 13, s_plasma15 ] {};
+void() s_plasma13 = [ 12, s_plasma14 ] {};
+void() s_plasma12 = [ 11, s_plasma13 ] {};
+void() s_plasma11 = [ 10, s_plasma12 ] {};
+void() s_plasma10 = [ 9, s_plasma11 ] {};
+void() s_plasma9 = [ 8, s_plasma10 ] {};
+void() s_plasma8 = [ 7, s_plasma9 ] {};
+void() s_plasma7 = [ 6, s_plasma8 ] {};
+void() s_plasma6 = [ 5, s_plasma7 ] {};
+void() s_plasma5 = [ 4, s_plasma6 ] {};
+void() s_plasma4 = [ 3, s_plasma5 ] {};
+void() s_plasma3 = [ 2, s_plasma4 ] {};
+void() s_plasma2 = [ 1, s_plasma3 ] {};
+void() s_plasma1 = [ 0, s_plasma2 ] {};
+
+void(vector org) CreatePlasmaExplosion =
+{
+    local entity s;
+    local float r;
+    r = random();
+
+
+    s = self; // save old self
+
+    self = spawn();
+
+    self.movetype = MOVETYPE_NONE;
+    self.velocity = '0 0 0';
+    self.touch = SUB_Null;
+    setmodel (self, "sprites/plasma_explosion.spr");
+    setorigin (self, org);
+    self.solid = SOLID_NOT;
+
+    // So that debris comes out in random spurts over It coming out in the same number every time --Mexicouger
+
+    s_plasma1 ();
+
+    self = s; // restore old self
+};
 
 void(vector org) _TE_explosion =
 {
@@ -474,7 +468,7 @@ if (client.selnade == GRENADE_REGULAR)
 	if (client.nade_lives == 1)
 	stuffcmd (client, "cl_nadenum 2\n");
 	if (client.nade_lives == 0)
-	stuffcmd (client, "cl_nadenum 1\n");
+	stuffcmd (client, "cl_nadenum 0\n");
 	}
 else if (client.selnade == GRENADE_STICKY)
 	{
@@ -488,7 +482,7 @@ else if (client.selnade == GRENADE_STICKY)
 	if (client.plasma_lives == 1)
 	stuffcmd (client, "cl_nadenum 2\n");
 	if (client.plasma_lives == 0)
-	stuffcmd (client, "cl_nadenum 1\n");
+	stuffcmd (client, "cl_nadenum 0\n");
 	}
 
 

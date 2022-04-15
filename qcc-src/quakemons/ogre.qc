@@ -1,8 +1,6 @@
 void() misc_EliteSpawn;
 void() monster_elite;
-void() info_enemy_spawn =
-{
-};
+void() info_enemy_spawn = {};
 /*
 ==============================================================================
 

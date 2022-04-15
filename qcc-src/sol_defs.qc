@@ -8,6 +8,7 @@ void () Player_SetupDeath;
 .float needles;				// how many needler needles a player has in him
 
 float (float wep, float cliptype) W_GetMaxClip;
+void (float wtype, float ttype) ThrowWeapon;
 void () player_throw_grenade;
 void () pre_player_throw_grenade;
 void () pre_player_melee;
@@ -31,6 +32,7 @@ void () NeedlerHome;
 .float exshells2;
 .float exhshells;
 .float exnails;
+.float exbr;
 .float exrockets;
 .float excells;
 
@@ -78,6 +80,10 @@ void () NeedlerHome;
 .float nade_time, melee_time;
 .float death_type;
 
+.float ammo_br;
+float   IT_BR                           = 90248441;         // solitude
+
+
 #define MOD_SOLITUDE		666			// undefined mode of death
 
 // weapons
@@ -92,6 +98,7 @@ void () NeedlerHome;
 #define WEAPON_NEEDLER		IT_EXTRA_WEAPON
 #define WEAPON_PRIFLE		IT_EXTRA_WEAPON2
 #define WEAPON_SKULL		IT_SKULL
+#define WEAPON_BR           IT_BR
 
 // Zooming
 .float pfov;

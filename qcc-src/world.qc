@@ -161,16 +161,16 @@ void() worldspawn =
 
 	sol_grav = cvar("sol_gravity");
 	sol_ms = cvar("sol_maxspeed");
-	
+
 	if (sol_grav)
 		cvar_set ("sv_gravity", ftos(sol_grav));
 	else
-		cvar_set ("sv_gravity", "#DEFAULT_GRAVITY");
-		
+		cvar_set ("sv_gravity", "340");
+
 	if (sol_ms)
 		cvar_set ("sv_maxspeed", ftos(sol_ms));
 	else
-		cvar_set ("sv_maxspeed", "#DEFAULT_MAXSPEED");
+		cvar_set ("sv_maxspeed", "200");
 		
 	cvar_set ("sv_maxvelocity", "10000");				// for the sniper projectile
 #ifndef NETQUAKE
@@ -198,6 +198,9 @@ void() worldspawn =
 	precache_sound ("player/gasp1.wav");            // gasping for air
 	precache_sound ("player/gasp2.wav");            // taking breath
 	precache_sound ("player/h2odeath.wav");         // drowning death
+    precache_sound ("player/death1.wav");
+    precache_sound ("player/death2.wav");
+    precache_sound ("player/death3.wav");
 
 	precache_sound ("misc/talk.wav");                       // talk
 	precache_sound ("player/teledth1.wav");         // telefrag
@@ -242,6 +245,7 @@ void() worldspawn =
 	precache_sound ("misc/water1.wav");                     // swimming
 	precache_sound ("misc/water2.wav");                     // swimming
 
+    precache_model ("progs/plyr.mdl");
 	precache_model ("progs/player.mdl");
    //vwep start
 	precache_model ("progs/player_nail.mdl");

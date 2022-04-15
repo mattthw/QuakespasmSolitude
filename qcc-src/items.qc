@@ -314,56 +314,49 @@ Grenades By mexicouger
 */
 void() plasma_nade_touch =
 {
-if (other.classname != "player")
+    if (other.classname != "player")
 		return;
-	
-	if (other.plasma_lives >= 4) {
-	}
-	
-	else {
-	other.plasma_lives += 1;
-	NadeCounter(other);
-	sprint (other, "picked up a Plasma grenade\n");
-	sound (self, CHAN_WEAPON, "weapons/pbounce.wav", 1, ATTN_NORM);
-	stuffcmd (other, "bf\n");
-	self.mdl = self.model;
-	self.model = string_null;
-	self.solid = SOLID_NOT;
-	
-	if (deathmatch) {
-	self.nextthink = time + 20;
-	self.think = SUB_regen;
-	}
-	activator = other;
-	SUB_UseTargets();           
-}                    
+	if (other.plasma_lives < 4) {
+        other.plasma_lives += 1;
+        NadeCounter(other);
+        sprint (other, "picked up a Plasma grenade\n");
+        sound (self, CHAN_WEAPON, "weapons/pbounce.wav", 1, ATTN_NORM);
+        stuffcmd (other, "bf\n");
+        self.mdl = self.model;
+        self.model = string_null;
+        self.solid = SOLID_NOT;
+
+        if (deathmatch) {
+            self.nextthink = time + 20;
+            self.think = SUB_regen;
+        }
+        activator = other;
+        SUB_UseTargets();
+    }
 };
 
 void() nade_touch =
 {
-if (other.classname != "player")
+    if (other.classname != "player")
 		return;
 	
-	if (other.nade_lives >= 4) {
-	}
-	
-	else {
-	other.nade_lives += 1;
-	NadeCounter(other);
-	sprint (other, "picked up a Frag grenade\n");
-	sound (self, CHAN_WEAPON, "weapons/grenpick.wav", 1, ATTN_NORM);
-	stuffcmd (other, "bf\n");
-	self.mdl = self.model;
-	self.model = string_null;
-	self.solid = SOLID_NOT;
-	
-	if (deathmatch) {
-	self.nextthink = time + 20;
-	self.think = SUB_regen;
-	}
-	activator = other;
-	SUB_UseTargets();           
-}                    
+	if (other.nade_lives < 4) {
+        other.nade_lives += 1;
+        NadeCounter(other);
+        sprint (other, "picked up a Frag grenade\n");
+        sound (self, CHAN_WEAPON, "weapons/grenpick.wav", 1, ATTN_NORM);
+        stuffcmd (other, "bf\n");
+        self.mdl = self.model;
+        self.model = string_null;
+        self.solid = SOLID_NOT;
+
+        if (deathmatch) {
+            self.nextthink = time + 20;
+            self.think = SUB_regen;
+        }
+        activator = other;
+        SUB_UseTargets();
+    }
 };
 
 void() pod_touch =

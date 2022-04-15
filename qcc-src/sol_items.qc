@@ -29,6 +29,8 @@ float (float pweapons) GetPlayerWeapons =
 		i++;
 	if (pweapons & WEAPON_PRIFLE)
 		i++;
+    if (pweapons & WEAPON_BR)
+        i++;
 /*
 	if (pweapons & WEAPON_PISTOL)
 		i++;
@@ -107,7 +109,11 @@ void ( entity t_wep, float weptype ) SetWeaponAmmo =
 		case WEAPON_PRIFLE:
 			t_wep.exprifle = 0;
 			t_wep.ammo_prifle = stammo;
-			break;			
+			break;
+        case WEAPON_BR:
+            t_wep.exbr = 108;
+            t_wep.ammo_br = stammo;
+            break;
 		default:
 			break;
 	}
@@ -193,7 +199,17 @@ _bprint(ftos(W_GetMaxClip(weptype, cliptype)), "\n");
 				t_ent.exprifle += newamt;
 			if (cliptype)
 				t_ent.ammo_prifle += newamt;
-			break;			
+			break;
+        case WEAPON_BR:
+            if ((!cliptype || (cliptype > 1)))
+            {
+                t_ent.exbr = (t_ent.exbr + newamt);
+            }
+            if (cliptype)
+            {
+                t_ent.ammo_br += newamt;
+            }
+            break;
 		default:
 			_bprint("SetAmmoFor: invalid weapon type specified\n");
 			break;
@@ -256,12 +272,87 @@ string ( float wtype ) weapon_getlaymodel =
 		case WEAPON_PRIFLE:
 			return ("progs/g_plrifl.mdl");
 			break;
+        case WEAPON_BR:
+            return ("progs/g_nail.mdl");
+            break;
 		default:
 			return ("progs/player.mdl");
 			break;
 	}
 };
-	
+
+float drop_time;
+
+void() t_sound =
+{
+    local float r;
+
+    if ((drop_time > time))
+    {
+        return;
+    }
+
+    if ((other.classname == "player"))
+    {
+        return;
+    }
+
+    r = floor((random() * 3));
+    if ((r == 0))
+    {
+        sound(self, 0, "weapons/w_drop1.wav", 0.7, 1);
+    }
+    else if ((r == 1))
+    {
+        sound(self, 0, "weapons/w_drop2.wav", 0.7, 1);
+    }
+    else if ((r == 2))
+    {
+        sound(self, 0, "weapons/w_drop3.wav", 0.7, 1);
+    }
+
+    drop_time = time + 0.1;
+};
+void(float wtype, float ttype) ThrowWeapon =
+{
+    local entity newthrow;
+
+    newthrow = spawn();
+    newthrow.origin = ((self.origin + '0 0 16') + (v_right * CONTENT_SKY));
+    setmodel(newthrow, weapon_getlaymodel(wtype));
+    setsize(newthrow, VEC_ORIGIN, VEC_ORIGIN);
+    makevectors(self.v_angle);
+    if (self.v_angle_x)
+    {
+        newthrow.velocity = ((((v_forward * 45) + (v_up * 200)) + (((2 * (random() + -0.5)) * v_right) * 10)) + (((2 * (random() + -0.5)) * v_up) * 10));
+    }
+    else
+    {
+        newthrow.velocity = aim(self, 10000);
+        newthrow.velocity = (newthrow.velocity * 45);
+        newthrow.velocity_z = 200;
+    }
+    newthrow.owner = self;
+    newthrow.movetype = 10;
+    newthrow.solid = 1;
+    newthrow.touch = t_sound;
+    newthrow.classname = "weapon_pickup";
+    newthrow.flags = IT_SHELLS;
+    newthrow.gravity = 5;
+    newthrow.think = weapon_becometouch;
+    newthrow.nextthink = (time + 1);
+    newthrow.weapon = wtype;
+    if ((ttype == 1))
+    {
+        CopyAmmo(self, newthrow, wtype, 1);
+        newthrow.lives = IT_SHOTGUN;
+    }
+    else
+    {
+        SetWeaponAmmo(newthrow, wtype);
+    }
+};
+
 // respawn the weapon
 void () weapon_activate =
 {
@@ -330,56 +421,60 @@ void () weapon_touch =
 	}
 
 	if (other.ishuman == TRUE && other.classname == "player")
-		{
-	if (icon_time > time)
-	stuffcmd (other, "cl_ww 0\n");
-	else
-		{
-	if (time > icon_time)
-	icon_time = time + 1;
-	other.canpick = 1;
-	return;
-		}
-	if (self.weapon == IT_NAILGUN)	//Assault rifle
-	{
-	stuffcmd (other, "cl_ww 1\n");
-	}
-	
-	else if (self.weapon == IT_LIGHTNING)//Plasma Pistol
-	{
-	stuffcmd (other, "cl_ww 2\n");
-	}
-	
-	else if (self.weapon == IT_SUPER_SHOTGUN)	//Shootie
-	{
-	stuffcmd (other, "cl_ww 3\n");
-	}
-	
-	else if (self.weapon == IT_EXTRA_WEAPON)	
-	{
-	stuffcmd (other, "cl_ww 4\n");
-	}
-	
-	else if (self.weapon == IT_ROCKET_LAUNCHER)	
-	{
-	stuffcmd (other, "cl_ww 5\n");
-	}
-	
-	else if (self.weapon == IT_SHOTGUN)	
-	{
-	stuffcmd (other, "cl_ww 6\n");
-	}
-	
-	else if (self.weapon == IT_SUPER_NAILGUN)	
-	{
-	stuffcmd (other, "cl_ww 7\n");
-	}
-	
-	else if (self.weapon == IT_GRENADE_LAUNCHER)	
-	{
-	stuffcmd (other, "cl_ww 8\n");
-	}
-		}	
+    {
+        if (icon_time > time)
+        stuffcmd (other, "cl_ww 0\n");
+        else
+            {
+        if (time > icon_time)
+        icon_time = time + 1;
+        other.canpick = 1;
+        return;
+            }
+        if (self.weapon == IT_NAILGUN)	//Assault rifle
+        {
+        stuffcmd (other, "cl_ww 1\n");
+        }
+
+        else if (self.weapon == IT_LIGHTNING)//Plasma Pistol
+        {
+        stuffcmd (other, "cl_ww 2\n");
+        }
+
+        else if (self.weapon == IT_SUPER_SHOTGUN)	//Shootie
+        {
+        stuffcmd (other, "cl_ww 3\n");
+        }
+
+        else if (self.weapon == IT_EXTRA_WEAPON)
+        {
+        stuffcmd (other, "cl_ww 4\n");
+        }
+
+        else if (self.weapon == IT_ROCKET_LAUNCHER)
+        {
+        stuffcmd (other, "cl_ww 5\n");
+        }
+
+        else if (self.weapon == IT_SHOTGUN)
+        {
+        stuffcmd (other, "cl_ww 6\n");
+        }
+
+        else if (self.weapon == IT_SUPER_NAILGUN)
+        {
+        stuffcmd (other, "cl_ww 7\n");
+        }
+
+        else if (self.weapon == IT_GRENADE_LAUNCHER)
+        {
+        stuffcmd (other, "cl_ww 8\n");
+        }
+        else if ((self.weapon == IT_BR))
+        {
+            stuffcmd(other, "cl_ww 9\n");
+        }
+    }
 
 	other.canpick = 0;
 	if (addweapon)
@@ -394,6 +489,7 @@ void () weapon_touch =
 			other.items = other.items - other.weapon;
 			other.items = other.items | self.weapon;
 			self = other;
+            ThrowWeapon(self.weapon, 1);
 			W_WeaponSwitch(newweapon);
 			W_SetCurrentAmmo();
 			pre_player_pull(other);
@@ -519,6 +615,12 @@ void() weapon_plasmarifle =
 {
 	self.weapon = WEAPON_PRIFLE;
 	weapon_start ();
+};
+
+void() weapon_battlerifle =
+{
+        self.weapon = IT_BR;
+weapon_start();
 };
 
 void() weapon_needler =
