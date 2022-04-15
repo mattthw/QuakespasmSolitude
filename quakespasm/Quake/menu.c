@@ -976,6 +976,43 @@ void M_Pause_Draw (void)
     }
 }
 
+struct teamcounts {
+    int colors;
+    int playerCount;
+};
+void addBot () {
+    if (teamplay.value == 1) {
+        struct teamcounts a; // my team
+        struct teamcounts b; // other team
+        a.playerCount = 0;
+        b.playerCount = 0;
+        a.colors = cl.scores[0].colors;
+        b.colors = a.colors;
+        for (int i = 0; i < cl.maxclients; i++)
+        {
+            if (cl.scores[i].name[0])
+            {
+                if (a.colors == cl.scores[i].colors) {
+                    a.playerCount = a.playerCount + 1;
+                } else {
+                    b.playerCount = b.playerCount + 1;
+                    b.colors = cl.scores[i].colors;
+                }
+            }
+        }
+        if (a.playerCount >= b.playerCount) {
+            Cbuf_AddText ("impulse 101\n");
+            Cbuf_AddText("say teams: adding enemy\n");
+        } else {
+            Cbuf_AddText ("impulse 100\n");
+            Cbuf_AddText("say teams: adding friend\n");
+        }
+    } else {
+        Cbuf_AddText("say slayer: adding enemy\n");
+        Cbuf_AddText ("impulse 100\n");
+    }
+}
+
 void M_Pause_Key (int key)
 {
     switch (key)
@@ -1019,15 +1056,7 @@ void M_Pause_Key (int key)
             } else {
                 if(pause_cursor == 0)
                 {
-                    if (teamplay.value == true) {
-                        if (rand() % 2) {
-                            Cbuf_AddText ("impulse 100\n");
-                        } else {
-                            Cbuf_AddText ("impulse 101\n");
-                        }
-                    } else {
-                        Cbuf_AddText ("impulse 100\n");
-                    }
+                    addBot();
                 }
                 if(pause_cursor == 1)
                 {
@@ -2287,12 +2316,12 @@ typedef struct
     const char  *mapBio[4];
     const char  *author;
 } level_t;
-int targas[] = {2,3,4,12};
+int targas[] = {2,1,3,4,12};
 level_t		levels[] =
 {
         // Refined map pack [4]
         {"citadel", "citadel", "Citadel",{"A Forerunner","structure built","in Epitaph.",""}, "Matt"}, //0
-        {"+bloodgulch2", "bgulch", "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
+        {"babybloodgulch", "babybloodgulch", "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
         {"pit3", "pit2", "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
         {"narsp", "narsp", "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
         {"skyringbl2", "skyringbl2", "Sky Ring", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Unknown"},
@@ -2307,6 +2336,8 @@ level_t		levels[] =
         {"pit", "random", "Pit (original)", {"","","",""}, "Jukki"},
         {"pit2", "pit2", "Pit (v2)", {"","","",""}, "Jukki, Matt"},
         {"lock", "lockout", "Lockout2", {"","","",""}, "Unknown"},
+        {"+bloodgulch2", "bgulch", "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
+
         //{"lockout", "lockout", "Lockout"},
 
         // Firefight map pack
@@ -2330,14 +2361,14 @@ typedef struct
 int NUM_EPISODES = 3;
 episode_t	episodes[] =
         {
-                {"Refined Maps", 0, 5},
+                {"Remastered Maps", 0, 5},
                 {"Classic Maps", 5, 6},
-                {"Bonus Maps", 11, 3}
+                {"Bonus Maps", 11, 4}
         };
 int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
         {
-                {"Firefight Maps", 13, 2}
+                {"Firefight Maps", 15, 2}
         };
 
 extern cvar_t sv_public;
@@ -2398,7 +2429,7 @@ void M_Matchmaking_Map_Draw (void) {
     static char title[128];
     q_snprintf(title, sizeof(title), "%-15.15s  %-15.15s\n\n", "Map Selection:", episodes[startepisode].description);
     // window
-    struct MenuCoords coords = Draw_WindowGrid(title, 9, MVS_P, 2, 0.3, 1.0, mlist_cursor-mlist_first, true);
+    struct MenuCoords coords = Draw_WindowGrid(title, 10, MVS_P, 2, 0.35, 1.0, mlist_cursor-mlist_first, true);
     //footer
     switch (mlist_cursor-mlist_first) {
         default:
@@ -2534,9 +2565,9 @@ struct opts_t opts = {
         .teamplay = 0,
         .coop = 0,
         .deathmatch = 1,
-        .skill = 0,
+        .skill = 1,
         .timelimit = 10,
-        .fraglimit = 10,
+        .fraglimit = 15,
         .gametype = SLAYER
 };
 
@@ -2550,8 +2581,9 @@ void M_Matchmaking_f (void)
     if (maxplayers < 2)
         maxplayers = svs.maxclientslimit;
     startepisode = 0;
-    if (!mm_rentry)
+    if (!mm_rentry) {
         startlevel = rand() % episodes[startepisode].levels;
+    }
     chosen_level.episode = startepisode;
     chosen_level.level = startlevel;
     mm_rentry = false;
