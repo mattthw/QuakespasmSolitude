@@ -294,6 +294,7 @@ extern	cvar_t	skill;
 extern	cvar_t	deathmatch;
 extern	cvar_t	coop;
 extern	cvar_t	fraglimit;
+extern	cvar_t	teamlimit;
 extern	cvar_t	timelimit;
 
 extern	server_static_t	svs;				// persistant server info

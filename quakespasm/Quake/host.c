@@ -68,6 +68,7 @@ cvar_t	sys_ticrate = {"sys_ticrate","0.05",CVAR_NONE}; // dedicated server
 cvar_t	serverprofile = {"serverprofile","0",CVAR_NONE};
 
 cvar_t	fraglimit = {"fraglimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
+cvar_t	teamlimit = {"teamlimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	timelimit = {"timelimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	teamplay = {"teamplay","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	samelevel = {"samelevel","0",CVAR_SERVERINFO};
@@ -305,9 +306,11 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&serverprofile);
 
 	Cvar_RegisterVariable (&fraglimit);
+    Cvar_RegisterVariable (&teamlimit);
 	Cvar_RegisterVariable (&timelimit);
 	Cvar_RegisterVariable (&teamplay);
 	Cvar_SetCallback (&fraglimit, Host_Callback_Notify);
+    Cvar_SetCallback (&teamlimit, Host_Callback_Notify);
 	Cvar_SetCallback (&timelimit, Host_Callback_Notify);
 	Cvar_SetCallback (&teamplay, Host_Callback_Notify);
 	Cvar_RegisterVariable (&samelevel);

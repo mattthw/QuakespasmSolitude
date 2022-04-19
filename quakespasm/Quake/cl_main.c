@@ -206,6 +206,17 @@ void CL_Disconnect_f (void)
 		Host_ShutdownServer (false);
 }
 
+void CL_Disconnect_Multi_f (void)
+{
+    CL_Disconnect_f();
+    M_Matchmaking_f();
+}
+
+void CL_Disconnect_Firefight_f (void)
+{
+    CL_Disconnect_f();
+    M_Menu_Firefight_f();
+}
 
 /*
 =====================
@@ -1566,6 +1577,8 @@ void CL_Init (void)
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
+    Cmd_AddCommand ("disconnect_m", CL_Disconnect_Multi_f);
+    Cmd_AddCommand ("disconnect_f", CL_Disconnect_Firefight_f);
 	Cmd_AddCommand ("record", CL_Record_f);
 	Cmd_AddCommand ("stop", CL_Stop_f);
 	Cmd_AddCommand ("playdemo", CL_PlayDemo_f);
