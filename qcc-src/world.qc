@@ -338,6 +338,7 @@ void() StartFrame =
 	BotFrame(); // FrikBot
 	timelimit = cvar("timelimit") * 60;
 	fraglimit = cvar("fraglimit");
+    teamlimit = cvar("teamlimit");
 #ifdef NETQUAKE
 	deathmatch = cvar("deathmatch");
 	coop = cvar("coop");

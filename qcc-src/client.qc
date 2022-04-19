@@ -159,7 +159,7 @@ void() GotoNextMap = {
         //ZOID: 12-13-96, samelevel is overloaded, only 1 works for same level
 
         if (cvar("samelevel") == 1) // if samelevel is set, stay on same level
-        changelevel(mapname);
+            changelevel(mapname);
         else {
             // configurable map lists, see if the current map exists as a
             // serverinfo/localinfo var
@@ -173,8 +173,15 @@ void() GotoNextMap = {
 
 void() ExitIntermission = {
         // skip any text in deathmatch
-        if (deathmatch) {
-            GotoNextMap();
+//        if (deathmatch) {
+//            GotoNextMap();
+//            return;
+//        }
+        if (deathmatch == 2) {
+            stuffcmd(self, "disconnect_f\n");
+            return;
+        } else if (deathmatch) {
+            stuffcmd(self, "disconnect_m\n");
             return;
         }
 
@@ -258,23 +265,23 @@ Take the players to the intermission spot
 ============
 */
 void() execute_changelevel = {
-        local entity pos;
+    local entity pos;
 
-        intermission_running = 1;
+    intermission_running = 1;
 
-        // enforce a wait time before allowing changelevel
-        if (deathmatch)
+    // enforce a wait time before allowing changelevel
+    if (deathmatch)
         intermission_exittime = time + 5;
-        else
+    else
         intermission_exittime = time + 2;
 
-        pos = FindIntermission();
+    pos = FindIntermission();
 
-        // play intermission music
-        ENG_SwitchTrack(3, 3);
+    // play intermission music
+    ENG_SwitchTrack(3, 3);
 
 #ifdef NETQUAKE
-        pos = FindIntermission();
+    pos = FindIntermission();
 
     other = find(world, classname, "player");
     while (other != world) {
@@ -292,22 +299,22 @@ void() execute_changelevel = {
 
     WriteByte(MSG_ALL, SVC_INTERMISSION);
 #else
-        WriteByte(MSG_ALL, SVC_INTERMISSION);
-        WriteCoord(MSG_ALL, pos.origin_x);
-        WriteCoord(MSG_ALL, pos.origin_y);
-        WriteCoord(MSG_ALL, pos.origin_z);
-        WriteAngle(MSG_ALL, pos.mangle_x);
-        WriteAngle(MSG_ALL, pos.mangle_y);
-        WriteAngle(MSG_ALL, pos.mangle_z);
+    WriteByte(MSG_ALL, SVC_INTERMISSION);
+    WriteCoord(MSG_ALL, pos.origin_x);
+    WriteCoord(MSG_ALL, pos.origin_y);
+    WriteCoord(MSG_ALL, pos.origin_z);
+    WriteAngle(MSG_ALL, pos.mangle_x);
+    WriteAngle(MSG_ALL, pos.mangle_y);
+    WriteAngle(MSG_ALL, pos.mangle_z);
 
-        other = find(world, classname, "player");
-        while (other != world) {
-            other.takedamage = DAMAGE_NO;
-            other.solid = SOLID_NOT;
-            other.movetype = MOVETYPE_NONE;
-            other.modelindex = 0;
-            other = find(other, classname, "player");
-        }
+    other = find(world, classname, "player");
+    while (other != world) {
+        other.takedamage = DAMAGE_NO;
+        other.solid = SOLID_NOT;
+        other.movetype = MOVETYPE_NONE;
+        other.modelindex = 0;
+        other = find(other, classname, "player");
+    }
 #endif
 };
 
@@ -648,11 +655,12 @@ Exit deathmatch games upon conditions
 ============
 */
 void() CheckRules = {
+        if (deathmatch && teamplay && teamlimit)
+            NextLevel();
         if (deathmatch && timelimit && time >= timelimit)
-        NextLevel();
-
+            NextLevel();
         if (deathmatch && fraglimit && self.frags >= fraglimit)
-        NextLevel();
+            NextLevel();
 };
 
 void() player_respawn_think = {
@@ -672,7 +680,6 @@ void() player_respawn_think = {
             stuffcmd(self.owner, ftos(self.health));
             stuffcmd(self.owner, " \n");
         }
-
         if (self.health < 1) {
             oself = self;
 
@@ -735,7 +742,7 @@ void() PlayerDeathThink = {
 
         // wait for any button down
         if (!self.button2 && !self.button1 && !self.button0)
-        return;
+            return;
 
         self.button0 = 0;
         self.button1 = 0;
@@ -1007,7 +1014,7 @@ void() voice_play = {
 };
 
 void() Voice_announcer = {
-    local entity avoice;
+    local entity avoice,botspawner;
     if (VOICE_COUNT == 1) {
         return;
     }
@@ -1015,8 +1022,35 @@ void() Voice_announcer = {
     VOICE_COUNT = 1;
     avoice.think = voice_play;
     avoice.nextthink = time + 0.7;
-
 };
+
+void() populate_bots = {
+        if (deathmatch == 1 || deathmatch == 3) {
+            if (teamplay) {
+                // Team Slayer
+                local float myteam = self.team;
+                BotConnect(0, 0, cvar("skill"));
+                BotConnect(0, 0, cvar("skill"));
+                BotConnect(1, 0, cvar("skill"));
+            } else {
+                // Slayer & Swat
+                BotConnect(0, 0, cvar("skill"));
+                BotConnect(0, 0, cvar("skill"));
+                BotConnect(0, 0, cvar("skill"));
+            }
+        }
+        remove(self);
+}
+void() BotSpawner = {
+        // add bots
+        local entity botspawner;
+        if (BOT_SPAWNER_COMPLETED)
+        return;
+        botspawner = spawn();
+        BOT_SPAWNER_COMPLETED = 1;
+        botspawner.think = populate_bots;
+        botspawner.nextthink = time + 1.7;
+}
 /*
 ================
 CheckPowerups
@@ -1026,15 +1060,17 @@ Check for turning off powerups
 */
 void() CheckPowerups = {
     if (self.health <= 0)
-    return;
-
-    if (self.ishuman == TRUE)
-    Voice_announcer();
+        return;
 
     if (self.ishuman == FALSE)
-    stuffcmd(self, "r_drawviewmodel 0\n");
+        stuffcmd(self, "r_drawviewmodel 0\n");
 
     CheckModel();
+
+    if (self.ishuman == TRUE) {
+        Voice_announcer();
+        BotSpawner();
+    }
 };
 
 /*
@@ -1046,14 +1082,14 @@ Called every frame after physics are run
 */
 void() PlayerPostThink = {
     if (BotPostFrame()) // FrikBot
-    return;
+        return;
     //dprint ("post think\n");
     if (intermission_running)
-    return;
+        return;
     //	if (self.view_ofs == '0 0 0')
     //		return;
     if (self.deadflag)
-    return;
+        return;
 
     if (!self.flags & FL_ONGROUND)
     if (self.next_jump_time < time)
@@ -1064,7 +1100,6 @@ void() PlayerPostThink = {
     CheckPowerups();
 
     W_WeaponFrame();
-
 };
 
 /*
@@ -1080,7 +1115,7 @@ void() ClientConnect = {
 
     // a client connecting during an intermission can cause problems
     if (intermission_running)
-    GotoNextMap();
+        GotoNextMap();
 };
 
 void() ClientDisconnect = {
@@ -1121,7 +1156,7 @@ void(entity playermedal, float howmany) killmedals = {
         stuffcmd(playermedal, "play double.wav\n");
         stuffcmd(playermedal, "cl_killmedals 1\n");
         Medal(playermedal);
-    } else
+    }
     return;
 };
 /*

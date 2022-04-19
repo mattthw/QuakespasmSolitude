@@ -28,6 +28,8 @@ void () NeedlerHome;
 
 .float lives;		// times an item can respawn
 
+float           teamlimit; // used to determine when to end team based games
+
 .float exshells;
 .float exshells2;
 .float exhshells;

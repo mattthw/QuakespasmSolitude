@@ -892,7 +892,7 @@ float SLOWMO_TOGGLE;	//To show whether Slowmo is on/off
 Misc
 ======================================================
 */
-float VOICE_COUNT;
+float VOICE_COUNT, BOT_SPAWNER_COMPLETED;
 float crosshair_time;
 float icon_time;
 .float canpick;

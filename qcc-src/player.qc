@@ -394,7 +394,7 @@ void() player_br_reload =
         return;
     }
     self.attack_finished = (time + 0.2);
-    self.impulse = TE_SPIKE;
+    self.impulse = 0;
 };
 
 void () player_sniper_reload =

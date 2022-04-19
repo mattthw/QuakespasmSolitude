@@ -996,12 +996,16 @@ void(float whichteam, float whatbot, float whatskill) BotConnect =
 		self.b_pants = uself.team - 1;
 		self.b_shirt = self.b_pants;
 	}
+    float usercolor = uself.colormap;
+    float enemyteamcolor = 13; // blue
+    if (FindAnotherColor(uself.team - 1) == enemyteamcolor)
+        enemyteamcolor = 4;
 	if (teamplay && !coop)
 	{
 		if (whichteam)
 			self.b_pants = FindAnotherColor(uself.team - 1);
 		else
-			self.b_pants = uself.team - 1;
+			self.b_pants = enemyteamcolor;/* - 1;*/// original
 		self.b_shirt = self.b_pants;
 	}
 

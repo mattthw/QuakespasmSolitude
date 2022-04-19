@@ -404,16 +404,14 @@ void () weapon_touch =
 	}
 	
 	if (other.canpickup_time > time) {
-		if (other.weapon == self.weapon || GetPlayerWeapons(other.items) == 2 )
-			addweapon = 2;		// drop current weapon and replace it
-		else
-		{
-			addweapon = 1;		// add other weapon and switch to it
+		if (other.weapon == self.weapon || GetPlayerWeapons(other.items) >= 2 ) {
+            addweapon = 2;        // drop current weapon and replace it
+        } else {
+			addweapon = 1; 		// add other weapon and switch to it
 		}
 			
 		other.canpickup_time = 0;
-	}
-	else {
+	} else {
 		if (time > other.pickup_time) {
 			other.pickup_time = time + .5;
 			return;
