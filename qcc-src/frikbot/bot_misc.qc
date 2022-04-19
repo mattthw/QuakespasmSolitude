@@ -56,98 +56,98 @@ string(float r) BotName =
 	if (r == 1)
 	{	
 		self.b_pants = 11;
-		self.b_shirt = 0; 
-		return "Vincent";
+		self.b_shirt = 11;
+		return "BilboSwaggin";
 	}
 	else if (r == 2)
 	{
-		self.b_pants = 1;
-		self.b_shirt = 3;
-		return "Bishop";
+		self.b_pants = 4;
+		self.b_shirt = 4;
+		return "thx4theKills";
 	}
 	else if (r == 3)
 	{	
 		self.b_pants = 13;
-		self.b_shirt = 2;
-		return "Nomad";
+		self.b_shirt = 13;
+		return "GruntParty";
 	}
 	else if (r == 4)
 	{
-		self.b_pants = 7;
-		self.b_shirt = 6;
-		return "Hudson";
+		self.b_pants = 0;
+		self.b_shirt = 0;
+		return "DoctorPoo";
 	} 
 	else if (r == 5)
 	{
-		self.b_pants = 12;
-		self.b_shirt = 6;
-		return "Lore";
+		self.b_pants = 2;
+		self.b_shirt = 2;
+		return "N00bHunting";
 	}
 	else if (r == 6)
 	{
-		self.b_pants = 4;
-		self.b_shirt = 4;
-		return "Servo";
+		self.b_pants = 3;
+		self.b_shirt = 3;
+		return "xX420i420Xx";
 	}
 	else if (r == 7)
 	{
-		self.b_pants = 2;
-		self.b_shirt = 5;
-		return "Gort";
+		self.b_pants = 4;
+		self.b_shirt = 4;
+		return "Fry";
 	} 
 	else if (r == 8)
 	{	
-		self.b_pants = 10;
-		self.b_shirt = 3;
-		return "Kryten";
+		self.b_pants = 9;
+		self.b_shirt = 9;
+		return "Bender";
 	}
 	else if (r == 9)
 	{
 		self.b_pants = 9;
-		self.b_shirt = 4;
-		return "Pimp Bot";
+		self.b_shirt = 9;
+		return "GimmeDubs";
 	}
 	else if (r == 10)
 	{
-		self.b_pants = 4;
-		self.b_shirt = 7;
-		return "Max";
+		self.b_pants = 11;
+		self.b_shirt = 11;
+		return "Trogdor";
 	}
 	else if (r == 11)
 	{
-		self.b_pants = 3;
+		self.b_pants = 11;
 		self.b_shirt = 11;
-		return "Marvin";
+		return "DeezN";
 	} 
 	else if (r == 12)
 	{
-		self.b_pants = 13;
+		self.b_pants = 12;
 		self.b_shirt = 12;
-		return "Erwin";
+		return "CallMe117";
 	}
 	else if (r == 13)
 	{
-		self.b_pants = 11;
+		self.b_pants = 2;
 		self.b_shirt = 2;
-		return "FrikBot";
+		return "undertale";
 	}
 	else if (r == 14)
 	{
-		self.b_pants = 0;
-		self.b_shirt = 2;
-		return "Krosis";
+		self.b_pants = 6;
+		self.b_shirt = 6;
+		return "DunkeyFan1";
 	}
 	else if (r == 15)
 	{
-		self.b_pants = 8;
-		self.b_shirt = 9;
-		return "Gypsy";
+		self.b_pants = 6;
+		self.b_shirt = 6;
+		return "Zezima";
 	}
 	else if (r == 16)
 	{
-		self.b_pants = 5;
-		self.b_shirt = 10;
-		return "Hal";
+		self.b_pants = 0;
+		self.b_shirt = 0;
+		return "GLaDOS";
 	}
 	return "Noname";
 };
@@ -264,17 +264,17 @@ void() bot_chat =
 			if (b_originator == self)
 			{
 				if (r == 1)
-					BotSay(": take that\n");
+					BotSay(": go back to social slayer lmao\n");
 				else if (r == 2)
-					BotSay(": yehaww!\n");
+					BotSay(": follow me on twitch yo\n");
 				else if (r == 3)
-					BotSay(": wh00p\n");
+					BotSay(": go ahead and give me that dub\n");
 				else if (r == 4)
-					BotSay(": j00_sawk();\n");
+					BotSay(": you couldn't roll a tire down a hill bro\n");
 				else if (r == 5)
-					BotSay(": i rule\n");
+					BotSay(": next time remember to aim lol\n");
 				else
-					BotSay(": eat that\n");
+					BotSay(": better luck in fortnite\n");
 				bot_start_topic(0);
 			}
 		}
