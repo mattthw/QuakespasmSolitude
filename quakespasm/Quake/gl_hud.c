@@ -40,6 +40,9 @@ qpic_t      *b_rt;
 // health
 qpic_t  *health_red;
 qpic_t  *health_blue;
+qpic_t  *healthbar_red;
+qpic_t  *healthbar_inside;
+qpic_t  *healthbar_br;
 /*
  * Solitude vars
  */
@@ -195,6 +198,9 @@ void HUD_Init (void) {
     // health
     health_blue = Draw_CachePic ("gfx/hud/health/health_blue.lmp");
     health_red = Draw_CachePic ("gfx/hud/health/health_red.lmp");
+    healthbar_inside = Draw_CachePic ("gfx/hud/health/healthbar_inside.tga");
+    healthbar_br = Draw_CachePic ("gfx/hud/health/healthbar_br.tga");
+    healthbar_red = Draw_CachePic ("gfx/hud/health/healthbar_red.tha");
 
     //Kill medals
     doublek = Draw_CachePic ("gfx/medals/double.lmp");
@@ -338,7 +344,7 @@ int sheilds_channel;
 
 void drawHealth(void)
 {
-    if(cl.stats <= 0 || deathmatch.value == DM_SWAT) {
+    if(cl.stats <= 0 || deathmatch.value == DM_SWAT || sb_showscores) {
         return;
     }
     int sheilds = (int)cl.stats[STAT_HEALTH];
@@ -393,7 +399,6 @@ void drawHealth(void)
     }
     else
     {
-//        Draw_ColoredStringScale(glwidth*0.5, glheight*0.4, "test", 1,1,1,1,3.0f);
         Draw_HudPic(health_blue_attr, health_blue);
     }
 }
@@ -470,10 +475,6 @@ void TeamSort (void)
             }
         }
     }
-//    char text[256];
-//    HUD_itoa(scoreboardlines, text);
-//    q_snprintf(text, sizeof (text), "scoreboardlines=%d\n", scoreboardlines);
-//    Cbuf_AddText(text);
 }
 
 int	ColorForMap (int m)
@@ -506,7 +507,23 @@ void MiniDeathmatchOverlay (void)
     {
         l = 2;
     }
-
+    // time
+    char	str[80];
+    int		minutes, seconds, tens, units, timex;
+    if (timelimit.value > 0) {
+        minutes = (timelimit.value*60 - cl.time) / 60;
+        seconds = (timelimit.value*60 - cl.time) - 60*minutes;
+        tens = seconds / 10;
+        units = seconds - 10*tens;
+        sprintf (str,"%3i:%i%i", minutes, tens, units);
+        timex = glwidth*0.08;
+        if (minutes < 10) {
+            timex += - (CHARZ*2);
+        } else if (minutes < 100) {
+            timex += - (CHARZ*1);
+        }
+        Draw_ColoredStringScale(timex, glheight*(0.71), str, 171/255.0, 231/255.0, 255/255.0,1, 1.0f*scr_sbarscale.value);
+    }
     // draw game type
     char gametype[20];
     if (deathmatch.value == DM_SLAYER && teamplay.value == 0) {
@@ -518,7 +535,7 @@ void MiniDeathmatchOverlay (void)
     } else {
         strcpy(gametype, "You Broke My Code");
     }
-    Draw_ColoredStringScale(glwidth*0.08, glheight*(0.75), gametype, 171/255.0, 231/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
+    Draw_ColoredStringScale(glwidth*0.08, glheight*(0.75), gametype, 127/255.0, 191/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
 
     // begin draw scores
     if (teamplay.value) {
@@ -551,31 +568,31 @@ void MiniDeathmatchOverlay (void)
             teamscores[0] = teamB;
             teamscores[1] = teamA;
         }
-//        if (teamscores[0].scoreTotal == fraglimit.value || teamscores[1].scoreTotal == fraglimit.value) {
-//            // HACK: force intermission once fraglimit is hit, since I cannot decompile the QuakeC code! :'(
-//            cl.intermission = 1;
-//            Cbuf_AddText("disconnect");
-//        }
-
-        for (i=0; i < 2 && teamB.color >= 0; i++) //only show two lines
+        // draw scores. only show two lines
+        for (i=0; i < 2 && teamB.color >= 0; i++)
         {
             // draw background
             bottom = (teamscores[i].color & 15) <<4;
             bottom = ColorForMap (bottom);
-
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 8*scr_sbarscale.value, bottom, 1);
-
-            // draw number
+            Draw_Fill (glwidth*0.08-1, glheight*(0.8+y)-1, glwidth*0.08*scr_sbarscale.value+2, 1.5*CHARZ*scr_sbarscale.value+2, bottom, 0.3);
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 1.5*CHARZ*scr_sbarscale.value, bottom, 1);
+            // draw foreground
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value*(new_max(teamscores[i].scoreTotal/fraglimit.value, 0)), 1.5*CHARZ*scr_sbarscale.value, bottom, 0.65);
+            // draw score
             f = teamscores[i].scoreTotal;
             HUD_itoa(f, num);
-
-            Draw_ColoredStringScale(glwidth*0.08 + 8*scr_sbarscale.value, glheight*(0.8+y), num, 1, 1, 1,1,0.8f*scr_sbarscale.value);
-
+            Draw_ColoredStringScale(glwidth*0.08 + 9*scr_sbarscale.value, glheight*(0.8+y)+(1.1f*scr_sbarscale.value*0.5), num, 1, 1, 1, 1, 1.1f*scr_sbarscale.value);
+            // draw caret to indicate own team
             if (teamscores[i].color == cl.scores[0].colors)
-                Draw_CharacterScale( glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y), 13, 1.0f*scr_sbarscale.value);
-            y += 0.06;
+                Draw_CharacterScale(glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y)+(1.1f*scr_sbarscale.value*0.5), 13, 1.1f*scr_sbarscale.value);
+            y += 0.03*scr_sbarscale.value;
         }
-    } else { // slayer or swat
+        // send cvar to QuakeC to enter intermission/NextMap logic, once score limit reached
+        if (teamscores[0].scoreTotal >= fraglimit.value) {
+            teamlimit.value = 1;
+            Cbuf_AddText ( va ("teamlimit %u\n", (int)teamlimit.value) );
+        }
+    } else { // slayer (ffa) or swat
         SortFrags ();
         for (i=0; i<l; i++) //only show two lines
         {
@@ -584,22 +601,39 @@ void MiniDeathmatchOverlay (void)
             if (!s->name[0])
                 continue;
 
-            // draw background
+
             bottom = (s->colors & 15) <<4;
             bottom = ColorForMap (bottom);
-
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 8*scr_sbarscale.value, bottom, 1);
-
-            // draw number
             f = s->frags;
             HUD_itoa(f, num);
-
-            Draw_ColoredStringScale(glwidth*0.08 + 8*scr_sbarscale.value, glheight*(0.8+y), num, 1, 1, 1,1,0.8f*scr_sbarscale.value);
-
+            // draw background
+            Draw_Fill (glwidth*0.08-1, glheight*(0.8+y)-1, glwidth*0.08*scr_sbarscale.value+2, 1.5*CHARZ*scr_sbarscale.value+2, bottom, 0.3);
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 1.5*CHARZ*scr_sbarscale.value, bottom, 1);
+            // draw foreground
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value*(new_max(f/fraglimit.value, 0)), 1.5*CHARZ*scr_sbarscale.value, bottom, 0.65);
+            // draw score
+            Draw_ColoredStringScale(glwidth*0.08 + 9*scr_sbarscale.value, glheight*(0.8+y)+(1.1f*scr_sbarscale.value*0.5), num, 1, 1, 1, 1, 1.1f*scr_sbarscale.value);
+            // draw caret to indicate own team
             if (k == cl.viewentity - 1)
-                Draw_CharacterScale( glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y), 13, 1.0f*scr_sbarscale.value);
+                Draw_CharacterScale(glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y)+(1.1f*scr_sbarscale.value*0.5), 13, 1.1f*scr_sbarscale.value);
+            y += 0.03*scr_sbarscale.value;
 
-            y += 0.06;
+//            // draw background
+//            bottom = (s->colors & 15) <<4;
+//            bottom = ColorForMap (bottom);
+//
+//            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 8*scr_sbarscale.value, bottom, 1);
+//
+//            // draw number
+//            f = s->frags;
+//            HUD_itoa(f, num);
+//
+//            Draw_ColoredStringScale(glwidth*0.08 + 8*scr_sbarscale.value, glheight*(0.8+y), num, 1, 1, 1,1,0.8f*scr_sbarscale.value);
+//
+//            if (k == cl.viewentity - 1)
+//                Draw_CharacterScale( glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y), 13, 1.0f*scr_sbarscale.value);
+//
+//            y += 0.06;
         }
     }
 }
@@ -636,7 +670,7 @@ void HUD_Draw (void) {
     if (!*cl.scores[1].name) {
         Draw_ColoredStringScale(0, glheight-(8*0.8f*scr_sbarscale.value), "Its too quiet, Chief! Add bots to get started.", 1,1,1,1,0.8f*scr_sbarscale.value);
     }
-    if (deathmatch.value == DM_SLAYER || deathmatch.value == DM_SWAT)
-        MiniDeathmatchOverlay ();
+//    if (deathmatch.value == DM_SLAYER || deathmatch.value == DM_SWAT)
+//        MiniDeathmatchOverlay ();
     GL_SetCanvas(oldcanvas);
 }

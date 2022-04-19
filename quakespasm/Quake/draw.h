@@ -55,6 +55,7 @@ struct PicAttr {
 void Draw_Init (void);
 void Draw_Character (int x, int y, int num);
 void Draw_CharacterScale (int x, int y, int num, float s);
+void Draw_ColorCharacterScale (int x, int y, int num, float r, float g, float b, float a, float s);
 int PixWidth(float percent);
 int PixHeight(float percent);
 void Draw_WindowInsCol(int x, int y, float width, float height, int color, float alpha);
@@ -72,6 +73,7 @@ void Draw_MenuBg();
 void Draw_StretchPic (int x, int y, qpic_t *pic, int x_value, int y_value);
 struct PicAttr getHudPicAttr(float xpercent, float ypercent, qpic_t *pic);
 void Draw_HudPic (struct PicAttr attr, qpic_t *pic);
+void Draw_HudSubPic (struct PicAttr attr, qpic_t *pic, float s1, float t1, float s2, float t2);
 void Draw_Pic (int x, int y, qpic_t *pic);
 void Draw_SubPic (float x, float y, float w, float h, qpic_t *pic, float s1, float t1, float s2, float t2);
 void Draw_TransPicTranslate (int x, int y, qpic_t *pic, int top, int bottom); //johnfitz -- more parameters

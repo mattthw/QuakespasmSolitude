@@ -37,6 +37,7 @@ extern qpic_t *health_blue;
 extern qpic_t *health_red;
 
 void HUD_Draw (void);
+void MiniDeathmatchOverlay (void);
 
 void HUD_Init (void);
 

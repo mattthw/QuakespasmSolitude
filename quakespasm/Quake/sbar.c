@@ -916,6 +916,11 @@ void Sbar_Draw (void)
 	//johnfitz -- removed the vid.width > 320 check here
 //	if (cl.gametype == GAME_DEATHMATCH)
 //			Sbar_MiniDeathmatchOverlay ();
+    int oldcanvas = currentcanvas;
+    GL_SetCanvas(CANVAS_DEFAULT);
+    if (deathmatch.value == DM_SLAYER || deathmatch.value == DM_SWAT)
+        MiniDeathmatchOverlay ();
+    GL_SetCanvas(oldcanvas);
 }
 
 //=============================================================================
@@ -969,10 +974,10 @@ void Sbar_DeathmatchOverlay (void)
 
 	GL_SetCanvas (CANVAS_MENU); //johnfitz
 
-    if (cl.stats[STAT_HEALTH] > 0) {
-        pic = Draw_CachePic ("gfx/ranking.lmp");
-        M_DrawPic ((320-pic->width)/2, 8, pic);
-    }
+//    if (cl.stats[STAT_HEALTH] > 0) {
+//        pic = Draw_CachePic ("gfx/ranking.lmp");
+//        M_DrawPic ((320-pic->width)/2, 8, pic);
+//    }
 
 // scores
 	Sbar_SortFrags ();
@@ -982,6 +987,9 @@ void Sbar_DeathmatchOverlay (void)
 
 	x = 80; //johnfitz -- simplified becuase some positioning is handled elsewhere
 	y = 40;
+    Draw_Fill ( x+12, 23, 136, 16, 0, 0.9);
+    M_PrintWhite (x+20, 27,"  LEADERBOARD");
+
 	for (i = 0; i < l; i++)
 	{
 		k = fragsort[i];
@@ -996,10 +1004,10 @@ void Sbar_DeathmatchOverlay (void)
 		if (S_Voip_Speaking(k))	//spike -- display an underlay for people who are speaking
 			Draw_Fill ( x, y, 320-x*2, 8, ((k+1)==cl.viewentity)?75:73, 1);
 
-		Draw_Fill ( x, y, 40, 4, bottom, 1); //johnfitz -- stretched overlays
-		Draw_Fill ( x, y+4, 40, 4, bottom, 1); //johnfitz -- stretched overlays
+        Draw_Fill ( x+12, y, 32, 12, bottom, 0.9); //score num bg
+        Draw_Fill ( x+50, y, 98, 12, bottom, 0.9); //player name bg
 
-	// draw number
+        // draw number
 		f = s->frags;
 		sprintf (num, "%3i",f);
 
@@ -1028,13 +1036,13 @@ void Sbar_DeathmatchOverlay (void)
 }
 #endif
 
-		sprintf (num, "%4i", s->ping);
-		M_PrintWhite (x-8*5, y, num); //johnfitz -- was Draw_String, changed for stretched overlays
+//		sprintf (num, "%4i", s->ping); //ping
+//		M_PrintWhite (x-8*5, y, num); //johnfitz -- was Draw_String, changed for stretched overlays
 
-	// draw name
-		M_Print (x+64, y, s->name); //johnfitz -- was Draw_String, changed for stretched overlays
+        // draw name
+        M_PrintWhite (x+52, y+2, s->name);
 
-		y += 10;
+		y += 16;
 	}
 
 	GL_SetCanvas (CANVAS_SBAR); //johnfitz
@@ -1046,6 +1054,89 @@ void Sbar_DeathmatchOverlay (void)
 		MSG_WriteString(&cls.message, "ping");
 	}
 }
+
+/*
+==================
+Sbar_DeathmatchOverlay
+
+==================
+*/
+//void Sbar_DeathmatchOverlay (void)
+//{
+//    qpic_t			*pic;
+//    int				i, k, l;
+//    int				top, bottom;
+//    int				x, y, f;
+//    char			num[12];
+//    scoreboard_t	*s;
+//
+//    GL_SetCanvas (CANVAS_MENU); //johnfitz
+//
+//    scr_copyeverything = 1;
+//    scr_fullupdate = 0;
+//
+//// scores
+//    Sbar_SortFrags ();
+//
+//// draw the text
+//    l = scoreboardlines;
+//
+//    x = 80;
+//    y = 40;
+//    Draw_Fill ( x+12, 26, 136, 10, 0);
+//    M_PrintWhite (x+20, 27,"  LEADERBOARD");
+//
+//    for (i=0 ; i<l ; i++)
+//    {
+//        k = fragsort[i];
+//        s = &cl.scores[k];
+//        if (!s->name[0])
+//            continue;
+//
+//        // draw background
+//        bottom = (s->colors & 15)<<4;
+//        bottom = Sbar_ColorForMap (bottom);
+//
+//        Draw_Fill ( x+12, y, 32, 12, 1); //score num bg
+//        Draw_Fill ( x+50, y, 98, 12, bottom); //player name bg
+//
+//        // draw number
+//        f = s->frags;
+//        sprintf (num, "%3i",f);
+//
+//        Draw_Character ( x+8 , y, num[0]);
+//        Draw_Character ( x+16 , y, num[1]);
+//        Draw_Character ( x+24 , y, num[2]);
+//
+//        if (k == cl.viewentity - 1)
+//            Draw_Character ( x - 8, y, 12); //triangle by name if it is me
+//
+//#if 0
+//        {
+//	int				total;
+//	int				n, minutes, tens, units;
+//
+//	// draw time
+//		total = cl.completed_time - s->entertime;
+//		minutes = (int)total/60;
+//		n = total - minutes*60;
+//		tens = n/10;
+//		units = n%10;
+//
+//		sprintf (num, "%3i:%i%i", minutes, tens, units);
+//
+//		Draw_String ( x+48 , y, num);
+//}
+//#endif
+//
+//        // draw name
+//        M_PrintWhite (x+52, y+2, s->name);
+//
+//        y += 16;
+//    }
+//
+//    GL_SetCanvas (CANVAS_SBAR); //johnfitz
+//}
 
 /*
 ==================

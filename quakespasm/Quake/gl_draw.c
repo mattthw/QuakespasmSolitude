@@ -652,6 +652,34 @@ void Draw_CharacterScale (int x, int y, int num, float s)
     glEnd ();
 }
 
+void Draw_ColorCharacterScale (int x, int y, int num, float r, float g, float b, float a, float s)
+{
+    if (y <= -8)
+        return;			// totally off screen
+
+    num &= 255;
+
+    if (num == 32)
+        return; //don't waste verts on spaces
+
+    glEnable (GL_BLEND);
+    glColor4f(r, g, b, a);
+    glDisable (GL_ALPHA_TEST);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+    GL_Bind (char_texture);
+    glBegin (GL_QUADS);
+
+    Draw_CharacterQuadScale(x, y, (char) num, s);
+
+    glEnd ();
+
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    glEnable (GL_ALPHA_TEST);
+    glDisable (GL_BLEND);
+    glColor4f (1,1,1,1);
+}
+
 /**
  * Print colored text
  * @param cx
@@ -729,7 +757,8 @@ void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, fl
  * @param rowheight % of screen height for row height. (ex. 0.10)
  * @param cols num columns
  * @param colwidth % of screen width for col width. (ex. 0.10)
- * @param alpha
+ * @param alpha window bg alpha
+ * @param detail_alpha footer/header alpha
  * @param cursor -1 for none
  * @param int cursor_cols how many columns the cursor should stretch
  * @param incl_footer true if we should include a footer. It will be included in the grid.
@@ -809,11 +838,11 @@ struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, in
     Draw_ColoredStringScale(x + x_padding, y + y_padding_header, title, 1,1,1,0.8,title_scale);
     // draw footer
     if (footer)
-        Draw_Fill(x, mc.grid[0][mc.rows].y, menu_width, footer_height+1, colr_h, 0.7);
+        Draw_Fill(x, mc.grid[0][mc.rows].y, menu_width, footer_height+1, colr_h, detail_alpha);
     // draw borders
-    Draw_Fill(x, y, 1, menu_height, colr_h, 1);
-    Draw_Fill(x+menu_width, y, 1, menu_height, colr_h, 1);
-    Draw_Fill(x, y+menu_height, menu_width, 1, colr_h, 1);
+    Draw_Fill(x, y, 1, menu_height, colr_h, detail_alpha);
+    Draw_Fill(x+menu_width, y, 1, menu_height, colr_h, detail_alpha);
+    Draw_Fill(x, y+menu_height, menu_width, 1, colr_h, detail_alpha);
     return mc;
 }
 
@@ -1021,6 +1050,57 @@ void Draw_HudPic (struct PicAttr attr, qpic_t *pic)
     glVertex2f (x, y+y_value);
     glEnd ();
 
+    if (alpha <= 1.0)
+    {
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+        glEnable(GL_ALPHA_TEST);
+        glDisable (GL_BLEND);
+        glColor4f (1,1,1,1);
+    }
+}
+
+void Draw_HudSubPic (struct PicAttr attr, qpic_t *pic, float s1, float t1, float s2, float t2)
+{
+    glpic_t			*gl;
+    int w = attr.width;
+    int h = attr.height;
+    int x = attr.x;
+    int y = attr.y;
+    s2 += s1;
+    t2 += t1;
+    float alpha = 1;
+
+    if (alpha <= 1.0) {
+        glEnable (GL_BLEND);
+        glColor4f (1,1,1,alpha);
+        glDisable (GL_ALPHA_TEST);
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    }
+
+
+    if (scrap_dirty)
+        Scrap_Upload ();
+    gl = (glpic_t *)pic->data;
+    GL_Bind (gl->gltexture);
+    glBegin (GL_QUADS);
+    glTexCoord2f (gl->sl*(1.0f-s1) + s1*gl->sh, gl->tl*(1.0f-t1) + t1*gl->th);
+    glVertex2f (x, y);
+    glTexCoord2f (gl->sl*(1.0f-s2) + s2*gl->sh, gl->tl*(1.0f-t1) + t1*gl->th);
+    glVertex2f (x+w, y);
+    glTexCoord2f (gl->sl*(1.0f-s2) + s2*gl->sh, gl->tl*(1.0f-t2) + t2*gl->th);
+    glVertex2f (x+w, y+h);
+    glTexCoord2f (gl->sl*(1.0f-s1) + s1*gl->sh, gl->tl*(1.0f-t2) + t2*gl->th);
+    glVertex2f (x, y+h);
+    glEnd ();
+
+//    glTexCoord2f (gl->sl, gl->tl);
+//    glVertex2f (x, y);
+//    glTexCoord2f (gl->sh, gl->tl);
+//    glVertex2f (x+x_value, y);
+//    glTexCoord2f (gl->sh, gl->th);
+//    glVertex2f (x+x_value, y+y_value);
+//    glTexCoord2f (gl->sl, gl->th);
+//    glVertex2f (x, y+y_value);
     if (alpha <= 1.0)
     {
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);

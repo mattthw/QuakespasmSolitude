@@ -65,6 +65,9 @@ void MQC_Shutdown(void);
 void M_Menu_Main_f (void);
 void M_Menu_Options_f (void);
 void M_Menu_Quit_f (void);
+void M_Matchmaking_f(void);
+void M_Matchmaking_f(void);
+void M_Menu_Firefight_f(void);
 
 void M_Print (int cx, int cy, const char *str);
 void M_PrintWhite (int cx, int cy, const char *str);

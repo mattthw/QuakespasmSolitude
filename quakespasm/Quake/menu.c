@@ -2447,24 +2447,24 @@ void M_Matchmaking_Map_Draw (void) {
         strcpy(format, "lmp");
     }
     qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].thumbnail, format));
-    Draw_StretchPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic, coords.colw, coords.rowh*4);
+    Draw_StretchPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic, coords.colw, coords.rowh*5);
 
     // map bio
-    int map_y = coords.grid[1][4].yp;
-    M_Print(coords.grid[1][4].x, coords.grid[1][4].yp, "Map Description:");
+    int map_y = coords.grid[1][5].yp;
+    M_Print(coords.grid[1][5].x, coords.grid[1][5].yp, "Map Description:");
     static char	string[64];
     q_snprintf(string, sizeof(string), "debug: %-1.1d %-1.1d\n", coords.colw, 4*coords.rowh);
     M_Print(0, 0, string);
     map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][4].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[0]);
+    M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[0]);
     map_y += CHARZ * 1.5;
     M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[1]);
     map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][6].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[2]);
+    M_PrintWhite (coords.grid[1][5].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[2]);
     map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][6].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[3]);
-    M_Print(coords.grid[1][7].x, coords.grid[1][7].yp, "Author:");
-    M_PrintWhite (coords.grid[1][8].xp, coords.grid[1][7].yp + CHARZ*1.5, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].author);
+    M_PrintWhite (coords.grid[1][5].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[3]);
+    M_Print(coords.grid[1][8].x, coords.grid[1][8].yp, "Author:");
+    M_PrintWhite (coords.grid[1][9].xp, coords.grid[1][8].yp + CHARZ*1.5, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].author);
 }
 
 
@@ -2557,6 +2557,7 @@ typedef struct opts_t {
     int skill;
     int timelimit;
     int fraglimit;
+    int teamlimit;
     enum gametype_t gametype;
 } opts_t;
 
@@ -2567,7 +2568,8 @@ struct opts_t opts = {
         .deathmatch = 1,
         .skill = 1,
         .timelimit = 10,
-        .fraglimit = 15,
+        .fraglimit = 10,
+        .teamlimit = 0,
         .gametype = SLAYER
 };
 
@@ -2706,7 +2708,7 @@ void M_Matchmaking_Draw (void)
     M_Print (mc.grid[0][5].xp, mc.grid[1][5].yp, "MAP");
     M_PrintWhite (mc.grid[1][5].xp, mc.grid[1][5].yp, levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description);
     //========================= 6
-    M_PrintWhite (mc.grid[0][6].xp, mc.grid[1][6].yp, "START GAME");
+    Draw_ColoredStringScale(mc.grid[0][6].xp, mc.grid[1][6].yp, "START GAME", 1, 1, 1, 1, 1.1f);
 }
 
 void M_Matchmaking_Submenu_Key (int dir)
@@ -2835,6 +2837,7 @@ void M_Matchmaking_Key (int key)
                 Cbuf_AddText ( va ("teamplay %u\n", (int)opts.teamplay) );
                 Cbuf_AddText ( va ("fraglimit %u\n", (int)opts.fraglimit) );
                 Cbuf_AddText ( va ("timelimit %u\n", (int)opts.timelimit) );
+                Cbuf_AddText ( va ("teamlimit %u\n", (int)opts.teamlimit) );
                 Cbuf_AddText ( va ("skill %u\n", (int)opts.skill) );
                 Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
 //                // remove old bots. add single bot
