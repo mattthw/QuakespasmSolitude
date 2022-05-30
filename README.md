@@ -47,18 +47,24 @@ The end result will look something like this:
 
 ## Editing & Compiling Quake
 
-### QuakeC Code
-
-Use [FTEQCC](https://www.fteqcc.org/) ([mac](https://github.com/BryanHaley/fteqcc-mac)) to compile or decompile QuakeC code.
-
-Sorry, but unless someone wants to decompile the progs.dat, or if someone can get TCPixel to locate the source of Solitude Revamped R17, we are out of luck.
-### Compile SolitudeVita
+### Compile SolitudeVita Engine Source
 1. Install the VitaSDK and set up building with the instructions here; https://vitasdk.org/
 2. Install VitaGL (https://github.com/Rinnegatamante/vitaGl) with "make" then "make install"
 3. Run the following command in this repository's ``./Quake/`` directory, which should produce a working quakehalo.vpk
    ```make clean && make -f Makefile.vita && curl```
 4. (Optional) After installing quakehalo.vpk for the first time, you can install the changes faster by enabling FTP on the vita then running:
    ```curl --ftp-method nocwd -T ./build/eboot.bin ftp://<local IP of your vita>:1337/ux0:/app/SOLITUDE0/```
+
+### Compile SolitudeVite Quake Code Source
+1. Install [FTEQCC](https://www.fteqcc.org/) ([mac](https://github.com/BryanHaley/fteqcc-mac)) to compile or decompile QuakeC code.
+2. Navigate to the `qcc-src`` directory.
+3. run ``fteqcc`` command.
+4. Copy ``progs.dat`` and ``progs.lno`` to your vita directory ``ux0:/data/Quakespasm/Solitude/``.
+
+Example:
+```
+fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/{progs.dat,progs.lno}" ftp://192.168.50.148:1337/ux0:/data/Quakespasm/Solitude/ || fteqcc | grep -B 2 -A 2 "error"
+```
 
 ## Mapping / Level Design
 
