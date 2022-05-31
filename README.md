@@ -87,10 +87,13 @@ fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/proj
 - [Marco's Quake Tools](http://icculus.org/~marco/sources/q1tools.html) C programs for targa <-> lmp format
   - the programs are rehosted in this repository under ``/solitude/artwork``` in case the website goes down.
 - https://quakewiki.org/wiki/Getting_Started_Mapping
+- Map Icon creation: 
+  - must be .tga and size 200x117. filename must match map name. Save from photoshop using *Save as Copy...* -> Targa -> ``<mapname>.tga``
+  - code in menu.c must be updated to use image and image must be placed in ``Solitude/gx/maps/``
 - [Frikbot waypointing](https://www.insideqc.com/frikbot/fbx/readme.html)
 - How to take screenshots (so I remember later):
     ```
-  r_drawviewmodel 0;viewsize 120;fov 120;noclip 1;crosshair 0;bind 8 screenshot
+  r_drawviewmodel 0;viewsize 120;fov 120;noclip 1;crosshair 0;bind , screenshot
   ```
 
 ### General Workflow (macOS Silicon)
