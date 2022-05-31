@@ -45,7 +45,7 @@ The end result will look something like this:
 
 # Development
 
-## Editing & Compiling Quake
+## Compiling Quake Source
 
 ### Compile SolitudeVita Engine Source
 1. Install the VitaSDK and set up building with the instructions here; https://vitasdk.org/
@@ -68,6 +68,8 @@ fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/proj
 
 ## Mapping / Level Design
 
+#### [Map Status Tracker](https://docs.google.com/spreadsheets/d/1HBcGHUBthl3Qb_umI5GIVykRjpyiiFUFz325e6HpJVI/edit?usp=sharing)
+
 ### WADs, Assets, Tooling
 - [Skyboxes](https://www.quaddicted.com/webarchive/kell.quaddicted.com/skyboxes.html)
    - extract using [SLADE](https://slade.mancubus.net/index.php?page=downloads)
@@ -80,12 +82,21 @@ fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/proj
    - [ericw-tools](https://github.com/ericwa/ericw-tools)
      >**NOTE** ericw-tools did not build for me on macOS 12.1 (Silicon). The issue was resolved by changing the build script: https://github.com/ericwa/ericw-tools/issues/329
    - [quake-cli-tools](https://github.com/joshuaskelly/quake-cli-tools): used for managing WADs
-- For decompilation of maps, use **[WinBSPC](https://gamebanana.com/tools/download/5030)**
+     - pak: Add files to a PAK file. 
+     - unpak: Extract files from a PAK file. 
+     - wad: Add file to a WAD file. 
+     - unwad: Extract files from a WAD file. 
+     - bsp2wad: Create a WAD file from a BSP file. 
+     - qmount: Mount a PAK file as a drive. 
+     - image2spr: Create an SPR from image files. 
+     - spr2image: Extract frames from an SPR. 
+     - bsp2svg: Create an SVG file from a BSP file.
+- For decompilation of maps, use **[WinBSPC](https://gamebanana.com/tools/download/5030)**, or bsp2map
 - [Parsing of old solitude maps](https://docs.google.com/forms/d/e/1FAIpQLSeWVJZsibrkOvGFM-eU71NBU7y_i1WiL9-np2pGlpMS5n62mw/viewform?usp=sf_link)
 - [Frank's Craptacular House of Mac Quake Stuffs
   ](http://quake.chaoticbox.com/) - Tools for quake on macOS
-- [Marco's Quake Tools](http://icculus.org/~marco/sources/q1tools.html) C programs for targa <-> lmp format
-  - the programs are rehosted in this repository under ``/solitude/artwork``` in case the website goes down.
+- [Marco's Quake Tools](http://icculus.org/~marco/sources/q1tools.html) C programs for Targa <-> Lmp format
+  - the programs are rehosted in *this* repository under ``/solitude/artwork`` in case the website goes down.
 - https://quakewiki.org/wiki/Getting_Started_Mapping
 - Map Icon creation: 
   - must be .tga and size 200x117. filename must match map name. Save from photoshop using *Save as Copy...* -> Targa -> ``<mapname>.tga``
@@ -96,7 +107,7 @@ fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/proj
   r_drawviewmodel 0;viewsize 120;fov 120;noclip 1;crosshair 0;bind , screenshot
   ```
 
-### General Workflow (macOS Silicon)
+### Mapping Workflow Setup (macOS Silicon)
 > Note: you must launch trenchbroom from the terminal with command ``cd /Applications/TrenchBroom.app && ./Contents/MacOS/TrenchBroom`` (or run directly with ``/Applications/TrenchBroom.app/Contents/MacOS/TrenchBroom``. Otherwise the compilation tools will fail. This is because they rely on terminal variables.
 1. Install [Quakespasm](https://sourceforge.net/projects/quakespasm/), [alt  silicon build](https://github.com/BryanHaley/Quakespasm-AppleSilicon) to some location
    1. Make sure to add ```./id1/``` and ``pak1.pak`` to ``<your game directory>/Quake/id1/``. I cannot provide pak1.pak, you can get it from Quake source code by purchasing a retail copy.

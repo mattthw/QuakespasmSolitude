@@ -2316,7 +2316,8 @@ typedef struct
     const char  *mapBio[4];
     const char  *author;
 } level_t;
-int targas[] = {2,1,3,4,12};
+// todo: refactor level_t to specify filetype
+int targas[] = {2,1,3,4, 5, 7,15};
 level_t		levels[] =
 {
         // Refined map pack [4]
@@ -2325,6 +2326,9 @@ level_t		levels[] =
         {"pit3", "pit2", "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
         {"narsp", "narsp", "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
         {"skyringbl2", "skyringbl2", "Sky Ring", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Unknown"},
+        {"wizard", "wizard", "Wizard", {"Round and Round","and Round.","",""}, "IlDucci"},
+        {"open", "random", "Open", {"Similar to 'Lane'","but theres a hole","in the ground.", "Don't fall!"}, "Unknown"},
+        {"lane", "lane", "Lane", {"Outdoor human facility","used for USMC","training.",""}, "Unknown"},
         // Classic map pack [6]
         {"Longest", "Longest", "Longest", {"","","",""}, "Unknown"},
         {"chill", "random", "Chill Out", {"","","",""}, "Unknown"},
@@ -2361,14 +2365,14 @@ typedef struct
 int NUM_EPISODES = 3;
 episode_t	episodes[] =
         {
-                {"Remastered Maps", 0, 5},
-                {"Classic Maps", 5, 6},
-                {"Bonus Maps", 11, 4}
+                {"Remastered Maps", 0, 8},
+                {"Classic Maps", 8, 6},
+                {"Bonus Maps", 14, 4}
         };
 int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
         {
-                {"Firefight Maps", 15, 2}
+                {"Firefight Maps", 18, 2}
         };
 
 extern cvar_t sv_public;
@@ -2427,13 +2431,13 @@ void M_Matchmaking_Map_Draw (void) {
     Draw_Fill(0,0,1000,1000, BLACK, 0.667);
     // title
     static char title[128];
-    q_snprintf(title, sizeof(title), "%-15.15s  %-15.15s\n\n", "Map Selection:", episodes[startepisode].description);
+    q_snprintf(title, sizeof(title), "%-18.18s [%-15.15s]\n", "Map Selection", episodes[startepisode].description);
     // window
     struct MenuCoords coords = Draw_WindowGrid(title, 10, MVS_P, 2, 0.35, 1.0, mlist_cursor-mlist_first, true);
     //footer
     switch (mlist_cursor-mlist_first) {
         default:
-            M_Draw_Hint(SELECT_SCROLL, coords);
+            M_Draw_Hint(SELECT_SCROLL_MAPS, coords);
     }
     // map name
     for (int n = 0; n < mlist_shown; n++) {
@@ -2452,9 +2456,6 @@ void M_Matchmaking_Map_Draw (void) {
     // map bio
     int map_y = coords.grid[1][5].yp;
     M_Print(coords.grid[1][5].x, coords.grid[1][5].yp, "Map Description:");
-    static char	string[64];
-    q_snprintf(string, sizeof(string), "debug: %-1.1d %-1.1d\n", coords.colw, 4*coords.rowh);
-    M_Print(0, 0, string);
     map_y += CHARZ * 1.5;
     M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[0]);
     map_y += CHARZ * 1.5;
@@ -2610,11 +2611,17 @@ void M_Draw_Hint (int type, struct MenuCoords mc) {
         Draw_Button(mc.grid[0][mc.rows].xp + 9*CHARZ, mc.grid[0][mc.rows].yp, b_xbutton);
         Draw_Button(mc.grid[0][mc.rows].xp + 17*CHARZ, mc.grid[0][mc.rows].yp, b_ybutton);
     } else if (type ==  SELECT_SCROLL) {
-        M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "    Back    Select      Change");
-        Draw_Button(mc.grid[0][mc.rows].xp + 1*CHARZ, mc.grid[0][mc.rows].yp, b_bbutton);
-        Draw_Button(mc.grid[0][mc.rows].xp + 9*CHARZ, mc.grid[0][mc.rows].yp, b_abutton);
-        Draw_Button(mc.grid[0][mc.rows].xp + 19*CHARZ, mc.grid[0][mc.rows].yp, b_left);
-        Draw_Button(mc.grid[0][mc.rows].xp + 21*CHARZ, mc.grid[0][mc.rows].yp, b_right);
+        M_PrintWhite(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "    Back    Select      Change");
+        Draw_Button(mc.grid[0][mc.rows].xp + 1 * CHARZ, mc.grid[0][mc.rows].yp, b_bbutton);
+        Draw_Button(mc.grid[0][mc.rows].xp + 9 * CHARZ, mc.grid[0][mc.rows].yp, b_abutton);
+        Draw_Button(mc.grid[0][mc.rows].xp + 19 * CHARZ, mc.grid[0][mc.rows].yp, b_left);
+        Draw_Button(mc.grid[0][mc.rows].xp + 21 * CHARZ, mc.grid[0][mc.rows].yp, b_right);
+    } else if (type == SELECT_SCROLL_MAPS) {
+        M_PrintWhite(mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "    Back    Select      Change Map Pack");
+        Draw_Button(mc.grid[0][mc.rows].xp + 1 * CHARZ, mc.grid[0][mc.rows].yp, b_bbutton);
+        Draw_Button(mc.grid[0][mc.rows].xp + 9 * CHARZ, mc.grid[0][mc.rows].yp, b_abutton);
+        Draw_Button(mc.grid[0][mc.rows].xp + 19 * CHARZ, mc.grid[0][mc.rows].yp, b_left);
+        Draw_Button(mc.grid[0][mc.rows].xp + 21 * CHARZ, mc.grid[0][mc.rows].yp, b_right);
     } else if (type == SELECT_DELETE) {
         M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "    Back    Edit    Delete");
         Draw_Button(mc.grid[0][mc.rows].xp + 1*CHARZ, mc.grid[0][mc.rows].yp, b_bbutton);

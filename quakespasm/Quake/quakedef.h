@@ -394,7 +394,8 @@ typedef enum InpType {
     SCROLL = 1,
     INPUT = 2,
     SELECT_SCROLL = 3,
-    SELECT_DELETE = 4
+    SELECT_DELETE = 4,
+    SELECT_SCROLL_MAPS = 5,
 } InpType;
 
 #endif	/* QUAKEDEFS_H */
