@@ -1,0 +1,142 @@
+// Narrowed Space - maps/narsp.way
+// Ways by player
+saved1 1283; saved2 -167; saved3 -1906
+scratch1 2; scratch2 0; scratch3 0; scratch4 0
+saved4 1; wait
+saved1 1279; saved2 -451; saved3 -1938
+scratch1 1; scratch2 3; scratch3 13; scratch4 14
+saved4 2; wait
+saved1 921; saved2 -503
+scratch1 2; scratch2 4; scratch3 0; scratch4 0
+saved4 2; wait
+saved1 905; saved2 -957
+scratch1 3; scratch2 5
+saved4 2; wait
+saved1 687; saved2 -939; saved3 -1955
+scratch1 4; scratch2 6
+saved4 130; wait
+saved1 720; saved2 -1096; saved3 -1970
+scratch1 5; scratch2 7
+saved4 130; wait
+saved1 1045; saved2 -1097; saved3 -2034
+scratch1 6; scratch2 8
+saved4 130; wait
+saved1 1271
+scratch1 7; scratch2 9; scratch3 46
+saved4 130; wait
+saved1 1577; saved2 -1086; saved3 -2020
+scratch1 8; scratch2 10; scratch3 0
+saved4 130; wait
+saved1 1865; saved2 -1084; saved3 -1970
+scratch1 9; scratch2 11
+saved4 130; wait
+saved1 1850; saved2 -772; saved3 -1938
+scratch1 10; scratch2 12
+saved4 130; wait
+saved1 1722; saved2 -773
+scratch1 11; scratch2 13; scratch3 26
+saved4 2; wait
+saved1 1705; saved2 -541
+scratch1 12; scratch2 2; scratch3 0
+saved4 2; wait
+saved1 1177; saved2 -831; saved3 -1918
+scratch1 2; scratch2 15
+saved4 2; wait
+saved1 1301; saved2 -1042; saved3 -1863
+scratch1 14; scratch2 16; scratch3 26; scratch4 25
+saved4 2; wait
+saved1 1122; saved2 -1197; saved3 -1824
+scratch1 15; scratch2 17; scratch3 0; scratch4 0
+saved4 130; wait
+saved1 1112; saved2 -1493
+scratch1 16; scratch2 18; scratch3 24
+saved4 130; wait
+saved1 1102; saved2 -1777
+scratch1 17; scratch2 19; scratch3 20; scratch4 43
+saved4 130; wait
+saved1 1277; saved2 -1974; saved3 -1866
+scratch1 18; scratch2 20; scratch3 22; scratch4 21
+saved4 2; wait
+saved1 1148; saved2 -2285; saved3 -1938
+scratch1 19; scratch2 21; scratch3 18; scratch4 28
+saved4 2; wait
+saved1 1403
+scratch1 20; scratch2 19; scratch3 22
+saved4 2; wait
+saved1 1435; saved2 -1908; saved3 -1848
+scratch1 23; scratch3 21; scratch4 0
+saved4 130; wait
+saved1 1459; saved2 -1559; saved3 -1824
+scratch1 25; scratch2 22; scratch3 24
+saved4 130; wait
+saved1 1291; saved2 -1509; saved3 -1778
+scratch1 23; scratch2 17; scratch3 0
+saved4 2; wait
+saved1 1435; saved2 -1237; saved3 -1824
+scratch1 15; scratch2 23
+saved4 130; wait
+saved1 1464; saved2 -775; saved3 -1932
+scratch2 2; scratch3 12
+saved4 2; wait
+saved1 1308; saved2 -2886; saved3 -1906
+scratch1 28; scratch2 0; scratch3 0
+saved4 2; wait
+saved1 1293; saved2 -2609; saved3 -1938
+scratch1 27; scratch2 29; scratch3 39; scratch4 21
+saved4 2; wait
+saved1 1697; saved2 -2506
+scratch1 28; scratch2 30; scratch3 0; scratch4 0
+saved4 2; wait
+saved1 1628; saved2 -2064
+scratch1 29; scratch2 31; scratch3 21
+saved4 2; wait
+saved1 1840; saved2 -2208
+scratch1 30; scratch2 32; scratch3 0
+saved4 130; wait
+saved1 1830; saved2 -1961; saved3 -1970
+scratch1 31; scratch2 33
+saved4 130; wait
+saved1 1548; saved2 -1932; saved3 -2027
+scratch1 32; scratch2 34
+saved4 130; wait
+saved1 1295; saved2 -1927; saved3 -2034
+scratch1 33; scratch2 35; scratch3 46
+saved4 130; wait
+saved1 1044; saved2 -1918
+scratch1 34; scratch2 36; scratch3 0
+saved4 130; wait
+saved1 706; saved2 -1942; saved3 -1970
+scratch1 35; scratch2 37
+saved4 130; wait
+saved1 699; saved2 -2229; saved3 -1938
+scratch1 36; scratch2 38
+saved4 130; wait
+saved1 862; saved2 -2228
+scratch1 37; scratch2 39; scratch3 20; scratch4 40
+saved4 2; wait
+saved1 858; saved2 -2525
+scratch1 38; scratch2 28; scratch3 0; scratch4 0
+saved4 2; wait
+saved1 836; saved2 -2123; saved3 -1892
+scratch1 41; scratch2 0
+saved4 2562; wait
+saved1 829; saved2 -1635; saved3 -1780
+scratch1 42
+saved4 2562; wait
+saved1 864; saved2 -1148; saved3 -1805
+scratch1 4
+saved4 2562; wait
+saved1 1721; saved2 -954; saved3 -1886
+scratch1 44
+saved4 2562; wait
+saved1 1715; saved2 -1372; saved3 -1790
+scratch1 45
+saved4 2562; wait
+saved1 1698; saved2 -1801; saved3 -1785
+scratch1 30
+saved4 2562; wait
+saved1 1279; saved2 -1546; saved3 -2028
+scratch1 8; scratch2 34
+saved4 130; wait
+saved4 3
+// end waypoint dump

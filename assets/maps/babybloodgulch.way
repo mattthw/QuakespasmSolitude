@@ -1,0 +1,138 @@
+// Halo Solitude-Baby Blood Gulch - maps/babybloodgulch.way
+// Ways by player
+saved1 23; saved2 1431; saved3 -210
+scratch1 5; scratch2 0; scratch3 0; scratch4 0
+saved4 1; wait
+saved1 885; saved2 1147
+scratch1 3; scratch2 16
+saved4 2; wait
+saved1 264; saved2 1031; saved3 14
+scratch1 4; scratch2 0
+saved4 2; wait
+saved1 268; saved2 545
+scratch1 0
+saved4 2; wait
+saved1 1; saved2 1795; saved3 -210
+scratch1 6; scratch2 30
+saved4 2; wait
+saved1 656; saved2 1711
+scratch1 2; scratch2 0
+saved4 2; wait
+saved1 -7; saved2 1012
+scratch1 11; scratch2 8; scratch3 9; scratch4 10
+saved4 2; wait
+saved1 302; saved2 1265
+scratch1 1; scratch2 0; scratch3 0; scratch4 0
+saved4 2; wait
+saved1 -340; saved2 1300
+saved4 2; wait
+saved1 -289; saved2 721
+scratch1 15
+saved4 2; wait
+saved1 290; saved2 731
+scratch1 14
+saved4 2; wait
+saved1 -18; saved2 615
+scratch1 13; scratch2 14
+saved4 2; wait
+saved1 15; saved2 242
+scratch1 12; scratch2 17; scratch3 44; scratch4 16
+saved4 2; wait
+saved1 292; saved2 582
+scratch2 7; scratch3 0; scratch4 0
+saved4 2; wait
+saved1 -284; saved2 596
+scratch2 0
+saved4 2; wait
+saved1 797; saved2 495
+scratch1 13; scratch2 2
+saved4 2; wait
+saved1 19; saved2 -307
+scratch2 18; scratch3 43; scratch4 45
+saved4 2; wait
+saved1 -2; saved2 -609
+scratch1 17; scratch2 19; scratch3 40; scratch4 0
+saved4 2; wait
+saved1 -348; saved2 -844
+scratch1 18; scratch2 20; scratch3 0
+saved4 2; wait
+saved1 -28; saved2 -1018
+scratch1 19; scratch2 21; scratch3 40; scratch4 41
+saved4 2; wait
+saved1 309; saved2 -1347
+scratch1 20; scratch2 22; scratch3 0; scratch4 0
+saved4 2; wait
+saved1 13; saved2 -1517
+scratch1 21; scratch2 23; scratch3 41
+saved4 2; wait
+saved1 21; saved2 -1797
+scratch1 22; scratch2 24; scratch3 0
+saved4 2; wait
+saved1 494; saved2 -1586
+scratch1 23; scratch2 25
+saved4 2; wait
+saved1 710; saved2 -1036
+scratch1 24; scratch2 26; scratch3 42
+saved4 2; wait
+saved1 279; saved2 -981; saved3 14
+scratch1 25; scratch2 27; scratch3 0
+saved4 2; wait
+saved1 8; saved2 -672
+scratch1 26; scratch2 28; scratch3 20
+saved4 2; wait
+saved2 805
+scratch1 27; scratch2 29; scratch3 7
+saved4 2; wait
+saved1 -790; saved2 1062; saved3 -210
+scratch1 28; scratch2 30; scratch3 31; scratch4 44
+saved4 2; wait
+saved1 -761; saved2 1592
+scratch1 29; scratch2 5; scratch3 0; scratch4 0
+saved4 2; wait
+saved1 -1005; saved2 1220
+scratch2 32
+saved4 2; wait
+saved1 -1740; saved2 1145
+scratch1 31; scratch2 33
+saved4 2; wait
+saved1 -1847; saved2 -3; saved3 -338
+scratch1 32; scratch2 34
+saved4 2; wait
+saved1 -1711; saved2 -780
+scratch1 33; scratch2 35
+saved4 2; wait
+saved1 -1787; saved2 -1132
+scratch1 34; scratch2 36
+saved4 2; wait
+saved1 -1750; saved2 -1565
+scratch1 35; scratch2 37
+saved4 2; wait
+saved1 -1065; saved2 -1611; saved3 -210
+scratch1 36; scratch2 38
+saved4 2; wait
+saved1 -799; saved2 -1167
+scratch1 37; scratch2 39; scratch3 45
+saved4 2; wait
+saved1 -292; saved2 -1019; saved3 14
+scratch1 38; scratch2 27; scratch3 0
+saved4 2; wait
+saved1 330; saved2 -694; saved3 -210
+scratch1 20; scratch2 18
+saved4 2; wait
+saved1 -314; saved2 -1363
+scratch2 22
+saved4 2; wait
+saved1 767; saved2 -683
+scratch1 25; scratch2 43
+saved4 2; wait
+saved1 357; saved2 -257; saved3 -203
+scratch1 17; scratch2 42
+saved4 2; wait
+saved1 -674; saved2 570; saved3 -210
+scratch1 29; scratch2 13
+saved4 2; wait
+saved1 -779; saved2 -576
+scratch1 17; scratch2 38
+saved4 2; wait
+saved4 3
+// end waypoint dump

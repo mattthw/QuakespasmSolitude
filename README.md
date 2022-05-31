@@ -87,13 +87,14 @@ fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/proj
 - [Marco's Quake Tools](http://icculus.org/~marco/sources/q1tools.html) C programs for targa <-> lmp format
   - the programs are rehosted in this repository under ``/solitude/artwork``` in case the website goes down.
 - https://quakewiki.org/wiki/Getting_Started_Mapping
+- [Frikbot waypointing](https://www.insideqc.com/frikbot/fbx/readme.html)
 - How to take screenshots (so I remember later):
     ```
   r_drawviewmodel 0;viewsize 120;fov 120;noclip 1;crosshair 0;bind 8 screenshot
   ```
 
 ### General Workflow (macOS Silicon)
-> Note: you must launch trenchbroom from the terminal with command ``cd /Applications/TrenchBroom.app && ./Contents/MacOS/TrenchBroom``. Otherwise the compilation tools will fail. This is because they rely on terminal variables.
+> Note: you must launch trenchbroom from the terminal with command ``cd /Applications/TrenchBroom.app && ./Contents/MacOS/TrenchBroom`` (or run directly with ``/Applications/TrenchBroom.app/Contents/MacOS/TrenchBroom``. Otherwise the compilation tools will fail. This is because they rely on terminal variables.
 1. Install [Quakespasm](https://sourceforge.net/projects/quakespasm/), [alt  silicon build](https://github.com/BryanHaley/Quakespasm-AppleSilicon) to some location
    1. Make sure to add ```./id1/``` and ``pak1.pak`` to ``<your game directory>/Quake/id1/``. I cannot provide pak1.pak, you can get it from Quake source code by purchasing a retail copy.
 2. Create a folder inside ``Quakespasm`` called ``./maps/`` if it does not yet exist. This is where Quake looks for maps.
