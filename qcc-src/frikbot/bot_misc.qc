@@ -87,49 +87,49 @@ string(float r) BotName =
 	{
 		self.b_pants = 3;
 		self.b_shirt = 3;
-		return "xX420i420Xx";
+		return "x420gamerx";
 	}
 	else if (r == 7)
 	{
 		self.b_pants = 4;
 		self.b_shirt = 4;
-		return "Fry";
+		return "G0d_at_C0D";
 	} 
 	else if (r == 8)
 	{	
 		self.b_pants = 9;
 		self.b_shirt = 9;
-		return "Bender";
+		return "l3g0las";
 	}
 	else if (r == 9)
 	{
-		self.b_pants = 9;
-		self.b_shirt = 9;
-		return "GimmeDubs";
+		self.b_pants = 11;
+		self.b_shirt = 11;
+		return "Givemefood";
 	}
 	else if (r == 10)
 	{
-		self.b_pants = 11;
-		self.b_shirt = 11;
-		return "Trogdor";
+		self.b_pants = 9;
+		self.b_shirt = 9;
+		return "Pokimanelol";
 	}
 	else if (r == 11)
 	{
-		self.b_pants = 11;
-		self.b_shirt = 11;
+		self.b_pants = 12;
+		self.b_shirt = 12;
 		return "DeezN";
 	} 
 	else if (r == 12)
 	{
 		self.b_pants = 12;
 		self.b_shirt = 12;
-		return "CallMe117";
+		return "I_AM_117";
 	}
 	else if (r == 13)
 	{
 		self.b_pants = 2;
 		self.b_shirt = 2;
-		return "undertale";
+		return "undertale9";
 	}
 	else if (r == 14)
 	{
@@ -141,13 +141,13 @@ string(float r) BotName =
 	{
 		self.b_pants = 6;
 		self.b_shirt = 6;
-		return "Zezima";
+		return "f04tnitekid";
 	}
 	else if (r == 16)
 	{
 		self.b_pants = 0;
 		self.b_shirt = 0;
-		return "GLaDOS";
+		return "1m_Joseph";
 	}
 	return "Noname";
 };
@@ -264,17 +264,17 @@ void() bot_chat =
 			if (b_originator == self)
 			{
 				if (r == 1)
-					BotSay(": go back to social slayer lmao\n");
+					BotSay(": go back to social slayer\n");
 				else if (r == 2)
-					BotSay(": follow me on twitch yo\n");
+					BotSay(": follow me on twitch lol\n");
 				else if (r == 3)
-					BotSay(": go ahead and give me that dub\n");
+					BotSay(": my dad owns microsoft btw\n");
 				else if (r == 4)
-					BotSay(": you couldn't roll a tire down a hill bro\n");
+					BotSay(": ayoo im popping off\n");
 				else if (r == 5)
 					BotSay(": next time remember to aim lol\n");
 				else
-					BotSay(": better luck in fortnite\n");
+					BotSay(": stop camping dude\n");
 				bot_start_topic(0);
 			}
 		}
