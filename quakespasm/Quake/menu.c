@@ -2317,7 +2317,7 @@ typedef struct
     const char  *author;
 } level_t;
 // todo: refactor level_t to specify filetype
-int targas[] = {2,1,3,4, 5, 7,15};
+int targas[] = {2,1,3,4, 5, 7, 8,16};
 level_t		levels[] =
 {
         // Refined map pack [4]
@@ -2325,10 +2325,11 @@ level_t		levels[] =
         {"babybloodgulch", "babybloodgulch", "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
         {"pit3", "pit2", "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
         {"narsp", "narsp", "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
-        {"skyringbl2", "skyringbl2", "Sky Ring", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Unknown"},
+        {"skyringbl2", "skyringbl2", "Sky Ring", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Sam"},
         {"wizard", "wizard", "Wizard", {"Round and Round","and Round.","",""}, "IlDucci"},
-        {"open", "random", "Open", {"Similar to 'Lane'","but theres a hole","in the ground.", "Don't fall!"}, "Unknown"},
-        {"lane", "lane", "Lane", {"Outdoor human facility","used for USMC","training.",""}, "Unknown"},
+        {"open", "random", "Open", {"Similar to 'Lane'","but theres a hole","in the ground.", "Don't fall!"}, "Sam"},
+        {"lane", "lane", "Lane", {"Outdoor human facility","used for USMC","training.",""}, "Sam"},
+        {"cestra", "cestra", "Cestra", {"Experimental lab","used by USMC","researchers.",""}, "Sam"},
         // Classic map pack [6]
         {"Longest", "Longest", "Longest", {"","","",""}, "Unknown"},
         {"chill", "random", "Chill Out", {"","","",""}, "Unknown"},
@@ -2365,14 +2366,14 @@ typedef struct
 int NUM_EPISODES = 3;
 episode_t	episodes[] =
         {
-                {"Remastered Maps", 0, 8},
-                {"Classic Maps", 8, 6},
-                {"Bonus Maps", 14, 4}
+                {"Remastered Maps", 0, 9},
+                {"Classic Maps", 9, 6},
+                {"Bonus Maps", 15, 4}
         };
 int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
         {
-                {"Firefight Maps", 18, 2}
+                {"Firefight Maps", 19, 2}
         };
 
 extern cvar_t sv_public;
@@ -2420,8 +2421,8 @@ void M_Matchmaking_Map_Draw (void) {
 
     size_t	mlist_shown;
     mlist_shown = episodes[startepisode].levels;
-    if (mlist_shown > 8)
-        mlist_shown = 8;
+    if (mlist_shown > 10)
+        mlist_shown = 10;
     if (mlist_first+mlist_shown-1 < mlist_cursor)
         mlist_first = mlist_cursor-(mlist_shown-1);
     if (mlist_first > mlist_cursor)

@@ -1,0 +1,113 @@
+//  - maps/lane.way
+// Ways by player
+saved1 864; saved2 -16; saved3 -1490
+scratch1 2; scratch2 15; scratch3 33; scratch4 0
+saved4 1; wait
+saved1 804; saved2 -465
+scratch1 3; scratch2 5; scratch3 6; scratch4 1
+saved4 2; wait
+saved1 791; saved2 -774
+scratch1 2; scratch2 4; scratch3 0; scratch4 0
+saved4 2; wait
+Unknown command "cl_ch_red"
+Unknown command "cl_ww"
+saved1 963; saved2 -682
+scratch1 3; scratch2 5
+saved4 2; wait
+saved1 901; saved2 -593
+scratch1 4; scratch2 2
+saved4 2; wait
+saved1 420; saved2 -507
+scratch1 2; scratch2 7; scratch3 25
+saved4 2; wait
+saved1 315; saved2 -591
+scratch1 6; scratch2 8; scratch3 0
+saved4 2; wait
+saved1 -276; saved2 -563; saved3 -1314
+scratch1 7; scratch2 9
+saved4 2; wait
+saved1 -265; saved2 -147; saved3 -1282
+scratch1 8; scratch2 10
+saved4 2; wait
+saved1 -261; saved2 244
+scratch1 9; scratch2 11
+saved4 65538; wait
+Unknown command "cl_ch_red"
+Unknown command "cl_ww"
+saved1 -266; saved2 716
+scratch1 10; scratch2 12
+saved4 2; wait
+saved1 -268; saved2 1043; saved3 -1314
+scratch1 11; scratch2 13
+saved4 65538; wait
+saved1 -41; saved2 1083
+scratch1 12; scratch2 14
+saved4 2; wait
+saved1 381; saved2 1108; saved3 -1490
+scratch1 13; scratch2 15; scratch3 29
+saved4 2; wait
+saved1 451; saved2 1063
+scratch1 14; scratch2 16; scratch3 31
+saved4 2; wait
+saved1 236; saved2 954
+scratch1 15; scratch2 17; scratch3 0
+saved4 2; wait
+saved1 -26; saved2 947
+scratch1 16; scratch2 18
+saved4 2; wait
+Unknown command "cl_ch_red"
+Unknown command "cl_ww"
+saved1 -245; saved2 962
+scratch1 17; scratch2 19; scratch3 21; scratch4 22
+saved4 2; wait
+saved1 -457; saved2 968
+scratch1 18; scratch2 20; scratch3 0; scratch4 0
+saved4 2; wait
+saved1 -518; saved2 1107
+scratch1 19; scratch2 21
+saved4 2; wait
+saved1 -215; saved2 1185
+scratch1 20; scratch2 18; scratch3 30
+saved4 2; wait
+saved1 -253; saved2 586
+scratch1 18; scratch2 23; scratch3 0
+saved4 2; wait
+saved1 -252; saved2 186
+scratch1 22; scratch2 24
+saved4 2; wait
+Unknown command "cl_ch_red"
+Unknown command "cl_ww"
+saved1 -245; saved2 -186
+scratch1 23; scratch2 25
+saved4 2; wait
+saved2 -477
+scratch1 24; scratch2 26; scratch3 28; scratch4 6
+saved4 2; wait
+saved1 -353; saved2 -721
+scratch1 25; scratch2 27; scratch3 0; scratch4 0
+saved4 2; wait
+saved1 -479; saved2 -719
+scratch1 26; scratch2 28
+saved4 2; wait
+saved1 -608; saved2 -522
+scratch1 27; scratch2 25
+saved4 2; wait
+saved1 235; saved2 1346
+scratch1 14; scratch2 30
+saved4 2; wait
+saved1 203; saved2 1263
+scratch1 29; scratch2 21
+saved4 32770; wait
+Unknown command "cl_ch_red"
+Unknown command "cl_ww"
+saved1 727; saved2 944
+scratch1 15; scratch2 32
+saved4 2; wait
+saved1 682; saved2 592
+scratch1 31; scratch2 33
+saved4 2; wait
+saved1 839; saved2 560
+scratch1 32; scratch2 1
+saved4 2; wait
+saved4 3
+// end waypoint dump
