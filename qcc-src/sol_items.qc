@@ -99,7 +99,7 @@ void ( entity t_wep, float weptype ) SetWeaponAmmo =
 			t_wep.ammo_ppistol = stammo;
 			break;
 		case WEAPON_SWORD:
-			t_wep.exppistol = 0;
+			t_wep.exppistol = 999;
 			t_wep.ammo_ppistol = stammo;
 			break;
 		case WEAPON_NEEDLER:
@@ -471,6 +471,9 @@ void () weapon_touch =
         else if ((self.weapon == IT_BR))
         {
             stuffcmd(other, "cl_ww 9\n");
+        }
+        else if (self.weapon == WEAPON_SWORD) {
+            stuffcmd(other, "cl_ww 10\n");
         }
     }
 

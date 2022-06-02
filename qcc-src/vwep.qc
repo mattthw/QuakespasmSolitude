@@ -7,6 +7,7 @@ float modelindex_playerrocket;
 float modelindex_playersniper;
 float modelindex_playerplasma;
 float modelindex_playerbr;
+float modelindex_playersword;
 float modelindex_dead;
 
 void () CheckModel
@@ -31,4 +32,6 @@ void () CheckModel
         self.modelindex = modelindex_playerplasma;
     else if (self.weapon == IT_BR)
         self.modelindex = modelindex_playerbr;
+    else if (self.weapon == WEAPON_SWORD)
+        self.modelindex = modelindex_playersword;
 };

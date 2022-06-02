@@ -2709,7 +2709,7 @@ void M_Matchmaking_Draw (void)
     else if (opts.skill == 1)
         M_PrintWhite (mc.grid[1][4].xp, mc.grid[1][4].yp, "Normal");
     else if (opts.skill == 2)
-        M_PrintWhite (mc.grid[1][4].xp, mc.grid[1][4].yp, "Hard");
+        M_PrintWhite (mc.grid[1][4].xp, mc.grid[1][4].yp, "Heroic");
     else
         M_PrintWhite (mc.grid[1][4].xp, mc.grid[1][4].yp, "Legendary");
     //======================== 5

@@ -116,6 +116,9 @@ void() W_Precache =
 	precache_sound ("weapons/nb.wav");
 	precache_sound ("weapons/crystal.wav");
 
+    // Energy Sword
+    precache_sound ("weapons/sword.wav");
+
 	//Equip sounds
 	precache_sound ("weapons/equip/ar.wav");
 	precache_sound ("weapons/equip/needler.wav");
@@ -496,23 +499,19 @@ float (entity ent) W_CanFire =
 	}
 	return TRUE;
 };
-void() Draw_Scope =
-{
 
-if (self.pfov < 90)
-	{	
-	stuffcmd (self, "cl_scope 1\n");
-	//stuffcmd(self, "cl_yawspeed 0.3\n");
-	stuffcmd (self, "r_drawviewmodel 0\n");
+void() Draw_Scope = {
+    if (self.pfov < 90) {
+        stuffcmd (self, "cl_scope 1\n");
+        //stuffcmd(self, "cl_yawspeed 0.3\n");
+        stuffcmd (self, "r_drawviewmodel 0\n");
+	} else {
+        stuffcmd (self, "cl_scope 0\n");
+        //stuffcmd(self, "cl_yawspeed 1\n");
+        stuffcmd (self, "r_drawviewmodel 1\n");
 	}
-else
-	{
-	stuffcmd (self, "cl_scope 0\n");
-	//stuffcmd(self, "cl_yawspeed 1\n");
-	stuffcmd (self, "r_drawviewmodel 1\n");
-	}
-
 };
+
 void ( float famt ) Set_FOV =
 {
 	stuffcmd( self, "fov " );
@@ -520,6 +519,7 @@ void ( float famt ) Set_FOV =
 	stuffcmd( self, "\n" );
 	Draw_Scope();
 };
+
 void () WeaponZoom =
 {
 	float tozoom;
@@ -571,7 +571,7 @@ void(float lunge) W_FireSword =
 
 	makevectors (self.v_angle);
 	source = self.origin + '0 0 16';
-	traceline (source, source + v_forward*64, FALSE, self);
+	traceline (source, source + v_forward*96, FALSE, self);
 
 	if (trace_fraction == 1.0)
 		return;
@@ -581,11 +581,11 @@ void(float lunge) W_FireSword =
 	if (trace_ent.takedamage)
 	{
 		SpawnBlood (org, 20);
-		if (lunge)
-			T_Damage (trace_ent, self, self, 150, MOD_AXE);
-		else
-			T_Damage (trace_ent, self, self, 75, MOD_AXE);
-
+		if (lunge) {
+            T_Damage(trace_ent, self, self, 150, MOD_AXE);
+        } else {
+            T_Damage(trace_ent, self, self, 75, MOD_AXE);
+        }
 	}
 	else
 	{       // hit wall
@@ -1484,7 +1484,7 @@ void () W_Melee =
 
 	makevectors (self.v_angle);
 	source = (self.origin + '0 0 16');
-	traceline (source, (source + (v_forward * IT_LIGHTNING)), FALSE, self);
+	traceline (source, (source + (v_forward * 64)), FALSE, self);
 	if ((trace_fraction == 1))
 	{
 		self.punchangle_x = -2;
@@ -1502,10 +1502,13 @@ void () W_Melee =
 		SpawnBlood (org, 20);
 		
 		makevectors (self.v_angle);
-		if (crossproduct (def, v_forward) > 0) 
-			T_Damage (trace_ent, self, self, 100, MOD_SOLITUDE);	
-		else
-			T_Damage (trace_ent, self, self, 50, MOD_SOLITUDE);
+        // max_health is 130 for solitude. Let's make 2 melee hits sufficient to kill (halo 3 style)
+        // doc: https://github.com/id-Software/Quake/blob/bf4ac424ce754894ac8f1dae6a3981954bc9852d/QW/progs/combat.qc#L102
+        T_Damage (trace_ent, self, self, 75, MOD_SOLITUDE);
+//		if (crossproduct (def, v_forward) > 0)
+//			T_Damage (trace_ent, self, self, 100, MOD_SOLITUDE);
+//		else
+//			T_Damage (trace_ent, self, self, 50, MOD_SOLITUDE);
 	}
 
 };
@@ -1990,7 +1993,7 @@ void() W_UpdateWeapon =
 		self.ammo_type = AT_CELLS;
 		break;
 	case WEAPON_SWORD:
-		self.weaponmodel = "progs/v_axe.mdl";
+		self.weaponmodel = "progs/v_sword.mdl";
 		self.items = self.items | IT_CELLS;
 		self.ammo_type = AT_CELLS;
 		break;
@@ -2232,19 +2235,22 @@ void() W_Attack =
 		// See if we should perform a lunge
 		makevectors (self.v_angle);
 		source = self.origin + '0 0 16';
-		traceline (source, source + v_forward*120, FALSE, self);
+		traceline (source, source + v_forward*260, FALSE, self);
 		
 		if (trace_ent.classname == "player" && trace_ent.health > 0) {
 			self.weaponframe = 9;
-			self.velocity = v_forward*620;
+			self.velocity = v_forward*640;
+            sound (self, CHAN_WEAPON, "weapons/sword.wav", 1, ATTN_NORM);
 		}
 		else {
 			r = random();
-
 			if (r < 0.5)
 				self.weaponframe = 19;
 			else
 				self.weaponframe = 26;
+            // sword not very good in quake. lets close some distance even if they miss
+            self.velocity = v_forward*420;
+            sound (self, CHAN_WEAPON, "weapons/sword.wav", 1, ATTN_NORM);
 		}
 		self.wepanim = 1;
 		self.weaponframe_time = time + 0.1;
@@ -2270,7 +2276,7 @@ void() W_Attack =
 		self.wepanim = 1;
 		self.weaponframe_time = time + 0.1;
 		break;
-		case WEAPON_SKULL:
+    case WEAPON_SKULL:
 		muzzleflash();
 		self.weaponframe = 1;
 		self.wepanim = 1;
@@ -2322,8 +2328,9 @@ void() W_Attack =
 		r = 0.15;
 		break;
 	case WEAPON_SWORD:
-		//W_FireSword(0);
-		r = 0.6;
+        // W_FireSword is called in W_HandlePlayerFrame()
+        //W_FireSword(0);
+		r = 1.0;
 		break;
 	case WEAPON_NEEDLER:
 		W_FireNeedler();
@@ -2471,25 +2478,22 @@ void() CycleWeaponCommand =
 	{
 		switch (w)
 		{
-		case IT_LIGHTNING:
-			w = IT_AXE;
+		case WEAPON_PPISTOL:
+			w = WEAPON_PISTOL;
 			break;
-		case IT_AXE:
-			w = IT_SHOTGUN;
+		case WEAPON_PISTOL:
+			w = WEAPON_SHOT;
 			break;
-		case IT_SHOTGUN:
-			w = IT_SUPER_SHOTGUN;
+		case WEAPON_SHOT:
+			w = WEAPON_AR;
 			break;
-		case IT_SUPER_SHOTGUN:
-			w = IT_NAILGUN;
+		case WEAPON_AR:
+			w = WEAPON_UZI;
 			break;
-		case IT_NAILGUN:
-			w = IT_SUPER_NAILGUN;
+		case WEAPON_UZI:
+			w = WEAPON_SNIPER;
 			break;
-		case IT_SUPER_NAILGUN:
-			w = IT_GRENADE_LAUNCHER;
-			break;
-		case IT_GRENADE_LAUNCHER:
+		case WEAPON_SNIPER:
 			w = IT_ROCKET_LAUNCHER;
 			break;
 		case IT_ROCKET_LAUNCHER:
@@ -2502,7 +2506,10 @@ void() CycleWeaponCommand =
 			w = WEAPON_SKULL;
 			break;
 		case WEAPON_SKULL:
-			w = IT_LIGHTNING;
+            w = WEAPON_SWORD;
+            break;
+        case WEAPON_SWORD:
+			w = WEAPON_PPISTOL;
 			break;
 		}
 	
@@ -2514,59 +2521,6 @@ void() CycleWeaponCommand =
 	}
 
 };
-
-
-/*
-============
-CycleWeaponReverseCommand
-
-Go to the prev weapon with ammo
-============
-*/
-void() CycleWeaponReverseCommand =
-{
-	local float w;
-	w = self.weapon;
-
-	while (1)
-	{
-		switch (w)
-		{
-		case IT_LIGHTNING:
-			w = IT_ROCKET_LAUNCHER;
-			break;
-		case IT_ROCKET_LAUNCHER:
-			w = IT_GRENADE_LAUNCHER;
-			break;
-		case IT_GRENADE_LAUNCHER:
-			w = IT_SUPER_NAILGUN;
-			break;
-		case IT_SUPER_NAILGUN:
-			w = IT_NAILGUN;
-			break;
-		case IT_NAILGUN:
-			w = IT_SUPER_SHOTGUN;
-			break;
-		case IT_SUPER_SHOTGUN:
-			w = IT_SHOTGUN;
-			break;
-		case IT_SHOTGUN:
-			w = IT_AXE;
-			break;
-		case IT_AXE:
-			w = IT_LIGHTNING;
-			break;
-		}
-	
-		if ( (self.items & w) && W_HasAmmo(w) )
-		{
-			W_WeaponSwitch (w);
-			return;
-		}
-	}
-
-};
-
 
 /*
 ============
@@ -2749,6 +2703,9 @@ void() ImpulseCommands =
 		break;
 	case 29:
 	{
+        if (self.weapon == WEAPON_SWORD) {
+            self.button0 = TRUE; // energy sword melee should just use the attack functions
+        }
 		self.pfov = FOV_DEFAULT;
 		Set_FOV ( FOV_DEFAULT );
 		pre_player_melee ();
@@ -2962,26 +2919,25 @@ void() W_HandlePlayerFrame =
 		if (self.weaponframe > 18 && self.weaponframe < 25) {			// Lunge attack
 			self.weaponframe = self.weaponframe + 1;
 			self.weaponframe_time = time + 0.1;
-			if (self.weaponframe == 21)
+			if (self.weaponframe == 19)
 				W_FireSword(1);
 			if (self.weaponframe > 24)
-				self.weaponframe = 0;
+				self.weaponframe = 41;
 		}
 		else if (self.weaponframe > 25 && self.weaponframe < 32) {
 			self.weaponframe = self.weaponframe + 1;
 			self.weaponframe_time = time + 0.1;
-			if (self.weaponframe == 29)
+			if (self.weaponframe == 26)
 				W_FireSword(0);
 			if (self.weaponframe > 31)
-				self.weaponframe = 0;
-		}
-		else {
+				self.weaponframe = 41;
+		} else if (self.weaponframe  >= 9 && self.weaponframe < 19) {
 			self.weaponframe = self.weaponframe + 1;
 			self.weaponframe_time = time + 0.1;
-			if (self.weaponframe == 15)
+			if (self.weaponframe == 10)
 				W_FireSword(0);			
 			if (self.weaponframe > 18)
-				self.weaponframe = 0;
+				self.weaponframe = 41;
 		}
 		break;
 	case WEAPON_NEEDLER:

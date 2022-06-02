@@ -295,7 +295,9 @@ char *getPickupWeaponString (int value) {
             return "pickup SMG";
         case 8:
             return "pickup Sniper";
-        case 9: //todo: add pickup CL QuakeC code for energy sword
+        case 9:
+            return "pickup Battle Rifle";
+        case 10:
             return "pickup Energy Sword";
         default:
             return "";
@@ -318,8 +320,10 @@ void drawWeapon(void) {
     HUD_itoa((int)cl.stats[STAT_ARMOR], ammo);
     strcpy(primary, getWeaponName((int)cl.stats[STAT_ACTIVEWEAPON]));
     Draw_ColoredStringScale(glwidth*0.7, glheight*0.8, primary, 127/255.0, 191/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
-    Draw_ColoredStringScale(glwidth*0.7, glheight*0.75, rounds, 171/255.0, 231/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
-    Draw_ColoredStringScale(glwidth*0.77, glheight*0.75, ammo, 171/255.0, 231/255.0, 255/255.0,1,0.8f*scr_sbarscale.value);
+    if (strcmp(primary, "Energy Sword") != 0 /* 0 means equal*/) { // dont draw ammo for energy sword
+        Draw_ColoredStringScale(glwidth*0.7, glheight*0.75, rounds, 171/255.0, 231/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
+        Draw_ColoredStringScale(glwidth*0.77, glheight*0.75, ammo, 171/255.0, 231/255.0, 255/255.0,1,0.8f*scr_sbarscale.value);
+    }
 }
 
 void drawGrenades() {

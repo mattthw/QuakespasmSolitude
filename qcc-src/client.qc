@@ -1174,7 +1174,7 @@ void(entity targ, entity attacker, INTEGER mod) ClientObituary = {
     } else
     attacker.kill_amount = 1;
     if (targ.classname == "player" || targ.flags & FL_MONSTER)
-    attacker.kill_time = time + 4;
+    attacker.kill_time = time + 10;
 
     if (attacker.flags & FL_CLIENT) {
         if (attacker == targ) {

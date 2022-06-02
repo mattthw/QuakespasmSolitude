@@ -619,8 +619,8 @@ float(entity thing) priority_for_thing =
 			thisp = 65;
 		else if (thing.classname == "item_artifact_invulnerability")
 			thisp = 65;
-else if (thing.classname == "weapon_skull")
-thisp = 90;
+        else if (thing.classname == "weapon_skull")
+            thisp = 90;
 		else if (thing.classname == "item_health")
 		{
 			if (thing.spawnflags & 2)
@@ -675,7 +675,12 @@ thisp = 90;
 			if (!(self.items & 64)) // IT_LIGHTNING
 				thisp = 50;
 		}
-else if (thing.classname == "weapon_skull")
+        else if (thing.classname == "weapon_sword")
+        {
+            if (!(self.items & 4096)) // IT_LIGHTNING
+                thisp = 10;
+        }
+        else if (thing.classname == "weapon_skull")
 		{
 			if (!(self.items & thing.weapon))// IT_SKULL
 				thisp = 90;

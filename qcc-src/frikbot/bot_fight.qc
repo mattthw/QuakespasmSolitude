@@ -241,8 +241,8 @@ _z maximum range bot can be to be effective (lg/axe) (move in)
 
 vector(float wep) weapon_range =
 {
-	if (wep == 4096) // IT_AXE
-		return '48 0 64';
+	if (wep == 4096) // IT_AXE \ WEAPON_SWORD
+		return '48 0 64'; // todo: adjust to increase range after finishing sword.
 	else if (wep == 1) // IT_SHOTGUN
 		return '128 0 99999';
 	else if (wep == 2) // IT_SUPER_SHOTGUN

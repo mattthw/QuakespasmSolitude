@@ -422,4 +422,68 @@ void() item_weapon_pod =
 	setsize (self, '10 10 10', '10 10 10');
 };
 
+void() Touch_Die = {
+    self.think = SUB_Remove;
+    self.nextthink = (time + 15);
+    if (self.selnade == 0) {
+        self.touch = nade_touch;
+    } else {
+        self.touch = plasma_nade_touch;
+    }
+};
+
+void(float gren_type) ThrowNade = {
+    local entity newthrow;
+
+    newthrow = spawn();
+    newthrow.owner = self;
+    newthrow.selnade = gren_type;
+    newthrow.origin = ((self.origin + '0 0 16') + ((v_right * -6) * (2 * (random() + -0.5))));
+    if ((newthrow.selnade == 0))
+    {
+        setmodel(newthrow, "progs/fraggren.mdl");
+    }
+    else
+    {
+        setmodel(newthrow, "progs/plasgren.mdl");
+    }
+    setsize(newthrow, VEC_ORIGIN, VEC_ORIGIN);
+    makevectors(self.v_angle);
+    if (self.v_angle_x)
+    {
+        newthrow.velocity = ((((v_forward * 45) + (v_up * 200)) + (((2 * (random() + -0.5)) * v_right) * 20)) + (((2 * (random() + -0.5)) * v_up) * 6));
+    }
+    else
+    {
+        newthrow.velocity = aim(self, 10000);
+        newthrow.velocity = (newthrow.velocity * 45);
+        newthrow.velocity_z = 200;
+    }
+    newthrow.movetype = 10;
+    newthrow.solid = 1;
+    newthrow.classname = "weapon_pickup";
+    newthrow.flags = 256;
+    newthrow.gravity = 5;
+    newthrow.avelocity = '300 300 300';
+    newthrow.think = Touch_Die;
+    newthrow.nextthink = (time + 1);
+};
+
+void() Dead_Nades = {
+    // drop frags
+    if (self.nade_lives == 1) {
+        ThrowNade(0);
+    } else if (self.nade_lives >= 2) {
+        ThrowNade(0);
+        ThrowNade(0);
+    }
+    // drop plasma
+    if (self.nade_lives == 1) {
+        ThrowNade(1);
+    } else if (self.nade_lives >= 2) {
+        ThrowNade(1);
+        ThrowNade(1);
+    }
+};
+
 

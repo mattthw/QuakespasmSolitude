@@ -31,6 +31,7 @@ void() Setup_Gametype = {
         modelindex_playerplasma = self.modelindex;
         setmodel(self, /*18891i*/"progs/player.mdl");
         modelindex_playerbr = self.modelindex;
+        modelindex_playersword = self.modelindex;
         //vwep end
 
         if (self.ishuman == TRUE)

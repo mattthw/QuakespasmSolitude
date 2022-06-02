@@ -103,7 +103,7 @@ void(string targ, string attacker, INTEGER mod) KillMessage =
 	{
 	case MOD_AXE:
 		s = targ;
-		t = " was ax-murdered by ";
+		t = " was cut down by ";
 		u = attacker;
 		break;
 	case MOD_SHOTGUN:
