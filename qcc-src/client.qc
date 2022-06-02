@@ -247,10 +247,7 @@ When the player presses attack or jump, change to the next level
 ============
 */
 void() IntermissionThink = {
-        if (time < intermission_exittime)
-        return;
-
-        if (!self.button0 && !self.button1 && !self.button2)
+        if (time < intermission_exittime && !self.button0 && !self.button1 && !self.button2)
         return;
 
         ExitIntermission();
@@ -271,11 +268,14 @@ void() execute_changelevel = {
 
     // enforce a wait time before allowing changelevel
     if (deathmatch)
-        intermission_exittime = time + 5;
+        intermission_exittime = time + 8;
     else
-        intermission_exittime = time + 2;
+        intermission_exittime = time + 5;
 
     pos = FindIntermission();
+
+    // play announcer
+    sound(self.owner, CHAN_WEAPON, "gameover.wav", 1, ATTN_NONE);
 
     // play intermission music
     ENG_SwitchTrack(3, 3);
@@ -1007,14 +1007,14 @@ void() PlayerPreThink = {
 };
 void() voice_play = {
     if (deathmatch == FIREFIGHT)
-    sound(self.owner, CHAN_WEAPON, "firefight.wav", 1, ATTN_NONE);
+        sound(self.owner, CHAN_WEAPON, "firefight.wav", 1, ATTN_NONE);
     else if (deathmatch == SLAYER)
-    sound(self.owner, CHAN_WEAPON, "slayer.wav", 1, ATTN_NONE);
+        sound(self.owner, CHAN_WEAPON, "slayer.wav", 1, ATTN_NONE);
     remove(self);
 };
 
 void() Voice_announcer = {
-    local entity avoice,botspawner;
+    local entity avoice;
     if (VOICE_COUNT == 1) {
         return;
     }

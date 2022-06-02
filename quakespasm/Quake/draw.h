@@ -69,6 +69,7 @@ void Draw_WindowPix(int x, int y, int bgwidth, int bgheight, char *str, float al
 void Draw_CenterWindow(float width, float height, char *str, float alpha);
 void Draw_DebugChar (char num);
 void Draw_Button(int x, int y, qpic_t *pic);
+void Draw_ButtonScaled(int x, int y, qpic_t *pic, float scale);
 void Draw_MenuBg();
 void Draw_StretchPic (int x, int y, qpic_t *pic, int x_value, int y_value);
 struct PicAttr getHudPicAttr(float xpercent, float ypercent, qpic_t *pic);

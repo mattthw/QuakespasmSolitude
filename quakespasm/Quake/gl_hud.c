@@ -280,25 +280,25 @@ char *getWeaponName(int w) {
 char *getPickupWeaponString (int value) {
     switch (value) {
         case 1:
-            return "pickup Assault Rifle";
+            return "Assault Rifle";
         case 2:
-            return "pickup Plasma Pistol";
+            return "Plasma Pistol";
         case 3:
-            return "pickup Shotgun";
+            return "Shotgun";
         case 4:
-            return "pickup Needler";
+            return "Needler";
         case 5:
-            return "pickup Rocket Launcher";
+            return "Rocket Launcher";
         case 6:
-            return "pickup Pistol";
+            return "Pistol";
         case 7:
-            return "pickup SMG";
+            return "SMG";
         case 8:
-            return "pickup Sniper";
+            return "Sniper";
         case 9:
-            return "pickup Battle Rifle";
+            return "Battle Rifle";
         case 10:
-            return "pickup Energy Sword";
+            return "Energy Sword";
         default:
             return "";
     }
@@ -310,8 +310,12 @@ void drawCrosshair(void) {
 
 void drawPickupWeapon(void) {
     char *string = getPickupWeaponString((int)cl_ww.value);
-    Draw_ColoredStringScale(glwidth*0.65, glheight*0.6, string, 127/255.0, 191/255.0, 255/255.0,1,0.8f*scr_sbarscale.value);
+    if (strcmp(string,"") != 0) {
+        Draw_ButtonScaled(glwidth*0.67, glheight*0.25, b_ybutton, 0.8f*scr_sbarscale.value);
+    }
+    Draw_ColoredStringScale(glwidth*0.7, glheight*0.25, string, 1, 1, 1,1,0.9f*scr_sbarscale.value);
 }
+
 void drawWeapon(void) {
     char primary[30];
     char rounds[10];

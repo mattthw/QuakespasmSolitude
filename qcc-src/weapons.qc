@@ -4,6 +4,7 @@ vector  puff_org;
 void (entity targ, entity inflictor, entity attacker, float damage, INTEGER mod) T_Damage;
 void () player_run;
 void(entity inflictor, entity attacker, float damage, float radius, entity ignore, INTEGER mod) T_RadiusDamage;
+void(entity inflictor, entity attacker, float damage, float radius, entity ignore, INTEGER mod) T_RadiusFullDamage;
 void(vector org, float damage) SpawnBlood;
 void() SuperDamageSound;
 void () player_reload1;
@@ -41,6 +42,7 @@ void() W_Precache =
 
 	//Voice announcer
 	precache_sound ("slayer.wav");
+    precache_sound ("gameover.wav");
 	// Solitude precaches
 	
 	// Weapons (first-person)

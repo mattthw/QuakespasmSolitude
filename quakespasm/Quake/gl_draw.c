@@ -966,6 +966,11 @@ void Draw_Button(int x, int y, qpic_t *pic) {
     Draw_StretchPic(x, y - 4, pic, 16, 16);
 }
 
+void Draw_ButtonScaled(int x, int y, qpic_t *pic, float scale) {
+    // - 4 on y to center it with text of character set vertical pixel size 8
+    Draw_StretchPic(x, y - 4, pic, 16*scale, 16*scale);
+}
+
 /*
 =============
 Draw_StretchPic
