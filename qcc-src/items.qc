@@ -388,7 +388,7 @@ if (other.classname != "player")
 void() item_nade =
 {
 	if (deathmatch == SWAT)
-	remove(self);
+	    remove(self);
 	self.owner = other;
 	self.touch = nade_touch;
 	setmodel(self, "progs/fraggren.mdl");
@@ -399,7 +399,7 @@ void() item_nade =
 void() item_plasma_nade =
 {
 	if (deathmatch == SWAT)
-	remove(self);
+        remove(self);
 	self.owner = other;
 	self.touch = plasma_nade_touch;
 	setmodel(self, "progs/plasgren.mdl");

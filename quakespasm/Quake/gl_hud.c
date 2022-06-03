@@ -50,7 +50,7 @@ qpic_t  *healthbar_br;
 // custom cvars for solitude
 cvar_t cl_killmedals = {"cl_killmedals", "0"};
 cvar_t cl_plasmanade = {"cl_plasmanade", "2"};
-cvar_t cl_nadenum = {"cl_nadenum", "5"};
+cvar_t cl_nadenum = {"cl_nadenum", "4"};
 cvar_t cl_round = {"cl_round", "0"};
 cvar_t cl_life = {"cl_life", "1"};
 cvar_t cl_slowmo = {"cl_slowmo", "5"};

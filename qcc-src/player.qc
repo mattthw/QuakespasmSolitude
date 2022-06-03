@@ -950,9 +950,27 @@ void () player_shot2_throw =
 	self.impulse = MSG_BROADCAST;
 };
 
+void () player_sword_throw = {
+        self.weaponframe += 1;
+        if ((self.weaponframe >= 41))
+        {
+            self.donefire = 1;
+            self.weaponframe = 41;
+            player_run ();
+            return;
+        }
+        if ((self.weaponframe == 37))
+        {
+            W_ThrowGrenade ();
+        }
+        SuperDamageSound ();
+        self.attack_finished = (time + 0.2);
+        self.impulse = MSG_BROADCAST;
+}
+
 void () player_nail_throw =
 {
-	self.weaponframe = (self.weaponframe + WEAPON_SHOTGUN);
+	self.weaponframe = (self.weaponframe + 1);
 	if ((self.weaponframe >= 42))
 	{
 		Throw_Finished ();
@@ -1108,6 +1126,10 @@ void () player_throw_grenade = [ 0, player_throw_grenade ]
 			startwframe(self, 34);
 			player_shot2_throw ();
 			break;
+        case WEAPON_SWORD: // it doesn't have animations yet for grennades.
+            startwframe(self, 33);
+            player_sword_throw ();
+            break;
 		case WEAPON_AR:
 			startwframe(self, 34);
 			player_nail_throw ();

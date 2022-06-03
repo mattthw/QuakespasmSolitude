@@ -2715,34 +2715,32 @@ void() ImpulseCommands =
 	}
 	case 27:
 	{
-	if (deathmatch == SWAT)
-		{
-		self.impulse = 11;
-		return;
-		}
-		if (self.selnade == 1)
-		{
-			if (self.nade_lives <= 0)
-			return;
-			self.nade_lives = self.nade_lives;
-			self.selnade = 0;
-			NadeCounter(self);
-			sound (self, CHAN_WEAPON, "weapons/grenpick.wav", 1, ATTN_NORM);
-	
-		}
-		else
-		{
-			if (self.selnade == 0)
-			{
-			if (self.plasma_lives <= 0)
-			return;
-				self.plasma_lives = self.plasma_lives;
-				self.selnade = 1;
-				NadeCounter(self);
-				sound (self, CHAN_WEAPON, "weapons/pbounce.wav", 1, ATTN_NORM);
-			}
-		}
-		break;
+        if (deathmatch == SWAT) {
+            self.impulse = 11;
+            return;
+        }
+
+        if (self.selnade == 1) {
+            if (self.nade_lives <= 0)
+            return;
+            self.nade_lives = self.nade_lives;
+            self.selnade = 0;
+            NadeCounter(self);
+            sound (self, CHAN_WEAPON, "weapons/grenpick.wav", 1, ATTN_NORM);
+
+        }
+        else
+        {
+            if (self.selnade == 0) {
+                if (self.plasma_lives <= 0)
+                    return;
+                self.plasma_lives = self.plasma_lives;
+                self.selnade = 1;
+                NadeCounter(self);
+                sound (self, CHAN_WEAPON, "weapons/pbounce.wav", 1, ATTN_NORM);
+            }
+        }
+        break;
 	}
 	
 	case 28:	//Limiter for stopping a Nade throw if you don't have enough nades.

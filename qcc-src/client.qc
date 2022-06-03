@@ -247,7 +247,7 @@ When the player presses attack or jump, change to the next level
 ============
 */
 void() IntermissionThink = {
-        if (time < intermission_exittime && !self.button0 && !self.button1 && !self.button2)
+        if (time < intermission_exittime && !self.button1 && !self.button2)
         return;
 
         ExitIntermission();
@@ -1030,6 +1030,12 @@ void() populate_bots = {
                 // Team Slayer
                 local float myteam = self.team;
                 BotConnect(0, 0, cvar("skill"));
+                BotConnect(0, 0, cvar("skill"));
+                BotConnect(1, 0, cvar("skill"));
+
+                BotConnect(0, 0, cvar("skill"));
+                BotConnect(1, 0, cvar("skill"));
+
                 BotConnect(0, 0, cvar("skill"));
                 BotConnect(1, 0, cvar("skill"));
             } else {

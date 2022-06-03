@@ -460,13 +460,13 @@ if (client.selnade == GRENADE_REGULAR)
 	{
 	stuffcmd (client, "cl_plasmanade 2\n");
 	if (client.nade_lives == 4)
-	stuffcmd (client, "cl_nadenum 5\n");
-	if (client.nade_lives == 3)
 	stuffcmd (client, "cl_nadenum 4\n");
-	if (client.nade_lives == 2)
+	if (client.nade_lives == 3)
 	stuffcmd (client, "cl_nadenum 3\n");
-	if (client.nade_lives == 1)
+	if (client.nade_lives == 2)
 	stuffcmd (client, "cl_nadenum 2\n");
+	if (client.nade_lives == 1)
+	stuffcmd (client, "cl_nadenum 1\n");
 	if (client.nade_lives == 0)
 	stuffcmd (client, "cl_nadenum 0\n");
 	}
@@ -474,13 +474,13 @@ else if (client.selnade == GRENADE_STICKY)
 	{
 	stuffcmd (client, "cl_plasmanade 1\n");
 	if (client.plasma_lives == 4)
-	stuffcmd (client, "cl_nadenum 5\n");
-	if (client.plasma_lives == 3)
 	stuffcmd (client, "cl_nadenum 4\n");
-	if (client.plasma_lives == 2)
+	if (client.plasma_lives == 3)
 	stuffcmd (client, "cl_nadenum 3\n");
-	if (client.plasma_lives == 1)
+	if (client.plasma_lives == 2)
 	stuffcmd (client, "cl_nadenum 2\n");
+	if (client.plasma_lives == 1)
+	stuffcmd (client, "cl_nadenum 1\n");
 	if (client.plasma_lives == 0)
 	stuffcmd (client, "cl_nadenum 0\n");
 	}
