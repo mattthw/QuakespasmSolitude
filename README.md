@@ -1,12 +1,12 @@
 # Solitude
 
-> ⚠️ **NOTICE #1:** I am looking for the QC quake code source files to [Halo Revamped](https://www.youtube.com/watch?v=B_GB9LLBATQ) (r17?) for N3DS! Without this, the changes I am able to make are extremely limited. If you happen to have this laying around on your computer or know someone who has this, please let me know.
+> ⚠️ **NOTICE #1:** I am looking for the QC quake code source files to [Halo Revamped](https://www.youtube.com/watch?v=B_GB9LLBATQ) (r17?) for N3DS! Without this, I must use decompilation of lost code to preserve the firefight features.
 
 > ⚠️ **NOTICE #2:** This port is starting from scratch. See the original release [here](https://github.com/mattthw/SolitudeVita). The old version was built ontop of vitaQuake. While this new version is built ontop of Quakespasm-spiked.
 ## Introduction
-QuakespasmSolitude is a port of Solitude for the vita, built ontop of Quakespasm-spiked (a Quake engine ported to Vita by Rinnegatamante). Solitude was originally made for the PSP and released in 2010 by FlamingIce. The forums went down and the game & assets became shareware. Since then several projects started with a goal of releasing on new platforms or improving the base game. This port is still a work in progress. QuakeC code is blocked, unless someone is able to decompile it into a clean, workable state.
+QuakespasmSolitude is a port of Solitude for the vita, built ontop of Quakespasm-spiked (a Quake engine ported to Vita by Rinnegatamante). Solitude was originally made for the PSP and released in 2010 by FlamingIce. The forums went down and the game & assets became shareware. Since then several projects started with a goal of releasing on new platforms or improving the base game. This port is still a work in progress.
 
-The goal of this project is to:
+The goals of this project are to:
 1. Have fun.
 2. Make Solitude on PS Vita be a game we actually enjoy playing. Not just a demo of what is possible.
 3. Upgrade old PSP maps and create new maps. I want to have a solid map pack of maps we actually enjoy playing on.
