@@ -1,10 +1,12 @@
-*.o
 *.elf
 *.velf
 *.bin
 *.vpk
 *.sfo
-
+*.dat
+*lno
+/node_modules/*
+.idea/*
 # Prerequisites
 *.d
 
@@ -39,5 +41,13 @@ AppleSilicon/Quakespasm-SDL2-AppleSilicon.app
 AppleSilicon/Quakespasm.zip
 AppleSilicon/libs
 AppleSilicon/id1
-/assets/maps/autosave/
-/assets/maps/cestra/autosave/
+
+# Maps
+*.log
+*.prt
+*.texinfo
+*package-lock.json
+*package.json
+/assets/maps/autosave/*
+/assets/maps/*/autosave/
+
