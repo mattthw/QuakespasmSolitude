@@ -675,9 +675,9 @@ void HUD_Draw (void) {
     drawMedal();
     drawCrosshair();
     drawPickupWeapon();
-    if (!*cl.scores[1].name) {
-        Draw_ColoredStringScale(0, glheight-(8*0.8f*scr_sbarscale.value), "Its too quiet, Chief! Add bots to get started.", 1,1,1,1,0.8f*scr_sbarscale.value);
-    }
+//    if (!*cl.scores[1].name) {
+//        Draw_ColoredStringScale(0, glheight-(8*0.8f*scr_sbarscale.value), "Its too quiet, Chief! Add bots to get started.", 1,1,1,1,0.8f*scr_sbarscale.value);
+//    }
 //    if (deathmatch.value == DM_SLAYER || deathmatch.value == DM_SWAT)
 //        MiniDeathmatchOverlay ();
     GL_SetCanvas(oldcanvas);
