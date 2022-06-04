@@ -191,8 +191,8 @@
 //@PointClass base(Weapon) model({ "path": ":progs/g_light.mdl" }) = weapon_lightning : "Thunderbolt" []
 
 // solitude weapons
-@PointClass base(Weapon) model({ "path": ":progs/g_shot.mdl" }) = weapon_shotgun : "Pistol (shotgun)" []
-@PointClass base(Weapon) model({ "path": ":progs/g_shot.mdl" }) = weapon_pistol : "Pistol" []
+@PointClass base(Weapon) model({ "path": ":progs/g_pistol.mdl" }) = weapon_shotgun : "Pistol (shotgun)" []
+@PointClass base(Weapon) model({ "path": ":progs/g_pistol.mdl" }) = weapon_pistol : "Pistol" []
 
 @PointClass base(Weapon) model({ "path": ":progs/g_shot.mdl" }) = weapon_supershotgun : "Shotgun (supershotgun)" []
 
