@@ -1613,6 +1613,12 @@ void () pull_finished =
 	self.weaponframe = 0;
 	player_run ();
 };
+void (float endFrame) pull_finish =
+{
+    self.donefire = 1;
+    self.weaponframe = endFrame;
+    player_run ();
+};
 
 void() player_generic_pull =
 {
@@ -1758,21 +1764,22 @@ void() player_shotgun_pull =
 
 void() player_plrifle_pull =
 {
-self.weaponframe += 1;
-if (self.weaponframe >= 60)
+    self.weaponframe += 1;
+    if (self.weaponframe >= 60)
 	{
-	pull_finished();
-	return;
+        pull_finished();
+        return;
 	}
-if (self.weaponframe == 55)
+    if (self.weaponframe == 55)
 	{
-	sound (self, CHAN_WEAPON, "weapons/equip/ppist.wav", 1, ATTN_NORM);
+	    sound (self, CHAN_WEAPON, "weapons/equip/ppist.wav", 1, ATTN_NORM);
 	}
 
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
 	self.impulse = MSG_BROADCAST;
 };
+
 void() player_ar_pull =
 {
     self.weaponframe += 1;
@@ -1794,7 +1801,7 @@ void() player_ar_pull =
 
 void() player_br_pull =
 {
-    self.weaponframe = (self.weaponframe + IT_SHOTGUN);
+    self.weaponframe = (self.weaponframe + 1);
     if ((self.weaponframe >= 55))
     {
         pull_finished();

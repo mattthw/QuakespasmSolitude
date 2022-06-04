@@ -2952,18 +2952,20 @@ void() W_HandlePlayerFrame =
 			self.weaponframe = 0;
 		break;
 	case WEAPON_PRIFLE:
-			if (self.exprifle >= 100) {
-			//if (self.weaponheat >= 100) {
-				self.wepanim = 0;
-				self.exprifle = 99;
-				W_UpdateAmmoCounts(self);
-				self.weaponframe = 1;
-				player_reload1();
-				#ifdef dppc
-				pointparticles(particleeffectnum("pr_OverHeat") ,self.origin, '0 0 1', 1);
-				#endif
-				//sound (self, CHAN_AUTO, "weapons/Plsama Rifle/PR_overheat.wav", 1, ATTN_NORM);
-			}
+        if (self.weaponframe > 3)		// assume that we're not firing and that animations should be handled in player.qc or elsewhere
+            return;
+        if (self.exprifle >= 100) {
+        //if (self.weaponheat >= 100) {
+            self.wepanim = 0;
+            self.exprifle = 99;
+            W_UpdateAmmoCounts(self);
+            self.weaponframe = 1;
+            player_reload1();
+            #ifdef dppc
+            pointparticles(particleeffectnum("pr_OverHeat") ,self.origin, '0 0 1', 1);
+            #endif
+            //sound (self, CHAN_AUTO, "weapons/Plsama Rifle/PR_overheat.wav", 1, ATTN_NORM);
+        }
 			
 		self.weaponframe = 1;
 		self.wepanim = 1;
