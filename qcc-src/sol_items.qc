@@ -620,8 +620,8 @@ void() weapon_plasmarifle =
 
 void() weapon_battlerifle =
 {
-        self.weapon = IT_BR;
-weapon_start();
+    self.weapon = IT_BR;
+    weapon_start();
 };
 
 void() weapon_needler =

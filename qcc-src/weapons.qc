@@ -18,6 +18,9 @@ void(entity client, float howmuch) Add_Slowmo;
 void() W_Precache =
 {
 	precache_model ("progs/pod.mdl");
+    precache_model ("progs/g_ghost.mdl");
+    precache_model ("progs/g_warthog.mdl");
+    precache_model ("progs/banshee.mdl");
 	precache_sound ("weapons/r_exp3.wav"); 		 // new rocket explosion
 	precache_sound ("weapons/rocket1i.wav");        // spike gun
 	precache_sound ("weapons/uzi.wav");  		// Uzi

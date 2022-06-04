@@ -385,6 +385,70 @@ if (other.classname != "player")
 	}                    
 };
 
+void() item_ghost = {
+        local float     oldz;
+        self.mdl = self.model;
+        self.movetype = MOVETYPE_TOSS;
+        self.solid = SOLID_NOT;
+        self.owner = other;
+        setmodel(self, "progs/g_ghost.mdl");
+        setsize (self, '0 0 0', ' 64 64 96');
+        self.origin_z = self.origin_z + 2;
+        oldz = self.origin_z;
+        droptofloor();
+        if (oldz - self.origin_z > 250)
+        {
+            dprint ("item fell out of level at ");
+            dprint (vtos(self.origin));
+            dprint ("\n");
+            remove(self);
+        }
+//        StartItem();
+};
+
+void() item_banshee = {
+        local float     oldz;
+        self.mdl = self.model;
+        self.movetype = MOVETYPE_NONE;
+        self.solid = SOLID_NOT;
+        self.owner = other;
+        setmodel(self, "progs/banshee.mdl");
+        setsize (self, '0 0 32', ' 64 64 96');
+        self.origin_z = self.origin_z + 2;
+        oldz = self.origin_z;
+        droptofloor();
+        if (oldz - self.origin_z > 250)
+        {
+            dprint ("item fell out of level at ");
+            dprint (vtos(self.origin));
+            dprint ("\n");
+            remove(self);
+        }
+//        StartItem();
+};
+
+void() item_warthog = {
+        local float     oldz;
+        self.mdl = self.model;
+        self.movetype = MOVETYPE_NONE;
+        self.solid = SOLID_NOT;
+        self.owner = other;
+        precache_model("progs/warthog.mdl");
+        setmodel(self, "progs/warthog.mdl");
+        setsize (self, '-16 -16 -24', '16 16 32');
+        self.origin_z = self.origin_z + 2;
+        oldz = self.origin_z;
+        droptofloor();
+        if (oldz - self.origin_z > 250)
+        {
+            dprint ("item fell out of level at ");
+            dprint (vtos(self.origin));
+            dprint ("\n");
+            remove(self);
+        }
+//        StartItem();
+};
+
 void() item_nade =
 {
 	if (deathmatch == SWAT)
@@ -410,7 +474,7 @@ void() item_plasma_nade =
 void() item_weapon_pod =
 {
 	if (deathmatch != FIREFIGHT)
-	remove(self);
+	    remove(self);
 	self.mdl = self.model;
 	self.movetype = MOVETYPE_NONE;
 	self.solid = SOLID_BBOX;

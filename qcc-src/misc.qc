@@ -217,9 +217,9 @@ void() misc_explobox =
 	
 	self.solid = SOLID_BBOX;
 	self.movetype = MOVETYPE_NONE;
-	precache_model ("maps/b_explob.bsp");
-	setmodel (self, "maps/b_explob.bsp");
-	setsize (self, '0 0 0', '32 32 64');
+	precache_model ("progs/Fusion_coil.mdl");
+	setmodel (self, "progs/Fusion_coil.mdl");
+	setsize (self, '-10 -10 0', '10 10 48');
 	precache_sound ("weapons/r_exp3.wav");
 	self.health = 20;
 	self.th_die = barrel_explode;
