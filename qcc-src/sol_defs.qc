@@ -101,6 +101,8 @@ float   IT_BR                           = 90248441;         // solitude
 #define WEAPON_PRIFLE		IT_EXTRA_WEAPON2
 #define WEAPON_SKULL		IT_SKULL
 #define WEAPON_BR           IT_BR
+#define WEAPON_GHOST        IT_GHOST
+#define WEAPON_FLAG         IT_FLAG
 
 // Zooming
 .float pfov;

@@ -66,8 +66,9 @@ void() SetChangeParms = {
 	    parm16 = self.nade_lives;
 };
 
+// ignored? See Gametypes.qc::Start_Weapon()
 void() SetNewParms = {
-    parm1 = WEAPON_AR + WEAPON_PISTOL; // start Assault rifle
+    parm1 = WEAPON_AR + WEAPON_PISTOL; // start Assault rifle // ignored?
     if (deathmatch != SWAT)
         parm2 = 130;
     else
@@ -77,7 +78,7 @@ void() SetNewParms = {
     //parm4 = 25;
     parm6 = 0;
     parm7 = 0;
-    parm8 = WEAPON_AR; // start Assault rifle
+    parm8 = WEAPON_AR; // start Assault rifle // ignored?
     parm9 = 0;
     // Solitude
     parm10 = 40;

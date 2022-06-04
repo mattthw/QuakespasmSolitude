@@ -9,6 +9,10 @@ float (float pweapons) GetPlayerWeapons =
 	
 	if (pweapons & WEAPON_PISTOL)
 		i++;
+	if (pweapons & WEAPON_GHOST)
+		i++;
+	if (pweapons & WEAPON_FLAG)
+		i++;
 	if (pweapons & WEAPON_SKULL)
 		i++;
 	if (pweapons & WEAPON_SHOT)
@@ -65,9 +69,18 @@ void ( entity t_wep, float weptype ) SetWeaponAmmo =
 {
 	local float stammo;
 	stammo = W_GetMaxClip( weptype, 1 );
+
 	switch( weptype ) {
 		case WEAPON_PISTOL:
 			t_wep.exshells = 24;
+			t_wep.ammo_shells = stammo;
+			break;
+		case WEAPON_GHOST:
+			t_wep.exshells = 0;
+			t_wep.ammo_shells = stammo;
+			break;
+		case WEAPON_FLAG:
+			t_wep.exshells = 0;
 			t_wep.ammo_shells = stammo;
 			break;
 		case WEAPON_SKULL:
@@ -109,7 +122,7 @@ void ( entity t_wep, float weptype ) SetWeaponAmmo =
 		case WEAPON_PRIFLE:
 			t_wep.exprifle = 0;
 			t_wep.ammo_prifle = stammo;
-			break;
+			break;			
         case WEAPON_BR:
             t_wep.exbr = 108;
             t_wep.ammo_br = stammo;
@@ -135,6 +148,18 @@ _bprint(ftos(W_GetMaxClip(weptype, cliptype)), "\n");
 
 	switch ( weptype ) {
 		case WEAPON_PISTOL:
+			if (!cliptype || cliptype > 1)
+				t_ent.exshells += newamt;
+			if (cliptype)
+				t_ent.ammo_shells += newamt;
+			break;
+		case WEAPON_GHOST:
+			if (!cliptype || cliptype > 1)
+				t_ent.exshells += newamt;
+			if (cliptype)
+				t_ent.ammo_shells += newamt;
+			break;
+		case WEAPON_FLAG:
 			if (!cliptype || cliptype > 1)
 				t_ent.exshells += newamt;
 			if (cliptype)
@@ -199,7 +224,7 @@ _bprint(ftos(W_GetMaxClip(weptype, cliptype)), "\n");
 				t_ent.exprifle += newamt;
 			if (cliptype)
 				t_ent.ammo_prifle += newamt;
-			break;
+			break;			
         case WEAPON_BR:
             if ((!cliptype || (cliptype > 1)))
             {
@@ -245,6 +270,12 @@ string ( float wtype ) weapon_getlaymodel =
 		case WEAPON_PISTOL:
 			return ("progs/g_pistol.mdl");
 			break;
+		case WEAPON_GHOST:
+			return ("progs/g_ghost.mdl");
+			break;
+		case WEAPON_FLAG:
+			return ("progs/g_flag.mdl");
+			break;
 		case WEAPON_SKULL:
 			return ("progs/g_skull.mdl");
 			break;
@@ -280,7 +311,7 @@ string ( float wtype ) weapon_getlaymodel =
 			break;
 	}
 };
-
+	
 float drop_time;
 
 void() t_sound =
@@ -313,11 +344,10 @@ void() t_sound =
 
     drop_time = time + 0.1;
 };
-void(float wtype, float ttype) ThrowWeapon =
+void (float wtype, float ttype) ThrowWeapon =
 {
-    local entity newthrow;
-
-    newthrow = spawn();
+	local entity newthrow;
+	newthrow = spawn();
     newthrow.origin = ((self.origin + '0 0 16') + (v_right * CONTENT_SKY));
     setmodel(newthrow, weapon_getlaymodel(wtype));
     setsize(newthrow, VEC_ORIGIN, VEC_ORIGIN);
@@ -332,25 +362,26 @@ void(float wtype, float ttype) ThrowWeapon =
         newthrow.velocity = (newthrow.velocity * 45);
         newthrow.velocity_z = 200;
     }
-    newthrow.owner = self;
-    newthrow.movetype = 10;
-    newthrow.solid = 1;
-    newthrow.touch = t_sound;
-    newthrow.classname = "weapon_pickup";
-    newthrow.flags = IT_SHELLS;
-    newthrow.gravity = 5;
-    newthrow.think = weapon_becometouch;
-    newthrow.nextthink = (time + 1);
-    newthrow.weapon = wtype;
-    if ((ttype == 1))
+	newthrow.owner = self;
+	newthrow.movetype = MOVETYPE_BOUNCE;
+	newthrow.solid = SOLID_TRIGGER;
+    newthrow.touch = t_sound; //copied over
+	newthrow.classname = "weapon_pickup";
+	newthrow.flags = FL_ITEM;
+    newthrow.gravity = 5; // copied over
+	newthrow.think = weapon_becometouch;
+	newthrow.nextthink = time + 1;
+	
+	newthrow.weapon = wtype;
+	
+	if (ttype == 1)	{	// throwing an existing weapon
+		CopyAmmo(self, newthrow, wtype, 1);
+		newthrow.lives = 1;
+	}
+	else
     {
-        CopyAmmo(self, newthrow, wtype, 1);
-        newthrow.lives = IT_SHOTGUN;
-    }
-    else
-    {
-        SetWeaponAmmo(newthrow, wtype);
-    }
+		SetWeaponAmmo(newthrow, wtype);
+	}
 };
 
 // respawn the weapon
@@ -364,6 +395,7 @@ void () weapon_activate =
 		setmodel(self, self.mdl);
 	self.touch = weapon_touch;
 }
+
 void () weapon_touch =
 {
 	local entity oself;
@@ -371,6 +403,7 @@ void () weapon_touch =
 	
 	oself = self;
 	//
+
 	if (!(other.flags & FL_CLIENT))
 		return;
 
@@ -405,19 +438,25 @@ void () weapon_touch =
 	
 	if (other.canpickup_time > time) {
 		if (other.weapon == self.weapon || GetPlayerWeapons(other.items) >= 2 ) {
-            addweapon = 2;        // drop current weapon and replace it
+			addweapon = 2;		// drop current weapon and replace it
         } else {
-			addweapon = 1; 		// add other weapon and switch to it
+			addweapon = 1;		// add other weapon and switch to it
 		}
-			
+
 		other.canpickup_time = 0;
-	} else {
+	}
+	else {
 		if (time > other.pickup_time) {
+
+//			if ( GetPlayerWeapons(other.items) == 2 )
+//				centerprint(other, "Press reload button to swap for this weapon\n");
+//			else
+//				centerprint(other, "Press reload button to pick up weapon\n");
 			other.pickup_time = time + .5;
 			return;
 		}
 	}
-
+	
 	if (other.ishuman == TRUE && other.classname == "player")
     {
         if (icon_time > time)
@@ -490,21 +529,20 @@ void () weapon_touch =
 			other.items = other.items - other.weapon;
 			other.items = other.items | self.weapon;
 			self = other;
-            ThrowWeapon(self.weapon, 1);
+			ThrowWeapon(self.weapon, 1);
 			W_WeaponSwitch(newweapon);
 			W_SetCurrentAmmo();
 			pre_player_pull(other);
 			self = oself;
 		}
 		CopyAmmo( self, other, self.weapon, 0 );
-		W_UpdateAmmoCounts(other);
+		W_UpdateAmmoCounts( other );
 		self.touch = SUB_Null;
 		setmodel( self, string_null );
 		self.nextthink = time + 30;
 		self.think = weapon_activate;
 		return;
 	}
-
 };
 
 void () weapon_start =
@@ -531,6 +569,8 @@ void () weapon_start =
 	
 	SetWeaponAmmo( self, self.weapon );
 	self.touch = weapon_touch;
+	
+	
 };
 
 // WEAPONS
@@ -538,10 +578,21 @@ void () weapon_shotgun =
 {
 	self.weapon = WEAPON_PISTOL;
 	weapon_start ();
+
 };
 void () weapon_pistol =
 {
 	weapon_shotgun();
+};
+void() weapon_ghost =
+{
+	self.weapon = WEAPON_GHOST;
+	weapon_start ();
+};
+void() weapon_flag =
+{
+	self.weapon = WEAPON_FLAG;
+	weapon_start ();
 };
 void() weapon_skull =
 {
@@ -628,4 +679,17 @@ void() weapon_needler =
 {
 	self.weapon = WEAPON_NEEDLER;
 	weapon_start ();
+};
+
+void veh_ghost ()
+{
+	precache_model ("progs/ghost.mdl");
+	//precache_sound ("items/protect.wav");
+	//precache_sound ("items/protect2.wav");
+	//precache_sound ("items/protect3.wav");
+	setmodel (self, "progs/ghost.mdl");
+	self.classname = "ghost";
+	setsize (self, '-16 -16 -24', '16 16 32');
+	self.movetype = MOVETYPE_FLY/*MOVETYPE_WALK*/;
+	self.solid = SOLID_SLIDEBOX;
 };

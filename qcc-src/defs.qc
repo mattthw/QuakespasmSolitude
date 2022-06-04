@@ -312,6 +312,8 @@ float   IT_LIGHTNING                    = 64;
 float   IT_EXTRA_WEAPON                 = 128;
 float 	IT_EXTRA_WEAPON2				= 8388608;			// solitude
 float 	IT_SKULL				        = 16777216;			// solitude
+float   IT_GHOST                        = 33554432; // Solitude
+float   IT_FLAG                         = 67108864; // solitude
 
 float   IT_SHELLS                               = 256;
 float   IT_NAILS                                = 512;
