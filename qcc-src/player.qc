@@ -281,7 +281,7 @@ void () player_shotgun_reload =
 	self.weaponframe += 1;
 	if (self.weaponframe == 17)
 	{
-		self.exshells2 = (self.exshells2 - 1);
+		self.exshells2 = (self.exshells2 - 1); // todo : fix this shotgun bug
 		self.ammo_shells2 = (self.ammo_shells2 + 1);
 		self.armorvalue = self.exshells2;
 		W_UpdateAmmoCounts(self);

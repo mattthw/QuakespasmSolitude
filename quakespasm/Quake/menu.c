@@ -2317,7 +2317,7 @@ typedef struct
     const char  *author;
 } level_t;
 // todo: refactor level_t to specify filetype
-int targas[] = {2,1,3,4, 5, 7, 8,16};
+int targas[] = {2,1,3,4, 5, 6, 7, 8,16};
 level_t		levels[] =
 {
         // Refined map pack [4]
@@ -2327,7 +2327,7 @@ level_t		levels[] =
         {"narsp", "narsp", "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
         {"skyringbl2", "skyringbl2", "Sky Ring", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Sam"},
         {"wizard", "wizard", "Wizard", {"Round and Round","and Round.","",""}, "IlDucci"},
-        {"open", "random", "Open", {"Similar to 'Lane'","but theres a hole","in the ground.", "Don't fall!"}, "Sam"},
+        {"lockdown", "lockdown", "Lockdown", {"","","", ""}, "Team Xlink, Matt"},
         {"lane", "lane", "Lane", {"Outdoor human facility","used for USMC","training.",""}, "Sam"},
         {"cestra", "cestra", "Cestra", {"Experimental lab","used by USMC","researchers.",""}, "Sam"},
         // Classic map pack [6]
