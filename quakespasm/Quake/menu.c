@@ -2325,7 +2325,7 @@ level_t		levels[] =
         {"babybloodgulch", "babybloodgulch", "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
         {"pit3", "pit2", "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
         {"narsp", "narsp", "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
-        {"skyringbl2", "skyringbl2", "Sky Ring", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Sam"},
+        {"skyringbl2", "skyringbl2", "Heavenly Suspense", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Arkage"},
         {"wizard", "wizard", "Wizard", {"Round and Round","and Round.","",""}, "IlDucci"},
         {"lockdown", "lockdown", "Lockdown", {"","","", ""}, "Team Xlink, Matt"},
         {"lane", "lane", "Lane", {"Outdoor human facility","used for USMC","training.",""}, "Sam"},
