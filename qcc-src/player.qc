@@ -208,7 +208,7 @@ void () player_pistol_reload =
 		return;
 	}
 	self.attack_finished = (time + 0.2);
-	self.impulse = MSG_BROADCAST;
+	self.impulse = 0;
 };
 void () player_skull_reload =
 {
@@ -230,7 +230,7 @@ void () player_skull_reload =
 		return;
 	}
 	self.attack_finished = (time + 0.2);
-	self.impulse = MSG_BROADCAST;
+	self.impulse = 0;
 };
 /*
 void () player_shotgun_drop = [ 143, player_shotgun_drop ]
@@ -242,7 +242,7 @@ void () player_shotgun_drop = [ 143, player_shotgun_drop ]
 		player_run ();
 		return;
 	}
-	self.impulse = MSG_BROADCAST;
+	self.impulse = 0;
 };
 
 void () player_shotgun_reload =
@@ -268,7 +268,7 @@ void () player_shotgun_reload =
 		}
 	}
 	self.attack_finished = (time + 0.2);
-	self.impulse = MSG_BROADCAST;
+	self.impulse = 0;
 };
 */
 
@@ -371,7 +371,7 @@ void () player_ar_reload =
 		return;
 	}
 	self.attack_finished = (time + 0.2);
-	self.impulse = MSG_BROADCAST;
+	self.impulse = 0;
 };
 
 
@@ -626,7 +626,7 @@ void () player_shot_melee =
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
-	self.impulse = MSG_BROADCAST;
+	self.impulse = 0;
 };
 
 void () player_skull_melee =
@@ -644,7 +644,7 @@ void () player_skull_melee =
 	}
 	SuperDamageSound ();
 	self.attack_finished = (time + 0.2);
-	self.impulse = MSG_BROADCAST;
+	self.impulse = 0;
 };
 
 void () player_rl_melee =

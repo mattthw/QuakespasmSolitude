@@ -193,6 +193,7 @@ void() Setup_Gametype = {
         }
 };
 
+// see also: SetChangeParms()
 void() Start_Weapon = {
         switch (deathmatch) {
             /*
@@ -201,13 +202,16 @@ void() Start_Weapon = {
             ==============================================================
             */
             case SLAYER: {
-                self.items = WEAPON_AR + WEAPON_PISTOL;
-                self.ammo_nails = W_GetMaxClip(self.weapon, 4);
-                self.exnails = 560;
-                self.ammo_shells = 12;
-                self.exshells = 60;
-                self.currentammo = W_GetMaxClip(self.weapon, 4);
-                self.weapon = WEAPON_AR;
+                float primary_weapon = WEAPON_AR;
+                float secondary_weapon = WEAPON_PISTOL;
+                if (cvar("custom_primary")) {
+                    primary_weapon = cvar("custom_primary");
+                }
+                self.items = primary_weapon + secondary_weapon;
+                SetWeaponAmmo(self, primary_weapon);
+                SetWeaponAmmo(self, secondary_weapon);
+
+                self.weapon = primary_weapon;
                 W_UpdateWeapon();
                 W_UpdateAmmoCounts(self);
             }

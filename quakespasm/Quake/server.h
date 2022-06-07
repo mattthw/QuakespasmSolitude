@@ -296,6 +296,12 @@ extern	cvar_t	coop;
 extern	cvar_t	fraglimit;
 extern	cvar_t	teamlimit;
 extern	cvar_t	timelimit;
+extern  cvar_t  map_weapons_disable;
+extern  cvar_t  custom_primary;
+extern  cvar_t  infinite_ammo;
+extern  cvar_t  sol_gravity;
+extern  cvar_t  sol_maxspeed;
+extern  cvar_t  sol_jump;
 
 extern	server_static_t	svs;				// persistant server info
 extern	server_t		sv;					// local server

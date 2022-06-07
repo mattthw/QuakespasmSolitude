@@ -241,23 +241,23 @@ _z maximum range bot can be to be effective (lg/axe) (move in)
 
 vector(float wep) weapon_range =
 {
-	if (wep == 4096) // IT_AXE \ WEAPON_SWORD
+	if (wep == WEAPON_SWORD) // IT_AXE \ WEAPON_SWORD
 		return '48 0 64'; // todo: adjust to increase range after finishing sword.
-	else if (wep == 1) // IT_SHOTGUN
-		return '128 0 99999';
-	else if (wep == 2) // IT_SUPER_SHOTGUN
-		return '128 0 99999';
-	else if (wep == 4) // IT_NAILGUN
+	else if (wep == WEAPON_PISTOL) // IT_SHOTGUN
+		return '128 0 3000';
+	else if (wep == WEAPON_SHOT) // IT_SUPER_SHOTGUN
+		return '128 0 3000';
+	else if (wep == WEAPON_AR) // IT_NAILGUN
 		return '180 0 3000';
-	else if (wep == 8) // IT_SUPER_NAILGUN
+	else if (wep == WEAPON_UZI) // IT_SUPER_NAILGUN
 		return '180 0 3000';
-	else if (wep == 16) // IT_GRENADE_LAUNCHER
+	else if (wep == WEAPON_SNIPER) // IT_GRENADE_LAUNCHER
+		return '180 48 5000';
+	else if (wep == WEAPON_RL) // IT_ROCKET_LAUNCHER
 		return '180 48 3000';
-	else if (wep == 32) // IT_ROCKET_LAUNCHER
-		return '180 48 3000';
-	else if (wep == 64) // IT_LIGHTNING
+	else if (wep == WEAPON_PPISTOL) // IT_LIGHTNING
 		return '350 0 512';
-	return '128 0 99999';
+	return '128 0 3000';
 
 };
 /*
@@ -281,37 +281,37 @@ void(float brange) bot_weapon_switch =
 	{
 		if ((self.ammo_rockets >= 1) && (it & 32))
 		{
-			flag = 32;
+			flag = WEAPON_RL;//32;
 			pulse = 7;
 		}
-		else if (self.waterlevel <= 1 && self.ammo_cells >= 1 && (it & 64))
+		else if (/*self.waterlevel <= 1 && */self.ammo_cells >= 1 && (it & 64))
 		{
-			flag = 64;
+			flag = WEAPON_PPISTOL;//64;
 			pulse = 8;
 		}
 		else if(self.ammo_nails >= 2 && (it & 8))
 		{
-			flag = 8;
+			flag = WEAPON_UZI;//8;
 			pulse = 5;
 		}
 		else if ((self.ammo_rockets >= 1) && (it & 16))
 		{
-			flag = 16;
+			flag = WEAPON_SNIPER;//16;
 			pulse = 6;
 		}
 		else if(self.ammo_shells >= 2 && (it & 2))
 		{
-			flag = 2;
+			flag = WEAPON_SHOT; //2;
 			pulse = 3;
 		}
 		else if(self.ammo_nails >= 1 && (it & 4))
 		{
-			flag = 4;
+			flag = WEAPON_AR;//4;
 			pulse = 4;
 		}
 		else if(self.ammo_shells >= 1 && (it & 1))
 		{
-			flag = 1;
+			flag = WEAPON_PISTOL; //1
 			pulse = 2;
 		}
 		else

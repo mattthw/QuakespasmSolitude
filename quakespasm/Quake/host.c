@@ -76,6 +76,12 @@ cvar_t	noexit = {"noexit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	skill = {"skill","1",CVAR_SERVERINFO};			// 0 - 3
 cvar_t	deathmatch = {"deathmatch","0",CVAR_SERVERINFO};	// 0, 1, or 2
 cvar_t	coop = {"coop","0",CVAR_SERVERINFO};			// 0 or 1
+cvar_t	map_weapons_disable = {"map_weapons_disable","0",CVAR_SERVERINFO};
+cvar_t  custom_primary = {"custom_primary", "0", CVAR_SERVERINFO};
+cvar_t  infinite_ammo = {"infinite_ammo", "0", CVAR_SERVERINFO};
+cvar_t	sol_gravity = {"sol_gravity","340",CVAR_SERVERINFO};
+cvar_t  sol_maxspeed = {"sol_maxspeed", "200", CVAR_SERVERINFO};
+cvar_t  sol_jump = {"sol_jump", "225", CVAR_SERVERINFO};
 
 cvar_t	pausable = {"pausable","1",CVAR_NONE};
 
@@ -324,6 +330,12 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&developer);
 	Cvar_RegisterVariable (&coop);
 	Cvar_RegisterVariable (&deathmatch);
+    Cvar_RegisterVariable (&map_weapons_disable);
+    Cvar_RegisterVariable (&custom_primary);
+    Cvar_RegisterVariable (&infinite_ammo);
+    Cvar_RegisterVariable (&sol_gravity);
+    Cvar_RegisterVariable (&sol_maxspeed);
+    Cvar_RegisterVariable (&sol_jump);
 
 	Cvar_RegisterVariable (&pausable);
 

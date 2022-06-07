@@ -629,23 +629,6 @@ void MiniDeathmatchOverlay (void)
             if (k == cl.viewentity - 1)
                 Draw_CharacterScale(glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y)+(1.1f*scr_sbarscale.value*0.5), 13, 1.1f*scr_sbarscale.value);
             y += 0.03*scr_sbarscale.value;
-
-//            // draw background
-//            bottom = (s->colors & 15) <<4;
-//            bottom = ColorForMap (bottom);
-//
-//            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 8*scr_sbarscale.value, bottom, 1);
-//
-//            // draw number
-//            f = s->frags;
-//            HUD_itoa(f, num);
-//
-//            Draw_ColoredStringScale(glwidth*0.08 + 8*scr_sbarscale.value, glheight*(0.8+y), num, 1, 1, 1,1,0.8f*scr_sbarscale.value);
-//
-//            if (k == cl.viewentity - 1)
-//                Draw_CharacterScale( glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y), 13, 1.0f*scr_sbarscale.value);
-//
-//            y += 0.06;
         }
     }
 }

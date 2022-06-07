@@ -378,6 +378,7 @@ float (float t_wep) W_BulletDamage =
 // cliptype 0 = max extra ammo the player can carry
 float (float wep, float cliptype) W_GetMaxClip =
 {
+    if (cvar("infinite_ammo") && cliptype == 0) return 99999;
 	// solitude
 	switch (wep)
 	{
@@ -385,79 +386,79 @@ float (float wep, float cliptype) W_GetMaxClip =
 			if (cliptype)
 				return 12;
 			else
-				return 90;
+				return 24; //90
 			break;
 		case WEAPON_SKULL:
 			if (cliptype)
 				return 12;
 			else
-				return 90;
+				return 90; //90
 			break;
 		case WEAPON_SHOT:
 			if (cliptype)
 				return 6;
 			else
-				return 30;
+				return 20; //30
 			break;
 		case WEAPON_AR:
 			if (cliptype)
 				return 32;
 			else
-				return 560;
+				return 120; //560
 			break;
         case WEAPON_BR:
             if(cliptype)
                 return 36;
             else
-                return 144;
+                return 144; //144
             break;
 		case WEAPON_UZI:
 			if (cliptype)
 				return 60;
 			else
-				return 560;
+				return 180; //560
 			break;
 		case WEAPON_RL:
 			if (cliptype)
 				return 2;
 			else
-				return 6;
+				return 6; //6
 			break;
 		case WEAPON_SNIPER:
 			if (cliptype)
 				return 4;
 			else
-				return 20;
+				return 20; //20
 			break;
 		case WEAPON_PPISTOL:
 			if (cliptype)
 				return 100;
 			else
-				return 90;
+				return 90; //90
 			break;
 		case WEAPON_SWORD:
 			if (cliptype)
-				return 0;		// should be 0 - infinite
+				return 0;		// should be 0 - infinite or 999?
 			else
-				return 0;
+				return 0; //0 or 999?
 			break;
 		case WEAPON_NEEDLER:
 			if (cliptype)
 				return 20;
 			else
-				return 80;
+				return 90; //80
 			break;
 		case WEAPON_PRIFLE:
 			if (cliptype)
 				return 100;
 			else
-				return 90;
+				return 90; //90
 			break;
 		default:
 			if (cliptype)
 				return 1;
 			else
-				return 90;
+				return 90; //90
 			break;
 	}
 	return 1;
@@ -2013,7 +2014,7 @@ void() W_UpdateWeapon =
 		self.ammo_type = AT_SHELLS;
 		break;
     case WEAPON_BR:
-        self.weaponmodel = "progs/v_nail.mdl";
+        self.weaponmodel = "progs/v_sword.mdl"; //makes it more obvious we entered a bad state (BR not supported yet)
         self.items = self.items | IT_NAILS;
         self.ammo_type = AT_NAILS;
         break;
@@ -2552,9 +2553,9 @@ void() CycleWeaponCommand =
 			w = WEAPON_AR;
 			break;
 		case WEAPON_AR:
-			w = WEAPON_BR;
-			break;
-        case WEAPON_BR:
+//			w = WEAPON_BR; todo: fix me. commenting this out prevents bad BR state. weapon not supported yet.
+//			break;
+//        case WEAPON_BR:
             w = WEAPON_UZI;
             break;
 		case WEAPON_UZI:

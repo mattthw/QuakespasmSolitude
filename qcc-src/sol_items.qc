@@ -67,64 +67,64 @@ float (entity t_plyr, float t_wep, float cliptype) GetAmmoCount =
 // Sets the ammo of a new or dropped weapon, as opposed to the function below which...
 void ( entity t_wep, float weptype ) SetWeaponAmmo =
 {
-	local float stammo;
-	stammo = W_GetMaxClip( weptype, 1 );
-
+	local float stammo, stotal;
+    stammo = W_GetMaxClip( weptype, 1 );
+    stotal = W_GetMaxClip( weptype, 0 );
 	switch( weptype ) {
 		case WEAPON_PISTOL:
-			t_wep.exshells = 24;
+			t_wep.exshells = stotal;
 			t_wep.ammo_shells = stammo;
 			break;
 		case WEAPON_GHOST:
-			t_wep.exshells = 0;
+			t_wep.exshells = stotal; //0
 			t_wep.ammo_shells = stammo;
 			break;
 		case WEAPON_FLAG:
-			t_wep.exshells = 0;
+			t_wep.exshells = stotal; //0
 			t_wep.ammo_shells = stammo;
 			break;
 		case WEAPON_SKULL:
-			t_wep.exshells = 0;
+			t_wep.exshells = stotal; //0
 			t_wep.ammo_shells = stammo;
 			break;
 		case WEAPON_SHOT:
-			t_wep.exshells2 = 20;
+			t_wep.exshells2 = stotal;
 			t_wep.ammo_shells2 = stammo;
 			break;
 		case WEAPON_AR:
-			t_wep.exnails = 120;
+			t_wep.exnails = stotal;
 			t_wep.ammo_nails = stammo;
 			break;
 		case WEAPON_UZI:
-			t_wep.exhshells = 180;
+			t_wep.exhshells = stotal;
 			t_wep.ammo_hshells = stammo;
 			break;
 		case WEAPON_RL:
-			t_wep.exrockets = 2;
+			t_wep.exrockets = stotal;
 			t_wep.ammo_rockets = stammo;
 			break;
 		case WEAPON_SNIPER:
-			t_wep.exsniper = 10;
+			t_wep.exsniper = stotal;
 			t_wep.ammo_sniper = stammo;
 			break;
 		case WEAPON_PPISTOL:
-			t_wep.exppistol = 0;
+			t_wep.exppistol = stotal;
 			t_wep.ammo_ppistol = stammo;
 			break;
 		case WEAPON_SWORD:
-			t_wep.exppistol = 999;
+			t_wep.exppistol = stotal;
 			t_wep.ammo_ppistol = stammo;
 			break;
 		case WEAPON_NEEDLER:
-			t_wep.exneedler = 90;
+			t_wep.exneedler = stotal;
 			t_wep.ammo_needler = stammo;
 			break;
 		case WEAPON_PRIFLE:
-			t_wep.exprifle = 0;
+			t_wep.exprifle = stotal;
 			t_wep.ammo_prifle = stammo;
 			break;			
         case WEAPON_BR:
-            t_wep.exbr = 108;
+            t_wep.exbr = stotal;
             t_wep.ammo_br = stammo;
             break;
 		default:
@@ -572,13 +572,12 @@ void () weapon_start =
 	
 	SetWeaponAmmo( self, self.weapon );
 	self.touch = weapon_touch;
-	
-	
 };
 
 // WEAPONS
-void () weapon_shotgun =
+void () weapon_shotgun = //for maps using old quake weapon names
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_PISTOL;
 	weapon_start ();
 
@@ -594,22 +593,26 @@ void() weapon_ghost =
 };
 void() weapon_flag =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_FLAG;
 	weapon_start ();
 };
 void() weapon_skull =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_SKULL;
 	weapon_start ();
 };
 void() weapon_supershotgun =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_SHOT;
 	weapon_start ();
 };
 
 void() weapon_nailgun =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_AR;
 	weapon_start ();
 };
@@ -620,66 +623,78 @@ void() weapon_ar =
 
 void() weapon_supernailgun =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_UZI;
 	weapon_start ();
 };
 void() weapon_uzi =
 {
+    if (cvar("map_weapons_disable")) return;
 	weapon_supernailgun ();
 };
 
 void() weapon_grenadelauncher =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_PPISTOL;
 	weapon_start ();
 };
 void() weapon_ppistol =
 {
+    if (cvar("map_weapons_disable")) return;
 	weapon_grenadelauncher ();
 };
 
 void() weapon_rocketlauncher =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_RL;
 	weapon_start ();
 };
 
 void() weapon_lightning =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_SNIPER;
 	weapon_start ();
 };
 void() weapon_sniperrifle =
 {
+    if (cvar("map_weapons_disable")) return;
 	weapon_lightning ();
 };
 
 void() weapon_sword =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_SWORD;
 	weapon_start ();
 };
 
 void() weapon_plasmapistol =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_PPISTOL;
 	weapon_start ();
 };
 
 void() weapon_plasmarifle =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_PRIFLE;
 	weapon_start ();
 };
 
 void() weapon_battlerifle =
 {
+    if (cvar("map_weapons_disable")) return;
     self.weapon = IT_BR;
     weapon_start();
 };
 
 void() weapon_needler =
 {
+    if (cvar("map_weapons_disable")) return;
 	self.weapon = WEAPON_NEEDLER;
 	weapon_start ();
 };

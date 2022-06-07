@@ -451,7 +451,7 @@ void() item_warthog = {
 
 void() item_nade =
 {
-	if (deathmatch == SWAT)
+	if (deathmatch == SWAT || cvar("map_weapons_disable"))
 	    remove(self);
 	self.owner = other;
 	self.touch = nade_touch;
@@ -462,7 +462,7 @@ void() item_nade =
 
 void() item_plasma_nade =
 {
-	if (deathmatch == SWAT)
+	if (deathmatch == SWAT || cvar("map_weapons_disable"))
         remove(self);
 	self.owner = other;
 	self.touch = plasma_nade_touch;

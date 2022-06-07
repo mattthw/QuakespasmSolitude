@@ -2561,6 +2561,14 @@ typedef struct opts_t {
     int fraglimit;
     int teamlimit;
     enum gametype_t gametype;
+    // custom game options
+    int custom_primary;
+    int map_weapons_disable;
+    int infinite_ammo;
+    int sol_jump;
+    int sol_maxspeed;
+    int sol_gravity;
+
 } opts_t;
 
 // default options
@@ -2572,7 +2580,14 @@ struct opts_t opts = {
         .timelimit = 10,
         .fraglimit = 10,
         .teamlimit = 0,
-        .gametype = SLAYER
+        .gametype = SLAYER,
+        /* CUSTOM GAME OPTIONS */
+        .custom_primary = 0,
+        .map_weapons_disable = 0,
+        .infinite_ammo = 0,
+        .sol_gravity = 340, // todo: pull from cvar_t
+        .sol_maxspeed = 200, // todo: pull from cvar_t
+        .sol_jump = 225 // todo: pull from cvar_t
 };
 
 void M_Matchmaking_f (void)
@@ -2853,7 +2868,16 @@ void M_Matchmaking_Key (int key)
                 Cbuf_AddText ( va ("fraglimit %u\n", (int)opts.fraglimit) );
                 Cbuf_AddText ( va ("timelimit %u\n", (int)opts.timelimit) );
                 Cbuf_AddText ( va ("teamlimit %u\n", (int)opts.teamlimit) );
+                // custom game options
+                Cbuf_AddText(va ("infinite_ammo %u\n", (int)opts.infinite_ammo));
+                Cbuf_AddText(va ("map_weapons_disable %u\n", (int)opts.map_weapons_disable));
+                Cbuf_AddText(va ("custom_primary %u\n", (int)opts.custom_primary));
+                Cbuf_AddText(va ("sol_gravity %u\n", (int)opts.sol_gravity));
+                Cbuf_AddText(va ("sol_maxspeed %u\n", (int)opts.sol_maxspeed));
+                Cbuf_AddText(va ("sol_jump %u\n", (int)opts.sol_jump));
+                // difficulty
                 Cbuf_AddText ( va ("skill %u\n", (int)opts.skill) );
+                // map
                 Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
 //                // remove old bots. add single bot
 //                for (int i = 0; i < 8; i++) {

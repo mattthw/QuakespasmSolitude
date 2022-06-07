@@ -68,7 +68,8 @@ void() SetChangeParms = {
 
 // ignored? See Gametypes.qc::Start_Weapon()
 void() SetNewParms = {
-    parm1 = WEAPON_AR + WEAPON_PISTOL; // start Assault rifle // ignored?
+    // starting weapon
+    parm1 = 0; //SET IN Start_Weapon()! //WEAPON_AR + WEAPON_PISTOL; // start Assault rifle // ignored?
     if (deathmatch != SWAT)
         parm2 = 130;
     else
@@ -78,7 +79,7 @@ void() SetNewParms = {
     //parm4 = 25;
     parm6 = 0;
     parm7 = 0;
-    parm8 = WEAPON_AR; // start Assault rifle // ignored?
+    parm8 = 0; // set in Start_Weapon(); WEAPON_AR; // start Assault rifle // ignored?
     parm9 = 0;
     // Solitude
     parm10 = 40;
@@ -97,13 +98,13 @@ void() DecodeLevelParms = {
             SetNewParms(); // take away all stuff on starting new episode
     }
 
-    self.items = parm1;
+    self.items = 0; //parm1; Set in Start_Weapon()!
     self.health = parm2;
     self.armorvalue = parm3;
     self.ammo_shells_real = parm4;
     self.ammo_rockets_real = parm6;
     self.ammo_cells_real = parm7;
-    self.weapon = parm8;
+    self.weapon = 0;//parm8; set in Start_Weapon();
     self.armortype = parm9;
     // solitude
     self.ammo_hshells = 0;
@@ -633,6 +634,7 @@ void() NextLevel = {
             o.nextthink = time + 0.1;
         }
 };
+
 void() firefight_death_setup = {
         if (deathmatch == FIREFIGHT && self.health == 1) {
 
@@ -646,7 +648,6 @@ void() firefight_death_setup = {
             else if (F_LIVES < 0 && self.owner.ishuman == TRUE)
                 localcmd("restart\n");
         }
-
 };
 /*
 ============
@@ -988,9 +989,9 @@ void() PlayerPreThink = {
     return; // dying, so do nothing
 
     if (self.button2)
-    PlayerJump();
+        PlayerJump();
     else
-    self.flags = self.flags | FL_JUMPRELEASED;
+        self.flags = self.flags | FL_JUMPRELEASED;
 
     if (time > self.attack_finished && self.currentammo == 0 && self.weapon != IT_AXE) {
         W_WeaponSwitch(W_BestWeapon());
