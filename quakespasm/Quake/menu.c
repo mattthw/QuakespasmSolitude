@@ -2389,13 +2389,13 @@ int	startlevel,prevlevel,nextlevel;
 int maxplayers;
 qboolean cursorfocused = 1;
 
-const char *MlistPrintServer (size_t index) {
+const char *M_listPrintMap (size_t index) {
 
     static char	string[64];
     if (index >= episodes[startepisode].levels)
         return "";
 
-    q_snprintf(string, sizeof(string), "%-15.15s\n", levels[episodes[startepisode].firstLevel + index].description);
+    q_snprintf(string, sizeof(string), "%-18.18s\n", levels[episodes[startepisode].firstLevel + index].description);
 
     return string;
 }
@@ -2442,7 +2442,7 @@ void M_Matchmaking_Map_Draw (void) {
     }
     // map name
     for (int n = 0; n < mlist_shown; n++) {
-        M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, MlistPrintServer (mlist_first+n));
+        M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, M_listPrintMap (mlist_first+n));
     }
     // map thumbnail
     char format[10];
@@ -2714,7 +2714,14 @@ void M_Matchmaking_Draw (void)
         M_PrintWhite (mc.grid[1][4].xp, mc.grid[1][4].yp, "Legendary");
     //======================== 5
     M_Print (mc.grid[0][5].xp, mc.grid[1][5].yp, "MAP");
-    M_PrintWhite (mc.grid[1][5].xp, mc.grid[1][5].yp, levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description);
+    char finalMapName[12];
+    Q_strncpy(finalMapName, levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description, 12);
+    if (Q_strlen(levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description) >= 12) {
+        finalMapName[11] = '.';
+        finalMapName[10] = '.';
+        finalMapName[9] = '.';
+    }
+    M_PrintWhite (mc.grid[1][5].xp, mc.grid[1][5].yp, finalMapName);
     //========================= 6
     Draw_ColoredStringScale(mc.grid[0][6].xp, mc.grid[1][6].yp, "START GAME", 1, 1, 1, 1, 1.1f);
 }
