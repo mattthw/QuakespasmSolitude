@@ -9,6 +9,9 @@
 "_sunlight_penumbra" "2"
 "light" "100"
 "sky" "ringbl512"
+"_sunlight" "280"
+"_sun_mangle" "45 -90 45"
+"_sunlight_color" "225 208 239"
 // brush 0
 {
 ( -384 -16 0 ) ( -384 32 -16 ) ( -384 32 0 ) fore_256_floor0 0 0 0 1 1
@@ -3027,4 +3030,14 @@
 {
 "classname" "weapon_ar"
 "origin" "192 -64 0"
+}
+// entity 37
+{
+"classname" "veh_ghost"
+"origin" "536 -176 0"
+}
+// entity 38
+{
+"classname" "weapon_plasmapistol"
+"origin" "544 -32 0"
 }
