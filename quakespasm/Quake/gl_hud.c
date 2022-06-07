@@ -272,6 +272,8 @@ char *getWeaponName(int w) {
             return "Sniper";
         case IT_AXE:
             return "Energy Sword";
+        case IT_EXTRA_WEAPON2:
+            return "Plasma Rifle";
         default:
             return "Unknown";
     }
@@ -299,6 +301,8 @@ char *getPickupWeaponString (int value) {
             return "Battle Rifle";
         case 10:
             return "Energy Sword";
+        case 11:
+            return "Plasma Rifle";
         default:
             return "";
     }

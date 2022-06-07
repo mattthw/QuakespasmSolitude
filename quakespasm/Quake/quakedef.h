@@ -398,5 +398,25 @@ typedef enum InpType {
     SELECT_SCROLL_MAPS = 5,
 } InpType;
 
+#define IT_EXTRA_WEAPON2			 8388608			// solitude
+#define IT_SKULL				     16777216			// solitude
+#define IT_GHOST                       33554432 // Solitude
+#define IT_FLAG                        67108864 // solitude
+// weapons
+#define WEAPON_SWORD		IT_AXE
+#define WEAPON_PISTOL		IT_SHOTGUN
+#define WEAPON_SHOT			IT_SUPER_SHOTGUN
+#define WEAPON_AR			IT_NAILGUN
+#define WEAPON_UZI			IT_SUPER_NAILGUN
+#define WEAPON_SNIPER		IT_GRENADE_LAUNCHER
+#define WEAPON_RL			IT_ROCKET_LAUNCHER
+#define WEAPON_PPISTOL		IT_LIGHTNING
+#define WEAPON_NEEDLER		IT_EXTRA_WEAPON
+#define WEAPON_PRIFLE		IT_EXTRA_WEAPON2
+#define WEAPON_SKULL		IT_SKULL
+#define WEAPON_BR           IT_BR
+#define WEAPON_GHOST        IT_GHOST
+#define WEAPON_FLAG         IT_FLAG
+
 #endif	/* QUAKEDEFS_H */
 

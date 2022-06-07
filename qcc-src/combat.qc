@@ -247,10 +247,19 @@ void(entity targ, entity inflictor, entity attacker, float damage, INTEGER mod) 
 // team play damage avoidance
 	if (DisallowFriendlyFire(targ, attacker, mod))
 		return;
-		
+
 // do the damage
 	targ.health = targ.health - take;
-
+    /* uncomment for damage logging
+    bprint(attacker.netname);
+    bprint("did [");
+    bprint(ftos(take));
+    bprint(" damage to ");
+    bprint(targ.netname);
+    bprint(" health=");
+    bprint(ftos(targ.health));
+    bprint("\n");
+    */
 	if (targ.health <= 0)
 	{
 		Killed (targ, attacker, mod);

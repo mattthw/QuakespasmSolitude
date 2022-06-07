@@ -23,6 +23,7 @@ $skin skin
 #define PLAYER_RELOAD		8
 #define PLAYER_ATTACK_MELEE	9
 #define PLAYER_PULL	10
+
 float (float anim_type, float endframe) Player_GetFrame =
 {
 	switch (anim_type)
@@ -438,6 +439,24 @@ void () player_ppistol_reload =
 	self.impulse = 0;
 };
 
+void () player_prifle_reload =
+{
+        if (self.weaponframe < 15)		// fixme: shouldn't be necessary :\ (why is it starting on frame 15...!)
+            self.weaponframe = 15;
+        self.weaponframe += 1;
+        if (self.weaponframe > 28)
+        {
+            player_run ();
+            self.exprifle = 0;
+            self.weaponheat = 0;
+            W_SetCurrentAmmo ();
+            return;
+        }
+        //self.weaponframe_time = time + 0.1;
+        self.attack_finished = (time + 0.2);
+        self.impulse = 0;
+};
+
 void () player_needler_reload =
 {
 	local float amt;
@@ -500,7 +519,7 @@ void () player_reload1 = [ 0, player_reload1 ]
 		return;
 	}
 	else if (self.impulse == 27)
-	self.impulse = 27;
+	    self.impulse = 27;
 	else if (self.reload_time == -1) {
 		self.reload_time = 1;
 		player_run();
@@ -533,6 +552,9 @@ void () player_reload1 = [ 0, player_reload1 ]
 		case WEAPON_PPISTOL:
 			player_ppistol_reload ();
 			break;
+        case WEAPON_PRIFLE:
+            player_prifle_reload ();
+            break;
 		case WEAPON_NEEDLER:
 			player_needler_reload ();
 			break;

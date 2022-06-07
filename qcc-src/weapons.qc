@@ -136,6 +136,7 @@ void() W_Precache =
 	
 	//New Solitude caches
 	precache_sound ("weapons/PR_fire.wav");
+    precache_sound ("weapons/reload/overheat.wav");
 
 };
 
@@ -335,28 +336,37 @@ float (float t_wep) W_BulletDamage =
 {
 	switch (t_wep) {
 		case WEAPON_SNIPER:
-		if (trace_endpos_z > trace_ent.origin_z + 20)
-		{
-		return 200;
-		}
+            if (trace_endpos_z > trace_ent.origin_z + 20)
+            {
+                return 200; //headshot
+            }
 		return 70;
 			break;
 		case WEAPON_PISTOL:
-		if (trace_endpos_z > trace_ent.origin_z + 20)
-		{
-		return 40;
-		}
+            if (trace_endpos_z > trace_ent.origin_z + 20)
+            {
+                return 40; //headshot
+            }
 		return 15;
 			break;
-		case IT_SUPER_NAILGUN:
+		case WEAPON_UZI:
 			return 1.5;
 			break;
 		case WEAPON_AR:
 			return 6.5;
 			break;
+        case WEAPON_BR:
+            return 18; //6*3
+            break;
 		case WEAPON_SHOT:
 			return 15;
 			break;
+//        case WEAPON_PPISTOL:
+//            // Please see Plasma_Diffuse()
+//            break;
+//        case WEAPON_PRIFLE:
+//            // DAMAGE IS DONE IN Plasma_Diffuse()
+//            break;
 		default:
 			return 4;
 			break;
@@ -395,6 +405,12 @@ float (float wep, float cliptype) W_GetMaxClip =
 			else
 				return 560;
 			break;
+        case WEAPON_BR:
+            if(cliptype)
+                return 36;
+            else
+                return 144;
+            break;
 		case WEAPON_UZI:
 			if (cliptype)
 				return 60;
@@ -966,6 +982,7 @@ void ( float t_weap, float w_heat ) W_AddHeat =
 			break;
 	}
 };
+
 void() Glow_Touch =
 {
 	self.velocity = '0 0 0';
@@ -974,6 +991,7 @@ void() Glow_Touch =
 	self.touch = SUB_Null;
 	self.nextthink = time + .15;
 };
+
 void() W_FireGlow =
 {
 	local entity plasma;
@@ -982,18 +1000,16 @@ void() W_FireGlow =
 	plasma.owner = self;
 	plasma.movetype = 9;
 	plasma.solid = 2;
-	if (self.classname != "player")
-	{
-	plasma.velocity = normalize(self.enemy.origin - self.origin);
-	plasma.velocity = plasma.velocity * 2000;
-	plasma.angles = vectoangles(plasma.velocity);
-	}
-	else
-	{
-	makevectors (self.v_angle);
-	plasma.velocity = v_forward;
-	plasma.velocity = (plasma.velocity * 3000);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
-	plasma.angles = vectoangles (plasma.velocity);
+
+	if (self.classname != "player") {
+        plasma.velocity = normalize(self.enemy.origin - self.origin);
+        plasma.velocity = plasma.velocity * 2000;
+        plasma.angles = vectoangles(plasma.velocity);
+	} else {
+        makevectors (self.v_angle);
+        plasma.velocity = v_forward;
+        plasma.velocity = (plasma.velocity * 3000);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
+        plasma.angles = vectoangles (plasma.velocity);
 	}
 	plasma.touch = Glow_Touch;
 	setmodel (plasma, "progs/plasma_glow.spr");
@@ -1001,23 +1017,38 @@ void() W_FireGlow =
 	setsize (plasma, '0 0 0', '0 0 0');
 	setorigin (plasma, ((self.origin + (v_forward * 8) + (v_right * 1)) + '0 0 16'));  //setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));
 };
+
 void () Plasma_Diffuse =
 {
 	self.velocity = '0 0 0';
 	self.think = SUB_Remove;
 	self.nextthink = time + .3;
 	self.touch = SUB_Null;
-	if (other.takedamage)
-		{
-		if (other.health >= 30)
-		{
-		particle (self.origin, '0 0 0', 109, 6);	
+	if (other.takedamage) {
+        // plasma weapons do lots of damage to shields, but low damage to body
+        float damage_modifier = 1;
+        if (other.health > 50) {
+            damage_modifier = 1.0;
+        } else if (other.health <= 50) {
+            damage_modifier = 0.3;
+        }
+        // hit indicator
+		if (other.health >= 30) {
+		    particle (self.origin, '0 0 0', 109, 5); //yellow
+            particle (self.origin, '0 0 0', 244, 5); //blue
+		} else {
+            particle (self.origin, '0 0 0', 109, 3); //yellow
+            particle (self.origin, '0 0 0', 244, 2); //blue
+		    spawn_touchblood (8);
 		}
-		else
-		spawn_touchblood (8);
-		}
-		T_Damage (other, self, self.owner, 10*self.health, MOD_SOLITUDE);
-		self.nextthink = time + .15;
+		T_Damage (other, self, self.owner, damage_modifier*10*self.health /*health of plasma bullet*/, MOD_SOLITUDE);
+    }
+    else if (!trace_ent.takedamage)
+    {
+        particle (self.origin, '0 0 0', 11, 5); //white
+        particle (self.origin, '0 0 0', 47, 5); //blue
+    }
+    self.nextthink = time + .15;
 };
 
 
@@ -1056,16 +1087,16 @@ void( float w_heat ) W_FirePPistol =
 	plasma.classname = "missile";
 	if (self.classname != "player")
 	{
-	plasma.velocity = normalize(self.enemy.origin - self.origin);
-	plasma.velocity = plasma.velocity * 2000;
-	plasma.angles = vectoangles(plasma.velocity);
+        plasma.velocity = normalize(self.enemy.origin - self.origin);
+        plasma.velocity = plasma.velocity * 2000;
+        plasma.angles = vectoangles(plasma.velocity);
 	}
 	else
 	{
-	makevectors (self.v_angle);
-	plasma.velocity = v_forward;
-	plasma.velocity = (plasma.velocity * 3000);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
-	plasma.angles = vectoangles (plasma.velocity);
+        makevectors (self.v_angle);
+        plasma.velocity = v_forward;
+        plasma.velocity = (plasma.velocity * 3000);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
+        plasma.angles = vectoangles (plasma.velocity);
 	}
 	plasma.touch = Plasma_Diffuse;
 	plasma.nextthink = (time + 5);
@@ -1081,6 +1112,58 @@ void( float w_heat ) W_FirePPistol =
 	
 	W_AddHeat ( self.weapon, ptake * 10);
 	
+};
+
+
+void () W_FirePlasmaRifle = {
+    local entity plasma;
+    local vector spread, dir, jitter;
+    spread = '0.02 0.02 0';
+
+    self.prifle_heat += 1;
+    sound (self, CHAN_WEAPON, "weapons/PR_fire.wav", 1, ATTN_NORM);
+
+
+    VK_smallkick(self);
+
+    self.ammo_prifle -= 1;
+    //if (self.ammo_prifle < 0)
+    //self.ammo_prifle = 0;
+    W_UpdateAmmoCounts(self);
+
+    plasma = spawn ();
+    /*
+     * originally 1 - mattthw.
+     * Gets multiplied *10 = 14.5 in Plasma_Diffuse(). If player has under 50 health it does
+     * x*10*0.25 = 3.5
+     */
+    plasma.health = 1.45;
+    plasma.owner = self;
+    plasma.movetype = 9;
+    plasma.solid = 2;
+
+    makevectors (self.v_angle);
+    traceline (self.origin, self.origin + v_forward*700000000, TRUE, self);
+    jitter_x = (crandom()*spread_x)*vlen(trace_endpos - self.origin);
+    jitter_y = (crandom()*spread_y)*vlen(trace_endpos - self.origin);
+    dir = normalize ((((self.origin + '0 0 -17') + (v_right * 10)) - (trace_endpos + jitter)));
+
+    //plasma.velocity =  v_forward + crandom()*spread_x*v_right + crandom()*spread_y*v_up;
+    plasma.velocity =  dir * -1;
+    plasma.velocity = (plasma.velocity * 6000);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
+    plasma.angles = vectoangles (plasma.velocity);
+    plasma.touch = Plasma_Diffuse;
+    plasma.nextthink = (time + 5);
+    plasma.think = Plasma_Diffuse;
+    setmodel (plasma, "progs/PL_BULL.spr");
+    setsize (plasma, '0 0 0', '0 0 0');
+    setorigin (plasma, ((self.origin + '0 0 5') + (v_right * 10)));
+    //setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));  //setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));
+
+    //W_StickyNadeLauncher();
+
+    W_AddHeat ( self.weapon, 8);
+            //self.weaponheat++;
 };
 
 /*
@@ -1116,7 +1199,7 @@ void () W_FireAR =
 
 	self.ammo_nails -= 1;
 	W_UpdateAmmoCounts(self);
-sound (self, CHAN_WEAPON, "weapons/ar1.wav", 1, ATTN_NORM); 
+    sound (self, CHAN_WEAPON, "weapons/ar1.wav", 1, ATTN_NORM);
 
 	self.punchangle_x = -2;
 	muzzleflash2(); //ar flash
@@ -1432,50 +1515,7 @@ void() W_FireNeedler =
 	}
 };
 
-void () W_FirePlasmaRifle =
-{
-	local entity plasma;
-	local vector spread, dir, jitter;
-	spread = '0.02 0.02 0';
-	
-	self.prifle_heat += 1;
-	sound (self, CHAN_WEAPON, "weapons/PR_fire.wav", 1, ATTN_NORM); 
-
-	
-	//VK_smallkick(self);
-		
-	self.ammo_prifle -= 1;
-	//if (self.ammo_prifle < 0)
-		//self.ammo_prifle = 0;
-	W_UpdateAmmoCounts(self);
-
-	plasma = spawn ();
-	plasma.health = 1;
-	plasma.owner = self;
-	plasma.movetype = 9;
-	plasma.solid = 2;
-	makevectors (self.v_angle);
-	traceline (self.origin, self.origin + v_forward*700000000, TRUE, self);
-	jitter_x = (crandom()*spread_x)*vlen(trace_endpos - self.origin);
-	jitter_y = (crandom()*spread_y)*vlen(trace_endpos - self.origin);
-	dir = normalize ((((self.origin + '0 0 -17') + (v_right * 10)) - (trace_endpos + jitter)));
-	//plasma.velocity =  v_forward + crandom()*spread_x*v_right + crandom()*spread_y*v_up;
-	plasma.velocity =  dir * -1;
-	plasma.velocity = (plasma.velocity * 6000);			// Note: needs sv_maxvelocity set to something like 10,000 at least!
-	plasma.angles = vectoangles (plasma.velocity);
-	plasma.touch = Plasma_Diffuse;
-	plasma.nextthink = (time + 5);
-	plasma.think = Plasma_Diffuse;
-	setmodel (plasma, "progs/PL_BULL.spr");
-	setsize (plasma, '0 0 0', '0 0 0');
-	setorigin (plasma, ((self.origin + '0 0 5') + (v_right * 10)));
-	//setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));  //setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));
-	
-	//W_StickyNadeLauncher();
-	
-	W_AddHeat ( self.weapon, 5);
-	//self.weaponheat++;
-};float(vector veca, vector vecb) crossproduct = 
+float(vector veca, vector vecb) crossproduct =
 {
 	local float result;
 	result = veca_x * vecb_y - vecb_x * veca_y;
@@ -1972,7 +2012,12 @@ void() W_UpdateWeapon =
 		self.items = self.items | IT_SHELLS;
 		self.ammo_type = AT_SHELLS;
 		break;
-	case WEAPON_AR:
+    case WEAPON_BR:
+        self.weaponmodel = "progs/v_nail.mdl";
+        self.items = self.items | IT_NAILS;
+        self.ammo_type = AT_NAILS;
+        break;
+    case WEAPON_AR:
 		self.weaponmodel = "progs/v_nail.mdl";	
 		self.items = self.items | IT_NAILS;
 		self.ammo_type = AT_NAILS;
@@ -2021,8 +2066,19 @@ void() W_UpdateWeapon =
 
 void(float weap) W_WeaponSwitch =
 {
-	if (self.weaponmodel != "" && self.weaponframe > 0 && self.weaponframe < 4)			// xavior: hackish - may need other checks in the future (frames 1 - 4 are generally firing frames)
-		return;
+//    bprint("weaponmodel=[");
+//    bprint(self.weaponmodel);
+//    bprint("] weaponframe=[");
+//    bprint(ftos(self.weaponframe));
+//    bprint("]\n");
+
+    // had to comment out. plasma rifle was not updating properly.
+    /*
+	if (self.weaponmodel != "" && self.weaponframe > 0 && self.weaponframe < 4)    {        // xavior: hackish - may need other checks in the future (frames 1 - 4 are generally firing frames)
+        bprint("early return in weapon switch");
+        return;
+    }
+    */
 
 	// skip weapon model/ammo_type update if this isn't a new weapon
 	if (self.weapon != weap)
@@ -2226,6 +2282,7 @@ void() W_Attack =
 				W_UpdateAmmoCounts(self);
 				self.weaponframe = 16;
 				player_reload1();
+                sound (self, CHAN_AUTO, "weapons/reload/overheat.wav", 1, ATTN_NORM);
 			}
 			else {
 				self.weaponframe = 1;
@@ -2261,19 +2318,18 @@ void() W_Attack =
 		self.weaponframe_time = time + 0.1;
 		break;
 	case WEAPON_PRIFLE:
-			if (self.exprifle >= 100) {
-			//if (self.weaponheat >= 100) {
-				self.wepanim = 0;
-				self.exprifle = 99;
-				W_UpdateAmmoCounts(self);
-				self.weaponframe = 1;
-				player_reload1();
-				sound (self, CHAN_AUTO, "weapons/Plsama Rifle/PR_overheat.wav", 1, ATTN_NORM);
-			}
+        if (self.exprifle >= 100) {
+            self.wepanim = 0;
+            self.exprifle = 99;
+            W_UpdateAmmoCounts(self);
+            self.weaponframe = 1;
+            player_reload1();
+            sound (self, CHAN_AUTO, "weapons/reload/overheat.wav", 1, ATTN_NORM);
+        }
 			
-		self.weaponframe = 1;
+		self.weaponframe = 0; // todo: should it be 1? weird bug on pickup new weapon while holding plasma rifle
 		self.wepanim = 1;
-		self.weaponframe_time = time + 0.065;
+		self.weaponframe_time = time + 0.2 /*0.065*/;
 		break;
 	case WEAPON_PISTOL:
 		muzzleflash();
@@ -2348,12 +2404,15 @@ void() W_Attack =
 		break;
 	case WEAPON_PRIFLE:
 		W_FirePlasmaRifle();
+        /*
+         * Who coded this? This is not how PR works lol. Settings all to 0.17 -mattthw
+         */
 		if (self.prifle_heat > 8)
-			r = 0.4;
+			r = 0.17; //0.4
 		else if (self.prifle_heat > 3)
-			r = 0.25;
+			r = 0.17;//0.25
 		else
-			r = 0.2;
+			r = 0.17;//0.2
 		break;
 	}
 
@@ -2493,8 +2552,11 @@ void() CycleWeaponCommand =
 			w = WEAPON_AR;
 			break;
 		case WEAPON_AR:
-			w = WEAPON_UZI;
+			w = WEAPON_BR;
 			break;
+        case WEAPON_BR:
+            w = WEAPON_UZI;
+            break;
 		case WEAPON_UZI:
 			w = WEAPON_SNIPER;
 			break;
@@ -2602,6 +2664,10 @@ void () reload =
 			{
 				return;			// No manual reload
 			}
+            case WEAPON_PRIFLE:
+            {
+                return; // No manual reload
+            }
 			default:
 			{
 				sound (self, CHAN_WEAPON, "weapons/reload/uzi.wav", 1, ATTN_NORM);
@@ -2954,22 +3020,23 @@ void() W_HandlePlayerFrame =
 	case WEAPON_PRIFLE:
         if (self.weaponframe > 3)		// assume that we're not firing and that animations should be handled in player.qc or elsewhere
             return;
-        if (self.exprifle >= 100) {
-        //if (self.weaponheat >= 100) {
-            self.wepanim = 0;
-            self.exprifle = 99;
-            W_UpdateAmmoCounts(self);
-            self.weaponframe = 1;
-            player_reload1();
-            #ifdef dppc
-            pointparticles(particleeffectnum("pr_OverHeat") ,self.origin, '0 0 1', 1);
-            #endif
+//        if (self.exprifle >= 100) {
+//            self.wepanim = 0;
+//            self.exprifle = 99;
+//            W_UpdateAmmoCounts(self);
+//            self.weaponframe = 1;
+//            player_reload1();
+//            #ifdef dppc
+//            pointparticles(particleeffectnum("pr_OverHeat") ,self.origin, '0 0 1', 1);
+//            #endif
             //sound (self, CHAN_AUTO, "weapons/Plsama Rifle/PR_overheat.wav", 1, ATTN_NORM);
-        }
+//        }
 			
 		self.weaponframe = 1;
-		self.wepanim = 1;
-		self.weaponframe_time = time + 0.065;
+//		self.wepanim = 1;
+		self.weaponframe_time = time + 0.2;
+        if (self.weaponframe > 3)
+            self.weaponframe = 0;
 		break;
 	default:
 		// Solitude

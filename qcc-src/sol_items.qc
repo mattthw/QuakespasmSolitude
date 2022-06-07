@@ -468,12 +468,12 @@ void () weapon_touch =
         other.canpick = 1;
         return;
             }
-        if (self.weapon == IT_NAILGUN)	//Assault rifle
+        if (self.weapon == WEAPON_AR)	//Assault rifle
         {
         stuffcmd (other, "cl_ww 1\n");
         }
 
-        else if (self.weapon == IT_LIGHTNING)//Plasma Pistol
+        else if (self.weapon == WEAPON_PPISTOL)//Plasma Pistol
         {
         stuffcmd (other, "cl_ww 2\n");
         }
@@ -483,7 +483,7 @@ void () weapon_touch =
         stuffcmd (other, "cl_ww 3\n");
         }
 
-        else if (self.weapon == IT_EXTRA_WEAPON)
+        else if (self.weapon == WEAPON_NEEDLER)
         {
         stuffcmd (other, "cl_ww 4\n");
         }
@@ -493,26 +493,29 @@ void () weapon_touch =
         stuffcmd (other, "cl_ww 5\n");
         }
 
-        else if (self.weapon == IT_SHOTGUN)
+        else if (self.weapon == WEAPON_PISTOL)
         {
         stuffcmd (other, "cl_ww 6\n");
         }
 
-        else if (self.weapon == IT_SUPER_NAILGUN)
+        else if (self.weapon == WEAPON_UZI)
         {
         stuffcmd (other, "cl_ww 7\n");
         }
 
-        else if (self.weapon == IT_GRENADE_LAUNCHER)
+        else if (self.weapon == WEAPON_SNIPER)
         {
         stuffcmd (other, "cl_ww 8\n");
         }
-        else if ((self.weapon == IT_BR))
+        else if ((self.weapon == WEAPON_BR))
         {
             stuffcmd(other, "cl_ww 9\n");
         }
         else if (self.weapon == WEAPON_SWORD) {
             stuffcmd(other, "cl_ww 10\n");
+        }
+        else if (self.weapon == WEAPON_PRIFLE) {
+            stuffcmd(other, "cl_ww 11\n");
         }
     }
 
