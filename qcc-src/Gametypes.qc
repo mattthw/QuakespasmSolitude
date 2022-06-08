@@ -202,10 +202,12 @@ void() Start_Weapon = {
             ==============================================================
             */
             case SLAYER: {
-                float primary_weapon = WEAPON_AR;
-                float secondary_weapon = WEAPON_PISTOL;
-                if (cvar("custom_primary")) {
-                    primary_weapon = cvar("custom_primary");
+                float primary_weapon = cvar("custom_primary");
+                float secondary_weapon = cvar("custom_secondary");
+                if (primary_weapon == 0) {
+                    // mod being used with an engine which does not understand our custom cvars. Let's set them up with defaults.
+                    primary_weapon = WEAPON_AR;
+                    secondary_weapon = WEAPON_PISTOL;
                 }
                 self.items = primary_weapon + secondary_weapon;
                 SetWeaponAmmo(self, primary_weapon);

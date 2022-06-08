@@ -201,6 +201,7 @@ void() worldspawn =
     precache_sound ("player/death1.wav");
     precache_sound ("player/death2.wav");
     precache_sound ("player/death3.wav");
+    precache_sound ("player/birthday.wav");
 
 	precache_sound ("misc/talk.wav");                       // talk
 	precache_sound ("player/teledth1.wav");         // telefrag

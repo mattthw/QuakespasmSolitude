@@ -85,7 +85,7 @@ void Draw_Cursor (int x, int y, int w, int h, bool focused); //johnfitz -- added
 void Draw_FadeScreen (void);
 void Draw_String (int x, int y, const char *str);
 void Draw_ColoredString (int x, int y, const char *str, float r, float g, float b, float a);
-void Draw_ColoredStringScale (int x, int y, const char *str, float r, float g, float b, float a, float s);
+float Draw_ColoredStringScale (int x, int y, const char *str, float r, float g, float b, float a, float s);
 qpic_t *Draw_PicFromWad2 (const char *name, unsigned int texflags);
 qpic_t *Draw_PicFromWad (const char *name);
 qpic_t *Draw_CachePic (const char *path);

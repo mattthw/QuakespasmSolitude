@@ -378,7 +378,7 @@ float (float t_wep) W_BulletDamage =
 // cliptype 0 = max extra ammo the player can carry
 float (float wep, float cliptype) W_GetMaxClip =
 {
-    if (cvar("infinite_ammo") && cliptype == 0) return 99999;
+    if (cvar("infinite_ammo") && cliptype == 0) return 99999; // todo: fix plasma* weapon's infinite_ammo
 	// solitude
 	switch (wep)
 	{

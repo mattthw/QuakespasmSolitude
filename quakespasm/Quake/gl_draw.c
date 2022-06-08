@@ -562,7 +562,7 @@ Draw_CharacterQuadScale
         Draw_CharacterQuad with scale parm
 ================
 */
-void Draw_CharacterQuadScale (int x, int y, char num, float s)
+float Draw_CharacterQuadScale (int x, int y, char num, float s)
 {
     int				row, col;
     float			frow, fcol, size;
@@ -582,6 +582,7 @@ void Draw_CharacterQuadScale (int x, int y, char num, float s)
     glVertex2f (x+(8*(s)), y+(8*(s)));
     glTexCoord2f (fcol, frow + (float)(size/s));
     glVertex2f (x, y+(8*(s)));
+    return size*8;
 }
 
 /*
@@ -901,8 +902,9 @@ Draw_ColoredStringScale
 Draw_ColoredString with scale parm
 ================
 */
-void Draw_ColoredStringScale (int x, int y, const char *str, float r, float g, float b, float a, float s)
+float Draw_ColoredStringScale (int x, int y, const char *str, float r, float g, float b, float a, float s)
 {
+    float ydiff = 0;
     if (y <= -8)
         return;			// totally off screen
 
@@ -917,7 +919,7 @@ void Draw_ColoredStringScale (int x, int y, const char *str, float r, float g, f
     while (*str)
     {
         if (*str != 32) //don't waste verts on spaces
-            Draw_CharacterQuadScale (x, y, *str, s);
+            ydiff = Draw_CharacterQuadScale (x, y, *str, s);
         str++;
         x += 8*s;
     }
@@ -928,6 +930,7 @@ void Draw_ColoredStringScale (int x, int y, const char *str, float r, float g, f
     glEnable (GL_ALPHA_TEST);
     glDisable (GL_BLEND);
     glColor4f (1,1,1,1);
+    return ydiff;
 }
 
 

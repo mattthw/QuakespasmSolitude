@@ -78,6 +78,9 @@ cvar_t	deathmatch = {"deathmatch","0",CVAR_SERVERINFO};	// 0, 1, or 2
 cvar_t	coop = {"coop","0",CVAR_SERVERINFO};			// 0 or 1
 cvar_t	map_weapons_disable = {"map_weapons_disable","0",CVAR_SERVERINFO};
 cvar_t  custom_primary = {"custom_primary", "0", CVAR_SERVERINFO};
+cvar_t  custom_secondary = {"custom_secondary", "1", CVAR_SERVERINFO};
+cvar_t  grunt_birthday_party = {"grunt_birthday_party", "0", CVAR_SERVERINFO};
+cvar_t  max_nades = {"max_nades", "4", CVAR_SERVERINFO};
 cvar_t  infinite_ammo = {"infinite_ammo", "0", CVAR_SERVERINFO};
 cvar_t	sol_gravity = {"sol_gravity","340",CVAR_SERVERINFO};
 cvar_t  sol_maxspeed = {"sol_maxspeed", "200", CVAR_SERVERINFO};
@@ -332,6 +335,9 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&deathmatch);
     Cvar_RegisterVariable (&map_weapons_disable);
     Cvar_RegisterVariable (&custom_primary);
+    Cvar_RegisterVariable (&custom_secondary);
+    Cvar_RegisterVariable (&grunt_birthday_party);
+    Cvar_RegisterVariable (&max_nades);
     Cvar_RegisterVariable (&infinite_ammo);
     Cvar_RegisterVariable (&sol_gravity);
     Cvar_RegisterVariable (&sol_maxspeed);

@@ -2665,7 +2665,9 @@ static void PF_cl_te_explosion2(void)
 	dl->radius = 350;
 	dl->die = cl.time + 0.5;
 	dl->decay = 300;
-	S_StartSound (-1, 0, S_PrecacheSound ("weapons/r_exp3.wav"), pos, 1, 1);
+/* 	S_StartSound (-1, 0, S_PrecacheSound ("weapons/r_birthday.wav"), pos, 1, 1);
+ * Sound is played in QuakeC code PlayerDie() instead.
+ * */
 }
 static void PF_sv_te_beam(void)
 {

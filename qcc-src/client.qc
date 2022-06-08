@@ -88,8 +88,9 @@ void() SetNewParms = {
     //parm13 = 90;
     parm14 = SVC_INTERMISSION;
     parm15 = 60;
-    if (deathmatch != SWAT)
-        parm16 = 4;
+    if (deathmatch != SWAT) {
+        parm16 = cvar("max_nades");
+    }
 };
 
 void() DecodeLevelParms = {

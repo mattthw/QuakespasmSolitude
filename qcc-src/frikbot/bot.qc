@@ -998,7 +998,7 @@ void(float whichteam, float whatbot, float whatskill) BotConnect =
 	}
     float usercolor = uself.colormap;
     float enemyteamcolor = 13; // blue
-    if (FindAnotherColor(uself.team - 1) == enemyteamcolor)
+    if (FindAnotherColor(uself.team - 1) == enemyteamcolor || FindAnotherColor(uself.team - 1) == 2 /* light blue */)
         enemyteamcolor = 4;
 	if (teamplay && !coop)
 	{

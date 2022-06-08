@@ -459,7 +459,18 @@ other = self;
 if (client.selnade == GRENADE_REGULAR)
 	{
 	stuffcmd (client, "cl_plasmanade 2\n");
-	if (client.nade_lives == 4)
+    /*
+     * Not possible to concat stuffcmd :(
+     */
+    if (client.nade_lives == 8)
+        stuffcmd (client, "cl_nadenum 8\n");
+    if (client.nade_lives == 7)
+        stuffcmd (client, "cl_nadenum 7\n");
+    if (client.nade_lives == 6)
+        stuffcmd (client, "cl_nadenum 6\n");
+    if (client.nade_lives == 5)
+        stuffcmd (client, "cl_nadenum 5\n");
+    if (client.nade_lives == 4)
 	stuffcmd (client, "cl_nadenum 4\n");
 	if (client.nade_lives == 3)
 	stuffcmd (client, "cl_nadenum 3\n");
@@ -473,6 +484,17 @@ if (client.selnade == GRENADE_REGULAR)
 else if (client.selnade == GRENADE_STICKY)
 	{
 	stuffcmd (client, "cl_plasmanade 1\n");
+    /*
+     * Not possible to concat stuffcmd :(
+     */
+    if (client.plasma_lives == 8)
+        stuffcmd (client, "cl_nadenum 8\n");
+    if (client.plasma_lives == 7)
+        stuffcmd (client, "cl_nadenum 7\n");
+    if (client.plasma_lives == 6)
+        stuffcmd (client, "cl_nadenum 6\n");
+    if (client.plasma_lives == 5)
+        stuffcmd (client, "cl_nadenum 5\n");
 	if (client.plasma_lives == 4)
 	stuffcmd (client, "cl_nadenum 4\n");
 	if (client.plasma_lives == 3)

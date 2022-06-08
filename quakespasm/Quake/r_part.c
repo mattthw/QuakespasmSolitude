@@ -408,7 +408,7 @@ void R_ParticleExplosion2 (vec3_t org, int colorStart, int colorLength)
 	particle_t	*p;
 	int			colorMod = 0;
 
-	for (i=0; i<512; i++)
+	for (i=0; i<128; i++)
 	{
 		if (!free_particles)
 			return;
@@ -417,7 +417,7 @@ void R_ParticleExplosion2 (vec3_t org, int colorStart, int colorLength)
 		p->next = active_particles;
 		active_particles = p;
 
-		p->die = cl.time + 0.3;
+		p->die = cl.time + 0.8;
 		p->color = colorStart + (colorMod % colorLength);
 		colorMod++;
 
@@ -425,7 +425,7 @@ void R_ParticleExplosion2 (vec3_t org, int colorStart, int colorLength)
 		for (j=0 ; j<3 ; j++)
 		{
 			p->org[j] = org[j] + ((rand()%32)-16);
-			p->vel[j] = (rand()%512)-256;
+			p->vel[j] = (rand()%4)-2;
 		}
 	}
 }

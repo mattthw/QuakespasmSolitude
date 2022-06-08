@@ -1592,20 +1592,26 @@ void() PlayerDie =
 
     Dead_Nades();
 
-    // death sound
-    if ((random() < 0.3))
-    {
-        sound(self, 2, "player/death1.wav", 0.9, 1);
-    }
-    else
-    {
-        if ((random() < 0.6))
+    if (cvar("grunt_birthday_party")) {
+        // play grunt party sound
+        sound(self, CHAN_VOICE, "player/birthday.wav", 0.9, ATTN_IDLE);
+        _te_explosion2(self.origin + '0 0 20', 144, 1);
+    } else {
+        // death sound
+        if ((random() < 0.3))
         {
-            sound(self, 2, "player/death2.wav", 0.9, 1);
+            sound(self, 2, "player/death1.wav", 0.9, 1);
         }
         else
         {
-            sound(self, 2, "player/death3.wav", 0.9, 1);
+            if ((random() < 0.6))
+            {
+                sound(self, 2, "player/death2.wav", 0.9, 1);
+            }
+            else
+            {
+                sound(self, 2, "player/death3.wav", 0.9, 1);
+            }
         }
     }
 
