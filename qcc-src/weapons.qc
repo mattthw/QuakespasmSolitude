@@ -2073,6 +2073,7 @@ void(float weap) W_WeaponSwitch =
 //    bprint(ftos(self.weaponframe));
 //    bprint("]\n");
 
+
     // had to comment out. plasma rifle was not updating properly.
     /*
 	if (self.weaponmodel != "" && self.weaponframe > 0 && self.weaponframe < 4)    {        // xavior: hackish - may need other checks in the future (frames 1 - 4 are generally firing frames)
@@ -2189,6 +2190,7 @@ void() W_Attack =
 	float r;
 	local float heat_multi, i;
 	local vector source;
+    local entity te, target;
 
 	if (!W_CanFire (self)) {
 		if (self.currentammo == 0) {
@@ -2298,11 +2300,52 @@ void() W_Attack =
 		// See if we should perform a lunge
 		makevectors (self.v_angle);
 		source = self.origin + '0 0 16';
-		traceline (source, source + v_forward*260, FALSE, self);
+        te = findradius(source + v_forward*200, 200);
+        while (te) {
+            if ((te.classname == "player" || te.flags & FL_MONSTER) && te.health > 0 && te != self) {
+                target = te;
+                bprint("found enemy!\n");
+            }
+            te = te.chain;
+        }
+//		traceline (source, target, FALSE, self);
 		
-		if (trace_ent.classname == "player" && trace_ent.health > 0) {
-			self.weaponframe = 9;
-			self.velocity = v_forward*640;
+		if (target.classname == "player" && target.health > 0) {
+            bprint("target: ");bprint(target.netname);bprint("\n");
+            //set frame for right lunge animation
+            self.weaponframe = 9;
+            // calculate lunge direction
+            float oldangle = anglemod(self.angles_y);
+            float newangle = vectoyaw(target.origin - self.origin);
+            float change = newangle - oldangle;
+            bprint("change: ");bprint(ftos(change));bprint("\n");
+            //and make sure the range is sane - specifically adjust it so it can cope with the fact that angles wrap.
+            while (change > 180)
+                change = change - 360;
+            while (change < -180)
+                change = change + 360;
+//            //now clamp the change to the maximum angle change allowed maxchange could be changepersec*frametime if your entity is thinking at a variable framerate.
+            if (change < -90)
+                change = -90;
+            if (change > 90)
+                change = 90;
+            float tmp_yaw = anglemod(self.angles_y);
+            bprint("current yaw = ");bprint(ftos(tmp_yaw));bprint("\n");
+            //and calculate the new angle.
+            newangle = oldangle + change;
+            // make character turn to new angle
+            self.ideal_yaw = newangle;
+            bprint("ideal yaw = ");bprint(ftos(self.ideal_yaw));bprint("\n");
+            self.yaw_speed = 35;
+            bprint("ChangeYaw()...");bprint("\n");
+            ChangeYaw();
+            tmp_yaw = anglemod(self.angles_y);
+            bprint("current yaw = ");bprint(ftos(tmp_yaw));bprint("\n");
+            bprint("self name = ");bprint(self.netname);bprint("\n");
+            self.fixangle = TRUE;
+            // move forward
+			self.velocity = v_forward*700;
+            //play sound
             sound (self, CHAN_WEAPON, "weapons/sword.wav", 1, ATTN_NORM);
 		}
 		else {
@@ -2541,44 +2584,45 @@ void() CycleWeaponCommand =
 
 	while (1)
 	{
-		switch (w)
-		{
-		case WEAPON_PPISTOL:
-			w = WEAPON_PISTOL;
-			break;
-		case WEAPON_PISTOL:
-			w = WEAPON_SHOT;
-			break;
-		case WEAPON_SHOT:
-			w = WEAPON_AR;
-			break;
-		case WEAPON_AR:
-//			w = WEAPON_BR; todo: fix me. commenting this out prevents bad BR state. weapon not supported yet.
-//			break;
-//        case WEAPON_BR:
-            w = WEAPON_UZI;
-            break;
-		case WEAPON_UZI:
-			w = WEAPON_SNIPER;
-			break;
-		case WEAPON_SNIPER:
-			w = IT_ROCKET_LAUNCHER;
-			break;
-		case IT_ROCKET_LAUNCHER:
-			w = WEAPON_NEEDLER;
-			break;
-		case WEAPON_NEEDLER:
-			w = WEAPON_PRIFLE;
-			break;
-		case WEAPON_PRIFLE:
-			w = WEAPON_SKULL;
-			break;
-		case WEAPON_SKULL:
-            w = WEAPON_SWORD;
-            break;
-        case WEAPON_SWORD:
-			w = WEAPON_PPISTOL;
-			break;
+		switch (w) {
+            case WEAPON_PPISTOL:
+                w = WEAPON_PISTOL;
+                break;
+            case WEAPON_PISTOL:
+                w = WEAPON_SHOT;
+                break;
+            case WEAPON_SHOT:
+                w = WEAPON_AR;
+                break;
+            case WEAPON_AR:
+    //			w = WEAPON_BR; todo: fix me. commenting this out prevents bad BR state. weapon not supported yet.
+    //			break;
+    //        case WEAPON_BR:
+                w = WEAPON_UZI;
+                break;
+            case WEAPON_UZI:
+                w = WEAPON_SNIPER;
+                break;
+            case WEAPON_SNIPER:
+                w = IT_ROCKET_LAUNCHER;
+                break;
+            case IT_ROCKET_LAUNCHER:
+                w = WEAPON_NEEDLER;
+                break;
+            case WEAPON_NEEDLER:
+                w = WEAPON_PRIFLE;
+                break;
+            case WEAPON_PRIFLE:
+                w = WEAPON_SKULL;
+                break;
+            case WEAPON_SKULL:
+                w = WEAPON_SWORD;
+                break;
+            case WEAPON_SWORD:
+                w = WEAPON_PPISTOL;
+                break;
+            default:
+                bprint("ERROR: Weapon not found!\n");
 		}
 	
 		if ( (self.items & w) /*&& W_HasAmmo(w)*/ )
@@ -2743,143 +2787,142 @@ void() ImpulseCommands =
 {
 	if (self.impulse == 203)
 		make_bot_cam();
-     	switch (self.impulse) {
-	case 1 .. 8:
-		W_ChangeWeapon ();
-		break;
-	case 9:
-		CheatCommand ();
-		break;
-	case 10:
-		CycleWeaponCommand();
-		pre_player_pull(self);
-		break;
-	case 11:
-		WeaponZoom ();
-		break;
-	case 13:
-		W_UpdateAmmoCounts(self);
-		if (self.pickup_time > time) {
-			self.canpickup_time = time + .1;
-			return;
-		}
-		if (self.pickup_time > time) {
-			self.canpickup_time = time + .1;
-			return;
-		}
-//		if (time < self.attack_finished)
-//			return;	
-		self.pfov = FOV_DEFAULT;		
-		Set_FOV ( FOV_DEFAULT );
-		reload ();
-		break;
-	case 29:
-	{
-        if (self.weapon == WEAPON_SWORD) {
-            self.button0 = TRUE; // energy sword melee should just use the attack functions
-        }
-		self.pfov = FOV_DEFAULT;
-		Set_FOV ( FOV_DEFAULT );
-		pre_player_melee ();
-		break;
-	}
-	case 27:
-	{
-        if (deathmatch == SWAT) {
-            self.impulse = 11;
-            return;
-        }
-
-        if (self.selnade == 1) {
-            if (self.nade_lives <= 0)
-            return;
-            self.nade_lives = self.nade_lives;
-            self.selnade = 0;
-            NadeCounter(self);
-            sound (self, CHAN_WEAPON, "weapons/grenpick.wav", 1, ATTN_NORM);
-
-        }
-        else
+    switch (self.impulse) {
+        case 1 .. 8:
+            W_ChangeWeapon ();
+            break;
+        case 9:
+            CheatCommand ();
+            break;
+        case 10:
+            CycleWeaponCommand();
+            pre_player_pull(self);
+            break;
+        case 11:
+            WeaponZoom ();
+            break;
+        case 13:
+            W_UpdateAmmoCounts(self);
+            if (self.pickup_time > time) {
+                self.canpickup_time = time + .1;
+                return;
+            }
+            if (self.pickup_time > time) {
+                self.canpickup_time = time + .1;
+                return;
+            }
+    //		if (time < self.attack_finished)
+    //			return;
+            self.pfov = FOV_DEFAULT;
+            Set_FOV ( FOV_DEFAULT );
+            reload ();
+            break;
+        case 29: // melee
         {
-            if (self.selnade == 0) {
-                if (self.plasma_lives <= 0)
-                    return;
-                self.plasma_lives = self.plasma_lives;
-                self.selnade = 1;
+            if (self.weapon == WEAPON_SWORD) {
+                self.button0 = TRUE; // energy sword melee should just use the attack functions
+            }
+            self.pfov = FOV_DEFAULT;
+            Set_FOV ( FOV_DEFAULT );
+            pre_player_melee ();
+            break;
+        }
+        case 27:
+        {
+            if (deathmatch == SWAT) {
+                self.impulse = 11;
+                return;
+            }
+
+            if (self.selnade == 1) {
+                if (self.nade_lives <= 0)
+                return;
+                self.nade_lives = self.nade_lives;
+                self.selnade = 0;
                 NadeCounter(self);
-                sound (self, CHAN_WEAPON, "weapons/pbounce.wav", 1, ATTN_NORM);
+                sound (self, CHAN_WEAPON, "weapons/grenpick.wav", 1, ATTN_NORM);
+
+            }
+            else
+            {
+                if (self.selnade == 0) {
+                    if (self.plasma_lives <= 0)
+                        return;
+                    self.plasma_lives = self.plasma_lives;
+                    self.selnade = 1;
+                    NadeCounter(self);
+                    sound (self, CHAN_WEAPON, "weapons/pbounce.wav", 1, ATTN_NORM);
+                }
+            }
+            break;
+        }
+
+        case 28:	//Limiter for stopping a Nade throw if you don't have enough nades.
+        {
+            if (deathmatch == SWAT)
+            {
+                if (self.ishuman == TRUE)//Bots can't slowmo
+                self.impulse = 39;
+                return;
+            }
+
+            if (self.attack_finished > time)
+                return;
+            self.pfov = FOV_DEFAULT;
+            Set_FOV ( FOV_DEFAULT );
+            if (self.selnade == 0 && self.nade_lives == 0)
+            {
+                self.impulse = 27;
+                return;
+            }
+            else if (self.selnade == 1 && self.plasma_lives == 0)
+            {
+                self.impulse = 27;
+                return;
+            }
+            if (self.selnade == GRENADE_REGULAR)
+            {
+                if (self.nade_lives != 0)
+                {
+                pre_player_throw_grenade ();
+                self.nade_lives -= 1;
+                NadeCounter(self);
+                return;
+                }
+                else
+                centerprint (self, "No Grenades\n");
+            } else {
+                if (self.plasma_lives != 0) {
+                    pre_player_throw_grenade ();
+                    self.plasma_lives -= 1;
+                    NadeCounter(self);
+                    return;
+                } else {
+                    centerprint (self, "No Plasma Grenades\n");
+                }
+            }
+            self.attack_finished = time + 2;
+            break;
+        }
+        case 39:
+        {
+
+            if (SLOWMO_TOGGLE == OFF)
+            {
+                SLOWMO_TOGGLE = ON;
+                self.slowmo_flags = SLOWMO_ABLE;
+            }
+            else
+            {
+                SLOWMO_TOGGLE = OFF;
+                localcmd ("cl_overlay 0\n");
+                localcmd ("cl_activate 0\n");
+                localcmd ("host_framerate 0\n");
+                Update_Slowmo(self);
+                self.slowmo_flags = SLOWMO_UNABLE;
             }
         }
         break;
-	}
-	
-	case 28:	//Limiter for stopping a Nade throw if you don't have enough nades.
-	{
-	if (deathmatch == SWAT)
-		{
-		if (self.ishuman == TRUE)//Bots can't slowmo
-		self.impulse = 39;
-		return;
-		}
-
-		if (self.attack_finished > time)
-		return;
-		self.pfov = FOV_DEFAULT;
-		Set_FOV ( FOV_DEFAULT );
-	if (self.selnade == 0 && self.nade_lives == 0)
-	{
-	self.impulse = 27;
-	return;
-	}
-	else if (self.selnade == 1 && self.plasma_lives == 0)
-	{
-	self.impulse = 27;
-	return;
-	}
-	if (self.selnade == GRENADE_REGULAR)
-	{
-		if (self.nade_lives != 0) 
-		{
-		pre_player_throw_grenade ();
-		self.nade_lives -= 1;
-		NadeCounter(self);
-		return; 
-		}
-		else
-		centerprint (self, "No Grenades\n");
-	}
-	else
-	{	
-	if (self.plasma_lives != 0) {
-		pre_player_throw_grenade ();
-		self.plasma_lives -= 1;
-		NadeCounter(self);
-		return; }
-		else
-		centerprint (self, "No Plasma Grenades\n");
-	}
-	self.attack_finished = time + 2;
-	break;
-	}
-	case 39:
-		{
-	
-	if (SLOWMO_TOGGLE == OFF)
-	{
-	SLOWMO_TOGGLE = ON;
-	self.slowmo_flags = SLOWMO_ABLE;
-	}
-	else
-	{
-	SLOWMO_TOGGLE = OFF;
-	localcmd ("cl_overlay 0\n");
-	localcmd ("cl_activate 0\n");
-	localcmd ("host_framerate 0\n");
-	Update_Slowmo(self);
-	self.slowmo_flags = SLOWMO_UNABLE;
-	}
-		}
-	break;
 	}
 
 

@@ -314,6 +314,7 @@ float 	IT_EXTRA_WEAPON2				= 8388608;			// solitude
 float 	IT_SKULL				        = 16777216;			// solitude
 float   IT_GHOST                        = 33554432; // Solitude
 float   IT_FLAG                         = 67108864; // solitude
+float   IT_NONE                         = 134217728; //solitude- used to indicate we DON'T want a secondary
 
 float   IT_SHELLS                               = 256;
 float   IT_NAILS                                = 512;
@@ -852,6 +853,8 @@ BOOL(entity targ, entity inflictor) CanDamage;
 //.float groundwep;		//For weapon pickup Icons
 .float reloading;
 //.float reset;
+#define WEAPON_NONE 6999901
+#define WEAPON_NOT_SET 0
 /*
 ============================================
 Firefight Defs

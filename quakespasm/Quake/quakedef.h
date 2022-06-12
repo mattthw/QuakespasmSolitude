@@ -396,12 +396,15 @@ typedef enum InpType {
     SELECT_SCROLL = 3,
     SELECT_DELETE = 4,
     SELECT_SCROLL_MAPS = 5,
+    SCROLL_RULES = 6,
+    SELECT_RULES = 7
 } InpType;
 
-#define IT_EXTRA_WEAPON2			 8388608			// solitude
-#define IT_SKULL				     16777216			// solitude
-#define IT_GHOST                       33554432 // Solitude
-#define IT_FLAG                        67108864 // solitude
+#define IT_EXTRA_WEAPON2			8388608	    // solitude
+#define IT_SKULL				    16777216	// solitude
+#define IT_GHOST                    33554432    // Solitude
+#define IT_FLAG                     67108864    // solitude
+#define IT_NONE                     134217728   // solitude
 // weapons
 #define WEAPON_SWORD		IT_AXE
 #define WEAPON_PISTOL		IT_SHOTGUN
@@ -417,6 +420,8 @@ typedef enum InpType {
 #define WEAPON_BR           IT_BR
 #define WEAPON_GHOST        IT_GHOST
 #define WEAPON_FLAG         IT_FLAG
+#define WEAPON_NONE         IT_NONE
+#define WEAPON_NOT_SET      0
 
 #endif	/* QUAKEDEFS_H */
 

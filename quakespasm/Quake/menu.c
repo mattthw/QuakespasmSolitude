@@ -2385,8 +2385,6 @@ extern cvar_t sv_public;
 
 //========= || MATCHMAKING || ============
 
-size_t		mlist_cursor;
-size_t		mlist_first;
 int	startepisode;
 int	startlevel,prevlevel,nextlevel;
 int maxplayers;
@@ -2445,6 +2443,20 @@ struct opts_t opts = {
         .sol_jump = DEFAULT_JUMP // todo: pull from cvar_t
 };
 
+void resetGameRules() {
+    opts.custom_primary = 0;
+    opts.custom_secondary = 1;
+    opts.map_weapons_disable = 0;
+    opts.infinite_ammo = 0;
+    opts.fraglimit = 4;
+    opts.skill = 1;
+    opts.max_nades = 4;
+    opts.grunt_birthday_party = 0;
+    opts.sol_jump = DEFAULT_JUMP;
+    opts.sol_gravity = DEFAULT_GRAVITY;
+    opts.sol_maxspeed = DEFAULT_SPEED;
+}
+
 typedef struct custom_weapon_t {
     int weapon;
     char *name;
@@ -2460,6 +2472,19 @@ struct custom_weapon_t gamerule_weapons[] = {
         {WEAPON_PPISTOL, "Plasma Pistol"},
         {WEAPON_PRIFLE, "Plasma Rifle"},
         {WEAPON_SKULL, "Skull"}
+};
+struct custom_weapon_t gamerule_weapons_secondary[] = {
+        {WEAPON_AR, "Assault Rifle"},
+        {WEAPON_PISTOL, "Pistol"},
+        {WEAPON_SWORD, "Energy Sword"},
+        {WEAPON_SHOT, "Shotgun"},
+        {WEAPON_UZI, "SMG"},
+        {WEAPON_SNIPER, "Sniper"},
+        {WEAPON_RL, "Rocket Launcher"},
+        {WEAPON_PPISTOL, "Plasma Pistol"},
+        {WEAPON_PRIFLE, "Plasma Rifle"},
+        {WEAPON_SKULL, "Skull"},
+        {134217728, "None"}
 };
 
 /*
@@ -2521,11 +2546,16 @@ char* drawDifficulty(int f) {
 /**
  * Custom rules for the custom games lobby such as snipers only, infinite ammo, etc.
  */
-int gamerules_cursor = 0;
+size_t		gamerules_cursor;
+size_t		gamerules_first;
+float vertical_gamerules_affordance = 8;
+float rule_list_size = 11; //Should equal sizeof(rule_titles)/sizeof(rule_titles[0])
 void M_Matchmaking_Gamerules_f (void) {
     key_dest = key_menu;
     m_state = m_matchmaking_gamerules;
     m_entersound = true;
+    gamerules_cursor = 0;
+    gamerules_first = 0;
     IN_UpdateGrabs();
 }
 void M_Matchmaking_Gamerules_Draw (void) {
@@ -2536,40 +2566,60 @@ void M_Matchmaking_Gamerules_Draw (void) {
     // now draw this menu
     m_state = m_matchmaking_gamerules;
 
-    // background tint
-    Draw_Fill(0,0,1000,1000, BLACK, 0.667);
-
-    // window
-    struct MenuCoords coords = Draw_WindowGrid("Custom Game Rules", 11, MVS_P, 2, 0.35, 1.0, gamerules_cursor, true);
-    // footer
-    switch (gamerules_cursor) {
-        case 7:
-            M_Draw_Hint(SELECT, coords);
-            break;
-        default:
-            M_Draw_Hint(SCROLL, coords);
-
-    }
+    // create game option display data before drawing
     char str_nades[20];
     char str_grav[20];
     char str_speed[20];
     char str_jump[20];
-    // options
-    M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Primary Weapon");        M_Print (coords.grid[1][0].xp, coords.grid[1][0].yp, gamerule_weapons[opts.custom_primary].name);
-    M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Secondary Weapon");      M_Print (coords.grid[1][1].xp, coords.grid[1][1].yp, gamerule_weapons[opts.custom_secondary].name);
-    M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][2].yp, "Disable Ground Weapons");M_Print (coords.grid[1][1].xp, coords.grid[1][2].yp, drawRuleData(opts.map_weapons_disable));
-    M_PrintWhite (coords.grid[0][3].xp, coords.grid[0][3].yp, "Difficulty");            M_Print (coords.grid[1][3].xp, coords.grid[1][3].yp, drawDifficulty(opts.skill));
     M_itoa(opts.max_nades, str_nades);
-    M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][4].yp, "Maximum Grenades");      M_Print (coords.grid[1][1].xp, coords.grid[1][4].yp, str_nades);
-    M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][5].yp, "Infinite Ammo");         M_Print (coords.grid[1][2].xp, coords.grid[1][5].yp, drawRuleData(opts.infinite_ammo));
-    M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][6].yp, "Grunt Birthday Party");  M_Print (coords.grid[1][1].xp, coords.grid[1][6].yp, drawRuleData(opts.grunt_birthday_party));
     M_itoa(opts.sol_gravity, str_grav);
-    M_PrintWhite (coords.grid[0][4].xp, coords.grid[0][7].yp, "Gravity");               M_Print (coords.grid[1][4].xp, coords.grid[1][7].yp, str_grav);
     M_itoa(opts.sol_maxspeed, str_speed);
-    M_PrintWhite (coords.grid[0][5].xp, coords.grid[0][8].yp, "Max Speed");             M_Print (coords.grid[1][5].xp, coords.grid[1][8].yp, str_speed);
     M_itoa(opts.sol_jump, str_jump);
-    M_PrintWhite (coords.grid[0][6].xp, coords.grid[0][9].yp, "Jump");                  M_Print (coords.grid[1][6].xp, coords.grid[1][9].yp, str_jump);
-    M_PrintWhite (coords.grid[0][7].xp, coords.grid[0][10].yp, "Reset to Defaults");
+    struct rule_option_t {
+        char* name;
+        char* value;
+    } rule_option_t;
+    struct rule_option_t rule_titles[11] = {
+            {"Primary Weapon",gamerule_weapons[opts.custom_primary].name},
+            {"Secondary Weapon",gamerule_weapons_secondary[opts.custom_secondary].name},
+            {"Disable Ground Weapons",drawRuleData(opts.map_weapons_disable)},
+            {"Difficulty", drawDifficulty(opts.skill)},
+            {"Maximum Grenades", str_nades},
+            {"Infinite Ammo", drawRuleData(opts.infinite_ammo)},
+            {"Grunt Birthday Party", drawRuleData(opts.grunt_birthday_party)},
+            {"Gravity", str_grav},
+            {"Max Speed", str_speed},
+            {"Jump", str_jump},
+            {"Reset to Defaults", ""}};
+
+    // setup scrolling cursor
+    size_t	gamerules_shown;
+    gamerules_shown = sizeof(rule_titles)/sizeof(rule_titles[0]);
+    if (gamerules_shown > vertical_gamerules_affordance)
+        gamerules_shown = vertical_gamerules_affordance;
+    if (gamerules_first+gamerules_shown-1 < gamerules_cursor)
+        gamerules_first = gamerules_cursor-(gamerules_shown-1);
+    if (gamerules_first > gamerules_cursor)
+        gamerules_first = gamerules_cursor;
+
+    // background tint
+    Draw_Fill(0,0,1000,1000, BLACK, 0.667);
+
+    // window
+    struct MenuCoords coords = Draw_WindowGrid("Custom Game Rules", vertical_gamerules_affordance, MVS_P, 2, 0.35, 1.0, gamerules_cursor-gamerules_first, true);
+    // footer
+    switch (gamerules_cursor) {
+        case 10:
+            M_Draw_Hint(SELECT_RULES, coords);
+            break;
+        default:
+            M_Draw_Hint(SCROLL_RULES, coords);
+    }
+
+    // draw rules
+    for (int n = 0; n < gamerules_shown; n++) {
+        M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, rule_titles[gamerules_first+n].name);        M_Print (coords.grid[1][n].xp, coords.grid[1][n].yp, rule_titles[gamerules_first+n].value);
+    }
 }
 
 void M_Matchmaking_Gamerules_Submenu_Key (int dir) {
@@ -2579,15 +2629,15 @@ void M_Matchmaking_Gamerules_Submenu_Key (int dir) {
             opts.custom_primary += dir;
             if (opts.custom_primary >= sizeof(gamerule_weapons)/sizeof(gamerule_weapons[0]))
                 opts.custom_primary = 0;
-            if (opts.custom_primary < 0)
+            if (opts.custom_primary < 0 && dir < 0)
                 opts.custom_primary = sizeof(gamerule_weapons)/sizeof(gamerule_weapons[0])-1;
             break;
         case 1: //custom secondary
-            opts.custom_secondary += dir;
-            if (opts.custom_secondary >= sizeof(gamerule_weapons)/sizeof(gamerule_weapons[0]))
+//            opts.custom_secondary += dir; todo: fix custom secondary QuakeC code
+            if (opts.custom_secondary >= sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0]))
                 opts.custom_secondary = 0;
-            if (opts.custom_secondary < 0)
-                opts.custom_secondary = sizeof(gamerule_weapons)/sizeof(gamerule_weapons[0])-1;
+            if (opts.custom_secondary < 0 && dir < 0)
+                opts.custom_secondary = sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0])-1;
             break;
         case 2: //ground weapons
             opts.map_weapons_disable += dir;
@@ -2651,6 +2701,8 @@ void M_Matchmaking_Gamerules_Key (int key) {
     switch (key)
     {
         case K_YBUTTON: // triangle
+            resetGameRules();
+            break;
         case K_BBUTTON: // circle
         case 'n':
         case 'N':
@@ -2673,17 +2725,7 @@ void M_Matchmaking_Gamerules_Key (int key) {
             switch (gamerules_cursor) {
                 case 10:
                 {
-                    opts.custom_primary = 0;
-                    opts.custom_secondary = 1;
-                    opts.map_weapons_disable = 0;
-                    opts.infinite_ammo = 0;
-                    opts.fraglimit = 4;
-                    opts.skill = 1;
-                    opts.max_nades = 4;
-                    opts.grunt_birthday_party = 0;
-                    opts.sol_jump = DEFAULT_JUMP;
-                    opts.sol_gravity = DEFAULT_GRAVITY;
-                    opts.sol_maxspeed = DEFAULT_SPEED;
+                    resetGameRules();
                     break;
                 }
             }
@@ -2693,13 +2735,13 @@ void M_Matchmaking_Gamerules_Key (int key) {
         case K_UPARROW:
             S_LocalSound ("misc/menuoption.wav");
             gamerules_cursor--;
-            if (gamerules_cursor < 0)
+            if (gamerules_cursor >= rule_list_size)
                 gamerules_cursor = 10;
             break;
         case K_DOWNARROW:
             S_LocalSound ("misc/menuoption.wav");
             gamerules_cursor++;
-            if (gamerules_cursor > 10)
+            if (gamerules_cursor >= rule_list_size)
                 gamerules_cursor = 0;
             break;
         case K_LTRIGGER:
@@ -2718,6 +2760,9 @@ void M_Matchmaking_Gamerules_Key (int key) {
     }
 }
 
+size_t		mlist_cursor;
+size_t		mlist_first;
+float vertical_mlist_affordance = 10;
 const char *M_listPrintMap (size_t index) {
 
     static char	string[64];
@@ -2748,10 +2793,11 @@ void M_Matchmaking_Map_Draw (void) {
     // now draw this menu
     m_state = m_matchmaking_map;
 
+    // setup scrolling cursor
     size_t	mlist_shown;
     mlist_shown = episodes[startepisode].levels;
-    if (mlist_shown > 10)
-        mlist_shown = 10;
+    if (mlist_shown > vertical_mlist_affordance)
+        mlist_shown = vertical_mlist_affordance;
     if (mlist_first+mlist_shown-1 < mlist_cursor)
         mlist_first = mlist_cursor-(mlist_shown-1);
     if (mlist_first > mlist_cursor)
@@ -2763,9 +2809,9 @@ void M_Matchmaking_Map_Draw (void) {
     static char title[128];
     q_snprintf(title, sizeof(title), "%-18.18s [%-15.15s]\n", "Map Selection", episodes[startepisode].description);
     // window
-    struct MenuCoords coords = Draw_WindowGrid(title, 10, MVS_P, 2, 0.35, 1.0, mlist_cursor-mlist_first, true);
+    struct MenuCoords coords = Draw_WindowGrid(title, vertical_mlist_affordance, MVS_P, 2, 0.35, 1.0, mlist_cursor-mlist_first, true);
     //footer
-    switch (mlist_cursor-mlist_first) {
+    switch (mlist_cursor) {
         default:
             M_Draw_Hint(SELECT_SCROLL_MAPS, coords);
     }
@@ -2775,27 +2821,27 @@ void M_Matchmaking_Map_Draw (void) {
     }
     // map thumbnail
     char format[10];
-    if (usetarga(episodes[startepisode].firstLevel + (mlist_cursor-mlist_first))) {
+    if (usetarga(episodes[startepisode].firstLevel + (mlist_cursor))) {
         strcpy(format, "tga");
     } else {
         strcpy(format, "lmp");
     }
-    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].thumbnail, format));
+    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[startepisode].firstLevel + (mlist_cursor)].thumbnail, format));
     Draw_StretchPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic, coords.colw, coords.rowh*5);
 
     // map bio
     int map_y = coords.grid[1][5].yp;
     M_Print(coords.grid[1][5].x, coords.grid[1][5].yp, "Map Description:");
     map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[0]);
+    M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio[0]);
     map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[1]);
+    M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio[1]);
     map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][5].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[2]);
+    M_PrintWhite (coords.grid[1][5].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio[2]);
     map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][5].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].mapBio[3]);
+    M_PrintWhite (coords.grid[1][5].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio[3]);
     M_Print(coords.grid[1][8].x, coords.grid[1][8].yp, "Author:");
-    M_PrintWhite (coords.grid[1][9].xp, coords.grid[1][8].yp + CHARZ*1.5, levels[episodes[startepisode].firstLevel + (mlist_cursor-mlist_first)].author);
+    M_PrintWhite (coords.grid[1][9].xp, coords.grid[1][8].yp + CHARZ*1.5, levels[episodes[startepisode].firstLevel + (mlist_cursor)].author);
 }
 
 
@@ -2829,7 +2875,7 @@ void M_Matchmaking_Map_Key (int key) {
         case 'y':
         case 'Y':
             chosen_level.episode = startepisode;
-            chosen_level.level = mlist_cursor-mlist_first;
+            chosen_level.level = mlist_cursor;
             m_state = m_gameoptions;
             cursorfocused = true;
             S_LocalSound ("misc/menuoption.wav");
@@ -2905,6 +2951,21 @@ void M_Draw_Hint (int type, struct MenuCoords mc) {
         M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "    Back    Select");
         Draw_Button(mc.grid[0][mc.rows].xp + 1*CHARZ, mc.grid[0][mc.rows].yp, b_bbutton);
         Draw_Button(mc.grid[0][mc.rows].xp + 9*CHARZ, mc.grid[0][mc.rows].yp, b_abutton);
+    }else if (type == SCROLL_RULES) {
+        M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "    Back      Change       Scroll     Defaults");
+        Draw_Button(mc.grid[0][mc.rows].xp + 1*CHARZ, mc.grid[0][mc.rows].yp, b_bbutton);
+        Draw_Button(mc.grid[0][mc.rows].xp + 9*CHARZ, mc.grid[0][mc.rows].yp, b_left);
+        Draw_Button(mc.grid[0][mc.rows].xp + 11*CHARZ, mc.grid[0][mc.rows].yp, b_right);
+        Draw_Button(mc.grid[0][mc.rows].xp + 22*CHARZ, mc.grid[0][mc.rows].yp, b_up);
+        Draw_Button(mc.grid[0][mc.rows].xp + 24*CHARZ, mc.grid[0][mc.rows].yp, b_down);
+        Draw_Button(mc.grid[0][mc.rows].xp + 35*CHARZ, mc.grid[0][mc.rows].yp, b_xbutton); // triangle
+    } else if (type == SELECT_RULES) {
+        M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "    Back      Select       Scroll     Defaults");
+        Draw_Button(mc.grid[0][mc.rows].xp + 1*CHARZ, mc.grid[0][mc.rows].yp, b_bbutton); // o
+        Draw_Button(mc.grid[0][mc.rows].xp + 11*CHARZ, mc.grid[0][mc.rows].yp, b_abutton); // x
+        Draw_Button(mc.grid[0][mc.rows].xp + 22*CHARZ, mc.grid[0][mc.rows].yp, b_up);
+        Draw_Button(mc.grid[0][mc.rows].xp + 24*CHARZ, mc.grid[0][mc.rows].yp, b_down);
+        Draw_Button(mc.grid[0][mc.rows].xp + 35*CHARZ, mc.grid[0][mc.rows].yp, b_xbutton); // triangle
     } else if (type == INPUT) {
         M_PrintWhite (mc.grid[0][mc.rows].xp, mc.grid[0][mc.rows].yp, "    Back    Edit    Delete");
         Draw_Button(mc.grid[0][mc.rows].xp + 1*CHARZ, mc.grid[0][mc.rows].yp, b_bbutton);
@@ -3026,7 +3087,7 @@ void M_Matchmaking_Submenu_Key (int dir)
             opts.gametype += dir;
             if (opts.gametype > 2)
                 opts.gametype = 0;
-            if (opts.gametype < 0)
+            if (opts.gametype < 0 && dir < 0)
                 opts.gametype = 2;
             break;
         case 2: //score limit
@@ -3143,7 +3204,7 @@ void M_Matchmaking_Key (int key)
                 Cbuf_AddText(va ("grunt_birthday_party %u\n", (int)opts.grunt_birthday_party));
                 Cbuf_AddText(va ("max_nades %u\n", (int)opts.max_nades));
                 Cbuf_AddText(va ("custom_primary %u\n", gamerule_weapons[(int)opts.custom_primary].weapon));
-                Cbuf_AddText(va ("custom_secondary %u\n", gamerule_weapons[(int)opts.custom_secondary].weapon));
+                Cbuf_AddText(va ("custom_secondary %u\n", gamerule_weapons_secondary[(int)opts.custom_secondary].weapon));
                 Cbuf_AddText(va ("sol_gravity %u\n", (int)opts.sol_gravity));
                 Cbuf_AddText(va ("sol_maxspeed %u\n", (int)opts.sol_maxspeed));
                 Cbuf_AddText(va ("sol_jump %u\n", (int)opts.sol_jump));
@@ -3387,7 +3448,7 @@ void M_ServerList_Draw (void)
 	}
 
 	slist_shown = hostCacheCount;
-	if (slist_shown > (200-50)/CHARZ)
+	if (slist_shown > (200-50)/CHARZ) // vertical size max
 		slist_shown = (200-50)/CHARZ;
 	if (slist_first+slist_shown-1 < slist_cursor)
 		slist_first = slist_cursor-(slist_shown-1);

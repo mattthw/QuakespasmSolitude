@@ -202,20 +202,33 @@ void() Start_Weapon = {
             ==============================================================
             */
             case SLAYER: {
+                // get from engine
                 float primary_weapon = cvar("custom_primary");
                 float secondary_weapon = cvar("custom_secondary");
-                if (primary_weapon == 0) {
+                bprint("secondary=");bprint(ftos(secondary_weapon));bprint("\n");
+                if (primary_weapon == WEAPON_NOT_SET) {
                     // mod being used with an engine which does not understand our custom cvars. Let's set them up with defaults.
                     primary_weapon = WEAPON_AR;
                     secondary_weapon = WEAPON_PISTOL;
                 }
-                self.items = primary_weapon + secondary_weapon;
-                SetWeaponAmmo(self, primary_weapon);
-                SetWeaponAmmo(self, secondary_weapon);
-
+                // set weapon(s) and ammo to player items
+                if (secondary_weapon == WEAPON_NONE) {
+                    bprint("NO SECONDARY!=============\n");
+                    self.items = primary_weapon;
+                    SetWeaponAmmo(self, primary_weapon);
+                } else {
+                    self.items = primary_weapon + secondary_weapon;
+                    SetWeaponAmmo(self, primary_weapon);
+                    SetWeaponAmmo(self, secondary_weapon);
+                }
+                // set held weapon
                 self.weapon = primary_weapon;
                 W_UpdateWeapon();
                 W_UpdateAmmoCounts(self);
+                // sword has messed up default frame. Call after UpdateWeapon since it sets to 0
+                // todo: fix v_sword.mdl animations/model
+                if (self.weapon == WEAPON_SWORD)
+                    self.weaponframe = 41;
             }
             break;
 
