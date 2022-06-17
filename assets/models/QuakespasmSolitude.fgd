@@ -376,6 +376,7 @@
 @SolidClass = func_detail : "Group of brushes for certain compilers" []
 @SolidClass = func_detail_illusionary : "func_detail variant with no collision (players / monsters / gunfire) and doesn't split world faces." []
 @SolidClass = func_detail_wall : "func_detail variant that doesn't split world faces." []
+@SolidClass = func_detail_fence : "Similar to func_detail_wall, but its better in that it doesn't use up a static entity and renders as part of the world which is faster. It is suitable for fence textures, never clips away world faces. Useful for fences, grates, etc., that are solid and block gunfire." []
 
 //
 // ambient sounds
