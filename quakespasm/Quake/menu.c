@@ -2315,51 +2315,46 @@ typedef struct
 {
 	const char	*name;
     const char  *thumbnail;
+    float targaThumbnail;
 	const char	*description;
     const char  *mapBio[4];
     const char  *author;
 } level_t;
-// todo: refactor level_t to specify filetype
-int targas[] = {2,1,3,4, 5, 6, 7, 8,16};
+
 level_t		levels[] =
 {
         // Refined map pack [4]
-        {"citadel", "citadel", "Citadel",{"A Forerunner","structure built","in Epitaph.",""}, "Matt"}, //0
-        {"babybloodgulch", "babybloodgulch", "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
-        {"pit3", "pit2", "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
-        {"narsp", "narsp", "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
-        {"skyringbl2", "skyringbl2", "Heavenly Suspense", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Arkage"},
-        {"wizard", "wizard", "Wizard", {"Round and Round","and Round.","",""}, "IlDucci"},
-        {"lockdown", "lockdown", "Lockdown", {"","","", ""}, "Team Xlink, Matt"},
-        {"lane", "lane", "Lane", {"Outdoor human facility","used for USMC","training.",""}, "Sam"},
-        {"cestra", "cestra", "Cestra", {"Experimental lab","used by USMC","researchers.",""}, "Sam"},
+        {"narrows", "random", 0, "Narrows (wip)", {"","","",""}, "Mattthw"},
+        {"highground", "random", 0, "High Ground", {"","","",""}, "Mattthw"},
+        {"citadel", "citadel", 0, "Citadel",{"A Forerunner","structure built","in Epitaph.",""}, "Matt"}, //0
+        {"babybloodgulch", "babybloodgulch", 1, "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
+        {"pit3", "pit2", 1, "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
+        {"narsp", "narsp", 1, "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
+        {"skyringbl2", "skyringbl2", 1, "Heavenly Suspense", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Arkage"},
+        {"wizard", "wizard", 1, "Wizard", {"Round and Round","and Round.","",""}, "IlDucci"},
+        {"lockdown", "lockdown", 1, "Lockdown", {"","","", ""}, "Team Xlink, Matt"},
+        {"lane", "lane", 1, "Lane", {"Outdoor human facility","used for USMC","training.",""}, "Sam"},
+        {"cestra", "cestra", 1, "Cestra", {"Experimental lab","used by USMC","researchers.",""}, "Sam"},
         // Classic map pack [6]
-        {"Longest", "Longest", "Longest", {"","","",""}, "Unknown"},
-        {"chill", "random", "Chill Out", {"","","",""}, "Unknown"},
-        {"pri2", "random", "Prisoner", {"","","",""}, "Unknown"},
-        {"base", "base", "Minibase", {"","","",""}, "Unknown"},
-        {"plaza", "plaza", "Plaza", {"","","",""}, "Unknown"},
-        {"spider", "spider", "Spiderweb", {"","","",""}, "Unknown"},
+        {"Longest", "Longest", 0, "Longest", {"","","",""}, "Unknown"},
+        {"chill", "random", 0, "Chill Out", {"","","",""}, "Unknown"},
+        {"pri2", "random", 0, "Prisoner 2", {"","","",""}, "Unknown"},
+        {"base", "base", 0, "Minibase", {"","","",""}, "Unknown"},
+        {"plaza", "plaza", 0, "Plaza", {"","","",""}, "Unknown"},
+        {"spider", "spider", 0, "Spiderweb", {"","","",""}, "Unknown"},
         // Bonus map pack
-        {"pit", "random", "Pit (original)", {"","","",""}, "Jukki"},
-        {"pit2", "pit2", "Pit (v2)", {"","","",""}, "Jukki, Matt"},
-        {"lock", "lockout", "Lockout2", {"","","",""}, "Unknown"},
-        {"+bloodgulch2", "bgulch", "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
+        {"pit", "random", 0, "Pit (original)", {"","","",""}, "Jukki"},
+        {"pit2", "pit2", 1, "Pit (v2)", {"","","",""}, "Jukki, Matt"},
+        {"lock", "lockout", 0, "Lockout2", {"","","",""}, "Unknown"},
+        {"+bloodgulch2", "bgulch", 0, "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
 
         //{"lockout", "lockout", "Lockout"},
 
         // Firefight map pack
-        {"construction", "construction", "Construction", {"","","",""}, "Unknown"},
-        {"fire", "fire", "Fire!", {"","","",""}, "Unknown"}
+        {"construction", "construction", 0, "Construction", {"","","",""}, "Unknown"},
+        {"fire", "fire", 0, "Fire!", {"","","",""}, "Unknown"}
 };
 
-qboolean usetarga(int levelIndex) {
-    for (int i = 0; i < sizeof(targas)/sizeof(int); i++) {
-        if (targas[i] == levelIndex)
-            return true;
-    }
-    return false;
-}
 typedef struct
 {
 	const char	*description;
@@ -2369,14 +2364,14 @@ typedef struct
 int NUM_EPISODES = 3;
 episode_t	episodes[] =
         {
-                {"Remastered Maps", 0, 9},
-                {"Classic Maps", 9, 6},
-                {"Bonus Maps", 15, 4}
+                {"Remastered Maps", 0, 11},
+                {"Classic Maps", 11, 6},
+                {"Bonus Maps", 17, 4}
         };
 int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
         {
-                {"Firefight Maps", 19, 2}
+                {"Firefight Maps", 21, 2}
         };
 
 extern cvar_t sv_public;
@@ -2821,8 +2816,8 @@ void M_Matchmaking_Map_Draw (void) {
     }
     // map thumbnail
     char format[10];
-    if (usetarga(episodes[startepisode].firstLevel + (mlist_cursor))) {
-        strcpy(format, "tga");
+    if (levels[episodes[startepisode].firstLevel + (mlist_cursor)].targaThumbnail) {
+        strcpy(format, "tga"); // why not just bake it into the filename? why did I do it like this? testing? idk
     } else {
         strcpy(format, "lmp");
     }
@@ -2995,7 +2990,7 @@ void M_Matchmaking_Draw (void)
 {
     Draw_MenuBg();
     char format[10];
-    if (usetarga(episodes[chosen_level.episode].firstLevel + chosen_level.level)) {
+    if (levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].targaThumbnail) {
         strcpy(format, "tga");
     } else {
         strcpy(format, "lmp");
