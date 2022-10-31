@@ -1,0 +1,437 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="PSP specific source">
+      <UniqueIdentifier>{aa96f718-0fb7-47e8-8320-789df58505ad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Generic source">
+      <UniqueIdentifier>{15e36846-252c-4c61-a0f3-af8e2ac87202}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="battery.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="cd.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="clipping.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="gethost.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="input.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="math.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="module.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="network.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="network_infrastructure.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="prof.c">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="sound.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="system.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_draw.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_entity_fragment.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_light.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_main.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_mesh.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_misc.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_model.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_screen.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_surface.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="video_hardware_warp.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="vram.cpp">
+      <Filter>PSP specific source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cd_null.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\chase.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cl_demo.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cl_input.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cl_main.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cl_parse.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cl_tent.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cmd.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\common.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\console.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\crc.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\cvar.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_edge.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_fill.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_init.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_modech.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_part.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_polyse.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_scan.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_sky.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_sprite.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_surf.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_vars.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\d_zpoint.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\draw.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\host.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\host_cmd.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\keys.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\mathlib.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\menu.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\model.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\net_dgrm.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\net_loop.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\net_main.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\net_none.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\net_vcr.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\nonintel.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\pr_cmds.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\pr_edict.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\pr_exec.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\r_part.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\r_vars.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\sbar.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\screen.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\snd_dma.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\snd_mem.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\snd_mix.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\snd_null.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\sv_main.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\sv_move.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\sv_phys.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\sv_user.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\view.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\wad.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\world.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\zone.c">
+      <Filter>Generic source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="battery.hpp">
+      <Filter>PSP specific source</Filter>
+    </ClInclude>
+    <ClInclude Include="clipping.hpp">
+      <Filter>PSP specific source</Filter>
+    </ClInclude>
+    <ClInclude Include="gethost.hpp">
+      <Filter>PSP specific source</Filter>
+    </ClInclude>
+    <ClInclude Include="math.hpp">
+      <Filter>PSP specific source</Filter>
+    </ClInclude>
+    <ClInclude Include="network_infrastructure.hpp">
+      <Filter>PSP specific source</Filter>
+    </ClInclude>
+    <ClInclude Include="system.hpp">
+      <Filter>PSP specific source</Filter>
+    </ClInclude>
+    <ClInclude Include="video_hardware.h">
+      <Filter>PSP specific source</Filter>
+    </ClInclude>
+    <ClInclude Include="video_hardware_model.h">
+      <Filter>PSP specific source</Filter>
+    </ClInclude>
+    <ClInclude Include="vram.hpp">
+      <Filter>PSP specific source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\adivtab.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\anorm_dots.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\anorms.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\asm_i386.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\block16.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\bspfile.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\cdaudio.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\client.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\cmd.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\console.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\crc.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\cvar.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\d_iface.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\d_ifacea.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\d_local.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\draw.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\gl_warp_sin.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\input.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\keys.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\mathlib.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\menu.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\model.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\modelgen.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\net.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\net_dgrm.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\net_loop.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\net_vcr.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\pr_comp.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\progdefs.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\progs.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\protocol.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\quakedef.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\r_local.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\r_shared.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\render.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\resource.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\sbar.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\screen.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\server.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\sound.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\spritegn.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\sys.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vid.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\view.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\wad.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\world.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+    <ClInclude Include="..\zone.h">
+      <Filter>Generic source</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="mcount.S">
+      <Filter>PSP specific source</Filter>
+    </None>
+    <None Include="build.bat" />
+    <None Include="Makefile" />
+    <None Include="sed_make.sh" />
+  </ItemGroup>
+</Project>

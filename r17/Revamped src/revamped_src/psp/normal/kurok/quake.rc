@@ -1,0 +1,19 @@
+// load the base configuration
+exec default.cfg
+
+// load the last saved configuration
+exec config.cfg
+
+// run a user script file if present
+exec autoexec.cfg
+
+// stuff command line statements
+stuffcmds
+// Kurok stuff
+
+sv_maxspeed 175
+sv_maxvelocity 5000
+
+cl_forwardspeed 175
+cl_backspeed 175
+cl_sidespeed 175
