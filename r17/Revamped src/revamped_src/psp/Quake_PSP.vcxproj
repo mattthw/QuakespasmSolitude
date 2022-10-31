@@ -1,0 +1,192 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="PSP|Win32">
+      <Configuration>PSP</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{38B817AB-88C4-4ADA-8750-4187AB435363}</ProjectGuid>
+    <RootNamespace>Quake_PSP</RootNamespace>
+    <Keyword>MakeFileProj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">$(Configuration)\</IntDir>
+    <NMakeBuildCommandLine Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">build.bat install</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">build.bat clean install</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">build.bat clean</NMakeCleanCommandLine>
+    <NMakeOutput Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'" />
+    <NMakePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">PSP;PSP_HARDWARE_VIDEO;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakeIncludeSearchPath Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakeForcedIncludes Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">$(NMakeForcedIncludes)</NMakeForcedIncludes>
+    <NMakeAssemblySearchPath Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">$(NMakeAssemblySearchPath)</NMakeAssemblySearchPath>
+    <NMakeForcedUsingAssemblies Condition="'$(Configuration)|$(Platform)'=='PSP|Win32'">$(NMakeForcedUsingAssemblies)</NMakeForcedUsingAssemblies>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="battery.cpp" />
+    <ClCompile Include="cd.cpp" />
+    <ClCompile Include="clipping.cpp" />
+    <ClCompile Include="gethost.cpp" />
+    <ClCompile Include="input.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="math.cpp" />
+    <ClCompile Include="module.cpp" />
+    <ClCompile Include="network.cpp" />
+    <ClCompile Include="network_infrastructure.cpp" />
+    <ClCompile Include="prof.c" />
+    <ClCompile Include="sound.cpp" />
+    <ClCompile Include="system.cpp" />
+    <ClCompile Include="video_hardware.cpp" />
+    <ClCompile Include="video_hardware_draw.cpp" />
+    <ClCompile Include="video_hardware_entity_fragment.cpp" />
+    <ClCompile Include="video_hardware_light.cpp" />
+    <ClCompile Include="video_hardware_main.cpp" />
+    <ClCompile Include="video_hardware_mesh.cpp" />
+    <ClCompile Include="video_hardware_misc.cpp" />
+    <ClCompile Include="video_hardware_model.cpp" />
+    <ClCompile Include="video_hardware_screen.cpp" />
+    <ClCompile Include="video_hardware_surface.cpp" />
+    <ClCompile Include="video_hardware_warp.cpp" />
+    <ClCompile Include="vram.cpp" />
+    <ClCompile Include="..\cd_null.c" />
+    <ClCompile Include="..\chase.c" />
+    <ClCompile Include="..\cl_demo.c" />
+    <ClCompile Include="..\cl_input.c" />
+    <ClCompile Include="..\cl_main.c" />
+    <ClCompile Include="..\cl_parse.c" />
+    <ClCompile Include="..\cl_tent.c" />
+    <ClCompile Include="..\cmd.c" />
+    <ClCompile Include="..\common.c" />
+    <ClCompile Include="..\console.c" />
+    <ClCompile Include="..\crc.c" />
+    <ClCompile Include="..\cvar.c" />
+    <ClCompile Include="..\d_edge.c" />
+    <ClCompile Include="..\d_fill.c" />
+    <ClCompile Include="..\d_init.c" />
+    <ClCompile Include="..\d_modech.c" />
+    <ClCompile Include="..\d_part.c" />
+    <ClCompile Include="..\d_polyse.c" />
+    <ClCompile Include="..\d_scan.c" />
+    <ClCompile Include="..\d_sky.c" />
+    <ClCompile Include="..\d_sprite.c" />
+    <ClCompile Include="..\d_surf.c" />
+    <ClCompile Include="..\d_vars.c" />
+    <ClCompile Include="..\d_zpoint.c" />
+    <ClCompile Include="..\draw.c" />
+    <ClCompile Include="..\host.c" />
+    <ClCompile Include="..\host_cmd.c" />
+    <ClCompile Include="..\keys.c" />
+    <ClCompile Include="..\mathlib.c" />
+    <ClCompile Include="..\menu.c" />
+    <ClCompile Include="..\model.c" />
+    <ClCompile Include="..\net_dgrm.c" />
+    <ClCompile Include="..\net_loop.c" />
+    <ClCompile Include="..\net_main.c" />
+    <ClCompile Include="..\net_none.c" />
+    <ClCompile Include="..\net_vcr.c" />
+    <ClCompile Include="..\nonintel.c" />
+    <ClCompile Include="..\pr_cmds.c" />
+    <ClCompile Include="..\pr_edict.c" />
+    <ClCompile Include="..\pr_exec.c" />
+    <ClCompile Include="..\r_part.c" />
+    <ClCompile Include="..\r_vars.c" />
+    <ClCompile Include="..\sbar.c" />
+    <ClCompile Include="..\screen.c" />
+    <ClCompile Include="..\snd_dma.c" />
+    <ClCompile Include="..\snd_mem.c" />
+    <ClCompile Include="..\snd_mix.c" />
+    <ClCompile Include="..\snd_null.c" />
+    <ClCompile Include="..\sv_main.c" />
+    <ClCompile Include="..\sv_move.c" />
+    <ClCompile Include="..\sv_phys.c" />
+    <ClCompile Include="..\sv_user.c" />
+    <ClCompile Include="..\view.c" />
+    <ClCompile Include="..\wad.c" />
+    <ClCompile Include="..\world.c" />
+    <ClCompile Include="..\zone.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="battery.hpp" />
+    <ClInclude Include="clipping.hpp" />
+    <ClInclude Include="gethost.hpp" />
+    <ClInclude Include="math.hpp" />
+    <ClInclude Include="network_infrastructure.hpp" />
+    <ClInclude Include="system.hpp" />
+    <ClInclude Include="video_hardware.h" />
+    <ClInclude Include="video_hardware_model.h" />
+    <ClInclude Include="vram.hpp" />
+    <ClInclude Include="..\adivtab.h" />
+    <ClInclude Include="..\anorm_dots.h" />
+    <ClInclude Include="..\anorms.h" />
+    <ClInclude Include="..\asm_i386.h" />
+    <ClInclude Include="..\block16.h" />
+    <ClInclude Include="..\bspfile.h" />
+    <ClInclude Include="..\cdaudio.h" />
+    <ClInclude Include="..\client.h" />
+    <ClInclude Include="..\cmd.h" />
+    <ClInclude Include="..\common.h" />
+    <ClInclude Include="..\console.h" />
+    <ClInclude Include="..\crc.h" />
+    <ClInclude Include="..\cvar.h" />
+    <ClInclude Include="..\d_iface.h" />
+    <ClInclude Include="..\d_ifacea.h" />
+    <ClInclude Include="..\d_local.h" />
+    <ClInclude Include="..\draw.h" />
+    <ClInclude Include="..\gl_warp_sin.h" />
+    <ClInclude Include="..\input.h" />
+    <ClInclude Include="..\keys.h" />
+    <ClInclude Include="..\mathlib.h" />
+    <ClInclude Include="..\menu.h" />
+    <ClInclude Include="..\model.h" />
+    <ClInclude Include="..\modelgen.h" />
+    <ClInclude Include="..\net.h" />
+    <ClInclude Include="..\net_dgrm.h" />
+    <ClInclude Include="..\net_loop.h" />
+    <ClInclude Include="..\net_vcr.h" />
+    <ClInclude Include="..\pr_comp.h" />
+    <ClInclude Include="..\progdefs.h" />
+    <ClInclude Include="..\progs.h" />
+    <ClInclude Include="..\protocol.h" />
+    <ClInclude Include="..\quakedef.h" />
+    <ClInclude Include="..\r_local.h" />
+    <ClInclude Include="..\r_shared.h" />
+    <ClInclude Include="..\render.h" />
+    <ClInclude Include="..\resource.h" />
+    <ClInclude Include="..\sbar.h" />
+    <ClInclude Include="..\screen.h" />
+    <ClInclude Include="..\server.h" />
+    <ClInclude Include="..\sound.h" />
+    <ClInclude Include="..\spritegn.h" />
+    <ClInclude Include="..\sys.h" />
+    <ClInclude Include="..\vid.h" />
+    <ClInclude Include="..\view.h" />
+    <ClInclude Include="..\wad.h" />
+    <ClInclude Include="..\world.h" />
+    <ClInclude Include="..\zone.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="mcount.S" />
+    <None Include="build.bat" />
+    <None Include="Makefile" />
+    <None Include="sed_make.sh" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -1,0 +1,13 @@
+Revamped 2.3-
+
+Features:
+
+-New HUD
+	-Ammo counter
+	-Health Bar
+	-Weapon Icons
+	-Pickup weapon Icons
+	-Grenade and counter
+-Weapon damage redone
+-New Light effects for Needler, and Plasma pistol
+-

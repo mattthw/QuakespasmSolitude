@@ -1,0 +1,205 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{D94197A6-9EAA-452A-AA05-652C940D70A3}</ProjectGuid>
+    <RootNamespace>Quake_Win32Stubs</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;PSP;PSP_HARDWARE_VIDEO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <FloatingPointExceptions>true</FloatingPointExceptions>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;PSP;PSP_HARDWARE_VIDEO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <FloatingPointExceptions>true</FloatingPointExceptions>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\adivtab.h" />
+    <ClInclude Include="..\anorm_dots.h" />
+    <ClInclude Include="..\anorms.h" />
+    <ClInclude Include="..\asm_i386.h" />
+    <ClInclude Include="..\block16.h" />
+    <ClInclude Include="..\bspfile.h" />
+    <ClInclude Include="..\cdaudio.h" />
+    <ClInclude Include="..\client.h" />
+    <ClInclude Include="..\cmd.h" />
+    <ClInclude Include="..\common.h" />
+    <ClInclude Include="..\console.h" />
+    <ClInclude Include="..\crc.h" />
+    <ClInclude Include="..\cvar.h" />
+    <ClInclude Include="..\draw.h" />
+    <ClInclude Include="..\gl_warp_sin.h" />
+    <ClInclude Include="..\input.h" />
+    <ClInclude Include="..\keys.h" />
+    <ClInclude Include="..\mathlib.h" />
+    <ClInclude Include="..\menu.h" />
+    <ClInclude Include="..\model.h" />
+    <ClInclude Include="..\modelgen.h" />
+    <ClInclude Include="..\net.h" />
+    <ClInclude Include="..\net_dgrm.h" />
+    <ClInclude Include="..\net_loop.h" />
+    <ClInclude Include="..\net_vcr.h" />
+    <ClInclude Include="..\pr_comp.h" />
+    <ClInclude Include="..\progdefs.h" />
+    <ClInclude Include="..\progs.h" />
+    <ClInclude Include="..\protocol.h" />
+    <ClInclude Include="..\quakedef.h" />
+    <ClInclude Include="..\render.h" />
+    <ClInclude Include="..\resource.h" />
+    <ClInclude Include="..\sbar.h" />
+    <ClInclude Include="..\screen.h" />
+    <ClInclude Include="..\server.h" />
+    <ClInclude Include="..\sound.h" />
+    <ClInclude Include="..\spritegn.h" />
+    <ClInclude Include="..\sys.h" />
+    <ClInclude Include="..\vid.h" />
+    <ClInclude Include="..\view.h" />
+    <ClInclude Include="..\wad.h" />
+    <ClInclude Include="..\world.h" />
+    <ClInclude Include="..\zone.h" />
+    <ClInclude Include="..\psp\battery.hpp" />
+    <ClInclude Include="..\psp\system.hpp" />
+    <ClInclude Include="..\psp\video_hardware.h" />
+    <ClInclude Include="..\psp\video_hardware_model.h" />
+    <ClInclude Include="pspaudiolib.h" />
+    <ClInclude Include="pspctrl.h" />
+    <ClInclude Include="pspdebug.h" />
+    <ClInclude Include="pspdisplay.h" />
+    <ClInclude Include="pspgu.h" />
+    <ClInclude Include="pspkernel.h" />
+    <ClInclude Include="pspmoduleinfo.h" />
+    <ClInclude Include="psppower.h" />
+    <ClInclude Include="psprtc.h" />
+    <ClInclude Include="sys\stat.h" />
+    <ClInclude Include="sys\unistd.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\cd_null.c" />
+    <ClCompile Include="..\chase.c" />
+    <ClCompile Include="..\cl_demo.c" />
+    <ClCompile Include="..\cl_input.c" />
+    <ClCompile Include="..\cl_main.c" />
+    <ClCompile Include="..\cl_parse.c" />
+    <ClCompile Include="..\cl_tent.c" />
+    <ClCompile Include="..\cmd.c" />
+    <ClCompile Include="..\common.c" />
+    <ClCompile Include="..\console.c" />
+    <ClCompile Include="..\crc.c" />
+    <ClCompile Include="..\cvar.c" />
+    <ClCompile Include="..\host.c" />
+    <ClCompile Include="..\host_cmd.c" />
+    <ClCompile Include="..\keys.c" />
+    <ClCompile Include="..\mathlib.c" />
+    <ClCompile Include="..\menu.c" />
+    <ClCompile Include="..\net_dgrm.c" />
+    <ClCompile Include="..\net_loop.c" />
+    <ClCompile Include="..\net_main.c" />
+    <ClCompile Include="..\net_none.c" />
+    <ClCompile Include="..\net_vcr.c" />
+    <ClCompile Include="..\pr_cmds.c" />
+    <ClCompile Include="..\pr_edict.c" />
+    <ClCompile Include="..\pr_exec.c" />
+    <ClCompile Include="..\r_part.c" />
+    <ClCompile Include="..\sbar.c" />
+    <ClCompile Include="..\snd_dma.c" />
+    <ClCompile Include="..\snd_mem.c" />
+    <ClCompile Include="..\snd_mix.c" />
+    <ClCompile Include="..\sv_main.c" />
+    <ClCompile Include="..\sv_move.c" />
+    <ClCompile Include="..\sv_phys.c" />
+    <ClCompile Include="..\sv_user.c" />
+    <ClCompile Include="..\view.c" />
+    <ClCompile Include="..\wad.c" />
+    <ClCompile Include="..\world.c" />
+    <ClCompile Include="..\zone.c" />
+    <ClCompile Include="..\psp\battery.cpp" />
+    <ClCompile Include="..\psp\input.cpp" />
+    <ClCompile Include="..\psp\main.cpp" />
+    <ClCompile Include="..\psp\sound.cpp" />
+    <ClCompile Include="..\psp\system.cpp" />
+    <ClCompile Include="..\psp\video_hardware.cpp" />
+    <ClCompile Include="..\psp\video_hardware_draw.cpp" />
+    <ClCompile Include="..\psp\video_hardware_entity_fragment.cpp" />
+    <ClCompile Include="..\psp\video_hardware_light.cpp" />
+    <ClCompile Include="..\psp\video_hardware_main.cpp" />
+    <ClCompile Include="..\psp\video_hardware_mesh.cpp" />
+    <ClCompile Include="..\psp\video_hardware_misc.cpp" />
+    <ClCompile Include="..\psp\video_hardware_model.cpp" />
+    <ClCompile Include="..\psp\video_hardware_screen.cpp" />
+    <ClCompile Include="..\psp\video_hardware_surface.cpp" />
+    <ClCompile Include="..\psp\video_hardware_warp.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
