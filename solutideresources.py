@@ -10,6 +10,8 @@ assets_dir = Path("./assets/maps/")
 qcc_dir = Path("./qcc-src/")
 not_found_files = []
 not_found_file = Path("not_found_files.txt")
+filetype_blacklist = []
+filetype_blacklist_file = "filetype_blacklist.txt"
 include_filetype_in_search = False
 enable_file_copying = True
 
@@ -42,8 +44,6 @@ def search_files(directory, curr_filename, filetype_blacklist):
     return found
 
 # Load filetype blacklist
-filetype_blacklist = []
-filetype_blacklist_file = "filetype_blacklist.txt"
 if Path(filetype_blacklist_file).is_file():
     with open(filetype_blacklist_file, 'r') as f:
         filetype_blacklist = [line.strip() for line in f]
