@@ -29,17 +29,19 @@ Vita at 960×544 is the reference device; desktop is the same canvas scaled.
    - Halo 3 behavior for `drawHealth` shield bubble:
      solid blue when healthy → **flash red when fully depleted** (not when
      high, per manual); keep the existing recharge/bleep FSM.
-3. **Relocation pass** (Halo 3 multiplayer HUD manual, 2007):
+3. **Relocation pass** (Halo 3 multiplayer HUD manual, 2007)
+   — **no icon art exists for weapons/grenades (user 2026-11-12: "I am just
+   using their name"), so every "icon state" below is a TEXT-STATE rule:**
    - SCORE / Slayer / time cluster → **lower-right** (manual §multiplayer
      info); currently bottom-left (`glwidth*0.08`).
-   - Weapon + ammo → top-right, current weapon readout above secondary icon.
-   - Grenades → top-left with **icon states**: selected = blue outline,
-     zero count = grayed, count to the left of icon
-     (`cl_nadenum`/`cl_plasmanade` cvars already carry this from QC).
-   - Killstreak medals → stacked where Halo puts achievements: below the
-     grenade row (currently left-mid via `getHudPicAttr(0.08, 0.5)`).
-   - Helper texts (pickup/swap prompts) → anchored above the weapon panel.
-   - Low ammo → weapon icon flashes red (state rule; draw from cl.stats).
+   - Weapon + ammo text → top-right (already 0.7/0.8-ish; align panel).
+   - **Low ammo → weapon/ammo text flashes red** (rule from manual icon
+     behavior, applied to text; threshold from cl.stats vs ammo max).
+   - Grenades → text pair (count + name): **zero count → dim gray**,
+     selected type keeps the blue; counts left of name (manual order).
+   - Killstreak medals → stacked below the grenade row (currently
+     left-mid via `getHudPicAttr(0.08, 0.5)`); medals ARE art (.lmp) already.
+   - Helper pickup/swap prompt → anchored above the weapon panel.
 4. **Crosshair** (`drawCrosshair()` is EMPTY — greenfield)
    - Client-side eye trace, team-color classify: red foe / blue neutral /
      green friendly (manual crosshair rule). No new art required to start:

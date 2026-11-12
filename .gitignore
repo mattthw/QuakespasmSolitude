@@ -73,3 +73,6 @@ AppleSilicon/id1
 # …but the archived linker notes under tools/ are deliberate provenance
 !tools/asset-scan/provenance/*.lno
 dist/
+
+# engine "screenshot" output (spasmNNNN.png/tga/jpg) — local scratch only
+/solitude/spasm*.*

@@ -208,6 +208,7 @@ GLOBJS = \
 	gl_warp.o \
 	$(SYSOBJ_GL_VID) \
 	gl_hud.o \
+	gl_font.o \
 	gl_draw.o \
 	image.o \
 	gl_texmgr.o \
