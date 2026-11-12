@@ -1351,10 +1351,11 @@ void Draw_Cursor (int x, int y, int w, int h, bool focused)
     /* P2a: Halo-lobby look — selected row = translucent GOLD strip (user
      * hex direction; was the broken pulse: new_min(0.1,...) kept alpha <=
      * 0.1), unfocused = slate. r5: more translucent (0.40 -> 0.25) and the
-     * gold now ramps to ~45% darker at the strip ends instead of a flat
-     * slab (user 2026-11-12). */
+     * gold now ramps instead of a flat slab. r6: 2x denser ramp (edge 0.45
+     * -> 0.90, ends fall to ~10% brightness) and 2x stronger translucency
+     * (0.25 -> 0.125) (user 2026-11-12). */
     if (focused)
-        Draw_FillGradientEx (x, y, w, h, 230/255.0f, 172/255.0f, 60/255.0f, 0.25f, 0.45f);
+        Draw_FillGradientEx (x, y, w, h, 230/255.0f, 172/255.0f, 60/255.0f, 0.125f, 0.90f);
     else
         Draw_FillRGBA (x, y, w, h, 0.235f, 0.251f, 0.275f, 0.5f);
 }
