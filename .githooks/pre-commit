@@ -10,7 +10,9 @@ set -u
 staged=$(git diff --cached --name-only --diff-filter=ACM)
 [ -z "$staged" ] && exit 0
 
-hard=$(printf '%s\n' "$staged" | grep -Ei '(\.vis|\.prt)$|(^|/)progs\.dat$')
+# Hard-block applies to NEWLY ADDED derived files only; modifications of
+# grandfathered tracked copies are allowed (see header comment).
+hard=$(git diff --cached --name-only --diff-filter=A | grep -Ei '(\.vis|\.prt)$|(^|/)progs\.dat$')
 if [ -n "$hard" ]; then
     echo "pre-commit: refusing to track derived files (rebuild instead):" >&2
     printf '  %s\n' $hard >&2

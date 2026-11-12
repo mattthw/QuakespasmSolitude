@@ -2633,6 +2633,8 @@ void() CycleWeaponCommand =
 			W_WeaponSwitch (w);
 			return;
 		}
+		if (w == old)	/* cycled the whole chain with nothing to switch to */
+			return;
 	}
 
 };

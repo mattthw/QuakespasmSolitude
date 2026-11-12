@@ -61,3 +61,9 @@ AppleSilicon/id1
 /*.lit
 /*.vis
 /*.map
+/id1
+
+# mac fork-build artifacts (see /mac.sh)
+/quakespasm/Quake/quakespasm
+/quakespasm/Quake/obj/
+*.unstripped.elf
