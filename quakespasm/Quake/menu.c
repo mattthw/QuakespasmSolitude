@@ -1020,7 +1020,9 @@ void M_Pause_Key (int key)
 {
     switch (key)
     {
+#ifdef VITA
         case K_ENTER:
+#endif
         case K_ESCAPE:
         case K_YBUTTON:
         case K_BBUTTON:
@@ -1043,6 +1045,11 @@ void M_Pause_Key (int key)
             break;
 
         case K_ABUTTON:
+#ifndef VITA
+        case K_ENTER:
+        case K_KP_ENTER:
+            /* Mac/PC port: Enter selects, like the Vita X button. */
+#endif
             S_LocalSound ("misc/menuenter.wav");
             if ((int)deathmatch.value == 2) //firefight
             {
@@ -3116,7 +3123,9 @@ void M_Matchmaking_Key (int key)
 {
     switch (key)
     {
+#ifdef VITA
         case K_ENTER:
+#endif
         case K_ESCAPE:
         case K_BBUTTON:
         case K_YBUTTON:
@@ -3152,6 +3161,11 @@ void M_Matchmaking_Key (int key)
             break;
 
         case K_ABUTTON:
+#ifndef VITA
+        case K_ENTER:
+        case K_KP_ENTER:
+            /* Mac/PC port: Enter selects, like the Vita X button. */
+#endif
             S_LocalSound ("misc/menuenter.wav");
             if (matchmaking_cursor == 6)
             {
@@ -3293,7 +3307,9 @@ void M_Firefight_Key (int key)
 {
     switch (key)
     {
+#ifdef VITA
         case K_ENTER:
+#endif
         case K_ESCAPE:
         case K_YBUTTON:
         case K_BBUTTON:
@@ -3329,6 +3345,11 @@ void M_Firefight_Key (int key)
             break;
 
         case K_ABUTTON:
+#ifndef VITA
+        case K_ENTER:
+        case K_KP_ENTER:
+            /* Mac/PC port: Enter selects, like the Vita X button. */
+#endif
             S_LocalSound ("misc/menuenter.wav");
             if (firefight_cursor == 1) //on start options
             {

@@ -1010,9 +1010,27 @@ void Draw_StretchPic (int x, int y, qpic_t *pic, int x_value, int y_value)
 	glEnd ();
 }
 
+/*
+=================
+HUD_SCALE
+One scaling model for the whole Solitude HUD. Design space is the Vita
+native 960x544; every other viewport gets the uniform fit factor, and
+scr_sbarscale remains the user's multiplier on top. On the Vita with
+the default cvar this returns exactly 1.0 — zero behavior change there.
+=================
+*/
+float HUD_SCALE (void)
+{
+	float fit = (float)glwidth / 960.0f;
+	float fh  = (float)glheight / 544.0f;
+	if (fh < fit)
+		fit = fh;
+	return fit * CLAMP (0.5f, scr_sbarscale.value, 4.0f);
+}
+
 struct PicAttr getHudPicAttr(float xpercent, float ypercent, qpic_t *pic) {
-    int x_value = pic->width*scr_sbarscale.value;
-    int y_value = pic->height*scr_sbarscale.value;
+    int x_value = pic->width*HUD_SCALE();
+    int y_value = pic->height*HUD_SCALE();
     int x = (xpercent*glwidth) - (xpercent*x_value);
     int y = (ypercent*glheight) - (ypercent*y_value);
     struct PicAttr attr = {.x = x, .y = y, .height = y_value, .width = x_value, .xpercent = xpercent, .ypercent = ypercent};
@@ -1121,11 +1139,10 @@ void Draw_HudSubPic (struct PicAttr attr, qpic_t *pic, float s1, float t1, float
 void Draw_MenuBg() {
     qpic_t *menu_bg;
     menu_bg = Draw_CachePic("gfx/MENU/menu_bg.tga");
-#ifdef VITA
+    // Fill the whole MENU_STRETCH canvas (320*1.75 x 200*1.75). Was an
+    // #ifdef'd Mac branch drawing a quarter at the bottom-left — the menu
+    // background looked "offset" on desktop (2026-11-12).
     Draw_StretchPic(0, 0, menu_bg, 320 * MENU_SCALE, 200 * MENU_SCALE);
-#else
-    Draw_StretchPic(0, vid.height * 0.5, menu_bg, vid.width/2, vid.height/2);
-#endif
 }
 
 /*

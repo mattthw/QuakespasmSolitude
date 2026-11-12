@@ -73,6 +73,7 @@ void Draw_ButtonScaled(int x, int y, qpic_t *pic, float scale);
 void Draw_MenuBg();
 void Draw_StretchPic (int x, int y, qpic_t *pic, int x_value, int y_value);
 struct PicAttr getHudPicAttr(float xpercent, float ypercent, qpic_t *pic);
+float HUD_SCALE (void);
 void Draw_HudPic (struct PicAttr attr, qpic_t *pic);
 void Draw_HudSubPic (struct PicAttr attr, qpic_t *pic, float s1, float t1, float s2, float t2);
 void Draw_Pic (int x, int y, qpic_t *pic);

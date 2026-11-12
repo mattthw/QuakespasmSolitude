@@ -200,7 +200,7 @@ void HUD_Init (void) {
     health_red = Draw_CachePic ("gfx/hud/health/health_red.lmp");
     healthbar_inside = Draw_CachePic ("gfx/hud/health/healthbar_inside.tga");
     healthbar_br = Draw_CachePic ("gfx/hud/health/healthbar_br.tga");
-    healthbar_red = Draw_CachePic ("gfx/hud/health/healthbar_red.tha");
+    healthbar_red = Draw_CachePic ("gfx/hud/health/healthbar_red.tga");
 
     //Kill medals
     doublek = Draw_CachePic ("gfx/medals/double.lmp");
@@ -315,9 +315,9 @@ void drawCrosshair(void) {
 void drawPickupWeapon(void) {
     char *string = getPickupWeaponString((int)cl_ww.value);
     if (strcmp(string,"") != 0) {
-        Draw_ButtonScaled(glwidth*0.67, glheight*0.25, b_ybutton, 0.8f*scr_sbarscale.value);
+        Draw_ButtonScaled(glwidth*0.67, glheight*0.25, b_ybutton, 0.8f*HUD_SCALE());
     }
-    Draw_ColoredStringScale(glwidth*0.7, glheight*0.25, string, 1, 1, 1,1,0.9f*scr_sbarscale.value);
+    Draw_ColoredStringScale(glwidth*0.7, glheight*0.25, string, 1, 1, 1,1,0.9f*HUD_SCALE());
 }
 
 void drawWeapon(void) {
@@ -327,10 +327,10 @@ void drawWeapon(void) {
     HUD_itoa((int)cl.stats[STAT_AMMO], rounds);
     HUD_itoa((int)cl.stats[STAT_ARMOR], ammo);
     strcpy(primary, getWeaponName((int)cl.stats[STAT_ACTIVEWEAPON]));
-    Draw_ColoredStringScale(glwidth*0.7, glheight*0.8, primary, 127/255.0, 191/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
+    Draw_ColoredStringScale(glwidth*0.7, glheight*0.8, primary, 127/255.0, 191/255.0, 255/255.0,1,1.0f*HUD_SCALE());
     if (strcmp(primary, "Energy Sword") != 0 /* 0 means equal*/) { // dont draw ammo for energy sword
-        Draw_ColoredStringScale(glwidth*0.7, glheight*0.75, rounds, 171/255.0, 231/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
-        Draw_ColoredStringScale(glwidth*0.77, glheight*0.75, ammo, 171/255.0, 231/255.0, 255/255.0,1,0.8f*scr_sbarscale.value);
+        Draw_ColoredStringScale(glwidth*0.7, glheight*0.75, rounds, 171/255.0, 231/255.0, 255/255.0,1,1.0f*HUD_SCALE());
+        Draw_ColoredStringScale(glwidth*0.77, glheight*0.75, ammo, 171/255.0, 231/255.0, 255/255.0,1,0.8f*HUD_SCALE());
     }
 }
 
@@ -344,8 +344,8 @@ void drawGrenades() {
         strcpy(nadename, "Frags");
     }
     HUD_itoa(count, nadecount);
-    Draw_ColoredStringScale(glwidth*0.7, glheight*0.85, nadecount, 171/255.0, 231/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
-    Draw_ColoredStringScale(glwidth*0.75, glheight*0.85, nadename, 171/255.0, 231/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
+    Draw_ColoredStringScale(glwidth*0.7, glheight*0.85, nadecount, 171/255.0, 231/255.0, 255/255.0,1,1.0f*HUD_SCALE());
+    Draw_ColoredStringScale(glwidth*0.75, glheight*0.85, nadename, 171/255.0, 231/255.0, 255/255.0,1,1.0f*HUD_SCALE());
 }
 
 int oldsheilds;
@@ -534,7 +534,7 @@ void MiniDeathmatchOverlay (void)
         } else if (minutes < 100) {
             timex += - (CHARZ*1);
         }
-        Draw_ColoredStringScale(timex, glheight*(0.71), str, 171/255.0, 231/255.0, 255/255.0,1, 1.0f*scr_sbarscale.value);
+        Draw_ColoredStringScale(timex, glheight*(0.71), str, 171/255.0, 231/255.0, 255/255.0,1, 1.0f*HUD_SCALE());
     }
     // draw game type
     char gametype[20];
@@ -547,7 +547,7 @@ void MiniDeathmatchOverlay (void)
     } else {
         strcpy(gametype, "You Broke My Code");
     }
-    Draw_ColoredStringScale(glwidth*0.08, glheight*(0.75), gametype, 127/255.0, 191/255.0, 255/255.0,1,1.0f*scr_sbarscale.value);
+    Draw_ColoredStringScale(glwidth*0.08, glheight*(0.75), gametype, 127/255.0, 191/255.0, 255/255.0,1,1.0f*HUD_SCALE());
 
     // begin draw scores
     if (teamplay.value) {
@@ -586,18 +586,18 @@ void MiniDeathmatchOverlay (void)
             // draw background
             bottom = (teamscores[i].color & 15) <<4;
             bottom = ColorForMap (bottom);
-            Draw_Fill (glwidth*0.08-1, glheight*(0.8+y)-1, glwidth*0.08*scr_sbarscale.value+2, 1.5*CHARZ*scr_sbarscale.value+2, bottom, 0.3);
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 1.5*CHARZ*scr_sbarscale.value, bottom, 1);
+            Draw_Fill (glwidth*0.08-1, glheight*(0.8+y)-1, (960.0*0.08)*HUD_SCALE()+2, 1.5*CHARZ*HUD_SCALE()+2, bottom, 0.3);
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), (960.0*0.08)*HUD_SCALE(), 1.5*CHARZ*HUD_SCALE(), bottom, 1);
             // draw foreground
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value*(new_max(teamscores[i].scoreTotal/fraglimit.value, 0)), 1.5*CHARZ*scr_sbarscale.value, bottom, 0.65);
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), (960.0*0.08)*HUD_SCALE()*CLAMP (new_max (teamscores[i].scoreTotal/(fraglimit.value > 0 ? fraglimit.value : new_max(teamscores[0].scoreTotal, 1.0f)), 0), 0.0f, 1.0f), 1.5*CHARZ*HUD_SCALE(), bottom, 0.65);
             // draw score
             f = teamscores[i].scoreTotal;
             HUD_itoa(f, num);
-            Draw_ColoredStringScale(glwidth*0.08 + 9*scr_sbarscale.value, glheight*(0.8+y)+(1.1f*scr_sbarscale.value*0.5), num, 1, 1, 1, 1, 1.1f*scr_sbarscale.value);
+            Draw_ColoredStringScale(glwidth*0.08 + 9*HUD_SCALE(), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), num, 1, 1, 1, 1, 1.1f*HUD_SCALE());
             // draw caret to indicate own team
             if (teamscores[i].color == cl.scores[0].colors)
-                Draw_CharacterScale(glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y)+(1.1f*scr_sbarscale.value*0.5), 13, 1.1f*scr_sbarscale.value);
-            y += 0.03*scr_sbarscale.value;
+                Draw_CharacterScale(glwidth*0.08 - (9.0f*HUD_SCALE() > 2.0f && glwidth*0.08 - 9.0f*HUD_SCALE() > 2.0f ? 9.0f*HUD_SCALE() : 2.0f), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), 13, 1.1f*HUD_SCALE());
+            y += (544.0*0.03)*HUD_SCALE()/glheight;
         }
         // send cvar to QuakeC to enter intermission/NextMap logic, once score limit reached
         if (teamscores[0].scoreTotal >= fraglimit.value) {
@@ -619,23 +619,23 @@ void MiniDeathmatchOverlay (void)
             f = s->frags;
             HUD_itoa(f, num);
             // draw background
-            Draw_Fill (glwidth*0.08-1, glheight*(0.8+y)-1, glwidth*0.08*scr_sbarscale.value+2, 1.5*CHARZ*scr_sbarscale.value+2, bottom, 0.3);
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value, 1.5*CHARZ*scr_sbarscale.value, bottom, 1);
+            Draw_Fill (glwidth*0.08-1, glheight*(0.8+y)-1, (960.0*0.08)*HUD_SCALE()+2, 1.5*CHARZ*HUD_SCALE()+2, bottom, 0.3);
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), (960.0*0.08)*HUD_SCALE(), 1.5*CHARZ*HUD_SCALE(), bottom, 1);
             // draw foreground
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), glwidth*0.08*scr_sbarscale.value*(new_max(f/fraglimit.value, 0)), 1.5*CHARZ*scr_sbarscale.value, bottom, 0.65);
+            Draw_Fill (glwidth*0.08, glheight*(0.8+y), (960.0*0.08)*HUD_SCALE()*CLAMP (new_max (f/(fraglimit.value > 0 ? fraglimit.value : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f), 1.5*CHARZ*HUD_SCALE(), bottom, 0.65);
             // draw score
-            Draw_ColoredStringScale(glwidth*0.08 + 9*scr_sbarscale.value, glheight*(0.8+y)+(1.1f*scr_sbarscale.value*0.5), num, 1, 1, 1, 1, 1.1f*scr_sbarscale.value);
+            Draw_ColoredStringScale(glwidth*0.08 + 9*HUD_SCALE(), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), num, 1, 1, 1, 1, 1.1f*HUD_SCALE());
             // draw caret to indicate own team
             if (k == cl.viewentity - 1)
-                Draw_CharacterScale(glwidth*0.08 - 9*scr_sbarscale.value, glheight*(0.8+y)+(1.1f*scr_sbarscale.value*0.5), 13, 1.1f*scr_sbarscale.value);
-            y += 0.03*scr_sbarscale.value;
+                Draw_CharacterScale(glwidth*0.08 - (9.0f*HUD_SCALE() > 2.0f && glwidth*0.08 - 9.0f*HUD_SCALE() > 2.0f ? 9.0f*HUD_SCALE() : 2.0f), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), 13, 1.1f*HUD_SCALE());
+            y += (544.0*0.03)*HUD_SCALE()/glheight;
         }
     }
 }
 
 void drawMedal (void)
 {
-    qpic_t *drawmedal;
+    qpic_t *drawmedal = NULL;
     switch ((int)cl_killmedals.value) {
         case 1:
             drawmedal = doublek;
@@ -648,9 +648,15 @@ void drawMedal (void)
             break;
         case 4:
             drawmedal = killtrocity;
+            break;
+        default:
+            return;	/* no medal queued (cl_killmedals==0) */
     }
-    // todo: this should stretch\scale with scr_sbarscale.value
-    M_DrawTransPic(glwidth*0.08, glheight*0.5, drawmedal);
+    if (!drawmedal)
+        return;		/* missing art must not crash the HUD */
+    /* scaled with the sbar, per the old todo: same anchor model as the
+     * health pics (fraction of free space, art scaled by HUD_SCALE) */
+    Draw_HudPic (getHudPicAttr (0.08, 0.5, drawmedal), drawmedal);
 }
 
 void HUD_Draw (void) {
@@ -663,7 +669,7 @@ void HUD_Draw (void) {
     drawCrosshair();
     drawPickupWeapon();
 //    if (!*cl.scores[1].name) {
-//        Draw_ColoredStringScale(0, glheight-(8*0.8f*scr_sbarscale.value), "Its too quiet, Chief! Add bots to get started.", 1,1,1,1,0.8f*scr_sbarscale.value);
+//        Draw_ColoredStringScale(0, glheight-(8*0.8f*HUD_SCALE()), "Its too quiet, Chief! Add bots to get started.", 1,1,1,1,0.8f*HUD_SCALE());
 //    }
 //    if (deathmatch.value == DM_SLAYER || deathmatch.value == DM_SWAT)
 //        MiniDeathmatchOverlay ();
