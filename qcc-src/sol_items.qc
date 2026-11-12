@@ -132,123 +132,80 @@ void ( entity t_wep, float weptype ) SetWeaponAmmo =
 	}
 };
 
-// sets ammo to a specific clip aspect of a weapon (current clip or extended clip)
-void ( entity t_ent, float weptype, float cliptype, float newamt ) SetAmmoFor =
-{
-    local float curr_ammo = GetAmmoCount(t_ent, weptype, cliptype);
+// Function to update ammo based on weapon type and clip type
+void (entity t_ent, float weptype, float cliptype, float newamt) SetAmmoFor =
+    {
+            local float curr_ammo = GetAmmoCount(t_ent, weptype, cliptype);
     local float max_clip = W_GetMaxClip(weptype, cliptype);
 
-//    _bprint("curr ammo: ", ftos(curr_ammo), "\n");
-//    _bprint("newamt: ", ftos(newamt), "\n");
-//    _bprint("max clip: ", ftos(max_clip), "\n");
-
-	if ((curr_ammo + newamt) >  max_clip) {
-//        _bprint("new amount ", ftos(newamt), " exceeds max clip. correcting... \n");
+    // Adjust new amount if it exceeds max clip capacity
+    if ((curr_ammo + newamt) > max_clip)
+    {
         newamt = max_clip - curr_ammo;
         if (newamt < 0)
             newamt = 0;
-	}
-    // fix (bandaid patch?) shotgun bug, where we get stuck in a loop of negative ammo after
-    // switching from the SMG.
-    if (curr_ammo < 0) {
-//        _bprint("new curr_ammo ", ftos(newamt), " is invalid! correcting... \n");
+    }
+
+    // Correct negative ammo bug for shotgun
+    if (curr_ammo < 0)
+    {
         newamt = (-curr_ammo) + newamt;
     }
 
-	switch ( weptype ) {
-		case WEAPON_PISTOL:
-			if (!cliptype || cliptype > 1)
-				t_ent.exshells += newamt;
-			if (cliptype)
-				t_ent.ammo_shells += newamt;
-			break;
-		case WEAPON_GHOST:
-			if (!cliptype || cliptype > 1)
-				t_ent.exshells += newamt;
-			if (cliptype)
-				t_ent.ammo_shells += newamt;
-			break;
-		case WEAPON_FLAG:
-			if (!cliptype || cliptype > 1)
-				t_ent.exshells += newamt;
-			if (cliptype)
-				t_ent.ammo_shells += newamt;
-			break;
-		case WEAPON_SKULL:
-			if (!cliptype || cliptype > 1)
-				t_ent.exshells += newamt;
-			if (cliptype)
-				t_ent.ammo_shells += newamt;
-			break;
-		case WEAPON_SHOT:
-			if (!cliptype || cliptype > 1)
-				t_ent.exshells2 += newamt;
-			if (cliptype)
-				t_ent.ammo_shells2 += newamt;
-			break;
-		case WEAPON_AR:
-			if (!cliptype || cliptype > 1)
-				t_ent.exnails += newamt;
-			if (cliptype)
-				t_ent.ammo_nails += newamt;
-			break;
-		case WEAPON_UZI:
-			if (!cliptype || cliptype > 1)
-				t_ent.exhshells += newamt;
-			if (cliptype)
-				t_ent.ammo_hshells += newamt;
-			break;
-		case WEAPON_RL:
-			if (!cliptype || cliptype > 1)
-				t_ent.exrockets += newamt;
-			if (cliptype)
-				t_ent.ammo_rockets += newamt;
-			break;
-		case WEAPON_SNIPER:
-			if (!cliptype || cliptype > 1)
-				t_ent.exsniper += newamt;
-			if (cliptype)
-				t_ent.ammo_sniper += newamt;
-			break;
-		case WEAPON_PPISTOL:
-			if (!cliptype || cliptype > 1)
-				t_ent.exppistol += newamt;
-			if (cliptype)
-				t_ent.ammo_ppistol += newamt;
-			break;
-		case WEAPON_SWORD:
-			if (!cliptype || cliptype > 1)
-				t_ent.exsword += newamt;
-			if (cliptype)
-				t_ent.ammo_sword += newamt;
-			break;
-		case WEAPON_NEEDLER:
-			if (!cliptype || cliptype > 1)
-				t_ent.exneedler += newamt;
-			if (cliptype)
-				t_ent.ammo_needler += newamt;
-			break;
-		case WEAPON_PRIFLE:
-			if (!cliptype || cliptype > 1)
-				t_ent.exprifle += newamt;
-			if (cliptype)
-				t_ent.ammo_prifle += newamt;
-			break;			
-        case WEAPON_BR:
-            if ((!cliptype || (cliptype > 1)))
-            {
-                t_ent.exbr = (t_ent.exbr + newamt);
-            }
-            if (cliptype)
-            {
-                t_ent.ammo_br += newamt;
-            }
+    // Function to add ammo based on weapon and clip type
+    void UpdateAmmo(entity t_ent, float newamt, float cliptype, string exammo, string clipammo)
+    {
+        if (!cliptype || cliptype > 1)
+            t_ent.(exammo) += newamt;
+        if (cliptype)
+            t_ent.(clipammo) += newamt;
+    }
+
+    // Update ammo based on weapon type
+    switch (weptype)
+    {
+        case WEAPON_PISTOL:
+        case WEAPON_GHOST:
+        case WEAPON_FLAG:
+        case WEAPON_SKULL:
+            UpdateAmmo(t_ent, newamt, cliptype, "exshells", "ammo_shells");
             break;
-		default:
-			_bprint("SetAmmoFor: invalid weapon type specified\n");
-			break;
-	}
+        case WEAPON_SHOT:
+            UpdateAmmo(t_ent, newamt, cliptype, "exshells2", "ammo_shells2");
+            break;
+        case WEAPON_AR:
+            UpdateAmmo(t_ent, newamt, cliptype, "exnails", "ammo_nails");
+            break;
+        case WEAPON_UZI:
+            UpdateAmmo(t_ent, newamt, cliptype, "exhshells", "ammo_hshells");
+            break;
+        case WEAPON_RL:
+            UpdateAmmo(t_ent, newamt, cliptype, "exrockets", "ammo_rockets");
+            break;
+        case WEAPON_SNIPER:
+            UpdateAmmo(t_ent, newamt, cliptype, "exsniper", "ammo_sniper");
+            break;
+        case WEAPON_PPISTOL:
+            UpdateAmmo(t_ent, newamt, cliptype, "exppistol", "ammo_ppistol");
+            break;
+        case WEAPON_SWORD:
+            UpdateAmmo(t_ent, newamt, cliptype, "exsword", "ammo_sword");
+            break;
+        case WEAPON_NEEDLER:
+            UpdateAmmo(t_ent, newamt, cliptype, "exneedler", "ammo_needler");
+            break;
+        case WEAPON_PRIFLE:
+            UpdateAmmo(t_ent, newamt, cliptype, "exprifle", "ammo_prifle");
+            break;
+        case WEAPON_BR:
+            UpdateAmmo(t_ent, newamt, cliptype, "exbr", "ammo_br");
+            break;
+        default:
+            _bprint("SetAmmoFor: invalid weapon type specified\n");
+            break;
+    }
 };
+
 
 void ( entity t_from, entity t_to, float wtype, float aremove ) CopyAmmo =
 {
@@ -327,71 +284,96 @@ void() t_sound =
 {
     local float r;
 
-    if ((drop_time > time))
-    {
+    if (drop_time > time)
         return;
-    }
 
-    if ((other.classname == "player"))
-    {
+    if (other.classname == "player")
         return;
-    }
 
-    r = floor((random() * 3));
-    if ((r == 0))
+    r = floor(random() * 3);
+    switch (r)
     {
-        sound(self, 0, "weapons/w_drop1.wav", 0.7, 1);
+        case 0:
+            sound(self, 0, "weapons/w_drop1.wav", 0.7, 1);
+        break;
+        case 1:
+            sound(self, 0, "weapons/w_drop2.wav", 0.7, 1);
+        break;
+        case 2:
+            sound(self, 0, "weapons/w_drop3.wav", 0.7, 1);
+        break;
     }
-    else if ((r == 1))
-    {
-        sound(self, 0, "weapons/w_drop2.wav", 0.7, 1);
-    }
-    else if ((r == 2))
-    {
-        sound(self, 0, "weapons/w_drop3.wav", 0.7, 1);
-    }
-
     drop_time = time + 0.1;
 };
+
+
 void (float wtype, float ttype) ThrowWeapon =
 {
-	local entity newthrow;
-	newthrow = spawn();
-    newthrow.origin = ((self.origin + '0 0 16') + (v_right * CONTENT_SKY));
+    // Create a new entity to represent the thrown weapon
+    local entity newthrow = spawn();
+
+    // Define offset for the spawning position of the thrown weapon
+    local vector offset = '0 0 16';
+
+    // Calculate direction vectors based on player's view angle
+    makevectors(self.v_angle);
+
+    // Define constants for force and multiplier used in calculating random forces
+    local float forwardForce = 45;
+    local float upwardForce = 200;
+    local float sideForceMultiplier = 10;
+
+    // Calculate random forces to add variability to the thrown weapon's trajectory
+    local vector random_right = ((2 * (random() - 0.5)) * v_right) * sideForceMultiplier;
+    local vector random_up = ((2 * (random() - 0.5)) * v_up) * sideForceMultiplier;
+
+    // Set the position of the thrown weapon slightly above and in front of the player
+    newthrow.origin = self.origin + offset + (v_right * CONTENT_SKY);
+
+    // Set the model and size of the thrown weapon
     setmodel(newthrow, weapon_getlaymodel(wtype));
     setsize(newthrow, VEC_ORIGIN, VEC_ORIGIN);
-    makevectors(self.v_angle);
+
+    // Calculate velocity of the thrown weapon based on player's view angle
     if (self.v_angle_x)
     {
-        newthrow.velocity = ((((v_forward * 45) + (v_up * 200)) + (((2 * (random() + -0.5)) * v_right) * 10)) + (((2 * (random() + -0.5)) * v_up) * 10));
+        // Calculate velocity for trajectory with an upward angle
+        newthrow.velocity = (v_forward * forwardForce) + (v_up * upwardForce) + random_right + random_up;
     }
     else
     {
+        // Calculate velocity for trajectory with no upward angle
         newthrow.velocity = aim(self, 10000);
-        newthrow.velocity = (newthrow.velocity * 45);
-        newthrow.velocity_z = 200;
+        newthrow.velocity = (newthrow.velocity * forwardForce);
+        newthrow.velocity_z = upwardForce;
     }
-	newthrow.owner = self;
-	newthrow.movetype = MOVETYPE_BOUNCE;
-	newthrow.solid = SOLID_TRIGGER;
-    newthrow.touch = t_sound; //copied over
-	newthrow.classname = "weapon_pickup";
-	newthrow.flags = FL_ITEM;
+
+    // Set ownership, movement type, collision properties, and other attributes of the thrown weapon
+    newthrow.owner = self;
+    newthrow.movetype = MOVETYPE_BOUNCE;
+    newthrow.solid = SOLID_TRIGGER;
+    newthrow.touch = t_sound; // copied over
+    newthrow.classname = "weapon_pickup";
+    newthrow.flags = FL_ITEM;
     newthrow.gravity = 5; // copied over
-	newthrow.think = weapon_becometouch;
-	newthrow.nextthink = time + 1;
-	
-	newthrow.weapon = wtype;
-	
-	if (ttype == 1)	{	// throwing an existing weapon
-		CopyAmmo(self, newthrow, wtype, 1);
-		newthrow.lives = 1;
-	}
-	else
+    newthrow.think = weapon_becometouch;
+    newthrow.nextthink = time + 1;
+    newthrow.weapon = wtype;
+
+    // Copy ammo from existing weapon if specified, otherwise set weapon ammo
+    // throwing an existing weapon
+    if (ttype == 1)
     {
-		SetWeaponAmmo(newthrow, wtype);
-	}
+        CopyAmmo(self, newthrow, wtype, 1);
+        newthrow.lives = 1;
+    }
+    else
+    {
+        SetWeaponAmmo(newthrow, wtype);
+    }
 };
+
+
 
 // respawn the weapon
 void () weapon_activate =
@@ -405,157 +387,163 @@ void () weapon_activate =
 	self.touch = weapon_touch;
 }
 
+// Function to set weapon icon for a human player
+void () SetWeaponIcon =
+{
+        if (icon_time > time)
+        stuffcmd (self, "cl_ww 0\n");
+        else
+        {
+            if (time > icon_time)
+                icon_time = time + 1;
+            self.canpick = 1;
+            return;
+        }
+
+        if (self.weapon == WEAPON_AR)       // Assault rifle
+        stuffcmd (self, "cl_ww 1\n");
+        else if (self.weapon == WEAPON_PPISTOL)  // Plasma Pistol
+        stuffcmd (self, "cl_ww 2\n");
+        else if (self.weapon == IT_SUPER_SHOTGUN)    // Shootie
+        stuffcmd (self, "cl_ww 3\n");
+        else if (self.weapon == WEAPON_NEEDLER)
+        stuffcmd (self, "cl_ww 4\n");
+        else if (self.weapon == IT_ROCKET_LAUNCHER)
+        stuffcmd (self, "cl_ww 5\n");
+        else if (self.weapon == WEAPON_PISTOL)
+        stuffcmd (self, "cl_ww 6\n");
+        else if (self.weapon == WEAPON_UZI)
+        stuffcmd (self, "cl_ww 7\n");
+        else if (self.weapon == WEAPON_SNIPER)
+        stuffcmd (self, "cl_ww 8\n");
+        else if (self.weapon == WEAPON_BR)
+        stuffcmd(self, "cl_ww 9\n");
+        else if (self.weapon == WEAPON_SWORD)
+        stuffcmd(self, "cl_ww 10\n");
+        else if (self.weapon == WEAPON_PRIFLE)
+        stuffcmd(self, "cl_ww 11\n");
+};
+
+
+// Function to handle weapon touch logic
 void () weapon_touch =
 {
-	local entity oself;
-	local float addweapon, newweapon;
-	
-	oself = self;
-	//
+    local entity oself;
+    local float addweapon, newweapon;
 
-	if (!(other.flags & FL_CLIENT))
-		return;
+    oself = self;
 
-	if (other.ishuman != #TRUE)
-		if (other.attack_finished < time)
-			other.canpickup_time = time + .1;
-		
-	self.mdl = self.model;
-		
-	if ( (other.items & self.weapon) ) {
-		if (self.weapon & WEAPON_PPISTOL || self.weapon & WEAPON_PRIFLE)				// weapons that don't have an extended clip
-			if ( W_GetMaxClip(self.weapon, 1) <= GetAmmoCount(other, self.weapon, 1) )
-				return;
-	
-		if ( W_GetMaxClip(self.weapon, 0) <= GetAmmoCount(other, self.weapon, 0) )
-			return;
+    // Check if the entity touching the weapon is not a client
+    if (!(other.flags & FL_CLIENT))
+    return;
 
-		W_UpdateAmmoCounts( self );
-		if (self.weapon & WEAPON_PPISTOL || self.weapon & WEAPON_PRIFLE)
-			SetAmmoFor( other, self.weapon, 1, self.currentammo );
-		else
-			SetAmmoFor( other, self.weapon, 0, self.armorvalue );
-		//SetAmmoFor( other, self.weapon, 1, self.currentammo );
-		
-		W_UpdateAmmoCounts( other );
-		self.touch = SUB_Null;
-		setmodel( self, string_null );
-		self.nextthink = time + 30;
-		self.think = weapon_activate;
-		return;
-	}
-	
-	if (other.canpickup_time > time) {
-		if (other.weapon == self.weapon || GetPlayerWeapons(other.items) >= 2 ) {
-			addweapon = 2;		// drop current weapon and replace it
+    // If the entity touching the weapon is not human and its attack isn't finished, set canpickup_time
+    if (other.ishuman != #TRUE)
+    if (other.attack_finished < time)
+    other.canpickup_time = time + .1;
+
+    // Set self.mdl to self.model for clarity
+    self.mdl = self.model;
+
+    // If the touching entity already has the weapon
+    if ( (other.items & self.weapon) ) {
+        // Check if the weapon doesn't have an extended clip and if the ammo exceeds the maximum clip size
+        if (self.weapon & WEAPON_PPISTOL || self.weapon & WEAPON_PRIFLE)
+            if ( W_GetMaxClip(self.weapon, 1) <= GetAmmoCount(other, self.weapon, 1) )
+                return;
+
+        // Check if the ammo exceeds the maximum clip size
+        if ( W_GetMaxClip(self.weapon, 0) <= GetAmmoCount(other, self.weapon, 0) )
+            return;
+
+        // Update ammo counts
+        W_UpdateAmmoCounts( self );
+        if (self.weapon & WEAPON_PPISTOL || self.weapon & WEAPON_PRIFLE)
+            SetAmmoFor( other, self.weapon, 1, self.currentammo );
+        else
+            SetAmmoFor( other, self.weapon, 0, self.armorvalue );
+
+        // Update ammo counts for the other entity
+        W_UpdateAmmoCounts( other );
+
+        // Reset touch, model, and set nextthink and think
+        self.touch = SUB_Null;
+        setmodel( self, string_null );
+        self.nextthink = time + 30;
+        self.think = weapon_activate;
+
+        return;
+    }
+
+    // If the entity can pick up the weapon now
+    if (other.canpickup_time > time) {
+        // Decide whether to add the weapon or replace the current weapon
+        if (other.weapon == self.weapon || GetPlayerWeapons(other.items) >= 2 ) {
+            addweapon = 2;      // Drop current weapon and replace it
         } else {
-			addweapon = 1;		// add other weapon and switch to it
-		}
+            addweapon = 1;      // Add other weapon and switch to it
+        }
 
-		other.canpickup_time = 0;
-	}
-	else {
-		if (time > other.pickup_time) {
+        // Reset canpickup_time
+        other.canpickup_time = 0;
+    }
+    else {
+        // If it's not time to pick up the weapon yet, set pickup_time
+        if (time > other.pickup_time) {
 
 //			if ( GetPlayerWeapons(other.items) == 2 )
 //				centerprint(other, "Press reload button to swap for this weapon\n");
 //			else
 //				centerprint(other, "Press reload button to pick up weapon\n");
-			other.pickup_time = time + .5;
-			return;
-		}
-	}
-	
-	if (other.ishuman == TRUE && other.classname == "player")
-    {
-        if (icon_time > time)
-        stuffcmd (other, "cl_ww 0\n");
-        else
-            {
-        if (time > icon_time)
-        icon_time = time + 1;
-        other.canpick = 1;
-        return;
-            }
-        if (self.weapon == WEAPON_AR)	//Assault rifle
-        {
-        stuffcmd (other, "cl_ww 1\n");
-        }
-
-        else if (self.weapon == WEAPON_PPISTOL)//Plasma Pistol
-        {
-        stuffcmd (other, "cl_ww 2\n");
-        }
-
-        else if (self.weapon == IT_SUPER_SHOTGUN)	//Shootie
-        {
-        stuffcmd (other, "cl_ww 3\n");
-        }
-
-        else if (self.weapon == WEAPON_NEEDLER)
-        {
-        stuffcmd (other, "cl_ww 4\n");
-        }
-
-        else if (self.weapon == IT_ROCKET_LAUNCHER)
-        {
-        stuffcmd (other, "cl_ww 5\n");
-        }
-
-        else if (self.weapon == WEAPON_PISTOL)
-        {
-        stuffcmd (other, "cl_ww 6\n");
-        }
-
-        else if (self.weapon == WEAPON_UZI)
-        {
-        stuffcmd (other, "cl_ww 7\n");
-        }
-
-        else if (self.weapon == WEAPON_SNIPER)
-        {
-        stuffcmd (other, "cl_ww 8\n");
-        }
-        else if ((self.weapon == WEAPON_BR))
-        {
-            stuffcmd(other, "cl_ww 9\n");
-        }
-        else if (self.weapon == WEAPON_SWORD) {
-            stuffcmd(other, "cl_ww 10\n");
-        }
-        else if (self.weapon == WEAPON_PRIFLE) {
-            stuffcmd(other, "cl_ww 11\n");
+            other.pickup_time = time + .5;
+            return;
         }
     }
 
-	other.canpick = 0;
-	if (addweapon)
-	{
-		other.attack_finished = time + .1;	// so the player doesnt reload when picking up a new weapon
-		if (addweapon == 1) {
-			other.items = other.items | self.weapon;
-			sprint(other,"New weapon added to your inv\n");
-		}
-		else if (addweapon == 2) {			// replace current weapon
-			newweapon = self.weapon;
-			other.items = other.items - other.weapon;
-			other.items = other.items | self.weapon;
-			self = other;
-			ThrowWeapon(self.weapon, 1);
-			W_WeaponSwitch(newweapon);
-			W_SetCurrentAmmo();
-			pre_player_pull(other);
-			self = oself;
-		}
-		CopyAmmo( self, other, self.weapon, 0 );
-		W_UpdateAmmoCounts( other );
-		self.touch = SUB_Null;
-		setmodel( self, string_null );
-		self.nextthink = time + 30;
-		self.think = weapon_activate;
-		return;
-	}
+    // If the entity is human, set the weapon icon
+    if (other.ishuman == TRUE && other.classname == "player")
+    {
+        SetWeaponIcon();
+    }
+
+    // Reset canpick
+    other.canpick = 0;
+
+    // If a weapon should be added
+    if (addweapon)
+    {
+        // Set attack_finished to prevent reloading when picking up a new weapon
+        other.attack_finished = time + .1;
+
+        // Add or replace the weapon and perform related actions
+        if (addweapon == 1) {
+            other.items = other.items | self.weapon;
+            sprint(other,"New weapon added to your inv\n");
+        }
+        else if (addweapon == 2) {          // Replace current weapon
+            newweapon = self.weapon;
+            other.items = other.items - other.weapon;
+            other.items = other.items | self.weapon;
+            self = other;
+            ThrowWeapon(self.weapon, 1);
+            W_WeaponSwitch(newweapon);
+            W_SetCurrentAmmo();
+            pre_player_pull(other);
+            self = oself;
+        }
+
+        // Copy ammo, update counts, reset touch, model, and set nextthink and think
+        CopyAmmo( self, other, self.weapon, 0 );
+        W_UpdateAmmoCounts( other );
+        self.touch = SUB_Null;
+        setmodel( self, string_null );
+        self.nextthink = time + 30;
+        self.think = weapon_activate;
+
+        return;
+    }
 };
+
 
 void () weapon_start =
 {

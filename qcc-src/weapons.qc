@@ -2579,9 +2579,12 @@ Go to the next weapon with ammo
 */
 void() CycleWeaponCommand =
 {
-	local float w;
-	w = self.weapon;
+	local float w, old;
+	w = old = self.weapon;
 
+    if (cvar("custom_secondary") == WEAPON_NONE) {
+        return;
+    }
 	while (1)
 	{
 		switch (w) {
