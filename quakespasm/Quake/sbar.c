@@ -612,7 +612,9 @@ void Sbar_DrawInventory (void)
     if((int)cl.stats[STAT_HEALTH] <= 0)
         return;
     if ((int)cl.stats[STAT_HEALTH] > 0) {
+#ifndef __APPLE__  /* Vita button HUD has no Mac path; disabled for apple port */
         HUD_Draw();
+#endif
     }
 }
 

@@ -146,7 +146,13 @@ int main(int argc, char *argv[])
 	double		time, oldtime, newtime;
 
 	host_parms = &parms;
+#ifdef __APPLE__  /* Mac port: SDL_main receives real argc/argv from AppController; Vita bootstrap below never fills them */
+	parms.argc = argc;
+	parms.argv = argv;
+	parms.basedir = NULL; /* resolved from argv[0]/cwd by Sys_Init (sys_sdl_unix.c) */
+#else
 	parms.basedir = "ux0:data/Quakespasm";
+#endif
 
 #ifdef VITA	
 	sceClibPrintf("Initializing vitaGL...\n");
