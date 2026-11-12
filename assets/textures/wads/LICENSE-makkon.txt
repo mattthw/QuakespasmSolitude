@@ -1,0 +1,19 @@
+makkon-subset.wad — texture subset of Ben "Makkon" Hale's Quake texture
+packs, reduced to the 18 lumps actually used by Solitude maps
+(builder: tools/asset-scan/make_makkon_subset.py; lump bytes verbatim from
+Makkon0-3.wad).
+
+License (as published by the author, fetched 2026-11-12 from
+https://www.slipseer.com/index.php?resources/makkon-textures.28/ ):
+
+  "The Quake version of these textures are for the community, are
+   non-commercial, and will always be free."
+  "Modification is allowed and encouraged, with credit."
+  "Not for commercial use without express written permission."
+
+Therefore: this subset may ship in this non-commercial repository WITH
+credit to Makkon. If Solitude ever becomes commercial, these 18 textures
+must be replaced or written permission obtained (see AGENTS.md decisions).
+
+Credit: Ben "Makkon" Hale — Makkon Texture Pack 0/1/2/3 (Quake versions),
+published at https://www.slipseer.com/index.php?resources/makkon-textures.28/

@@ -3,7 +3,7 @@
 // entity 0
 {
 "mapversion" "220"
-"wad" "assets/textures/wads/solitude256quake.wad;assets/textures/wads/solitude128quake.wad;assets/textures/wads/kurok.wad;assets/textures/wads/Makkon2.wad;assets/textures/wads/Makkon1.wad;wads/Makkon1/Makkon1.wad;wads/Makkon2/Makkon2.wad"
+"wad" "assets/textures/wads/solitude256quake.wad;assets/textures/wads/solitude128quake.wad;assets/textures/wads/kurok.wad;assets/textures/wads/makkon-subset.wad;assets/textures/wads/solitude-128.wad;assets/textures/wads/bloodgulch2.wad;assets/textures/wads/solitude.wad"
 "classname" "worldspawn"
 "skyname" "ringbl512"
 "message" "Cestra by Sam (ported to Quake engine by Matt - sorry, HLBSP support isn't happening)"

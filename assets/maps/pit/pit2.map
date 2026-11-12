@@ -2,7 +2,7 @@
 // Format: Standard
 // entity 0
 {
-"wad" "wads/solitude.wad"
+"wad" "assets/textures/wads/solitude.wad"
 "MaxRange" "4096"
 "sounds" "1"
 "_minlight" "150"
