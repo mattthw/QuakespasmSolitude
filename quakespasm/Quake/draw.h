@@ -77,6 +77,9 @@ float HUD_SCALE (void);
 void GLFont_Init (void);
 float Draw_TTFString (int x, int y, const char *str, float r, float g, float b, float a, float size);
 float Draw_TTFWidth (const char *str, float size);
+/* P2a round 4: header face (Archivo Narrow ExtraBold) — menu titles */
+float Draw_TTFStringHeader (int x, int y, const char *str, float r, float g, float b, float a, float size);
+float Draw_TTFHeaderWidth (const char *str, float size);
 void Draw_HudPic (struct PicAttr attr, qpic_t *pic);
 void Draw_HudSubPic (struct PicAttr attr, qpic_t *pic, float s1, float t1, float s2, float t2);
 void Draw_Pic (int x, int y, qpic_t *pic);
@@ -85,6 +88,9 @@ void Draw_TransPicTranslate (int x, int y, qpic_t *pic, int top, int bottom); //
 void Draw_ConsoleBackground (void); //johnfitz -- removed parameter int lines
 void Draw_TileClear (int x, int y, int w, int h);
 void Draw_Fill (int x, int y, int w, int h, int c, float alpha); //johnfitz -- added alpha
+void Draw_FillRGBA (int x, int y, int w, int h, float r, float g, float b, float alpha);
+void Draw_FillGradient (int x, int y, int w, int h, float r, float g, float b, float alpha); //P2a float-color panels
+void Draw_FillGradientEx (int x, int y, int w, int h, float r, float g, float b, float alpha, float edge); //P2a r4b: edge-darkening strength parameter
 void Draw_Cursor (int x, int y, int w, int h, bool focused); //johnfitz -- added alpha
 void Draw_FadeScreen (void);
 void Draw_String (int x, int y, const char *str);

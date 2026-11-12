@@ -591,8 +591,10 @@ Sbar_DrawScoreboard
 void Sbar_DrawScoreboard (void)
 {
 //	Sbar_SoloScoreboard ();
-	if (cl.gametype == GAME_DEATHMATCH)
+	if (cl.gametype == GAME_DEATHMATCH) {
+		HUD_DrawShield ();	/* P2a: keep the bubble behind the leaderboard */
 		Sbar_DeathmatchOverlay ();
+	}
 }
 
 //=============================================================================
@@ -987,8 +989,11 @@ void Sbar_DeathmatchOverlay (void)
 
 	x = 80; //johnfitz -- simplified becuase some positioning is handled elsewhere
 	y = 40;
-    Draw_Fill ( x+12, 23, 136, 16, 0, 0.9);
-    M_PrintWhite (x+20, 27,"  LEADERBOARD");
+    /* P2a round 4: navy header strip (was a palette-0 slab at 0.9 — user:
+     * "leaderboard should also use our blue, not black"), grid-header style,
+     * with the title in the ExtraBold header font (baseline = old 27+8). */
+    Draw_FillRGBA (x+12, 23, 136, 16, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
+    Draw_TTFStringHeader (x+20, 35, "LEADERBOARD", 1,1,1,0.9f, 14.0f);
 
 	for (i = 0; i < l; i++)
 	{
@@ -1004,16 +1009,21 @@ void Sbar_DeathmatchOverlay (void)
 		if (S_Voip_Speaking(k))	//spike -- display an underlay for people who are speaking
 			Draw_Fill ( x, y, 320-x*2, 8, ((k+1)==cl.viewentity)?75:73, 1);
 
-        Draw_Fill ( x+12, y, 32, 12, bottom, 0.9); //score num bg
-        Draw_Fill ( x+50, y, 98, 12, bottom, 0.9); //player name bg
+        /* P2a lobby-look: translucent team-color strips via float RGB
+         * (d_8to24table is packed unsigned int[256], byte-cast like
+         * Draw_Fill does) instead of alpha-0.9 palette slabs. */
+        {
+            byte *pc = (byte *)d_8to24table + bottom*4;
+            Draw_FillRGBA (x+11, y-1, 34, 14, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18); //P2a border (canvas min 1 unit; softened per user)
+            Draw_FillRGBA (x+12, y, 32, 12, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.55); //score num bg
+            Draw_FillRGBA (x+49, y-1, 100, 14, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18); //P2a border (softened per user)
+            Draw_FillRGBA (x+50, y, 98, 12, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.45); //player name bg
+        }
 
-        // draw number
+        // draw number (P2a: TTF, right-aligned in the strip, no padding spaces)
 		f = s->frags;
-		sprintf (num, "%3i",f);
-
-		Draw_Character ( x+8 , y, num[0]); //johnfitz -- stretched overlays
-		Draw_Character ( x+16 , y, num[1]); //johnfitz -- stretched overlays
-		Draw_Character ( x+24 , y, num[2]); //johnfitz -- stretched overlays
+		sprintf (num, "%i", f);
+		Draw_TTFString (x+28 - Draw_TTFWidth (num, 13.0f)*0.5f, y + 10, num, 1, 1, 1, 1, 13.0f);
 
 		if (k == cl.viewentity - 1)
 			Draw_Character ( x - 8, y, 12); //johnfitz -- stretched overlays
@@ -1040,7 +1050,7 @@ void Sbar_DeathmatchOverlay (void)
 //		M_PrintWhite (x-8*5, y, num); //johnfitz -- was Draw_String, changed for stretched overlays
 
         // draw name
-        M_PrintWhite (x+52, y+2, s->name);
+        M_PrintWhite (x+54, y+1, s->name);
 
 		y += 16;
 	}

@@ -745,8 +745,8 @@ void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, fl
     int side_margin = 1;
     int bottom_margin = 1;
 
-    Draw_Fill (inside_xoff-side_margin, inside_yoff-top_margin, bgwidth+(2*side_margin), bgheight+top_margin+bottom_margin, BG_BORDER, alpha);
-    Draw_Fill (inside_xoff, inside_yoff, bgwidth, bgheight, BG_COLOR, alpha);
+    Draw_FillRGBA (inside_xoff-side_margin, inside_yoff-top_margin, bgwidth+(2*side_margin), bgheight+top_margin+bottom_margin, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
+    Draw_FillGradient (inside_xoff, inside_yoff, bgwidth, bgheight, 23/255.0f, 29/255.0f, 60/255.0f, 0.75f);
 
     D_PrintWhite(inside_xoff+CHARZ, inside_yoff-top_margin+textmargin, str);
 }
@@ -828,22 +828,25 @@ struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, in
     mc.colw = colpix;
     mc.rowh = rowpix;
     // draw background
-    Draw_Fill(x, y+header_height, menu_width, menu_height-header_height-footer_height, colr_bg, alpha);
+    Draw_FillGradientEx (x, y+header_height, menu_width, menu_height-header_height-footer_height, 23/255.0f, 29/255.0f, 60/255.0f, 0.75f, 0.28f);   /* P2a round 4b: every grid menu same #171d3c, edge gradient deepened 0.15 -> 0.28 (matchmaking wanted more, user 2026-11-12; kept uniform because rule/map overlays stack on this panel) */
     // draw cursor
     if (cursor >= 0) {
         Draw_Cursor(mc.grid[0][0].x, mc.grid[0][cursor].y, colpix*cursor_cols, rowpix, true);
     }
     // draw header
-    Draw_Fill(x, y, menu_width, header_height, colr_h, detail_alpha);
-    // print title
-    Draw_ColoredStringScale(x + x_padding, y + y_padding_header, title, 1,1,1,0.8,title_scale);
+    Draw_FillRGBA (x, y, menu_width, header_height, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);   /* P2a: header darker than body, consistent */
+    // print title — P2a round 4: header font (Archivo ExtraBold). Body menu
+    // text is 14px TTF where old conchars drew at scale 1.0; same ratio here
+    // (size and baseline drop both scale with title_scale, and the funnel
+    // convention is y-param = old cell-top + 8, i.e. a baseline).
+    Draw_TTFStringHeader (x + x_padding, y + y_padding_header + (int)(8*title_scale), title, 1,1,1,0.8, 14.0f * (float)title_scale);
     // draw footer
     if (footer)
-        Draw_Fill(x, mc.grid[0][mc.rows].y, menu_width, footer_height+1, colr_h, detail_alpha);
+        Draw_FillRGBA (x, mc.grid[0][mc.rows].y, menu_width, footer_height+1, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
     // draw borders
-    Draw_Fill(x, y, 1, menu_height, colr_h, detail_alpha);
-    Draw_Fill(x+menu_width, y, 1, menu_height, colr_h, detail_alpha);
-    Draw_Fill(x, y+menu_height, menu_width, 1, colr_h, detail_alpha);
+    Draw_FillRGBA (x, y, 1, menu_height, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
+    Draw_FillRGBA (x+menu_width, y, 1, menu_height, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
+    Draw_FillRGBA (x, y+menu_height, menu_width, 1, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
     return mc;
 }
 
@@ -866,8 +869,8 @@ void Draw_WindowPix(int x, int y, int bgwidth, int bgheight, char *str, float al
     int side_margin = 1;
     int bottom_margin = 1;
 
-    Draw_Fill (x-side_margin, y-top_margin, bgwidth+(2*side_margin), bgheight+top_margin+bottom_margin, BG_BORDER, alpha);
-    Draw_Fill (x, y, bgwidth, bgheight, BG_COLOR, alpha);
+    Draw_FillRGBA (x-side_margin, y-top_margin, bgwidth+(2*side_margin), bgheight+top_margin+bottom_margin, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
+    Draw_FillGradient (x, y, bgwidth, bgheight, 23/255.0f, 29/255.0f, 60/255.0f, 0.75f);
 
     D_PrintWhite(x+CHARZ, y-top_margin+textmargin, str);
 }
@@ -1315,17 +1318,43 @@ void Draw_TileClear (int x, int y, int w, int h)
 }
 
 #define new_min(x,y) (((x) >= (y)) ? (y) : (x))
+void Draw_FillGradientEx (int x, int y, int w, int h, float r, float g, float b, float alpha, float edge)
+{
+    /* P2a round 4b: Draw_FillGradient with the edge-darkening strength as a
+     * parameter — 'edge' is the fractional drop at t=+-.5 (the shared 0.15
+     * profile lives in the wrapper below). Matchmaking/Firefight window
+     * asked for more gradient (user 2026-11-12). */
+    int bands = w / 12;
+    int i, bw;
+    if (bands < 8) bands = 8;
+    if (bands > 64) bands = 64;
+    bw = w / bands;
+    for (i = 0; i < bands; i++)
+    {
+        float t = (float)(i*2 + 1) / (float)(bands*2) - 0.5f;   /* -.5..+.5 */
+        float f = 1.0f - edge * (t*t) * 4.0f;                   /* (1-edge) edge -> 1.0 center */
+        int xe = (i == bands-1) ? w : bw*(i+1);                 /* last band absorbs rounding */
+        Draw_FillRGBA (x + bw*i, y, xe - bw*i, h, r*f, g*f, b*f, alpha);
+    }
+}
+
+void Draw_FillGradient (int x, int y, int w, int h, float r, float g, float b, float alpha)
+{
+    /* P2a: smooth horizontal ramp — edges 15% darker than the middle,
+     * parabolic profile in enough bands that adjacent steps are under
+     * 1% brightness (the old 3-band version read as visible color blocks). */
+    Draw_FillGradientEx (x, y, w, h, r, g, b, alpha, 0.15f);
+}
+
 void Draw_Cursor (int x, int y, int w, int h, bool focused)
 {
-    int cursor_color = focused ? YELLOW : GREY;
-    //todo: get this working
-    float alpha = (((int)(realtime*10)) % 10) /10;
-    if (!focused) {
-        alpha = 0.3;
-    } else {
-        alpha = new_min(0.1, alpha);
-    }
-    Draw_Fill(x, y, w, h, cursor_color, alpha);
+    /* P2a: Halo-lobby look — selected row = translucent GOLD strip (user
+     * hex direction; was the broken pulse: new_min(0.1,...) kept alpha <=
+     * 0.1), unfocused = slate. */
+    if (focused)
+        Draw_FillRGBA (x, y, w, h, 230/255.0f, 172/255.0f, 60/255.0f, 0.40f);
+    else
+        Draw_FillRGBA (x, y, w, h, 0.235f, 0.251f, 0.275f, 0.5f);
 }
 
 /*
@@ -1354,6 +1383,34 @@ void Draw_Fill (int x, int y, int w, int h, int c, float alpha) //johnfitz -- ad
 	glColor3f (1,1,1);
 	glDisable (GL_BLEND); //johnfitz -- for alpha
 	glEnable (GL_ALPHA_TEST); //johnfitz -- for alpha
+	glEnable (GL_TEXTURE_2D);
+}
+
+/*
+=============
+Draw_FillRGBA
+
+Float-color variant of Draw_Fill for menu/HUD panels whose curated
+colors are not VGA palette indices (P2a). Same GL state recipe.
+=============
+*/
+void Draw_FillRGBA (int x, int y, int w, int h, float r, float g, float b, float alpha)
+{
+	glDisable (GL_TEXTURE_2D);
+	glEnable (GL_BLEND);
+	glDisable (GL_ALPHA_TEST);
+	glColor4f (r, g, b, alpha);
+
+	glBegin (GL_QUADS);
+	glVertex2f (x,y);
+	glVertex2f (x+w, y);
+	glVertex2f (x+w, y+h);
+	glVertex2f (x, y+h);
+	glEnd ();
+
+	glColor3f (1,1,1);
+	glDisable (GL_BLEND);
+	glEnable (GL_ALPHA_TEST);
 	glEnable (GL_TEXTURE_2D);
 }
 
