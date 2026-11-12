@@ -1,0 +1,34 @@
+#!/bin/sh
+# Solitude repo pre-commit hook — enforce decision #5: derived is never tracked.
+# Derived = .bsp .lit .vis .prt progs.dat — always rebuildable from committed
+# .map + qcc-src. Grandfathered copies (runtime solitude/, legacy/) may still
+# be MODIFIED; only NEW additions are blocked. .bsp/.lit additionally require a
+# tracked or simultaneously-staged .map of the same basename.
+# Enable once per clone:  git config core.hooksPath .githooks
+set -u
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+hard=$(printf '%s\n' "$staged" | grep -Ei '(\.vis|\.prt)$|(^|/)progs\.dat$')
+if [ -n "$hard" ]; then
+    echo "pre-commit: refusing to track derived files (rebuild instead):" >&2
+    printf '  %s\n' $hard >&2
+    exit 1
+fi
+
+newbin=$(git diff --cached --name-only --diff-filter=A | grep -Ei '\.(bsp|lit)$' || true)
+for f in $newbin; do
+    case "$f" in
+        legacy/*) continue ;;
+    esac
+    stem=$(basename "$f"); stem="${stem%.*}"
+    tracked=$(git ls-files -- "*${stem}.map" | head -1)
+    stagedmap=$(git diff --cached --name-only --diff-filter=ACMR \
+                 | sed 's|.*/||' | grep -qxF "${stem}.map" && echo yes)
+    if [ -z "$tracked" ] && [ -z "$stagedmap" ]; then
+        echo "pre-commit: $f is derived; commit ${stem}.map source instead (decision #5)" >&2
+        exit 1
+    fi
+done
+exit 0

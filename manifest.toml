@@ -1,0 +1,48 @@
+# Solitude (PS Vita Quake) — repo manifest. Machine-readable companion to
+# ../AGENTS.md; decisions numbered as there. Edit prose in AGENTS.md first.
+
+[repo]
+name = "QuakespasmSolitude"
+branch = "chore/path-move"          # ahead of mainline; NOT merged, NOT pushed
+remotes = { origin = "master", solitude = "mainline" }
+
+[layout]
+# split by producer (decision #4): source / small shipped binaries / build output
+tracked = ["assets", "qcc-src", "qcc-precompiled", "quakespasm", "solitude", "tools", "legacy"]
+staged_untracked = ["build"]         # active work, gitignored since 8a0b15ce
+link = { wads = "../local/vendored/wads" }   # dangling on fresh clones BY DESIGN
+note = "solitude/ runtime tree stays flat: it IS the device payload layout"
+
+[art]
+rule = "art bytes never enter git (decision #1); git fingerprints the version"
+dirs = ["../local/vendored/wads", "../local/art"]
+manifest = "ART_SHA256.txt"          # path|size|sha256, workspace-root-relative
+regenerate = "python3 tools/asset-scan/gen_art_manifest.py"
+
+[build.map]
+tools = "../../toolchain/ericw-tools"   # prebuilt 2.0.0-alpha11 Darwin (no brew formula)
+cwd = "repo root"                       # REQUIRED: wad keys are repo-relative (b7df6d3b)
+order = ["qbsp", "vis", "light"]        # positional out arg; no -output; vis -O invalid
+proof = "highground 52/52 textures embedded, matches blessed build"
+
+[build.progs]
+compiler = "../../toolchain/fteqcc-mac/fteqcc.arm64"
+cwd = "qcc-src"                         # NETQUAKE -> output ../progs.dat
+baseline = "be94b373 compiles 0 errors / 109 warnings"
+caveat = "local builds do NOT reproduce shipped solitude/progs.dat (c43d6d2c…); "
+caveat2 = "any fresh progs.dat needs in-game testing before shipping"
+
+[derived]
+rule = "derived never tracked (decision #5): .bsp .lit .vis .prt progs.dat"
+grandfathered = ["solitude/** (runtime payload)", "legacy/**"]
+enforced_by = ".githooks/pre-commit — enable per clone: git config core.hooksPath .githooks"
+
+[release]
+pak = "one deterministic PAK0.PAK, entries sorted by name (decision #2)"
+delivery = "GitHub release asset, not in git (decision #3: no LFS)"
+paks_current = { PAK1 = "d76b3e56… unchanged since 2007-08-04", PAK2 = "f32ab2a3…" }
+
+[analysis]
+tool = "tools/asset-scan (bsp_refs.py, progs_strings.py, reconcile.py)"
+verdicts = ["referenced", "pak-covered", "name-loaded", "unverified"]
+policy = "drop-nothing: no verdict ever authorises deletion (2026-11-11 directive)"
