@@ -401,6 +401,35 @@ static void Draw_GeomCapsule (float x, float y, float w, float h, float c,
     glEnable (GL_TEXTURE_2D);
 }
 
+/* P2a tier-1 shield restyle: same octagon fan but with a vertical vertex
+ * color gradient (top/bottom colors interpolate through the fan rim;
+ * immediate mode carries per-vertex colors, so Vita-safe fixed function). */
+static void Draw_GeomCapsuleGrad (float x, float y, float w, float h, float c,
+                                  float rt, float gt, float bt,
+                                  float rb, float gb, float bb, float a)
+{
+    glDisable (GL_TEXTURE_2D);
+    glEnable (GL_BLEND);
+    glDisable (GL_ALPHA_TEST);
+    glBegin (GL_TRIANGLE_FAN);
+        glColor4f ((rt+rb)*0.5f, (gt+gb)*0.5f, (bt+bb)*0.5f, a);
+        glVertex2f (x + w*0.5f, y + h*0.5f);
+#define GRAD_VY(vy_, vx_) do { float _t = ((vy_) - y) / h; \
+        glColor4f (rt + (rb-rt)*_t, gt + (gb-gt)*_t, bt + (bb-bt)*_t, a); \
+        glVertex2f (vx_, vy_); } while (0)
+        GRAD_VY (y,     x + c);      GRAD_VY (y,     x + w - c);
+        GRAD_VY (y + c, x + w);      GRAD_VY (y + h - c, x + w);
+        GRAD_VY (y + h, x + w - c);  GRAD_VY (y + h, x + c);
+        GRAD_VY (y + h - c, x);      GRAD_VY (y + c, x);
+        GRAD_VY (y,     x + c);
+#undef GRAD_VY
+    glEnd ();
+    glColor3f (1,1,1);
+    glDisable (GL_BLEND);
+    glEnable (GL_ALPHA_TEST);
+    glEnable (GL_TEXTURE_2D);
+}
+
 void drawHealth(void)
 {
     if(cl.stats <= 0 || deathmatch.value == DM_SWAT || sb_showscores) {
@@ -411,12 +440,18 @@ void drawHealth(void)
 
     /* Halo 3 manual, shields: solid blue when healthy, flash red when
      * depleted. The mod's bar has always been fed by STAT_HEALTH; keep the
-     * old 130-oversize fraction so >100 looks the same as before. */
+     * old 130-oversize fraction so >100 looks the same as before.
+     * P2a tier-1: gradient fill, 1/10 segment ticks, recharge sweep and a
+     * white hit-flash (user 2026-11-12). */
     {
+        static float shownfrac   = -1.0f;
+        static float dmgflash    = 0.0f;
+        static int   prevsheilds = -1;
         float hp    = sheilds;
         float frac  = hp / 130.0f;
-        float inset, cham, tflash;
+        float inset, cham, tflash, fw;
         qboolean hurt;
+        int i;
         if (frac > 1.0f) frac = 1.0f;
         if (frac < 0.0f) frac = 0.0f;
         inset = health_blue_attr.height * 0.18f;
@@ -425,19 +460,48 @@ void drawHealth(void)
         tflash = realtime * 3.0f;
         tflash -= (float)((int)tflash);
 
-        /* dark navy backing capsule */
-        Draw_GeomCapsule(health_blue_attr.x, health_blue_attr.y,
-                         health_blue_attr.width, health_blue_attr.height, cham,
-                         0.05f, 0.06f, 0.12f, 0.45f);
-        /* value fill: Halo blue, or red flashing when depleted */
-        if (frac > 0)
-            Draw_GeomCapsule(health_blue_attr.x + inset, health_blue_attr.y + inset,
-                             (health_blue_attr.width - 2*inset) * frac,
-                             health_blue_attr.height - 2*inset, cham * 0.7f,
-                             hurt ? 0.85f : 0.25f,
-                             hurt ? (tflash > 0.5f ? 0.20f : 0.10f) : 0.62f,
-                             hurt ? 0.18f : 0.95f,
-                             0.60f);
+        if (shownfrac < 0.0f) shownfrac = frac;
+        if (prevsheilds >= 0 && sheilds < prevsheilds) dmgflash = 0.18f;
+        prevsheilds = sheilds;
+        dmgflash -= host_frametime;
+        if (dmgflash < 0.0f) dmgflash = 0.0f;
+        { float k = (float)host_frametime * 8.0f; if (k > 1.0f) k = 1.0f;
+          shownfrac += (frac - shownfrac) * k; }
+        fw = (health_blue_attr.width - 2*inset) * shownfrac;
+
+        /* dark navy backing capsule, slight top-light gradient */
+        Draw_GeomCapsuleGrad (health_blue_attr.x, health_blue_attr.y,
+                              health_blue_attr.width, health_blue_attr.height, cham,
+                              0.08f, 0.10f, 0.19f, 0.04f, 0.05f, 0.10f, 0.45f);
+        /* value fill: Halo blue (pale top -> deep belly), red flashing when
+         * depleted, same gradient recipe */
+        if (fw > 1.0f)
+        {
+            Draw_GeomCapsuleGrad (health_blue_attr.x + inset, health_blue_attr.y + inset,
+                                  fw, health_blue_attr.height - 2*inset, cham * 0.7f,
+                                  hurt ? 0.95f : 0.45f,
+                                  hurt ? (tflash > 0.5f ? 0.42f : 0.28f) : 0.78f,
+                                  hurt ? 0.30f : 1.00f,
+                                  hurt ? 0.55f : 0.12f,
+                                  hurt ? 0.08f : 0.42f,
+                                  hurt ? 0.10f : 0.80f,
+                                  0.60f);
+            /* segment ticks every 1/10 of full width (Halo's 10-piece read) */
+            for (i = 1; i < 10; i++)
+            {
+                float tx = health_blue_attr.x + inset + (health_blue_attr.width - 2*inset) * (i * 0.1f);
+                if (tx < health_blue_attr.x + inset + fw - 1.0f)
+                    Draw_FillRGBA ((int)tx, (int)(health_blue_attr.y + inset),
+                                   1, (int)(health_blue_attr.height - 2*inset),
+                                   0.02f, 0.03f, 0.08f, 0.55f);
+            }
+            /* hit flash: white ghost of the fill fading over 0.18s */
+            if (dmgflash > 0.0f)
+                Draw_GeomCapsuleGrad (health_blue_attr.x + inset, health_blue_attr.y + inset,
+                                      fw, health_blue_attr.height - 2*inset, cham * 0.7f,
+                                      0.85f, 0.95f, 1.0f, 0.70f, 0.85f, 1.0f,
+                                      0.45f * (dmgflash / 0.18f));
+        }
     }
 
     if ((int)deathmatch.value == DM_SLAYER || (int)deathmatch.value == DM_FIREFIGHT)
