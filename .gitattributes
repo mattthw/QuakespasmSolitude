@@ -1,5 +1,6 @@
 # Line-ending policy (settled 2026-11-11): text sources are stored LF.
 *.qc  text eol=lf
+qcc-src/frikbot/bot_ed.qc -text
 *.c   text eol=lf
 *.h   text eol=lf
 *.map text eol=lf
