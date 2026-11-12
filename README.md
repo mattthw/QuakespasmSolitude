@@ -63,7 +63,7 @@ The end result will look something like this:
 
 Example:
 ```
-fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/{progs.dat,progs.lno}" ftp://192.168.50.148:1337/ux0:/data/Quakespasm/Solitude/ || fteqcc | grep -B 2 -A 2 "error"
+fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/solitude/repo/{progs.dat,progs.lno}" ftp://192.168.50.148:1337/ux0:/data/Quakespasm/Solitude/ || fteqcc | grep -B 2 -A 2 "error"
 ```
 
 ## Mapping / Level Design

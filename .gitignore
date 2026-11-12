@@ -34,6 +34,7 @@
 .DS_Store
 
 # Build
+/build/
 Quake/quakespasm
 AppleSilicon/Quakespasm
 AppleSilicon/Quakespasm.app
