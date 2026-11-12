@@ -365,6 +365,35 @@ int sheildbleepplaying = 0;
 int nullplaying = 0;
 int sheilds_channel;
 
+/* P2a: Halo-style procedural shield capsule (chamfered octagon fan).
+ * Replaces the health_blue/health_red .lmp frames + the old per-hitpoint
+ * overdraw loop (up to 130 Draw_Fill passes per frame). Same GL state
+ * recipe as Draw_Fill so it composites identically under CANVAS_DEFAULT. */
+static void Draw_GeomCapsule (float x, float y, float w, float h, float c,
+                              float r, float g, float b, float a)
+{
+    glDisable (GL_TEXTURE_2D);
+    glEnable (GL_BLEND);
+    glDisable (GL_ALPHA_TEST);
+    glColor4f (r, g, b, a);
+    glBegin (GL_TRIANGLE_FAN);
+        glVertex2f (x + w*0.5f, y + h*0.5f);
+        glVertex2f (x + c,     y);
+        glVertex2f (x + w - c, y);
+        glVertex2f (x + w,     y + c);
+        glVertex2f (x + w,     y + h - c);
+        glVertex2f (x + w - c, y + h);
+        glVertex2f (x + c,     y + h);
+        glVertex2f (x,         y + h - c);
+        glVertex2f (x,         y + c);
+        glVertex2f (x + c,     y);
+    glEnd ();
+    glColor3f (1,1,1);
+    glDisable (GL_BLEND);
+    glEnable (GL_ALPHA_TEST);
+    glEnable (GL_TEXTURE_2D);
+}
+
 void drawHealth(void)
 {
     if(cl.stats <= 0 || deathmatch.value == DM_SWAT || sb_showscores) {
@@ -372,11 +401,36 @@ void drawHealth(void)
     }
     int sheilds = (int)cl.stats[STAT_HEALTH];
     struct PicAttr health_blue_attr = getHudPicAttr(0.5, 0.1, health_blue);
-    struct PicAttr health_red_attr = getHudPicAttr(0.5, 0.1, health_red);
 
-    for (float i = 0; i < (int)cl.stats[STAT_HEALTH]; i++) {
-        float color = i <= 30 ? 230 /* red */: 214 /* blue */;
-        Draw_Fill(health_blue_attr.x + health_blue_attr.width*0.05, health_blue_attr.y + health_blue_attr.height*0.1, (i/130.0f)*health_blue_attr.width*0.9, health_blue_attr.height*0.80, color, 1);
+    /* Halo 3 manual, shields: solid blue when healthy, flash red when
+     * depleted. The mod's bar has always been fed by STAT_HEALTH; keep the
+     * old 130-oversize fraction so >100 looks the same as before. */
+    {
+        float hp    = sheilds;
+        float frac  = hp / 130.0f;
+        float inset, cham, tflash;
+        qboolean hurt;
+        if (frac > 1.0f) frac = 1.0f;
+        if (frac < 0.0f) frac = 0.0f;
+        inset = health_blue_attr.height * 0.18f;
+        cham  = health_blue_attr.height * 0.34f;
+        hurt  = (sheilds <= 30);
+        tflash = realtime * 3.0f;
+        tflash -= (float)((int)tflash);
+
+        /* dark navy backing capsule */
+        Draw_GeomCapsule(health_blue_attr.x, health_blue_attr.y,
+                         health_blue_attr.width, health_blue_attr.height, cham,
+                         0.05f, 0.06f, 0.12f, 0.80f);
+        /* value fill: Halo blue, or red flashing when depleted */
+        if (frac > 0)
+            Draw_GeomCapsule(health_blue_attr.x + inset, health_blue_attr.y + inset,
+                             (health_blue_attr.width - 2*inset) * frac,
+                             health_blue_attr.height - 2*inset, cham * 0.7f,
+                             hurt ? 0.85f : 0.25f,
+                             hurt ? (tflash > 0.5f ? 0.20f : 0.10f) : 0.62f,
+                             hurt ? 0.18f : 0.95f,
+                             1.0f);
     }
 
     if ((int)deathmatch.value == DM_SLAYER || (int)deathmatch.value == DM_FIREFIGHT)
@@ -415,15 +469,9 @@ void drawHealth(void)
         }
         oldsheilds = sheilds;
     }
-    // draw health box
-    if ((int)cl.stats[STAT_HEALTH] <= 30)
-    {
-        Draw_HudPic(health_red_attr, health_red);
-    }
-    else
-    {
-        Draw_HudPic(health_blue_attr, health_blue);
-    }
+    /* P2a: the .lmp box frames (health_blue/health_red) are retired —
+     * the geometry capsule above draws frame + fill; art stays cached for
+     * nothing else now, removed from HUD_Init in the relocation pass. */
 }
 
 //=============================================================================
