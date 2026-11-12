@@ -317,9 +317,9 @@ void drawCrosshair(void) {
 void drawPickupWeapon(void) {
     char *string = getPickupWeaponString((int)cl_ww.value);
     if (strcmp(string,"") != 0) {
-        Draw_ButtonScaled(glwidth*0.67, glheight*0.25, b_ybutton, 0.8f*HUD_SCALE());
+        Draw_ButtonScaled(glwidth*0.67, glheight*0.90, b_ybutton, 0.8f*HUD_SCALE());
     }
-    Draw_TTFString(glwidth*0.7, glheight*0.25 - 8*HUD_SCALE(), string, 1, 1, 1,1, 14.0f*HUD_SCALE());
+    Draw_TTFString(glwidth*0.7, glheight*0.90 - 8*HUD_SCALE(), string, 1, 1, 1,1, 14.0f*HUD_SCALE());
 }
 
 void drawWeapon(void) {
@@ -329,10 +329,10 @@ void drawWeapon(void) {
     HUD_itoa((int)cl.stats[STAT_AMMO], rounds);
     HUD_itoa((int)cl.stats[STAT_ARMOR], ammo);
     strcpy(primary, getWeaponName((int)cl.stats[STAT_ACTIVEWEAPON]));
-    Draw_TTFString(glwidth*0.7, glheight*0.8 - 10*HUD_SCALE(), primary, 127/255.0, 191/255.0, 255/255.0,1, 16.0f*HUD_SCALE());
+    Draw_TTFString(glwidth*0.7, glheight*0.10, primary, 127/255.0, 191/255.0, 255/255.0,1, 16.0f*HUD_SCALE());
     if (strcmp(primary, "Energy Sword") != 0 /* 0 means equal*/) { // dont draw ammo for energy sword
-        Draw_TTFString(glwidth*0.7, glheight*0.75 - 8*HUD_SCALE(), rounds, 171/255.0, 231/255.0, 255/255.0,1, 14.0f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.77, glheight*0.75 - 8*HUD_SCALE(), ammo, 171/255.0, 231/255.0, 255/255.0,1, 11.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.7, glheight*0.16 - 8*HUD_SCALE(), rounds, 171/255.0, 231/255.0, 255/255.0,1, 14.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.77, glheight*0.16 - 8*HUD_SCALE(), ammo, 171/255.0, 231/255.0, 255/255.0,1, 11.0f*HUD_SCALE());
     }
 }
 
@@ -349,13 +349,13 @@ void drawGrenades() {
     /* halo3 text-state rule (no icon art exists): zero count dims to gray */
     if (count == 0)
     {
-        Draw_TTFString(glwidth*0.7, glheight*0.85 - 8*HUD_SCALE(), nadecount, 0.45, 0.45, 0.45, 0.75, 14.0f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.75, glheight*0.85 - 8*HUD_SCALE(), nadename, 0.45, 0.45, 0.45, 0.75, 14.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.03, glheight*0.12 - 8*HUD_SCALE(), nadecount, 0.45, 0.45, 0.45, 0.75, 14.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.08, glheight*0.12 - 8*HUD_SCALE(), nadename, 0.45, 0.45, 0.45, 0.75, 14.0f*HUD_SCALE());
     }
     else
     {
-        Draw_TTFString(glwidth*0.7, glheight*0.85 - 8*HUD_SCALE(), nadecount, 171/255.0, 231/255.0, 255/255.0,1, 14.0f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.75, glheight*0.85 - 8*HUD_SCALE(), nadename, 171/255.0, 231/255.0, 255/255.0,1, 14.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.03, glheight*0.12 - 8*HUD_SCALE(), nadecount, 171/255.0, 231/255.0, 255/255.0,1, 14.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.08, glheight*0.12 - 8*HUD_SCALE(), nadename, 171/255.0, 231/255.0, 255/255.0,1, 14.0f*HUD_SCALE());
     }
 }
 
@@ -562,11 +562,17 @@ void MiniDeathmatchOverlay (void)
     int				i, k, l;
     int				bottom;
     float			y;
+    float			boxw, SX;
     int f;
     char			num[12];
     scoreboard_t	*s;
 
     y = 0.0;
+
+    /* P2a relocation: score cluster anchors bottom-RIGHT (Halo 3 manual
+     * multiplayer-info position), mirroring the author's 8% margin. */
+    boxw = (960.0*0.08)*HUD_SCALE();
+    SX   = glwidth*0.92 - boxw;
 
 //    scr_copyeverything = 1;
 //    scr_fullupdate = 0;
@@ -587,7 +593,7 @@ void MiniDeathmatchOverlay (void)
         tens = seconds / 10;
         units = seconds - 10*tens;
         sprintf (str,"%3i:%i%i", minutes, tens, units);
-        timex = glwidth*0.08;
+        timex = SX;
         if (minutes < 10) {
             timex += - (CHARZ*2);
         } else if (minutes < 100) {
@@ -606,7 +612,7 @@ void MiniDeathmatchOverlay (void)
     } else {
         strcpy(gametype, "You Broke My Code");
     }
-    Draw_TTFString(glwidth*0.08, glheight*(0.75), gametype, 127/255.0, 191/255.0, 255/255.0, 1, 12.0f*HUD_SCALE());
+    Draw_TTFString(SX, glheight*(0.75), gametype, 127/255.0, 191/255.0, 255/255.0, 1, 12.0f*HUD_SCALE());
 
     // begin draw scores
     if (teamplay.value) {
@@ -645,17 +651,17 @@ void MiniDeathmatchOverlay (void)
             // draw background
             bottom = (teamscores[i].color & 15) <<4;
             bottom = ColorForMap (bottom);
-            Draw_Fill (glwidth*0.08-1, glheight*(0.8+y)-1, (960.0*0.08)*HUD_SCALE()+2, 1.5*CHARZ*HUD_SCALE()+2, bottom, 0.3);
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), (960.0*0.08)*HUD_SCALE(), 1.5*CHARZ*HUD_SCALE(), bottom, 1);
+            Draw_Fill (SX-1, glheight*(0.8+y)-1, boxw+2, 1.5*CHARZ*HUD_SCALE()+2, bottom, 0.3);
+            Draw_Fill (SX, glheight*(0.8+y), boxw, 1.5*CHARZ*HUD_SCALE(), bottom, 1);
             // draw foreground
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), (960.0*0.08)*HUD_SCALE()*CLAMP (new_max (teamscores[i].scoreTotal/(fraglimit.value > 0 ? fraglimit.value : new_max(teamscores[0].scoreTotal, 1.0f)), 0), 0.0f, 1.0f), 1.5*CHARZ*HUD_SCALE(), bottom, 0.65);
+            Draw_Fill (SX, glheight*(0.8+y), boxw*CLAMP (new_max (teamscores[i].scoreTotal/(fraglimit.value > 0 ? fraglimit.value : new_max(teamscores[0].scoreTotal, 1.0f)), 0), 0.0f, 1.0f), 1.5*CHARZ*HUD_SCALE(), bottom, 0.65);
             // draw score
             f = teamscores[i].scoreTotal;
             HUD_itoa(f, num);
-            Draw_TTFString(glwidth*0.08 + 9*HUD_SCALE(), glheight*(0.8+y) + 1.0f*HUD_SCALE(), num, 1, 1, 1, 1, 11.0f*HUD_SCALE());
+            Draw_TTFString(SX + 9*HUD_SCALE(), glheight*(0.8+y) + 1.0f*HUD_SCALE(), num, 1, 1, 1, 1, 11.0f*HUD_SCALE());
             // draw caret to indicate own team
             if (teamscores[i].color == cl.scores[0].colors)
-                Draw_CharacterScale(glwidth*0.08 - (9.0f*HUD_SCALE() > 2.0f && glwidth*0.08 - 9.0f*HUD_SCALE() > 2.0f ? 9.0f*HUD_SCALE() : 2.0f), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), 13, 1.1f*HUD_SCALE());
+                Draw_CharacterScale(SX + boxw + (glwidth*0.08 > 9.0f*HUD_SCALE() + 2.0f ? 9.0f*HUD_SCALE() : 2.0f), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), 13, 1.1f*HUD_SCALE());
             y += (544.0*0.03)*HUD_SCALE()/glheight;
         }
         // send cvar to QuakeC to enter intermission/NextMap logic, once score limit reached
@@ -678,15 +684,15 @@ void MiniDeathmatchOverlay (void)
             f = s->frags;
             HUD_itoa(f, num);
             // draw background
-            Draw_Fill (glwidth*0.08-1, glheight*(0.8+y)-1, (960.0*0.08)*HUD_SCALE()+2, 1.5*CHARZ*HUD_SCALE()+2, bottom, 0.3);
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), (960.0*0.08)*HUD_SCALE(), 1.5*CHARZ*HUD_SCALE(), bottom, 1);
+            Draw_Fill (SX-1, glheight*(0.8+y)-1, boxw+2, 1.5*CHARZ*HUD_SCALE()+2, bottom, 0.3);
+            Draw_Fill (SX, glheight*(0.8+y), boxw, 1.5*CHARZ*HUD_SCALE(), bottom, 1);
             // draw foreground
-            Draw_Fill (glwidth*0.08, glheight*(0.8+y), (960.0*0.08)*HUD_SCALE()*CLAMP (new_max (f/(fraglimit.value > 0 ? fraglimit.value : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f), 1.5*CHARZ*HUD_SCALE(), bottom, 0.65);
+            Draw_Fill (SX, glheight*(0.8+y), boxw*CLAMP (new_max (f/(fraglimit.value > 0 ? fraglimit.value : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f), 1.5*CHARZ*HUD_SCALE(), bottom, 0.65);
             // draw score
-            Draw_TTFString(glwidth*0.08 + 9*HUD_SCALE(), glheight*(0.8+y) + 1.0f*HUD_SCALE(), num, 1, 1, 1, 1, 11.0f*HUD_SCALE());
+            Draw_TTFString(SX + 9*HUD_SCALE(), glheight*(0.8+y) + 1.0f*HUD_SCALE(), num, 1, 1, 1, 1, 11.0f*HUD_SCALE());
             // draw caret to indicate own team
             if (k == cl.viewentity - 1)
-                Draw_CharacterScale(glwidth*0.08 - (9.0f*HUD_SCALE() > 2.0f && glwidth*0.08 - 9.0f*HUD_SCALE() > 2.0f ? 9.0f*HUD_SCALE() : 2.0f), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), 13, 1.1f*HUD_SCALE());
+                Draw_CharacterScale(SX + boxw + (glwidth*0.08 > 9.0f*HUD_SCALE() + 2.0f ? 9.0f*HUD_SCALE() : 2.0f), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), 13, 1.1f*HUD_SCALE());
             y += (544.0*0.03)*HUD_SCALE()/glheight;
         }
     }
