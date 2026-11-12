@@ -336,10 +336,11 @@ void drawWeapon(void) {
     HUD_itoa((int)cl.stats[STAT_AMMO], rounds);
     HUD_itoa((int)cl.stats[STAT_ARMOR], ammo);
     strcpy(primary, getWeaponName((int)cl.stats[STAT_ACTIVEWEAPON]));
-    Draw_TTFString(glwidth*0.7, glheight*0.10, primary, 127/255.0, 191/255.0, 255/255.0,1, 22.0f*HUD_SCALE());
+    /* r19: nudged right (0.70/0.77 -> 0.72/0.79) per user 2026-11-12 */
+    Draw_TTFString(glwidth*0.72, glheight*0.10, primary, 127/255.0, 191/255.0, 255/255.0,1, 22.0f*HUD_SCALE());
     if (strcmp(primary, "Energy Sword") != 0 /* 0 means equal*/) { // dont draw ammo for energy sword
-        Draw_TTFString(glwidth*0.7, glheight*0.19 - 8*HUD_SCALE(), rounds, 171/255.0, 231/255.0, 255/255.0,1, 19.0f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.77, glheight*0.19 - 8*HUD_SCALE(), ammo, 171/255.0, 231/255.0, 255/255.0,1, 15.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.72, glheight*0.19 - 8*HUD_SCALE(), rounds, 171/255.0, 231/255.0, 255/255.0,1, 19.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.79, glheight*0.19 - 8*HUD_SCALE(), ammo, 171/255.0, 231/255.0, 255/255.0,1, 15.0f*HUD_SCALE());
     }
 }
 
@@ -401,28 +402,107 @@ static void Draw_GeomCapsule (float x, float y, float w, float h, float c,
     glEnable (GL_TEXTURE_2D);
 }
 
-/* P2a tier-1 shield restyle: same octagon fan but with a vertical vertex
- * color gradient (top/bottom colors interpolate through the fan rim;
- * immediate mode carries per-vertex colors, so Vita-safe fixed function). */
-static void Draw_GeomCapsuleGrad (float x, float y, float w, float h, float c,
-                                  float rt, float gt, float bt,
-                                  float rb, float gb, float bb, float a)
+/* P2a r15 (user: "its still an octogon... I said follow the / and \\ with
+ * the cut", "diagonal glitch lines", "weird neon blue hue"): the cell is a
+ * MIRROR TRAPEZOID — one full-height / on the left end (x,y+h)->(x+d,y) and
+ * its mirror \ on the right. No vertical end faces, no extra corner cuts.
+ * Every layer passes the SAME d and layers nest by plain insets, so all
+ * diagonals are parallel — r14's per-layer mismatched bevels were the
+ * glitch lines. One shared vertical ramp (ry, rh); calm Halo blues, not
+ * neon.
+ * r17 (user: "the trapezoid should have rounded corners"): every corner is
+ * replaced by a 3-point quadratic-Bezier fillet (entry, mid, exit), giving
+ * a 12-gon fanned from vertex 0. Entry/exit points lie ON the original
+ * edges, so nested layers keep parallel slants; s is clamped to 38% of the
+ * shorter of top-flat/diagonal so thin fills stay near-sharp instead of
+ * self-overlapping. Vertex colors are still exact samples of one global
+ * vertical ramp, so the fan stays linear-accurate (no radial artifacts). */
+static void Draw_TrapezoidGrad (float x, float y, float w, float h, float d,
+                                float rt, float gt, float bt,
+                                float rb, float gb, float bb, float a,
+                                float ry, float rh)
 {
+    float cx[4], cy[4];
+    float px[12], py[12];
+    int i, n = 0;
+    float s, top, diag;
+
+    if (d * 2.0f > w) d = w * 0.5f;
+
+    cx[0] = x + d;     cy[0] = y;
+    cx[1] = x + w - d; cy[1] = y;
+    cx[2] = x + w;     cy[2] = y + h;
+    cx[3] = x;         cy[3] = y + h;
+
+    top  = w - 2.0f * d;
+    diag = sqrtf (d * d + h * h);
+    s = h * 0.18f;
+    if (s > 0.38f * top)  s = 0.38f * top;
+    if (s < 0.0f) s = 0.0f;
+    if (s > 0.38f * diag) s = 0.38f * diag;
+
+    for (i = 0; i < 4; i++)
+    {
+        int p = (i + 3) & 3, q = (i + 1) & 3;
+        float ux = cx[p] - cx[i], uy = cy[p] - cy[i];
+        float vx = cx[q] - cx[i], vy = cy[q] - cy[i];
+        float ul = sqrtf (ux*ux + uy*uy), vl = sqrtf (vx*vx + vy*vy);
+        float ex, ey, xx, xy;
+        if (ul > 0.0f) { ux /= ul; uy /= ul; }
+        if (vl > 0.0f) { vx /= vl; vy /= vl; }
+        ex = cx[i] + ux * s;  ey = cy[i] + uy * s;
+        xx = cx[i] + vx * s;  xy = cy[i] + vy * s;
+        px[n] = ex; py[n] = ey; n++;
+        px[n] = (ex + 2.0f*cx[i] + xx) * 0.25f;   /* Bezier t=0.5 */
+        py[n] = (ey + 2.0f*cy[i] + xy) * 0.25f; n++;
+        px[n] = xx; py[n] = xy; n++;
+    }
+
     glDisable (GL_TEXTURE_2D);
     glEnable (GL_BLEND);
     glDisable (GL_ALPHA_TEST);
     glBegin (GL_TRIANGLE_FAN);
-        glColor4f ((rt+rb)*0.5f, (gt+gb)*0.5f, (bt+bb)*0.5f, a);
-        glVertex2f (x + w*0.5f, y + h*0.5f);
-#define GRAD_VY(vy_, vx_) do { float _t = ((vy_) - y) / h; \
-        glColor4f (rt + (rb-rt)*_t, gt + (gb-gt)*_t, bt + (bb-bt)*_t, a); \
-        glVertex2f (vx_, vy_); } while (0)
-        GRAD_VY (y,     x + c);      GRAD_VY (y,     x + w - c);
-        GRAD_VY (y + c, x + w);      GRAD_VY (y + h - c, x + w);
-        GRAD_VY (y + h, x + w - c);  GRAD_VY (y + h, x + c);
-        GRAD_VY (y + h - c, x);      GRAD_VY (y + c, x);
-        GRAD_VY (y,     x + c);
-#undef GRAD_VY
+        for (i = 0; i <= n; i++)
+        {
+            int k = (i == n) ? 0 : i;
+            float t = (py[k] - ry) / rh;
+            if (t < 0.0f) t = 0.0f;
+            if (t > 1.0f) t = 1.0f;
+            glColor4f (rt + (rb-rt)*t, gt + (gb-gt)*t, bt + (bb-bt)*t, a);
+            glVertex2f (px[k], py[k]);
+        }
+    glEnd ();
+    glColor3f (1,1,1);
+    glDisable (GL_BLEND);
+    glEnable (GL_ALPHA_TEST);
+    glEnable (GL_TEXTURE_2D);
+}
+
+/* P2a r9: all 10%% segment ticks in ONE quad batch (no per-tick state
+ * churn; user: "should not make the game lag"). r15: ticks are slanted
+ * parallel to the trapezoid ends ("/" like the left edge, same d over the
+ * fill height), spaced 1/10 of the full inner width, stopping at the fill
+ * edge. r16: width + color are params — the dark 2px ladder read as
+ * "ghetto", now 1px light-blue hairlines at low alpha. */
+static void Draw_CapsuleTicks (float x, float y, float fw, float h, float fullw, float d,
+                               float r, float g, float b, float al)
+{
+    int i;
+    glDisable (GL_TEXTURE_2D);
+    glEnable (GL_BLEND);
+    glDisable (GL_ALPHA_TEST);
+    glColor4f (r, g, b, al);
+    glBegin (GL_QUADS);
+    for (i = 1; i < 10; i++)
+    {
+        float tx = x + fullw * (i * 0.1f);
+        if (tx >= x + fw - 1.0f)
+            break;
+        glVertex2f (tx,         y + h);
+        glVertex2f (tx + 1,     y + h);
+        glVertex2f (tx + 1 + d, y);
+        glVertex2f (tx + d,     y);
+    }
     glEnd ();
     glColor3f (1,1,1);
     glDisable (GL_BLEND);
@@ -432,7 +512,10 @@ static void Draw_GeomCapsuleGrad (float x, float y, float w, float h, float c,
 
 void drawHealth(void)
 {
-    if(cl.stats <= 0 || deathmatch.value == DM_SWAT || sb_showscores) {
+    /* r19: the death guard was always false ('cl.stats' is an array — the
+     * pointer compare never fires); mirror sbar.c:841 and test STAT_HEALTH.
+     * Leaderboard (sb_showscores) hide was already intended. */
+    if(cl.stats[STAT_HEALTH] <= 0 || deathmatch.value == DM_SWAT || sb_showscores) {
         return;
     }
     int sheilds = (int)cl.stats[STAT_HEALTH];
@@ -449,14 +532,13 @@ void drawHealth(void)
         static int   prevsheilds = -1;
         float hp    = sheilds;
         float frac  = hp / 130.0f;
-        float inset, cham, tflash, fw;
-        qboolean hurt;
-        int i;
+        float inset, slant, tflash, fw;
+        qboolean depleted;
         if (frac > 1.0f) frac = 1.0f;
         if (frac < 0.0f) frac = 0.0f;
         inset = health_blue_attr.height * 0.18f;
-        cham  = health_blue_attr.height * 0.34f;
-        hurt  = (sheilds <= 30);
+        slant = health_blue_attr.height * 0.35f;
+        depleted = (sheilds <= 30);
         tflash = realtime * 3.0f;
         tflash -= (float)((int)tflash);
 
@@ -469,38 +551,68 @@ void drawHealth(void)
           shownfrac += (frac - shownfrac) * k; }
         fw = (health_blue_attr.width - 2*inset) * shownfrac;
 
-        /* dark navy backing capsule, slight top-light gradient */
-        Draw_GeomCapsuleGrad (health_blue_attr.x, health_blue_attr.y,
-                              health_blue_attr.width, health_blue_attr.height, cham,
-                              0.08f, 0.10f, 0.19f, 0.04f, 0.05f, 0.10f, 0.45f);
-        /* value fill: Halo blue (pale top -> deep belly), red flashing when
-         * depleted, same gradient recipe */
-        if (fw > 1.0f)
+        /* P2a r15: mirror-trapezoid layers sharing ONE slant d so every
+         * diagonal is parallel (kills the "glitch lines"), calm translucent
+         * blues ("neon" was too hot). Depleted: hollow bar, outline itself
+         * flashes red at 3 Hz — r14b behavior kept. All ramp via ry/rh over
+         * the full bar height — r14 kept. */
+        if (depleted)
         {
-            Draw_GeomCapsuleGrad (health_blue_attr.x + inset, health_blue_attr.y + inset,
-                                  fw, health_blue_attr.height - 2*inset, cham * 0.7f,
-                                  hurt ? 0.95f : 0.45f,
-                                  hurt ? (tflash > 0.5f ? 0.42f : 0.28f) : 0.78f,
-                                  hurt ? 0.30f : 1.00f,
-                                  hurt ? 0.55f : 0.12f,
-                                  hurt ? 0.08f : 0.42f,
-                                  hurt ? 0.10f : 0.80f,
-                                  0.60f);
-            /* segment ticks every 1/10 of full width (Halo's 10-piece read) */
-            for (i = 1; i < 10; i++)
+            float pk = (tflash > 0.5f) ? 1.0f : 0.35f;
+            Draw_TrapezoidGrad (health_blue_attr.x, health_blue_attr.y,
+                                health_blue_attr.width, health_blue_attr.height, slant,
+                                1.00f, 0.30f + 0.20f*pk, 0.26f + 0.10f*pk,
+                                0.62f, 0.08f, 0.10f,
+                                0.28f + 0.30f*pk,
+                                health_blue_attr.y, health_blue_attr.height);
+        }
+        else
+        {
+            Draw_TrapezoidGrad (health_blue_attr.x, health_blue_attr.y,
+                                health_blue_attr.width, health_blue_attr.height, slant,
+                                0.35f, 0.55f, 0.78f, 0.12f, 0.28f, 0.48f, 0.40f,
+                                health_blue_attr.y, health_blue_attr.height);
+        }
+        Draw_TrapezoidGrad (health_blue_attr.x + 2, health_blue_attr.y + 2,
+                            health_blue_attr.width - 4, health_blue_attr.height - 4, slant,
+                            0.05f, 0.09f, 0.18f, 0.02f, 0.05f, 0.12f, 0.50f,
+                            health_blue_attr.y, health_blue_attr.height);
+        /* value fill: deeper calmer blue (only while not depleted) + r16
+         * gloss/shadow bands top & bottom 30% for cylinder-like depth */
+        if (!depleted && fw > 1.0f)
+        {
+            Draw_TrapezoidGrad (health_blue_attr.x + inset, health_blue_attr.y + inset,
+                                fw, health_blue_attr.height - 2*inset, slant,
+                                0.32f, 0.55f, 0.80f,
+                                0.07f, 0.24f, 0.45f,
+                                0.38f,
+                                health_blue_attr.y, health_blue_attr.height);
+            /* r18: gloss/shadow as flat inset strips, NOT mini-trapezoids.
+             * The short bands reused the full slant, so their diagonals
+             * were far shallower than the fill's and stuck out past the
+             * edge (user 2026-11-12). Strips start/end past the slant so
+             * they can never protrude. */
             {
-                float tx = health_blue_attr.x + inset + (health_blue_attr.width - 2*inset) * (i * 0.1f);
-                if (tx < health_blue_attr.x + inset + fw - 1.0f)
-                    Draw_FillRGBA ((int)tx, (int)(health_blue_attr.y + inset),
-                                   1, (int)(health_blue_attr.height - 2*inset),
-                                   0.02f, 0.03f, 0.08f, 0.55f);
+                int bx = (int)(health_blue_attr.x + inset + slant + 2.0f);
+                int bw = (int)(fw - 2.0f*slant - 4.0f);
+                if (bw > 2)
+                {
+                    Draw_FillRGBA (bx, (int)(health_blue_attr.y + inset + 1.0f), bw, 2,
+                                   0.45f, 0.75f, 1.00f, 0.35f);
+                    Draw_FillRGBA (bx, (int)(health_blue_attr.y + health_blue_attr.height - inset - 3.0f), bw, 2,
+                                   0.02f, 0.04f, 0.10f, 0.35f);
+                }
             }
-            /* hit flash: white ghost of the fill fading over 0.18s */
+            /* r17: segment ticks removed — Halo 3 bars don't have them
+             * (user 2026-11-12: "I dont need ticks"). Draw_CapsuleTicks
+             * stays in the file, unused (Wno-unused-function covers it). */
+            /* hit flash: pale ghost of the fill fading over 0.18s */
             if (dmgflash > 0.0f)
-                Draw_GeomCapsuleGrad (health_blue_attr.x + inset, health_blue_attr.y + inset,
-                                      fw, health_blue_attr.height - 2*inset, cham * 0.7f,
-                                      0.85f, 0.95f, 1.0f, 0.70f, 0.85f, 1.0f,
-                                      0.45f * (dmgflash / 0.18f));
+                Draw_TrapezoidGrad (health_blue_attr.x + inset, health_blue_attr.y + inset,
+                                    fw, health_blue_attr.height - 2*inset, slant,
+                                    0.75f, 0.85f, 0.95f, 0.55f, 0.70f, 0.88f,
+                                    0.30f * (dmgflash / 0.18f),
+                                    health_blue_attr.y, health_blue_attr.height);
         }
     }
 
