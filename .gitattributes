@@ -1,0 +1,21 @@
+# Line-ending policy (settled 2026-11-11): text sources are stored LF.
+*.qc  text eol=lf
+*.c   text eol=lf
+*.h   text eol=lf
+*.map text eol=lf
+*.md  text eol=lf
+
+# Derived / binary payloads — never touch.
+*.bsp  binary
+*.lit  binary
+*.pak  binary
+*.dat  binary
+*.wad  binary
+*.tga  binary
+*.psd  binary
+*.bmp  binary
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.wav  binary
+*.ogg  binary

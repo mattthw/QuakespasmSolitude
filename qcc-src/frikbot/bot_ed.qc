@@ -1436,7 +1436,7 @@ void() BSPDumpWaypoints =
 	}
 };
 
-
+
 // FrikaC's file access tutorial...
 string(string s1, string s2) strcat = #82;
 float(string filename, float mode) open = #86;
