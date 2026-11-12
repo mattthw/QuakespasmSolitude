@@ -14,7 +14,7 @@
 "_sunlight" "400"
 "_minlight" "150"
 "mapversion" "220"
-"wad" "C:/Users/User/Downloads/q/Q.wad;C:/Users/User/Downloads/quakewads/narrows.wad;C:/Program Files (x86)/Steam/steamapps/common/Quake/Id1/quake.wad;/Users/matt_1/workspace/projects-vita/project-solitude/project-resources/Quakespasm/working/wads/solitude.wad;/Users/matt_1/workspace/projects-vita/project-solitude/project-resources/Quakespasm/working/wads/narrows.wad"
+"wad" "C:/Users/User/Downloads/q/Q.wad;C:/Users/User/Downloads/quakewads/narrows.wad;C:/Program Files (x86)/Steam/steamapps/common/Quake/Id1/quake.wad;/Users/matt_1/workspace/projects-vita/solitude/local/vendored/wads/solitude.wad;/Users/matt_1/workspace/projects-vita/solitude/local/vendored/wads/narrows.wad"
 "_generator" "J.A.C.K. 1.1.1262 (vpQuake)"
 "sky" "med-tramonto_"
 // brush 0

@@ -4,7 +4,7 @@
 {
 "sky" "ringbl512"
 "sounds" "1"
-"wad" "/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/assets/textures/wads/kurok.wad;/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/assets/textures/wads/solitude256quake.wad;/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/assets/textures/wads/solitude128quake.wad"
+"wad" "/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/kurok.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude256quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude128quake.wad"
 "classname" "worldspawn"
 "_tb_mod" "solitude"
 "_bounce" "1"
@@ -17,7 +17,7 @@
 "_sunlight" "250"
 "_sunlight_penumbra" "2"
 "message" ""
-"_tb_def" "external:/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/assets/models/QuakespasmSolitude.fgd"
+"_tb_def" "external:/Users/matt_1/workspace/projects-vita/solitude/repo/assets/models/QuakespasmSolitude.fgd"
 // brush 0
 {
 ( 2994 8173 7647 ) ( 2895 -8209 7647 ) ( -3312 8212 -7473 ) metal3_128 80 13 180 1 1

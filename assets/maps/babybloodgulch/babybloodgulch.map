@@ -2,7 +2,7 @@
 // Format: Standard
 // entity 0
 {
-"wad" "/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/assets/textures/wads/solitude128quake.wad;/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/assets/textures/wads/solitude256quake.wad;/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/assets/textures/wads/kurok.wad"
+"wad" "/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude128quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude256quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/kurok.wad"
 "light" "130"
 "sounds" "1"
 "message" "Halo Solitude-Baby Blood Gulch"
@@ -14,7 +14,7 @@
 "_sunlight_penumbra" "2"
 "_minlight" "180"
 "_tb_mod" "solitude"
-"_tb_def" "external:/Users/matt_1/workspace/projects-vita/project-solitude/project-workspace/QuakespasmSolitude/assets/models/QuakespasmSolitude.fgd"
+"_tb_def" "external:/Users/matt_1/workspace/projects-vita/solitude/repo/assets/models/QuakespasmSolitude.fgd"
 // brush 0
 {
 ( -2016 8192 8192 ) ( -2016 -8192 8192 ) ( -2016 8192 -8192 ) sky_blue 0 0 180 1 1

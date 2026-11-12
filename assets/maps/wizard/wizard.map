@@ -3,7 +3,7 @@
 // entity 0
 {
 "mapversion" "220"
-"wad" "/Users/matt_1/workspace/projects-vita/project-solitude/project-resources/Quakespasm/working/wads/solitude.wad;/Users/matt_1/workspace/projects-vita/project-solitude/project-resources/Quakespasm/working/wads/bloodgulch2.wad"
+"wad" "/Users/matt_1/workspace/projects-vita/solitude/local/vendored/wads/solitude.wad;/Users/matt_1/workspace/projects-vita/solitude/local/vendored/wads/bloodgulch2.wad"
 "classname" "worldspawn"
 "worldtype" "1"
 "sounds" "1"

@@ -2,7 +2,7 @@
 // Format: Standard
 // entity 0
 {
-"wad" "/Users/matt_1/workspace/projects-vita/project-solitude/project-resources/Quakespasm/working/wads/solitude.wad"
+"wad" "/Users/matt_1/workspace/projects-vita/solitude/local/vendored/wads/solitude.wad"
 "MaxRange" "4096"
 "sounds" "1"
 "_minlight" "150"
