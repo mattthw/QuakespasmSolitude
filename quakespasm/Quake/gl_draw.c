@@ -1323,11 +1323,12 @@ void Draw_FillGradientEx (int x, int y, int w, int h, float r, float g, float b,
     /* P2a round 4b: Draw_FillGradient with the edge-darkening strength as a
      * parameter — 'edge' is the fractional drop at t=+-.5 (the shared 0.15
      * profile lives in the wrapper below). Matchmaking/Firefight window
-     * asked for more gradient (user 2026-11-12). */
-    int bands = w / 12;
+     * asked for more gradient (user 2026-11-12). r7: "needs more lines" —
+     * bands 12px -> 5px wide so the ramp no longer reads as steps. */
+    int bands = w / 5;
     int i, bw;
-    if (bands < 8) bands = 8;
-    if (bands > 64) bands = 64;
+    if (bands < 16) bands = 16;
+    if (bands > 128) bands = 128;
     bw = w / bands;
     for (i = 0; i < bands; i++)
     {
@@ -1353,9 +1354,10 @@ void Draw_Cursor (int x, int y, int w, int h, bool focused)
      * 0.1), unfocused = slate. r5: more translucent (0.40 -> 0.25) and the
      * gold now ramps instead of a flat slab. r6: 2x denser ramp (edge 0.45
      * -> 0.90, ends fall to ~10% brightness) and 2x stronger translucency
-     * (0.25 -> 0.125) (user 2026-11-12). */
+     * (0.25 -> 0.125). r7: middle still washed out the white font (user)
+      * — gold base darkened 230/172/60 -> 165/122/42. */
     if (focused)
-        Draw_FillGradientEx (x, y, w, h, 230/255.0f, 172/255.0f, 60/255.0f, 0.125f, 0.90f);
+        Draw_FillGradientEx (x, y, w, h, 165/255.0f, 122/255.0f, 42/255.0f, 0.125f, 0.90f);
     else
         Draw_FillRGBA (x, y, w, h, 0.235f, 0.251f, 0.275f, 0.5f);
 }
