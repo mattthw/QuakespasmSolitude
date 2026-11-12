@@ -53,3 +53,5 @@ AppleSilicon/id1
 /assets/maps/*/autosave/
 
 /assets/models/autosave/
+/tools/asset-scan/*.json
+/tools/asset-scan/__pycache__/

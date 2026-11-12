@@ -3,8 +3,8 @@ import shutil
 import hashlib
 
 # Global configurations
-production_mod_dir = Path("./solitude-production/Solitude/")
-solitude_dir = Path("./solitude-vita-backup/Solitude/")
+production_mod_dir = Path("./legacy/solitude-production/Solitude/")
+solitude_dir = Path("./legacy/solitude-vita-backup/Solitude/")
 quakespasm_dir = Path("./quakespasm/")
 assets_dir = Path("./assets/maps/")
 qcc_dir = Path("./qcc-src/")
