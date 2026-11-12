@@ -2,6 +2,7 @@ from pathlib import Path
 import shutil
 import hashlib
 
+SCRIPT_DIR = Path(__file__).resolve().parent
 # Global configurations
 production_mod_dir = Path("./legacy/solitude-production/Solitude/")
 solitude_dir = Path("./legacy/solitude-vita-backup/Solitude/")
@@ -9,9 +10,9 @@ quakespasm_dir = Path("./quakespasm/")
 assets_dir = Path("./assets/maps/")
 qcc_dir = Path("./qcc-src/")
 not_found_files = []
-not_found_file = Path("not_found_files.txt")
+not_found_file = SCRIPT_DIR / "not_found_files.txt"
 filetype_blacklist = []
-filetype_blacklist_file = "filetype_blacklist.txt"
+filetype_blacklist_file = str(SCRIPT_DIR / "filetype_blacklist.txt")
 include_filetype_in_search = False
 enable_file_copying = True
 

@@ -8,7 +8,7 @@ remotes = { origin = "master", solitude = "mainline" }
 
 [layout]
 # split by producer (decision #4): source / small shipped binaries / build output
-tracked = ["assets", "qcc-src", "qcc-precompiled", "quakespasm", "solitude", "tools", "legacy"]
+tracked = ["assets", "qcc-src", "quakespasm", "solitude", "tools", "legacy"]
 staged_untracked = ["build"]         # active work, gitignored since 8a0b15ce
 link = { wads = "../local/vendored/wads" }   # dangling on fresh clones BY DESIGN
 note = "solitude/ runtime tree stays flat: it IS the device payload layout"

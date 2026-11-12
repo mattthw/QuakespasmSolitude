@@ -67,3 +67,8 @@ AppleSilicon/id1
 /quakespasm/Quake/quakespasm
 /quakespasm/Quake/obj/
 *.unstripped.elf
+
+# root analysis output can never dirty the tree again
+/*.json
+# …but the archived linker notes under tools/ are deliberate provenance
+!tools/asset-scan/provenance/*.lno
