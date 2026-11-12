@@ -138,6 +138,29 @@ fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/soli
       2. Click *Launch...*
          1. use the parameters ``-basedir ${GAME_DIR_PATH} +map ${MAP_BASE_NAME} ``
 
+#### Updated 2026-11-11 — post path-move + relative wad keys
+The layout above (the old `Quakespasm/working/` game dir) predates the project move. Current truth:
+- **Game dir (``${GAME_DIR_PATH}``) = this repo** (`solitude/repo`). Map `wad` keys are
+  repo-relative, so **TB's compile working directory must be the repo root** or qbsp
+  cannot resolve textures. Vendored wads arrive via the `wads/` symlink
+  → `solitude/local/vendored/wads`; in-repo wads at `assets/textures/wads/`.
+- **Tools:** prebuilt ericw-tools **2.0.0-alpha11** at `../toolchain/ericw-tools/`
+  (there is no Homebrew formula). alpha11 dropped `qbsp -splitturb`; `-wadpath`, `vis -fast`,
+  `light -surflight_subdivide` verified present.
+- Compile profile as configured now:
+  - Working directory: ``${GAME_DIR_PATH}``
+  - qbsp: ``-wadpath ${GAME_DIR_PATH}/wads ${MAP_BASE_NAME}``
+  - vis: ``${MAP_BASE_NAME}``  ·  light: ``-surflight_subdivide 64 ${MAP_BASE_NAME}``
+  - Copy bsp/lit/map to ``${GAME_DIR_PATH}/solitude/maps/`` **and**
+    ``${GAME_DIR_PATH}/assets/maps/`` — always with trailing slash (directory targets).
+    The old extension-less targets are how strays like `assets/maps/narrows2` were born.
+- Root-level compile intermediates (`/*.bsp /*.lit /*.vis /*.map /*.prt`) are gitignored.
+- **Engine launch profile is intentionally NOT updated:** it still points at the archived
+  Mac build `solitude/local/archive/resources/Quakespasm/QuakeSpasm-SDL2.app`, which is
+  the correct binary for local test play. Don't "fix" this path.
+- If you hand-edit TB's own files in `~/Library/Application Support/TrenchBroom/`,
+  quit TrenchBroom first — it rewrites `Preferences.json` on exit.
+
 # Credits
 - idSoftware for winQuake sourcecode
 - MasterFeizz for ctrQuake sourcecode i studied to understand how winQuake works

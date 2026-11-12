@@ -55,3 +55,9 @@ AppleSilicon/id1
 /assets/models/autosave/
 /tools/asset-scan/*.json
 /tools/asset-scan/__pycache__/
+
+# TrenchBroom compile intermediates (game dir = repo root, workdir = repo root)
+/*.bsp
+/*.lit
+/*.vis
+/*.map
