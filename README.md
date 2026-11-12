@@ -28,20 +28,34 @@ The goals of this project are to:
 Search [issues](https://github.com/mattthw/QuakespasmSolitude/issues) for existing bugs and feature requests before submitting a new one.
 
 # Installation on Playstation Vita
-> **NOTICE:** This game is not yet released. Consider these instructons for developers at this point in time.
-1. Download the latest release: [releases](https://github.com/mattthw/QuakespasmSolitude/releases/)
-1. Extract the archive
-1. Install ``quakehalo.vpk`` on the Playstation Vita
-1. Copy the ```/Solitude``` folder to ```<ux0 or alternative:>/data/Quakespasm/```.
-   - You will also need the original quake files or shareware files as a .PAK filetype inside ```<ux0 or alternative:>/data/Quake/id1/```. You should be able to use the data files from VITADB for vitaQuake.
+> **Beta release.** The v0.1.0 assets below are the same files that run on the
+> developer's Vita; the mod is playable start to finish, but expect rough
+> edges and see [Issues](https://github.com/mattthw/QuakespasmSolitude/issues).
 
+1. Download the three release assets from
+   [releases](https://github.com/mattthw/QuakespasmSolitude/releases/):
+   `quakehalo.vpk`, `Solitude-vX.Y.Z.zip`, and `quakespasm.pak`
+   (`SHA256SUMS.txt` has checksums).
+1. Install ``quakehalo.vpk`` on the Playstation Vita (VitaShell → select the
+   vpk → Install).
+1. Create the folder ```ux0:/data/Quakespasm/``` and put ```quakespasm.pak```
+   in it — it carries the engine defaults (console background, `default.cfg`,
+   vanilla entity files).
+1. Create ```ux0:/data/Quakespasm/Solitude/``` and extract the **contents**
+   of ```Solitude-vX.Y.Z.zip``` into it.
 
 The end result will look something like this:
 ```
-/data/Quakespasm/
-            ./id1/*.PAK  # Legally acquired PAK files from original quake game
-            ./Solitude/*
+ux0:/data/Quakespasm/
+            ./quakespasm.pak   # engine defaults
+            ./Solitude/        # the whole mod: maps models sound gfx,
+                               # progs.dat, gfx.wad, PAK1.PAK, PAK2.PAK
 ```
+
+You do **not** need the original Quake files or the shareware `pak0.pak`:
+Solitude ships every asset its code references. (Want vanilla Quake maps in
+this engine anyway? Drop your legally acquired `id1/pak0.pak` into
+`ux0:/data/Quakespasm/id1/`.)
 
 # Development
 
@@ -51,9 +65,15 @@ The end result will look something like this:
 1. Install the VitaSDK and set up building with the instructions here; https://vitasdk.org/
 2. Install VitaGL (https://github.com/Rinnegatamante/vitaGl) with "make" then "make install"
 3. Run the following command in this repository's ``./Quake/`` directory, which should produce a working quakehalo.vpk
-   ```make clean && make -f Makefile.vita && curl```
+   ```make clean && make -f Makefile.vita```
+   (If you built for macOS in the same tree first, stale host `.o` files
+   break the ARM link — `make clean` or `rm *.o` is mandatory.)
 4. (Optional) After installing quakehalo.vpk for the first time, you can install the changes faster by enabling FTP on the vita then running:
    ```curl --ftp-method nocwd -T ./build/eboot.bin ftp://<local IP of your vita>:1337/ux0:/app/SOLITUDE0/```
+   > **Warnings:** hot-pushing `eboot.bin` is only for iterating on a build
+   > you already know boots on the device — otherwise install the full vpk.
+   > Keep FTP sessions inside data paths: LIST/MKD on `ux0:/app/` or the
+   > `ux0:/` root can crash VitaShell's FTP server outright.
 
 ### Compile SolitudeVite Quake Code Source
 1. Install [FTEQCC](https://www.fteqcc.org/) ([mac](https://github.com/BryanHaley/fteqcc-mac)) to compile or decompile QuakeC code.
@@ -61,9 +81,9 @@ The end result will look something like this:
 3. run ``fteqcc`` command.
 4. Copy ``progs.dat`` and ``progs.lno`` to your vita directory ``ux0:/data/Quakespasm/Solitude/``.
 
-Example:
+Example (run from `qcc-src/`; `<vita-ip>` is your device's address):
 ```
-fteqcc && curl --ftp-method nocwd -T "/Users/matt_1/workspace/projects-vita/solitude/repo/{progs.dat,progs.lno}" ftp://192.168.50.148:1337/ux0:/data/Quakespasm/Solitude/ || fteqcc | grep -B 2 -A 2 "error"
+fteqcc && curl --ftp-method nocwd -T ../progs.dat "ftp://<vita-ip>:1337/ux0:/data/Quakespasm/Solitude/progs.dat"
 ```
 
 ## Mapping / Level Design

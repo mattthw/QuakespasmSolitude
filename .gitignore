@@ -72,3 +72,4 @@ AppleSilicon/id1
 /*.json
 # …but the archived linker notes under tools/ are deliberate provenance
 !tools/asset-scan/provenance/*.lno
+dist/
