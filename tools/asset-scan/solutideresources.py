@@ -4,7 +4,9 @@ import hashlib
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 # Global configurations
-production_mod_dir = Path("./legacy/solitude-production/Solitude/")
+# solitude-production removed 2026-11-12 (1aaf5bc2): verified byte-identical
+# strict subset of solitude-vita-backup, so both knobs point at the survivor.
+production_mod_dir = Path("./legacy/solitude-vita-backup/Solitude/")
 solitude_dir = Path("./legacy/solitude-vita-backup/Solitude/")
 quakespasm_dir = Path("./quakespasm/")
 assets_dir = Path("./assets/maps/")
