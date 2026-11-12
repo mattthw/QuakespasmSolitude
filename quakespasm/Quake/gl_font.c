@@ -127,6 +127,28 @@ void GLFont_Init (void)
 
 /*
 ================
+Draw_TTFWidth -- advance width of str at the given draw size, for centering.
+================
+*/
+float Draw_TTFWidth (const char *str, float size)
+{
+	float sc, w = 0;
+
+	if (!glfont_ready)
+		return strlen (str) * 8.0f * (size / (float)GLFONT_BAKEPX);
+
+	sc = size / (float)GLFONT_BAKEPX;
+	for (; *str; str++)
+	{
+		if (*str < GLFONT_FIRST || *str > GLFONT_LAST)
+			continue;
+		w += cdata[*str - GLFONT_FIRST].xadvance * sc;
+	}
+	return w;
+}
+
+/*
+================
 Draw_TTFString -- halo-style HUD text.
 
 x,y are screen px (top-left of the text line, HUD_SCALE model).

@@ -161,22 +161,18 @@ void M_DrawCharacterColored (int cx, int line, int num)
 
 void M_Print (int cx, int cy, const char *str)
 {
-	while (*str)
-	{
-		M_DrawCharacter (cx, cy, (*str)+128);
-		str++;
-		cx += 8;
-	}
+	/* P2a: menu font — Archivo TTF instead of grey conchars halves.
+	 * Menus draw in the stretched canvas space (8-unit cells); size 11
+	 * puts cap-height ~6 units, matching the old glyphs' visual weight.
+	 * y is the TTF baseline; old Draw_Character y was the cell top, so
+	 * +8 lines the text where conchars sat. */
+	Draw_TTFString (cx, cy + 8, str, 0.75f, 0.75f, 0.75f, 1.0f, 11.0f);
 }
 
 void M_PrintWhite (int cx, int cy, const char *str)
 {
-	while (*str)
-	{
-		M_DrawCharacter (cx, cy, *str);
-		str++;
-		cx += 8;
-	}
+	/* P2a: menu font — see M_Print. White variant. */
+	Draw_TTFString (cx, cy + 8, str, 1.0f, 1.0f, 1.0f, 1.0f, 11.0f);
 }
 
 void M_PrintCentered (int cy, char *str)

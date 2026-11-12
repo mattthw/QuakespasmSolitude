@@ -316,10 +316,17 @@ void drawCrosshair(void) {
 
 void drawPickupWeapon(void) {
     char *string = getPickupWeaponString((int)cl_ww.value);
-    if (strcmp(string,"") != 0) {
-        Draw_ButtonScaled(glwidth*0.67, glheight*0.90, b_ybutton, 0.8f*HUD_SCALE());
-    }
-    Draw_TTFString(glwidth*0.7, glheight*0.90 - 8*HUD_SCALE(), string, 1, 1, 1,1, 14.0f*HUD_SCALE());
+    char prompt[64];
+    float s = HUD_SCALE();
+    if (strcmp(string,"") == 0)
+        return;
+    sprintf(prompt, "Pick up/Replace with %s.", string);
+    /* Y button box is 16*0.8 design px; center it on the text line instead of
+     * Draw_ButtonScaled's -4 fudge (that was for 8px conchars rows).
+     * TTF baseline sits at glheight*0.24 - 8*s; cap-center ~ 5*s above it. */
+    Draw_StretchPic((int)(glwidth*0.67), (int)(glheight*0.24 - 8*s - 5*s - 6.4f*s),
+                    b_ybutton, (int)(12.8f*s), (int)(12.8f*s));
+    Draw_TTFString(glwidth*0.7, glheight*0.24 - 8*s, prompt, 1, 1, 1, 1, 14.0f*s);
 }
 
 void drawWeapon(void) {
@@ -421,7 +428,7 @@ void drawHealth(void)
         /* dark navy backing capsule */
         Draw_GeomCapsule(health_blue_attr.x, health_blue_attr.y,
                          health_blue_attr.width, health_blue_attr.height, cham,
-                         0.05f, 0.06f, 0.12f, 0.80f);
+                         0.05f, 0.06f, 0.12f, 0.45f);
         /* value fill: Halo blue, or red flashing when depleted */
         if (frac > 0)
             Draw_GeomCapsule(health_blue_attr.x + inset, health_blue_attr.y + inset,
@@ -430,7 +437,7 @@ void drawHealth(void)
                              hurt ? 0.85f : 0.25f,
                              hurt ? (tflash > 0.5f ? 0.20f : 0.10f) : 0.62f,
                              hurt ? 0.18f : 0.95f,
-                             1.0f);
+                             0.60f);
     }
 
     if ((int)deathmatch.value == DM_SLAYER || (int)deathmatch.value == DM_FIREFIGHT)
@@ -572,7 +579,7 @@ void MiniDeathmatchOverlay (void)
     /* P2a relocation: score cluster anchors bottom-RIGHT (Halo 3 manual
      * multiplayer-info position), mirroring the author's 8% margin. */
     boxw = (960.0*0.08)*HUD_SCALE();
-    SX   = glwidth*0.92 - boxw;
+    SX   = glwidth*0.92 - boxw - 18*HUD_SCALE();   /* room for the right caret */
 
 //    scr_copyeverything = 1;
 //    scr_fullupdate = 0;
@@ -587,19 +594,15 @@ void MiniDeathmatchOverlay (void)
     // time
     char	str[80];
     int		minutes, seconds, tens, units, timex;
-    if (timelimit.value > 0) {
-        minutes = (timelimit.value*60 - cl.time) / 60;
-        seconds = (timelimit.value*60 - cl.time) - 60*minutes;
+    {
+        float total = (timelimit.value > 0) ? timelimit.value*60 - cl.time : cl.time;
+        minutes = total / 60;
+        seconds = total - 60*minutes;
         tens = seconds / 10;
         units = seconds - 10*tens;
         sprintf (str,"%3i:%i%i", minutes, tens, units);
-        timex = SX;
-        if (minutes < 10) {
-            timex += - (CHARZ*2);
-        } else if (minutes < 100) {
-            timex += - (CHARZ*1);
-        }
-        Draw_TTFString(timex, glheight*(0.71), str, 171/255.0, 231/255.0, 255/255.0, 1, 12.0f*HUD_SCALE());
+        timex = SX + (int)(boxw - Draw_TTFWidth(str, 12.0f*HUD_SCALE()));   /* right-aligned, above the rows */
+        Draw_TTFString(timex, glheight*(0.775), str, 171/255.0, 231/255.0, 255/255.0, 1, 12.0f*HUD_SCALE());
     }
     // draw game type
     char gametype[20];
@@ -612,7 +615,7 @@ void MiniDeathmatchOverlay (void)
     } else {
         strcpy(gametype, "You Broke My Code");
     }
-    Draw_TTFString(SX, glheight*(0.75), gametype, 127/255.0, 191/255.0, 255/255.0, 1, 12.0f*HUD_SCALE());
+    Draw_TTFString(SX, glheight*(0.775), gametype, 127/255.0, 191/255.0, 255/255.0, 1, 12.0f*HUD_SCALE());
 
     // begin draw scores
     if (teamplay.value) {
@@ -658,11 +661,8 @@ void MiniDeathmatchOverlay (void)
             // draw score
             f = teamscores[i].scoreTotal;
             HUD_itoa(f, num);
-            Draw_TTFString(SX + 9*HUD_SCALE(), glheight*(0.8+y) + 1.0f*HUD_SCALE(), num, 1, 1, 1, 1, 11.0f*HUD_SCALE());
-            // draw caret to indicate own team
-            if (teamscores[i].color == cl.scores[0].colors)
-                Draw_CharacterScale(SX + boxw + (glwidth*0.08 > 9.0f*HUD_SCALE() + 2.0f ? 9.0f*HUD_SCALE() : 2.0f), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), 13, 1.1f*HUD_SCALE());
-            y += (544.0*0.03)*HUD_SCALE()/glheight;
+            Draw_TTFString(SX + 4*HUD_SCALE(), glheight*(0.8+y) + 9.5f*HUD_SCALE(), num, 1, 1, 1, 1, 11.0f*HUD_SCALE());
+            y += (14.0f*HUD_SCALE())/glheight;   /* box height + 2px gap in design px */
         }
         // send cvar to QuakeC to enter intermission/NextMap logic, once score limit reached
         if (teamscores[0].scoreTotal >= fraglimit.value) {
@@ -689,11 +689,8 @@ void MiniDeathmatchOverlay (void)
             // draw foreground
             Draw_Fill (SX, glheight*(0.8+y), boxw*CLAMP (new_max (f/(fraglimit.value > 0 ? fraglimit.value : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f), 1.5*CHARZ*HUD_SCALE(), bottom, 0.65);
             // draw score
-            Draw_TTFString(SX + 9*HUD_SCALE(), glheight*(0.8+y) + 1.0f*HUD_SCALE(), num, 1, 1, 1, 1, 11.0f*HUD_SCALE());
-            // draw caret to indicate own team
-            if (k == cl.viewentity - 1)
-                Draw_CharacterScale(SX + boxw + (glwidth*0.08 > 9.0f*HUD_SCALE() + 2.0f ? 9.0f*HUD_SCALE() : 2.0f), glheight*(0.8+y)+(1.1f*HUD_SCALE()*0.5), 13, 1.1f*HUD_SCALE());
-            y += (544.0*0.03)*HUD_SCALE()/glheight;
+            Draw_TTFString(SX + 4*HUD_SCALE(), glheight*(0.8+y) + 9.5f*HUD_SCALE(), num, 1, 1, 1, 1, 11.0f*HUD_SCALE());
+            y += (14.0f*HUD_SCALE())/glheight;   /* box height + 2px gap in design px */
         }
     }
 }

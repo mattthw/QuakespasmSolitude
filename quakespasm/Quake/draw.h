@@ -76,6 +76,7 @@ struct PicAttr getHudPicAttr(float xpercent, float ypercent, qpic_t *pic);
 float HUD_SCALE (void);
 void GLFont_Init (void);
 float Draw_TTFString (int x, int y, const char *str, float r, float g, float b, float a, float size);
+float Draw_TTFWidth (const char *str, float size);
 void Draw_HudPic (struct PicAttr attr, qpic_t *pic);
 void Draw_HudSubPic (struct PicAttr attr, qpic_t *pic, float s1, float t1, float s2, float t2);
 void Draw_Pic (int x, int y, qpic_t *pic);

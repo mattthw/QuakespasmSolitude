@@ -50,7 +50,7 @@ int		con_current;		// where next message will be printed
 int		con_x;				// offset in current line for next print
 char		*con_text = NULL;
 
-cvar_t		con_notifytime = {"con_notifytime","3",CVAR_NONE};	//seconds
+cvar_t		con_notifytime = {"con_notifytime","4",CVAR_NONE};	//seconds (P2a: 3s stacked too few rows visibly)
 cvar_t		con_logcenterprint = {"con_logcenterprint", "1", CVAR_NONE}; //johnfitz
 
 char		con_lastcenterstring[1024]; //johnfitz
@@ -1187,12 +1187,26 @@ Draws the last few lines of output transparently over the game top
 */
 void Con_DrawNotify (void)
 {
-	int	i, x, v;
+	int	i;
 	const char	*text;
 	float	time;
+	float	s, rowh, xfeed, ybottom, v;
+	static char	linebuf[128];	/* one notify row max */
 
-	GL_SetCanvas (CANVAS_CONSOLE); //johnfitz
-	v = vid.conheight; //johnfitz
+	/* P2a restyle (2026-11-12): notify feed moves from the classic
+	 * top-left conchars rows to a LOWER-LEFT, translucent TTF stack
+	 * (newest line at the bottom), drawn in the same CANVAS_DEFAULT
+	 * space as the HUD so HUD_SCALE sizing applies. Mac preview + Vita
+	 * both get the new look; device test pending (frozen).
+	 * The key_message chat-input row stays conchars, pinned bottom-left. */
+	GL_SetCanvas (CANVAS_DEFAULT); //johnfitz
+	s     = HUD_SCALE ();
+	rowh  = 12.0f * s;
+	xfeed = 8.0f * s;
+	ybottom = glheight - 14.0f * s;	// above the FPS corner readout
+
+	void	*shown[NUM_CON_TIMES];
+	int	 nshown = 0;
 
 	for (i = con_current-NUM_CON_TIMES+1; i <= con_current; i++)
 	{
@@ -1208,26 +1222,38 @@ void Con_DrawNotify (void)
 
 		clearnotify = 0;
 
-		for (x = 0; x < con_linewidth; x++)
-			Draw_Character ((x+1)<<3, v, text[x]);
-
-		v += 8;
+		if (nshown < NUM_CON_TIMES)
+			shown[nshown++] = (void *) text;
 
 		scr_tileclear_updates = 0; //johnfitz
 	}
 
+	/* newest (last collected) sits at the bottom, stack grows upward */
+	for (i = 0; i < nshown; i++)
+	{
+		const char	*p = (const char *) shown[i];
+		while (*p == ' ') p++;	/* QC prints carry leading blanks (" was
+	                             * killed by"); rows must start flush left */
+		q_strlcpy (linebuf, p, sizeof (linebuf));
+		Draw_TTFString (xfeed, ybottom - (nshown - 1 - i) * rowh,
+		                linebuf, 1, 1, 1, 0.35, 12.0f * s);
+	}
+
 	if (key_dest == key_message)
 	{
+		int	x;
+
 		clearnotify = 0;
+		v = glheight - 16.0f * s;
 
 		if (chat_team)
 		{
-			Draw_String (8, v, "say_team:");
+			Draw_String (8, (int)v, "say_team:");
 			x = 11;
 		}
 		else
 		{
-			Draw_String (8, v, "say:");
+			Draw_String (8, (int)v, "say:");
 			x = 6;
 		}
 
@@ -1238,13 +1264,12 @@ void Con_DrawNotify (void)
 
 		while (*text)
 		{
-			Draw_Character (x<<3, v, *text);
+			Draw_Character ((int)(x * 8 * s), (int)v, *text);
 			x++;
 			text++;
 		}
 
-		Draw_Character (x<<3, v, 10 + ((int)(realtime*con_cursorspeed)&1));
-		v += 8;
+		Draw_Character ((int)(x * 8 * s), (int)v, 10 + ((int)(realtime*con_cursorspeed)&1));
 
 		scr_tileclear_updates = 0; //johnfitz
 	}
