@@ -3,7 +3,7 @@
 // entity 0
 {
 "classname" "worldspawn"
-"wad" "/Users/matt_1/workspace/projects-vita/solitude/local/vendored/wads/Q.wad;/Users/matt_1/workspace/projects-vita/solitude/local/vendored/wads/solitude/quake-solitude.wad"
+"wad" "wads/Q.wad;wads/solitude/quake-solitude.wad"
 "_sunlight" "350"
 "_sunlight_penumbra" "4"
 "_sunlight2" "350"

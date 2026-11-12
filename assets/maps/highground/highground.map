@@ -5,7 +5,7 @@
 "mapversion" "220"
 "classname" "worldspawn"
 "_tb_mod" "solitude;QuakeSpasm-SDL2.app;working;none"
-"wad" "/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/waterfall.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude128quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude256quake.wad;/Users/matt_1/workspace/projects-vita/solitude/local/vendored/wads/Makkon2/Makkon2.wad;/Users/matt_1/workspace/projects-vita/solitude/local/vendored/wads/Makkon1/Makkon1.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/vegetation.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/highground/highground.wad"
+"wad" "assets/textures/wads/waterfall.wad;assets/textures/wads/solitude128quake.wad;assets/textures/wads/solitude256quake.wad;wads/Makkon2/Makkon2.wad;wads/Makkon1/Makkon1.wad;assets/textures/vegetation.wad;assets/textures/highground/highground.wad"
 "_tb_def" "external:/Users/matt_1/workspace/projects-vita/solitude/repo/assets/models/QuakespasmSolitude.fgd"
 "sky" "ringbl512"
 "_sunlight" "230"

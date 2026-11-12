@@ -2,7 +2,7 @@
 // Format: Standard
 // entity 0
 {
-"wad" "/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude256quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude128quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/kurok.wad"
+"wad" "assets/textures/wads/solitude256quake.wad;assets/textures/wads/solitude128quake.wad;assets/textures/wads/kurok.wad"
 "_sun_mangle" "120 -50 45"
 "_sunlight" "200"
 "classname" "worldspawn"

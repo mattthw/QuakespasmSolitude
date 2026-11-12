@@ -4,7 +4,7 @@
 {
 "sky" "ringbl512"
 "sounds" "1"
-"wad" "/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/kurok.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude256quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude128quake.wad"
+"wad" "assets/textures/wads/kurok.wad;assets/textures/wads/solitude256quake.wad;assets/textures/wads/solitude128quake.wad"
 "classname" "worldspawn"
 "_tb_mod" "solitude"
 "_bounce" "1"

@@ -3,7 +3,7 @@
 // entity 0
 {
 "classname" "worldspawn"
-"wad" "/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude256quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude128quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/kurok.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/vegetation.wad"
+"wad" "assets/textures/wads/solitude256quake.wad;assets/textures/wads/solitude128quake.wad;assets/textures/wads/kurok.wad;assets/textures/vegetation.wad"
 "_tb_def" "external:/Users/matt_1/workspace/projects-vita/solitude/repo/assets/models/QuakespasmSolitude.fgd"
 "_tb_mod" "solitude"
 "_sunlight_penumbra" "2"

@@ -6,7 +6,7 @@
 "classname" "worldspawn"
 "_tb_def" "external:/Users/matt_1/workspace/projects-vita/solitude/repo/assets/models/QuakespasmSolitude.fgd"
 "_tb_mod" "solitude"
-"wad" "/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude128quake.wad;/Users/matt_1/workspace/projects-vita/solitude/repo/assets/textures/wads/solitude256quake.wad"
+"wad" "assets/textures/wads/solitude128quake.wad;assets/textures/wads/solitude256quake.wad"
 "sky" "snowmoon_"
 "_sunlight" "240"
 "light" "205"
