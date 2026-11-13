@@ -218,6 +218,7 @@ float OPT_NOCHAT	= 2;
 float 	active_clients;
 float		max_clients, real_frametime;
 float		bot_count, b_options;
+float		bot_names_used;	//r65: bitmask of bots.cfg name slots in use this map
 float		waypoint_mode, dump_mode; 
 float		waypoints, direct_route;
 float		sv_friction, sv_gravity;
@@ -858,9 +859,21 @@ float(float clientno) ClientBitFlag =
 float() ClientNextAvailable =
 {
 	local float clientno;
+	local float cap;
 
-	clientno = max_clients;
-	while(clientno > 0)
+	/* r62 (issue #46): max_clients is the PHYSICS slot count (BotInit
+	 * clamps it to 16), but the engine allocates cl.scores only for
+	 * maxclients (8) players. A bot handed slot 15 got colormap 16 and
+	 * its fake score messages indexed cl.scores out of bounds - hunk
+	 * corruption (Sbar_Draw SIGSEGV) and the practical ~5 player cap.
+	 * Bots now fill client numbers 1..maxclients-1 only; slot 0/1 is the
+	 * real player. That also lands every bot on a genuine client edict.
+	 */
+	cap = cvar("maxclients");
+	if (cap < 2)
+		cap = 8;
+	clientno = cap;
+	while(clientno > 1)
 	{
 		clientno = clientno - 1;
 
@@ -899,13 +912,25 @@ Team finding code
 -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 */
 
+float(float idx) HaloColorAt =
+{
+	if (idx == 0) return 14;	/* red-orange (r60b: 15 glitched skins) */
+	if (idx == 1) return 13;	/* blue */
+	if (idx == 2) return 12;	/* gold (closest palette yellow) */
+	if (idx == 3) return 11;	/* green (dark: palette has no vivid green) */
+	if (idx == 4) return 14;	/* hot orange */
+	return 2;			/* steel blue */
+};
+
 float(float tcolor) FindAnotherColor =
 {
-	local float bestbet, scolor, pcount, bestp;
+	local float bestbet, scolor, pcount, bestp, poolidx;
 	bestbet = -1;
 	bestp = 16;
-	while(scolor < 14)
+	poolidx = 0;
+	while(poolidx < 6)
 	{
+		scolor = HaloColorAt(poolidx);
 		if (scolor != tcolor)
 		{
 			b_temp2 = player_head;
@@ -922,14 +947,14 @@ float(float tcolor) FindAnotherColor =
 				bestp = pcount;
 			}
 		}
-		scolor = scolor + 1;
+		poolidx = poolidx + 1;
 	}
 	if (bestbet < 0)
 	{
 		bestbet = tcolor;
 		while (bestbet == tcolor)
 		{
-			bestbet = floor(random() * 13);
+			bestbet = HaloColorAt(floor(random() * 6));
 		}
 	}
 	return bestbet;
@@ -961,7 +986,14 @@ void(float whichteam, float whatbot, float whatskill) BotConnect =
 	local string h;
 	local entity uself;
 	
-	f = ClientNextAvailable();
+		// P2a naive roster: cap at 7 bots so the session stays <= 8 total
+	if (bot_count >= 7)
+	{
+		bprint("Bot limit reached (8 players total, incl. you).\n");
+		return;
+	}
+
+f = ClientNextAvailable();
 	uself = self;
 	if(f == -1)
 	{
@@ -982,6 +1014,27 @@ void(float whichteam, float whatbot, float whatskill) BotConnect =
 	else
 		self.netname = PickARandomName();
 
+	// P2a lobby roster (r65e): read the deterministic slot = connect order, so the
+	// in-game netname matches the lobby preview row (row i shows bot_name<i>).
+	// Randomness of remove+re-add is handled menu-side instead: lobby_shufflenames
+	// shuffles all slots on lobby open, and M_Lobby_AddBot_f swaps a random tail
+	// slot into the about-to-be-shown index before incrementing the count.
+	if (eng_support & ENG_CVARSTRING)
+	{
+		local string sname;
+		local float botslot;
+		sname = "";
+		botslot = bot_count - 1;
+		if (botslot == 0) sname = cvar_string("bot_name0");
+		else if (botslot == 1) sname = cvar_string("bot_name1");
+		else if (botslot == 2) sname = cvar_string("bot_name2");
+		else if (botslot == 3) sname = cvar_string("bot_name3");
+		else if (botslot == 4) sname = cvar_string("bot_name4");
+		else if (botslot == 5) sname = cvar_string("bot_name5");
+		else if (botslot == 6) sname = cvar_string("bot_name6");
+		if (sname != "")
+			self.netname = sname;
+	}
 
 	// players can set skill all weird, so leave these checks in
 	whatskill = rint(whatskill);
@@ -993,20 +1046,28 @@ void(float whichteam, float whatbot, float whatskill) BotConnect =
 
 	if (teamplay)
 	{
-		self.b_pants = uself.team - 1;
+		/* r60b: copy the player's actual chosen band (bottomcolor cvar).
+		 * uself.team is engine-side for humans and was garbage/0 here, so
+		 * the old uself.team-1 gave friends band -1 => the leaderboard
+		 * shade mismatch (user 2026-11-12). */
+		self.b_pants = cvar("bottomcolor");
 		self.b_shirt = self.b_pants;
 	}
-    float usercolor = uself.colormap;
-    float enemyteamcolor = 13; // blue
-    if (FindAnotherColor(uself.team - 1) == enemyteamcolor || FindAnotherColor(uself.team - 1) == 2 /* light blue */)
-        enemyteamcolor = 4;
 	if (teamplay && !coop)
 	{
+		/* r60: each side needs ONE shared color nibble. Old code was inverted:
+		 * friends (whichteam==0) got enemyteamcolor while enemies got
+		 * FindAnotherColor, a picker that deliberately gives every bot a
+		 * DIFFERENT color, so each enemy .team (=b_pants+1) was unique and
+		 * team slayer played 3v1 (user 2026-11-12). Friends keep the copy of
+		 * uself.team - 1 from the block above; enemies now share one color. */
 		if (whichteam)
-			self.b_pants = FindAnotherColor(uself.team - 1);
-		else
-			self.b_pants = enemyteamcolor;/* - 1;*/// original
-		self.b_shirt = self.b_pants;
+		{
+			self.b_pants = 13;	/* blue */
+			if (cvar("bottomcolor") == 13 || cvar("bottomcolor") == 2)
+				self.b_pants = 14;	/* red-orange if blue-ish (15 = glitch band) */
+			self.b_shirt = self.b_pants;
+		}
 	}
 
 	self.team = self.b_pants + 1;
@@ -1048,6 +1109,38 @@ void(entity bot) BotDisconnect =
 	local entity uself;
 	uself = self;
 	self = bot;
+
+	// r65: free this bot's bots.cfg name slot (match departing netname
+	// back to the cvar values and clear its bit).
+	{
+		local float fi;
+		local float fb;
+		local string fname;
+		fi = 0;
+		while (fi < 7)
+		{
+			fname = "";
+			if (fi == 0) fname = cvar_string("bot_name0");
+			else if (fi == 1) fname = cvar_string("bot_name1");
+			else if (fi == 2) fname = cvar_string("bot_name2");
+			else if (fi == 3) fname = cvar_string("bot_name3");
+			else if (fi == 4) fname = cvar_string("bot_name4");
+			else if (fi == 5) fname = cvar_string("bot_name5");
+			else if (fi == 6) fname = cvar_string("bot_name6");
+			if (fname != "" && fname == self.netname)
+			{
+				fb = 1;
+				if (fi == 1) fb = 2;
+				if (fi == 2) fb = 4;
+				if (fi == 3) fb = 8;
+				if (fi == 4) fb = 16;
+				if (fi == 5) fb = 32;
+				if (fi == 6) fb = 64;
+				bot_names_used = bot_names_used - (bot_names_used & fb);
+			}
+			fi = fi + 1;
+		}
+	}
 
 	bot_count = bot_count - 1;
 	current_bots = current_bots - (current_bots & ClientBitFlag(self.b_num - 1));

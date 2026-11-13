@@ -109,6 +109,13 @@ void() door_fire =
 	if (self.owner != self)
 		objerror ("door_fire: self.owner != self");
 
+	// r65f: debounce queued 'use' bursts - when the server hitches (8-bot load,
+	// issue #38) stale inputs pile up and are applied in one go, toggling the
+	// door open/close/open/close repeatedly (user: highground).
+	if (time - self.delay < 0.35)
+		return;
+	self.delay = time;
+
 // play use key sound
 
 	if (self.items)

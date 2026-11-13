@@ -37,6 +37,10 @@ void() button_fire =
 {
 	if (self.state == STATE_UP || self.state == STATE_TOP)
 		return;
+	// r65f: same stale-input-burst debounce as door_fire (see doors.qc)
+	if (time - self.delay < 0.35)
+		return;
+	self.delay = time;
 
 	sound (self, CHAN_VOICE, self.noise, 1, ATTN_NORM);
 

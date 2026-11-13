@@ -1422,8 +1422,38 @@ void() NeedlerHome =
 	local vector dir, vtemp, wantdir;
 	local entity te;
 	local float maxmove;
-	maxmove = 60;		// maximum xyz value we're allowed to change in mid-air was 55
-
+	local float bestdist;
+	local entity best;
+	maxmove = 200;		// maximum xyz value we're allowed to change in mid-air (was 60 at 0.5s think - needles flew straight past moving players)
+	
+	// issue #44 fix: was a 0.5s think with steering only at each beat, so a
+	// 550 u/s needle covered ~275 units of stale heading between corrections.
+	// Now 0.1s think with 3.3x turn authority, and re-acquisition of the
+	// NEAREST valid target (rate-limited to ~3 Hz to bound the findradius
+	// cost - needles live 15 s and Vita QC budget is tight; see #38).
+	if (self.enemy == world || self.enemy.health <= 0 || (time - self.delay) > 0.3)
+	{
+		self.delay = time;			// reuse as last-retarget stamp (unused on needles)
+		te = findradius(self.origin, 950);
+		best = world;
+		bestdist = 950;
+		while (te)
+		{
+			if ( (te.classname == "player" || te.flags & FL_MONSTER) && te.health > 0 && te != self.owner)
+			{
+				vtemp = te.origin - self.origin;
+				if (vlen(vtemp) < bestdist)
+				{
+					bestdist = vlen(vtemp);
+					best = te;
+				}
+			}
+			te = te.chain;
+		}
+		if (best != world)
+			self.enemy = best;
+	}
+	
 	if (self.enemy != world && self.enemy.health > 0) {
 		vtemp = (self.enemy.origin + '0 0 10');
 		dir = normalize ((vtemp - self.origin));
@@ -1447,22 +1477,9 @@ void() NeedlerHome =
 
 		self.velocity += wantdir;//(dir * 550);
 	}
-	else {
-		//te = findradius(self.origin, 950);
-		te = findradius(self.origin, 200);
-		while (te)
-		{
-			if ( (te.classname == "player" || te.flags & FL_MONSTER) && te.health > 0 && te != self.owner)
-			{
-				self.enemy = te;
-				//bprint("found enemy!\n");
-			}
-			te = te.chain;
-		}
-	}
 	self.angles = vectoangles (self.velocity);
 	
-	self.nextthink = (time + 0.5);
+	self.nextthink = (time + 0.1);
 	self.think = NeedlerHome;
 };	
 void() W_FireNeedler =

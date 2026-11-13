@@ -455,6 +455,132 @@ SelectSpawnPoint
 Returns the entity to spawn at
 ============
 */
+/*
+============
+Spawn scoring (issue #47 stages 1+2)
+
+Event-driven per spawn: score every info_player_deathmatch spot with
+    cost = We*prox(d_enemy) + Wa*prox(d_ally) + Wf*far(d_enemy)
+           + WLos*seen - Wl*lru + jitter
+prox(d) = 1 - d/D clamped, far(d) = d/(2D) - 0.75 clamped.
+D (preferred enemy distance) is derived per map from the spawn spot set
+itself (bounding-box diagonal of info_player_deathmatch origins):
+mappers spread spots across the playable area, so their extent IS the
+scale reference. No BSP size query. spawn_prefer_dist overrides.
+============
+*/
+float	spawn_D;	// cached for this map; QC globals reset on map load
+
+float() Spawn_Dist = {
+        local float D;
+        D = cvar("spawn_prefer_dist");
+        if (D > 0)
+                return D;
+        if (spawn_D > 0)
+                return spawn_D;
+        return 1536;
+};
+
+void() Spawn_CalcD = {
+        local entity s;
+        local vector lo, hi, diag;
+        local float n;
+
+        if (spawn_D > 0)
+                return;
+
+        lo = '999999 999999 999999';
+        hi = '-999999 -999999 -999999';
+        n = 0;
+        s = find(world, classname, "info_player_deathmatch");
+        while (s) {
+                n = n + 1;
+                if (s.origin_x < lo_x) lo_x = s.origin_x;
+                if (s.origin_y < lo_y) lo_y = s.origin_y;
+                if (s.origin_z < lo_z) lo_z = s.origin_z;
+                if (s.origin_x > hi_x) hi_x = s.origin_x;
+                if (s.origin_y > hi_y) hi_y = s.origin_y;
+                if (s.origin_z > hi_z) hi_z = s.origin_z;
+                s = find(s, classname, "info_player_deathmatch");
+        }
+
+        if (n < 2) {
+                spawn_D = 1536;
+                return;
+        }
+
+        diag = hi - lo;
+        spawn_D = vlen(diag) * 0.4;
+        if (spawn_D < 768)
+                spawn_D = 768;
+        if (spawn_D > 6144)
+                spawn_D = 6144;
+};
+
+float(float d) Spawn_Prox = {
+        local float D;
+        D = Spawn_Dist();
+        d = d / D;
+        if (d >= 1)
+                return 0;
+        return 1 - d;
+};
+
+float(float d) Spawn_Far = {
+        local float D;
+        D = Spawn_Dist();
+        d = d / (2 * D) - 0.75;
+        if (d <= 0)
+                return 0;
+        if (d > 1)
+                return 1;
+        return d;
+};
+
+/*
+============
+Spawn_Queue (issue #47 stage 3)
+
+Called with self = the spawning client when SelectSpawnPoint found no
+spot past the hard 84u floor and the queue cap has not expired. Puts the
+client in limbo (invisible, non-solid, gun locked) and schedules a relay
+entity to re-enter PutClientInServer in 0.5 s. Bounded by the 3 s cap
+inside SelectSpawnPoint, which then forces the best dirty spot.
+============
+*/
+void() SpawnQueue_Retry;
+
+void() Spawn_Queue = {
+        local entity relay;
+
+        if (!self.delay)
+                self.delay = time;              // queue start stamp
+
+        self.movetype = MOVETYPE_NONE;
+        self.solid = SOLID_NOT;
+        self.takedamage = 0;
+        self.modelindex = 0;                    // invisible limbo
+        self.attack_finished = time + 5;        // no ghost shooting
+        centerprint(self, "Spawning...\n");
+
+        relay = spawn();
+        relay.nextthink = time + 0.5;
+        relay.think = SpawnQueue_Retry;
+        relay.goalentity = self;
+};
+
+void() SpawnQueue_Retry = {
+        local entity p;
+        p = self.goalentity;
+        remove(self);
+        if (intermission_running)
+                return;                         // moot; level is ending
+        if (p.classname != "player")
+                return;                         // parked client went away
+        self = p;
+        PutClientInServer();
+};
+
 entity() SelectSpawnPoint = {
         local entity spot,
         thing;
@@ -489,56 +615,128 @@ entity() SelectSpawnPoint = {
                 return spot;
         }
 
-        // QuakeWorld style deathmatch spawning
+        // QuakeWorld style deathmatch spawning - issue #47 stages 1+2+3:
+        // score every spot; queue (no telefrag) when all are dirty.
+        local float we, wa, wf, wl, wlos, D, range, cost, de, da, dist, lru;
+        local float pseen, best_clean, best_dirty;
+        local entity p, clean, dirty;
+
+        we = cvar("spawn_weight_enemy");
+        if (!we)
+                we = 1;
+        wa = cvar("spawn_weight_ally");
+        if (!wa)
+                wa = 0.25;
+        wf = cvar("spawn_weight_far");
+        if (!wf)
+                wf = 0.35;
+        wl = cvar("spawn_weight_lru");
+        if (!wl)
+                wl = 0.4;
+        wlos = cvar("spawn_weight_los");
+        if (!wlos)
+                wlos = 0.6;
+
+        Spawn_CalcD();
+        D = Spawn_Dist();
+        range = 2 * D;
+
         numspots = 0;
         totalspots = 0;
+        clean = world;
+        dirty = world;
+        best_clean = 999999;
+        best_dirty = 999999;
 
-        // choose a info_player_deathmatch point
-        // ok, find all spots that don't have players nearby
-        spots = world;
         spot = find(world, classname, "info_player_deathmatch");
         while (spot) {
-            totalspots = totalspots + 1;
+                totalspots = totalspots + 1;
 
-            thing = findradius(spot.origin, 84);
-            pcount = 0;
-            while (thing) {
-                if (thing.classname == "player")
-                    pcount = pcount + 1;
-                thing = thing.chain;
-            }
-            if (pcount == 0) {
-                spot.goalentity = spots;
-                spots = spot;
-                numspots = numspots + 1;
-            }
+                thing = findradius(spot.origin, 84);
+                pcount = 0;
+                while (thing) {
+                        if (thing.classname == "player")
+                                pcount = pcount + 1;
+                        thing = thing.chain;
+                }
 
-            // Get the next spot in the chain
-            spot = find(spot, classname, "info_player_deathmatch");
+                // nearest enemy / nearest ally / line-of-sight exposure
+                de = 999999;
+                da = 999999;
+                pseen = 0;
+                p = nextent(world);
+                while (p != world) {
+                        if (p.classname == "player" && p.health > 0 && p != self) {
+                                dist = vlen(spot.origin - p.origin);
+                                if (teamplay && self.team != 0 && p.team == self.team) {
+                                        if (dist < da)
+                                                da = dist;
+                                } else {
+                                        if (dist < de)
+                                                de = dist;
+                                        if (!pseen && dist < range) {
+                                                traceline(spot.origin + '0 0 24', p.origin + '0 0 24', TRUE, p);
+                                                if (trace_fraction >= 0.9)
+                                                        pseen = 1;
+                                        }
+                                }
+                        }
+                        p = nextent(p);
+                }
+
+                // least-recently-used bonus (spot.delay stamp; 0 = never used)
+                if (!spot.delay)
+                        lru = 1;
+                else {
+                        lru = (time - spot.delay) / 60;
+                        if (lru > 1)
+                                lru = 1;
+                        if (lru < 0)
+                                lru = 0;
+                }
+
+                cost = we * Spawn_Prox(de) + wa * Spawn_Prox(da)
+                        + wf * Spawn_Far(de) + wlos * pseen
+                        - wl * lru + random() * 0.05;
+
+                if (!pcount) {
+                        if (cost < best_clean) {
+                                best_clean = cost;
+                                clean = spot;
+                        }
+                } else if (cost < best_dirty) {
+                        best_dirty = cost;
+                        dirty = spot;
+                }
+
+                spot = find(spot, classname, "info_player_deathmatch");
         }
         totalspots = totalspots - 1;
-        if (!numspots) {
-            // ack, they are all full, just pick one at random
-            totalspots = rint((random() * totalspots));
-            spot = find(world, classname, "info_player_deathmatch");
-            while (totalspots > 0) {
-                totalspots = totalspots - 1;
-                spot = find(spot, classname, "info_player_deathmatch");
-            }
-            return spot;
+
+        if (clean) {
+                numspots = 1;
+                self.delay = 0;                 // clear any queue stamp
+                clean.delay = time;             // LRU stamp on the spot
+                return clean;
         }
 
-        // We now have the number of spots available on the map in numspots
-        // Generate a random number between 1 and numspots
-        numspots = numspots - 1;
-        numspots = rint((random() * numspots));
+        // map without deathmatch spots: keep the old outcome (world)
+        if (totalspots <= 0)
+                return world;
 
-        spot = spots;
-        while (numspots > 0) {
-            spot = spot.goalentity;
-            numspots = numspots - 1;
+        // stage 3 queue: park + retry in 0.5 s unless the 3 s cap expired.
+        // (self.delay == 0 also covers the first attempt: stamp starts at 0)
+        if (!self.delay || time - self.delay < 3)
+                return world;
+
+        // cap expired: force the best dirty spot - a considered telefrag at
+        // worst, never the old 'ack, they are all full' coin flip.
+        self.delay = 0;
+        if (dirty) {
+                dirty.delay = time;
+                return dirty;
         }
-        return spot;
+        return world;
 
 };
 void() DecodeLevelParms;
@@ -652,13 +850,70 @@ void() firefight_death_setup = {
 };
 /*
 ============
+Team score accumulation (issue #41 item 4)
+
+Server-side totals per team id (.team = color nibble + 1). Entities
+rather than fixed globals because team ids come from player colors.
+Score tracks the sum of member frags (suicide and teamkill subtract),
+matching how the HUD groups teams by color client-side.
+============
+*/
+entity(float t) TeamScore_Find =
+{
+        local entity e;
+        e = world;
+        while (1)
+        {
+                e = find(e, classname, "team_score");
+                if (e == world)
+                        return world;
+                if (e.team == t)
+                        return e;
+        }
+};
+
+void(entity k, float delta) TeamScore_Add =
+{
+        local entity se;
+
+        if (!teamplay || delta == 0 || k.team == 0)
+                return;
+
+        se = TeamScore_Find(k.team);
+        if (se == world)
+        {
+                se = spawn();
+                se.classname = "team_score";
+                se.team = k.team;
+                se.frags = 0;
+        }
+        se.frags = se.frags + delta;
+};
+
+float() TopTeamScore =
+{
+        local entity e;
+        local float best;
+        e = world;
+        best = 0;
+        while (1)
+        {
+                e = find(e, classname, "team_score");
+                if (e == world)
+                        return best;
+                if (e.frags > best)
+                        best = e.frags;
+        }
+};
+/*
+============
 CheckRules
 
 Exit deathmatch games upon conditions
 ============
 */
 void() CheckRules = {
-        if (deathmatch && teamplay && teamlimit)
+        if (deathmatch && teamplay && teamlimit && TopTeamScore() >= teamlimit)
             NextLevel();
         if (deathmatch && timelimit && time >= timelimit)
             NextLevel();
@@ -936,9 +1191,18 @@ void() CH_Red = {
         traceline(src, src + dir * 300, FALSE, self);
         puff_org = trace_endpos - dir * 4;
 
+         // r66b: teammates must NOT force the red reticle - takedamage is
+         // TRUE for allies too, so gate on team identity under teamplay.
          if (trace_ent.takedamage)
          {
-            stuffcmd (self, "cl_ch_red 1\n");
+            if (teamplay && trace_ent.team != 0 && trace_ent.team == self.team)
+            {
+               stuffcmd (self, "cl_ch_red 0\n");
+            }
+            else
+            {
+               stuffcmd (self, "cl_ch_red 1\n");
+            }
          } else if (!trace_ent.takedamage) {
             stuffcmd(self, "cl_ch_red 0\n");
         }
@@ -1028,25 +1292,39 @@ void() Voice_announcer = {
 };
 
 void() populate_bots = {
+        // P2a lobby roster: the matchmaking menu owns the bot count via
+        // the lobby_bots cvar (Cvar_Create default 3, menu clamps 0..7;
+        // BotConnect also hard-caps at 7). Team games split the bots
+        // floor(n/2) friends (you join them, so 2v2 at 3 bots) + the
+        // rest enemies; FFA spawns them all friendly.
+        local float n;
+        local float i;
+        local float fr;
         if (deathmatch == 1 || deathmatch == 3) {
-            if (teamplay) {
-                // Team Slayer
-                local float myteam = self.team;
-                BotConnect(0, 0, cvar("skill"));
-                BotConnect(0, 0, cvar("skill"));
-                BotConnect(1, 0, cvar("skill"));
-
-                BotConnect(0, 0, cvar("skill"));
-                BotConnect(1, 0, cvar("skill"));
-
-                BotConnect(0, 0, cvar("skill"));
-                BotConnect(1, 0, cvar("skill"));
-            } else {
-                // Slayer & Swat
-                BotConnect(0, 0, cvar("skill"));
-                BotConnect(0, 0, cvar("skill"));
-                BotConnect(0, 0, cvar("skill"));
-            }
+                n = cvar("lobby_bots");
+                if (n < 0)
+                        n = 0;
+                if (n > 7)
+                        n = 7;
+                if (teamplay) {
+                        fr = floor(n / 2);
+                        i = 0;
+                        while (i < fr) {
+                                BotConnect(0, 0, cvar("skill"));
+                                i = i + 1;
+                        }
+                        i = 0;
+                        while (i < n - fr) {
+                                BotConnect(1, 0, cvar("skill"));
+                                i = i + 1;
+                        }
+                } else {
+                        i = 0;
+                        while (i < n) {
+                                BotConnect(0, 0, cvar("skill"));
+                                i = i + 1;
+                        }
+                }
         }
         remove(self);
 }
@@ -1190,6 +1468,7 @@ void(entity targ, entity attacker, INTEGER mod) ClientObituary = {
             SuicideMessage(targ.netname, mod);
             targ.frags = targ.frags - 1;
             logfrag(targ, targ)
+            TeamScore_Add(targ, -1);
             return;
         } // else if anything else
 
@@ -1197,6 +1476,7 @@ void(entity targ, entity attacker, INTEGER mod) ClientObituary = {
             TeamKillMessage(targ.netname, attacker.netname, mod);
             logfrag(attacker, attacker)
             attacker.frags = attacker.frags - 1;
+            TeamScore_Add(attacker, -1);
             return;
         }
 
@@ -1204,6 +1484,7 @@ void(entity targ, entity attacker, INTEGER mod) ClientObituary = {
             KillMessage(targ.netname, attacker.netname, mod);
             attacker.frags = attacker.frags + 1;
             logfrag(attacker, targ)
+            TeamScore_Add(attacker, 1);
         }
         return;
     } // else if attacker != player
@@ -1212,5 +1493,6 @@ void(entity targ, entity attacker, INTEGER mod) ClientObituary = {
         WorldKillMessage(targ.netname, mod);
         targ.frags = targ.frags - 1;
         logfrag(targ, targ)
+        TeamScore_Add(targ, -1);
     }
 };

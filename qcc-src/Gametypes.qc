@@ -65,6 +65,12 @@ void() Setup_Gametype = {
                 self.th_die = PlayerDie;
                 self.deadflag = DEAD_NO;
                 spot = SelectSpawnPoint();
+                if (!spot) {
+                        // issue #47 stage 3: no clean spot - park + retry,
+                        // never spawn on top of someone
+                        Spawn_Queue();
+                        return;
+                }
                 Start_Weapon();
                 self.origin = spot.origin + '0 0 1';
                 self.angles = spot.angles;
@@ -114,6 +120,12 @@ void() Setup_Gametype = {
                 self.th_die = PlayerDie;
                 self.deadflag = DEAD_NO;
                 spot = SelectSpawnPoint();
+                if (!spot) {
+                        // issue #47 stage 3: no clean spot - park + retry,
+                        // never spawn on top of someone
+                        Spawn_Queue();
+                        return;
+                }
                 Start_Weapon();
                 self.origin = spot.origin + '0 0 1';
                 self.angles = spot.angles;
@@ -165,6 +177,12 @@ void() Setup_Gametype = {
                 self.th_die = PlayerDie;
                 self.deadflag = DEAD_NO;
                 spot = SelectSpawnPoint();
+                if (!spot) {
+                        // issue #47 stage 3: no clean spot - park + retry,
+                        // never spawn on top of someone
+                        Spawn_Queue();
+                        return;
+                }
                 Start_Weapon();
                 self.origin = spot.origin + '0 0 1';
                 self.angles = spot.angles;
@@ -205,7 +223,7 @@ void() Start_Weapon = {
                 // get from engine
                 float primary_weapon = cvar("custom_primary");
                 float secondary_weapon = cvar("custom_secondary");
-                bprint("secondary=");bprint(ftos(secondary_weapon));bprint("\n");
+                // P2a: debug print removed - "secondary=" spammed on every spawn
                 if (primary_weapon == WEAPON_NOT_SET) {
                     // mod being used with an engine which does not understand our custom cvars. Let's set them up with defaults.
                     primary_weapon = WEAPON_AR;
