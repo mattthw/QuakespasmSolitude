@@ -3138,12 +3138,35 @@ void M_Lobby_ShuffleNames_f (void)
 		Cvar_Set (va("bot_name%d", i), names[i]);
 }
 
+/* r96: TDM pins teams red/blue; remember the player's profile colors the
+ * first time the lobby opens so FFA matches can restore them. */
+static qboolean lobby_profile_saved = false;
+static char lobby_saved_bottom[8] = "";
+static char lobby_saved_top[8] = "";
+
 void M_Matchmaking_f (void)
 {
     key_dest = key_menu;
     m_state = m_gameoptions;
     m_entersound = true;
     draw_grid_translucent = 1;   /* r92: overlay windows opt into opaque */
+    if (!lobby_profile_saved)
+    {
+        lobby_profile_saved = true;
+        q_strlcpy (lobby_saved_bottom, Cvar_VariableString ("bottomcolor"),
+                   sizeof(lobby_saved_bottom));
+        q_strlcpy (lobby_saved_top, Cvar_VariableString ("topcolor"),
+                   sizeof(lobby_saved_top));
+    }
+    /* r97: leaving a TDM match re-pins nothing -- repair the live profile
+     * back to what the lobby captured, so the ultrabright pin (era: 14)
+     * never sticks in menus, rosters or config.cfg. */
+    else if (strcmp (Cvar_VariableString ("bottomcolor"), lobby_saved_bottom)
+          || strcmp (Cvar_VariableString ("topcolor"), lobby_saved_top))
+    {
+        Cbuf_AddText (va ("bottomcolor %s\n", lobby_saved_bottom));
+        Cbuf_AddText (va ("topcolor %s\n", lobby_saved_top));
+    }
     Cbuf_AddText ("exec bots.cfg\nlobby_shufflenames\n");   // P2a lobby roster names (r64: + shuffle)
     if (maxplayers == 0)
         maxplayers = svs.maxclients;
@@ -3423,7 +3446,12 @@ void M_Matchmaking_Draw (void)
         int hx, hy;
         /* r62: FFA band pool mirroring HaloColorAt in frikbot/bot.qc; the
          * player owns band 14 (bottomcolor), so bots start at blue. */
-        static const int ffa_bands[6] = {13, 12, 11, 6, 2, 14};
+        static const int ffa_bands[6] = {13, 12, 11, 6, 2, 4};   /* r97: 4 = safe red */
+        /* r96: FFA preview follows the player's profile band (bottomcolor).
+         * 15 is the fullbright glitch band and >14 parses garbage: pin to 14. */
+        int prof = atoi (Cvar_VariableString ("bottomcolor"));
+        if (prof < 0 || prof > 13)    /* r97: 14/15 ultrabright tail */
+            prof = 4;
 
         Draw_FillRGBA (rx, ry, rw, hh, 20/255.0f*0.85f, 25/255.0f*0.85f, 44/255.0f*0.85f, 0.85f);
         Draw_TTFStringHeader (rx + CHARZ - 2, ry + 18, "ROSTER", 1, 1, 1, 0.9f, 14.0f);
@@ -3434,7 +3462,13 @@ void M_Matchmaking_Draw (void)
         // spans the full column behind the name; r76: rows sized to the
         // cursor height, names drawn straight in 19px Archivo.
         y = ry + hh + 2;
-        Draw_FillRGBA (rx, y, rw, band, 0.78f*0.35f, 0.12f*0.35f, 0.14f*0.35f, 0.35f);
+        if (opts.gametype == 1)
+            Draw_FillRGBA (rx, y, rw, band, 0.78f*0.35f, 0.12f*0.35f, 0.14f*0.35f, 0.35f);
+        else
+        {   /* r96: Slayer roster shows the player's chosen profile color */
+            byte *pcc = (byte *)&d_8to24table[prof * 16 + 8];
+            Draw_FillRGBA (rx, y, rw, band, pcc[0]/255.0f*0.35f, pcc[1]/255.0f*0.35f, pcc[2]/255.0f*0.35f, 0.35f);
+        }
         Draw_TTFString (rx + CHARZ, y + nfs, "You", 1, 1, 1, 1, (float)nfs);
         y += pitch;
 
@@ -3450,7 +3484,10 @@ void M_Matchmaking_Draw (void)
                  * instead of one flat team red. Actual in-game colors come
                  * from FindAnotherColor (collision-avoiding) so a row may
                  * occasionally differ from this preview. */
-                byte *pc = (byte *)&d_8to24table[ffa_bands[i % 6] * 16 + 8];
+                int bandx = ffa_bands[i % 6];
+                if (bandx == prof)
+                    bandx = 8;   /* r96: never preview the player's own band */
+                byte *pc = (byte *)&d_8to24table[bandx * 16 + 8];
                 Draw_FillRGBA (rx, y, rw, band, pc[0]/255.0f*0.35f, pc[1]/255.0f*0.35f, pc[2]/255.0f*0.35f, 0.35f);
             }
             Draw_TTFString (rx + CHARZ, y + nfs, (*nm) ? nm : va("Bot %i", i + 1), 1, 1, 1, 1, (float)nfs);
@@ -3630,6 +3667,19 @@ void M_Matchmaking_Key (int key)
                 }
                 Cbuf_AddText ( va ("deathmatch %u\n", (int)opts.deathmatch) );
                 Cbuf_AddText ( va ("teamplay %u\n", (int)opts.teamplay) );
+                /* r96: Team Slayer is always red vs blue (user). Pin the human
+                 * to band 14; bots hold 14/13 to match, so .team ids line up.
+                 * FFA/Swat restore the saved profile colors. */
+                if (opts.gametype == 1)
+                {
+                    Cbuf_AddText ("bottomcolor 4\n");
+                    Cbuf_AddText ("topcolor 4\n");
+                }
+                else if (lobby_profile_saved && lobby_saved_bottom[0])
+                {
+                    Cbuf_AddText (va ("bottomcolor %s\n", lobby_saved_bottom));
+                    Cbuf_AddText (va ("topcolor %s\n", lobby_saved_top));
+                }
                 /* r67: in Team Slayer the menu "score limit" drives the TEAM
                  * score; an individual fraglimit would race it and end the
                  * match on one player's streak. */

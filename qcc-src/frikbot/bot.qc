@@ -914,11 +914,11 @@ Team finding code
 
 float(float idx) HaloColorAt =
 {
-	if (idx == 0) return 14;	/* red-orange (r60b: 15 glitched skins) */
+	if (idx == 0) return 4;	/* deep red (r97: 14/15 = ultrabright tail) */
 	if (idx == 1) return 13;	/* blue */
 	if (idx == 2) return 12;	/* gold (closest palette yellow) */
 	if (idx == 3) return 11;	/* green (dark: palette has no vivid green) */
-	if (idx == 4) return 14;	/* hot orange */
+	if (idx == 4) return 6;	/* brick (r97: avoid 14) */
 	return 2;			/* steel blue */
 };
 
@@ -1046,11 +1046,10 @@ f = ClientNextAvailable();
 
 	if (teamplay)
 	{
-		/* r60b: copy the player's actual chosen band (bottomcolor cvar).
-		 * uself.team is engine-side for humans and was garbage/0 here, so
-		 * the old uself.team-1 gave friends band -1 => the leaderboard
-		 * shade mismatch (user 2026-11-12). */
-		self.b_pants = cvar("bottomcolor");
+		/* r96: TDM is always red vs blue regardless of profiles (user).
+		 * The human is force-pinned to band 4 by the menu at START GAME,
+		 * so friends hold 4 too and .team ids line up (4 + 1 = 5). */
+		self.b_pants = 4;	/* r97: deep red team (14/15 = ultrabright/fullbright tail) */
 		self.b_shirt = self.b_pants;
 	}
 	if (teamplay && !coop)
@@ -1063,9 +1062,21 @@ f = ClientNextAvailable();
 		 * uself.team - 1 from the block above; enemies now share one color. */
 		if (whichteam)
 		{
-			self.b_pants = 13;	/* blue */
-			if (cvar("bottomcolor") == 13 || cvar("bottomcolor") == 2)
-				self.b_pants = 14;	/* red-orange if blue-ish (15 = glitch band) */
+			self.b_pants = 13;	/* r96: enemies always blue; human pinned to 4 */
+			self.b_shirt = self.b_pants;
+		}
+	}
+
+	/* r98: FFA colors. The bot name pool carries b_pants values straight
+	 * onto the model, and some sit in the palette's ultrabright tail
+	 * (band 2 ice blue read as neon cyan, user). Roll the safe
+	 * FindAnotherColor pool when the carried band is unset, bright, or
+	 * in the tail. Teamplay overrides this downstream anyway. */
+	if (!teamplay)
+	{
+		if (self.b_pants == 0 || self.b_pants > 13 || self.b_pants == 2)
+		{
+			self.b_pants = FindAnotherColor(0);
 			self.b_shirt = self.b_pants;
 		}
 	}
