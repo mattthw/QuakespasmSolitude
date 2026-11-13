@@ -611,11 +611,12 @@ void Sbar_DrawInventory (void)
 	float	time;
 	int	flashon;
 
-    if((int)cl.stats[STAT_HEALTH] <= 0)
-        return;
-    if ((int)cl.stats[STAT_HEALTH] > 0) {
-        HUD_Draw();
-    }
+    /* r95b: HUD_Draw() used to be called from here (via the fork's
+     * health-gated hack). That put the whole HUD behind this
+     * function's "viewsize < 110" gate in Sbar_Draw -- viewsize is
+     * CVAR_ARCHIVE, and a stale 120 (screenshot-mode bind) silently
+     * blanked health/weapon/radar while ALIVE. HUD_Draw now has its
+     * own call site in Sbar_Draw with no viewsize/health wrapper. */
 }
 
 //=============================================================================
@@ -925,6 +926,9 @@ void Sbar_Draw (void)
 	//johnfitz
 
 	GL_SetCanvas (CANVAS_SBAR); //johnfitz
+
+	HUD_Draw ();	/* r95b: Vita-fork HUD suite -- called directly,
+			 * gated inside HUD_Draw (dead / photo mode / scores) */
 
 	if (scr_viewsize.value < 110) //johnfitz -- check viewsize instead of sb_lines
 	{

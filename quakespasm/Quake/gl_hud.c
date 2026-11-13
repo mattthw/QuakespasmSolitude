@@ -1450,6 +1450,8 @@ void HUD_Draw (void) {
     if (sb_showscores)          /* r73: crosshair/nameplates/radar/weapon panel
                                  * hide under the leaderboard too (Halo) */
         return;
+    if ((int)cl.stats[STAT_HEALTH] <= 0)   /* r95b: whole HUD hidden while dead (user) */
+        return;
     if (hud_mapshot.value)        /* r83: master switch for map-photo capture */
         return;
     GL_SetCanvas(CANVAS_DEFAULT);
