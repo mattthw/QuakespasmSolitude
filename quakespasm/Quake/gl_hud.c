@@ -21,6 +21,25 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
+/* r71: right-pointing filled triangle (mini-overlay caret). Fixed-function,
+ * Vita-safe; premul canvas so bake the opacity into rgb at the callsite. */
+static void HUD_FillTriRight (float x, float y, float w, float h, float cr, float cg, float cb, float a)
+{
+    glDisable (GL_TEXTURE_2D);
+    glDisable (GL_ALPHA_TEST);
+    glEnable (GL_BLEND);
+    glBegin (GL_TRIANGLES);
+    glColor4f (cr, cg, cb, a);
+    glVertex2f (x, y);
+    glVertex2f (x, y+h);
+    glVertex2f (x+w, y+h*0.5f);
+    glEnd ();
+    glDisable (GL_BLEND);
+    glEnable (GL_ALPHA_TEST);
+    glEnable (GL_TEXTURE_2D);
+    glColor3f (1,1,1);
+}
+
 extern cvar_t	waypoint_mode;
 
 qpic_t      *b_up;
@@ -60,6 +79,18 @@ cvar_t cl_scope = {"cl_scope", "0"};
 cvar_t cl_ww = {"cl_ww", "0"};		//World weapon print message
 cvar_t cl_ch_red = {"cl_ch_red", "0"};
 cvar_t cl_ch_blue = {"cl_ch_blue", "1"};
+cvar_t hud_nameplates = {"hud_nameplates", "1"};	//r63 issue #39: nameplates-over-reticle
+cvar_t cl_debugweapon = {"cl_debugweapon", "0"};	//r65b: print STAT_ACTIVEWEAPON on change (crosshair-shape debugging)
+cvar_t hud_mapshot = {"hud_mapshot", "0"};	//r83: one-switch hide of all HUD for map thumbnail shots
+
+/* r66 Tracker-0: Halo-style ping motion radar (bottom-left). No movement
+ * gating, no equipment - blips refresh on a ping every radar_ping seconds and
+ * stay visible (frozen position) for radar_hold seconds. */
+cvar_t hud_radar   = {"hud_radar", "1"};     // master toggle
+cvar_t radar_range = {"radar_range", "2000"};  // r66b: ~50 m, 1000 was too short
+cvar_t radar_ping  = {"radar_ping", "1.5"};   // r66h: was 2.5 (too delayed); live (0) was too accurate for foes
+cvar_t radar_hold  = {"radar_hold", "1.0"};   // r66h: was 1.2 - blips now blink off briefly between pings
+cvar_t hud_crosshair = {"hud_crosshair", "1"};	//r63 issue #39: dynamic Halo tick crosshair
 cvar_t cl_overlay = {"cl_overlay", "0"};
 cvar_t hide_hud = {"hide_hud", "0"};
 //
@@ -171,6 +202,14 @@ void HUD_Init (void) {
     Cvar_RegisterVariable (&cl_respawn);
     Cvar_RegisterVariable (&cl_ch_red);
     Cvar_RegisterVariable (&cl_ch_blue);
+    Cvar_RegisterVariable (&hud_nameplates);	//r63
+    Cvar_RegisterVariable (&hud_crosshair);	//r63
+    Cvar_RegisterVariable (&cl_debugweapon);	//r65b
+    Cvar_RegisterVariable (&hud_mapshot);	//r83
+    Cvar_RegisterVariable (&hud_radar);	//r66
+    Cvar_RegisterVariable (&radar_range);	//r66
+    Cvar_RegisterVariable (&radar_ping);	//r66
+    Cvar_RegisterVariable (&radar_hold);	//r66
     Cvar_RegisterVariable (&cl_overlay);
     Cvar_RegisterVariable (&hide_hud);
 
@@ -310,8 +349,257 @@ char *getPickupWeaponString (int value) {
     }
 }
 
+/* ==================== r63: dynamic crosshair + nameplates (issue #39) ====================
+ * CL_TraceLine (r_part_fte.c) only traces against BRUSH models - players are
+ * alias models - so the reticle "pick" is an angular hit-test against the
+ * player entities, and CL_TraceLine does occlusion + world/sky classification.
+ * Other players' health is not networked to the client, so plates are
+ * name + team tint only (health bar needs a server-side stat - future work).
+ * Team test mirrors MiniDeathmatchOverlay's colors-nibble equality heuristic.
+ */
+extern float CL_TraceLine (vec3_t start, vec3_t end, vec3_t impact, vec3_t normal, int *entnum);
+
+#define HUD_MAXPLATES 8
+static struct {
+    float sx, sy, factor;   /* screen px + px-per-world-unit at its depth */
+    float dist;             /* depth along view forward */
+    qboolean teammate;
+    qboolean occluded;
+    qboolean nearret;       /* r64: crosshair within the target's pixel extent */
+    const char *name;
+} hud_plate[HUD_MAXPLATES];
+static int hud_plate_n;
+static int hud_plate_reticle = -1;   /* plate index under the reticle, -1 none */
+static qboolean hud_worldhit;        /* crosshair ray hits a brush model */
+
+static void HUD_ScanTargets (void)
+{
+    vec3_t fwd, right, up, rel, to, impact, normal;
+    float fwdamt, latx, laty, tanx, tany, fx, fy, cx, cy, pfrac;
+    int me_colors;
+    int i, hument;
+    entity_t *ent;
+    scoreboard_t *sc;
+
+    hud_plate_n = 0;
+    hud_plate_reticle = -1;
+    hud_worldhit = false;
+    if (!deathmatch.value || cl.intermission)
+        return;
+
+    AngleVectors (r_refdef.viewangles, fwd, right, up);
+
+    /* where the crosshair ray lands in the world (brushes/inline models only) */
+    VectorMA (r_refdef.vieworg, 8192.0f, fwd, to);
+    pfrac = CL_TraceLine (r_refdef.vieworg, to, impact, normal, &hument);
+    hud_worldhit = (pfrac < 1.0f);
+
+    cx = glwidth * 0.5f;
+    cy = glheight * 0.5f;
+    tanx = tanf (r_refdef.fov_x * 0.008726646f);   /* 0.5 * pi/180 */
+    tany = tanf (r_refdef.fov_y * 0.008726646f);
+    /* r65b: teammate test mirrors MiniDeathmatchOverlay - identical FULL
+     * colors byte (both nibbles) while teamplay is on. In FFA everyone is
+     * a foe; the old bottom-nibble equality turned random bots green just
+     * because they shared a palette band. (self.team on the server IS
+     * bottom-nibble+1, so in team games byte equality == same team.) */
+    me_colors = cl.scores[cl.viewentity - 1].colors;
+
+    for (i = 1; i <= cl.maxclients && i < cl.num_entities && hud_plate_n < HUD_MAXPLATES; i++)
+    {
+        ent = &cl.entities[i];
+        sc = &cl.scores[i - 1];
+        if (!ent->model || !*sc->name)
+            continue;
+        /* r64: dead players swap to the QC corpse model (progs/plyr.mdl =
+         * modelindex_dead, Gametypes.qc) - drop the plate the instant they
+         * die instead of riding out the respawn timer (user). */
+        if (!q_strcasecmp (ent->model->name, "progs/plyr.mdl"))
+            continue;
+
+        rel[0] = ent->origin[0] - r_refdef.vieworg[0];
+        rel[1] = ent->origin[1] - r_refdef.vieworg[1];
+        rel[2] = ent->origin[2] - r_refdef.vieworg[2] + 20.0f;  /* chest/head-ish */
+        fwdamt = DotProduct (rel, fwd);
+        if (fwdamt < 32.0f || fwdamt > 3200.0f)
+            continue;
+        latx = DotProduct (rel, right);
+        laty = DotProduct (rel, up);
+
+        /* occlusion: trace to the player's chest; a brush model in between hides them */
+        to[0] = ent->origin[0]; to[1] = ent->origin[1];
+        to[2] = ent->origin[2] + 20.0f;   /* chest target == the rel we just measured */
+        if (CL_TraceLine (r_refdef.vieworg, to, impact, normal, &hument) < 0.98f)
+            continue;   /* behind geometry */
+
+        fx = cx + latx * ((glwidth * 0.5f) / (fwdamt * tanx));
+        fy = cy - laty * ((glheight * 0.5f) / (fwdamt * tany));
+
+        /* r64: per-plate proximity test - crosshair within the player's pixel
+         * extent + tick ring (same radius the reticle pick uses). Nameplates
+         * only render for players inside this gate. */
+        {
+            float pdx = fx - cx;
+            float pdy = fy - cy;
+            float pr  = 24.0f * ((glwidth * 0.5f) / (fwdamt * tanx)) + (float)(14 * HUD_SCALE());
+            hud_plate[hud_plate_n].nearret = (pdx * pdx + pdy * pdy < pr * pr);
+        }
+
+        hud_plate[hud_plate_n].sx = fx;
+        hud_plate[hud_plate_n].sy = fy;
+        hud_plate[hud_plate_n].factor = (glwidth * 0.5f) / (fwdamt * tanx);
+        hud_plate[hud_plate_n].dist = fwdamt;
+        hud_plate[hud_plate_n].teammate = (teamplay.value != 0 && (int)sc->colors == me_colors);
+        hud_plate[hud_plate_n].occluded = false;
+        hud_plate[hud_plate_n].name = sc->name;
+        hud_plate_n++;
+    }
+
+    /* reticle pick: smallest |screen offset| within the player's pixel extent + tick ring */
+    {
+        float best = 1e9f;
+        int k;
+        for (k = 0; k < hud_plate_n; k++)
+        {
+            float dx = hud_plate[k].sx - cx;
+            float dy = hud_plate[k].sy - cy;   /* r64 fix: was fy (last target's y), not center */
+            float r  = 24.0f * hud_plate[k].factor + (float)(14 * HUD_SCALE());
+            float d2 = dx * dx + dy * dy;
+            if (d2 < r * r && hud_plate[k].dist < best)
+            {
+                best = hud_plate[k].dist;
+                hud_plate_reticle = k;
+            }
+        }
+    }
+}
+
+/* r65: stroked circle for weapon-specific crosshair shapes. Same GL state
+ * sequence as Draw_TrapezoidGrad; premul 2D canvas ignores alpha, so colors
+ * arrive pre-baked (cr/cg/cb carry the brightness). */
+static void HUD_DrawCircle (float x, float y, float r, float cr, float cg, float cb)
+{
+    int i, n = 28;
+    const float tau = 6.28318530718f;
+
+    glDisable (GL_TEXTURE_2D);
+    glEnable (GL_BLEND);
+    glDisable (GL_ALPHA_TEST);
+    glColor3f (cr, cg, cb);
+    glBegin (GL_LINE_LOOP);
+    for (i = 0; i < n; i++)
+    {
+        float a = (float)i * (tau / (float)n);
+        glVertex2f (x + r * cosf (a), y + r * sinf (a));
+    }
+    glEnd ();
+    glColor3f (1,1,1);
+    glDisable (GL_BLEND);
+    glEnable (GL_ALPHA_TEST);
+    glEnable (GL_TEXTURE_2D);
+}
+
 void drawCrosshair(void) {
-    //nothing
+    float s = HUD_SCALE();
+    int gap = (int)(8.0f * s) + 2;
+    int len = (int)(5.0f * s) + 2;
+    int th  = q_max (2, (int)(2.0f * s));
+    int cx  = glwidth / 2;
+    int cy  = glheight / 2;
+    float cr = 0.35f, cg = 0.65f, cb = 1.00f;   /* r66e: default blue (was white) */
+
+    /* r65d: weapon debug - the Con_Printf-only version was invisible in play
+     * (console not open), so draw the raw held-weapon stat on screen now. */
+    if (cl_debugweapon.value)
+    {
+        static char dbg_str[64] = "AW stat: --";
+        static int dbg_last = -999;
+        int dbg_aw = (int)cl.stats[STAT_ACTIVEWEAPON];
+        if (dbg_aw != dbg_last)
+        {
+            dbg_last = dbg_aw;
+            sprintf (dbg_str, "AW=%i (%s)", dbg_aw, getWeaponName (dbg_aw));
+            Con_Printf ("drawCrosshair: STAT_ACTIVEWEAPON = %i (%s)\n",
+                        dbg_aw, getWeaponName (dbg_aw));
+        }
+        Draw_TTFString (cx - 60, cy + 46, dbg_str, 1, 1, 0, 1, 12.0f * s);
+    }
+
+    if (!hud_crosshair.value)
+        return;
+    HUD_ScanTargets ();   /* fills hud_plate[] for both crosshair + nameplates */
+
+    /* r66e: reticle is ALWAYS blue unless looking at an enemy - teammate
+     * green was wrong (user); ally/world/sky all read blue now. */
+    if (hud_plate_reticle >= 0 && !hud_plate[hud_plate_reticle].teammate)
+        { cr = 0.90f; cg = 0.25f; cb = 0.25f; }       /* foe red */
+    if (cl_ch_red.value)                              /* server push (#399 style) */
+        { cr = 0.90f; cg = 0.25f; cb = 0.25f; }
+
+    /* r65b: weapon-specific shapes (user), keyed off the HELD weapon item
+     * flags in STAT_ACTIVEWEAPON (same source as drawWeapon's getWeaponName
+     * - cl_ww is only the world/pickup weapon and was the earlier bug).
+     *   SMG / Sniper            - small ring, tighter than tick spread
+     *   Rocket Launcher         - ring at tick spread + small '+' center */
+    switch ((int)cl.stats[STAT_ACTIVEWEAPON])
+    {
+    case IT_SHOTGUN:         /* Pistol - r65e: tiny ring (user: ticks read as
+                              * 'no crosshair' and wrong vs sniper/SMG) */
+        HUD_DrawCircle (cx, cy, q_max (2.5f, (float)(gap + len) * 0.18f), cr, cg, cb);
+        return;
+    case IT_ROCKET_LAUNCHER:
+        {
+            int plen = q_max (3, (int)(3.0f * s));
+            HUD_DrawCircle (cx, cy, (float)(gap + len), cr, cg, cb);
+            Draw_FillRGBA (cx - plen, cy - 1, plen * 2, 2, cr, cg, cb, 1.0f);
+            Draw_FillRGBA (cx - 1, cy - plen, 2, plen * 2, cr, cg, cb, 1.0f);
+            return;
+        }
+    case IT_SUPER_NAILGUN:    /* SMG */
+        HUD_DrawCircle (cx, cy, q_max (4.0f, (float)(gap + len) * 0.45f), cr, cg, cb);
+        return;
+    case IT_GRENADE_LAUNCHER: /* Sniper - r65f: smaller than pistol (user) */
+        HUD_DrawCircle (cx, cy, q_max (2.0f, (float)(gap + len) * 0.12f), cr, cg, cb);
+        return;
+    default:
+        break;
+    }
+
+    /* premul 2D canvas ignores alpha - bake brightness into rgb */
+    Draw_FillRGBA (cx - gap - len, cy - th / 2, len, th, cr, cg, cb, 1.0f);   /* left  */
+    Draw_FillRGBA (cx + gap,       cy - th / 2, len, th, cr, cg, cb, 1.0f);   /* right */
+    Draw_FillRGBA (cx - th / 2, cy - gap - len, th, len, cr, cg, cb, 1.0f);   /* up    */
+    Draw_FillRGBA (cx - th / 2, cy + gap,       th, len, cr, cg, cb, 1.0f);   /* down  */
+}
+
+static void drawNameplates (void)
+{
+    float s = HUD_SCALE();
+    float size = 13.0f * s;   /* r64: 11 -> 13, user wanted them a bit bigger */
+    int i;
+
+    if (!hud_nameplates.value)
+        return;
+    for (i = 0; i < hud_plate_n; i++)
+    {
+        float al, w, x, y;
+        float nr, ng, nb;
+        if (!hud_plate[i].nearret)
+            continue;   /* r64: names only when the crosshair is near them (user) */
+        al = 1.0f - hud_plate[i].dist / 3400.0f;
+        if (al < 0.15f)
+            continue;
+        /* r64: enemy names red, teammate names light blue (was green - user);
+         * no underline. */
+        if (hud_plate[i].teammate)
+            { nr = 0.45f; ng = 0.75f; nb = 1.00f; }
+        else
+            { nr = 0.90f; ng = 0.25f; nb = 0.25f; }
+        w = Draw_TTFWidth (hud_plate[i].name, size);
+        x = hud_plate[i].sx - w * 0.5f;
+        y = hud_plate[i].sy - 15.0f * s;
+        Draw_TTFString ((int)x, (int)y, hud_plate[i].name, nr * al, ng * al, nb * al, al, size);
+    }
 }
 
 void drawPickupWeapon(void) {
@@ -337,10 +625,10 @@ void drawWeapon(void) {
     HUD_itoa((int)cl.stats[STAT_ARMOR], ammo);
     strcpy(primary, getWeaponName((int)cl.stats[STAT_ACTIVEWEAPON]));
     /* r19: nudged right (0.70/0.77 -> 0.72/0.79) per user 2026-11-12 */
-    Draw_TTFString(glwidth*0.72, glheight*0.10, primary, 127/255.0, 191/255.0, 255/255.0,1, 22.0f*HUD_SCALE());
+    Draw_TTFString(glwidth*0.804, glheight*0.10, primary, 127/255.0, 191/255.0, 255/255.0,1, 18.7f*HUD_SCALE());
     if (strcmp(primary, "Energy Sword") != 0 /* 0 means equal*/) { // dont draw ammo for energy sword
-        Draw_TTFString(glwidth*0.72, glheight*0.19 - 8*HUD_SCALE(), rounds, 171/255.0, 231/255.0, 255/255.0,1, 19.0f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.79, glheight*0.19 - 8*HUD_SCALE(), ammo, 171/255.0, 231/255.0, 255/255.0,1, 15.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.804, glheight*0.19 - 8*HUD_SCALE(), rounds, 171/255.0, 231/255.0, 255/255.0,1, 16.15f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.853, glheight*0.19 - 8*HUD_SCALE(), ammo, 171/255.0, 231/255.0, 255/255.0,1, 12.75f*HUD_SCALE());
     }
 }
 
@@ -357,13 +645,13 @@ void drawGrenades() {
     /* halo3 text-state rule (no icon art exists): zero count dims to gray */
     if (count == 0)
     {
-        Draw_TTFString(glwidth*0.03, glheight*0.12 - 8*HUD_SCALE(), nadecount, 0.45, 0.45, 0.45, 0.75, 19.0f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.08, glheight*0.12 - 8*HUD_SCALE(), nadename, 0.45, 0.45, 0.45, 0.75, 19.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.03, glheight*0.12 - 8*HUD_SCALE(), nadecount, 0.45, 0.45, 0.45, 0.75, 16.15f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.08, glheight*0.12 - 8*HUD_SCALE(), nadename, 0.45, 0.45, 0.45, 0.75, 16.15f*HUD_SCALE());
     }
     else
     {
-        Draw_TTFString(glwidth*0.03, glheight*0.12 - 8*HUD_SCALE(), nadecount, 171/255.0, 231/255.0, 255/255.0,1, 19.0f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.08, glheight*0.12 - 8*HUD_SCALE(), nadename, 171/255.0, 231/255.0, 255/255.0,1, 19.0f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.03, glheight*0.12 - 8*HUD_SCALE(), nadecount, 171/255.0, 231/255.0, 255/255.0,1, 16.15f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.08, glheight*0.12 - 8*HUD_SCALE(), nadename, 171/255.0, 231/255.0, 255/255.0,1, 16.15f*HUD_SCALE());
     }
 }
 
@@ -519,7 +807,7 @@ void drawHealth(void)
         return;
     }
     int sheilds = (int)cl.stats[STAT_HEALTH];
-    struct PicAttr health_blue_attr = getHudPicAttr(0.5, 0.1, health_blue);
+    struct PicAttr health_blue_attr = getHudPicAttr(0.5, 0.07, health_blue);
 
     /* Halo 3 manual, shields: solid blue when healthy, flash red when
      * depleted. The mod's bar has always been fed by STAT_HEALTH; keep the
@@ -543,7 +831,7 @@ void drawHealth(void)
         tflash -= (float)((int)tflash);
 
         if (shownfrac < 0.0f) shownfrac = frac;
-        if (prevsheilds >= 0 && sheilds < prevsheilds) dmgflash = 0.18f;
+        if (prevsheilds >= 0 && sheilds < prevsheilds) dmgflash = 0.30f;  /* r59c: longer */
         prevsheilds = sheilds;
         dmgflash -= host_frametime;
         if (dmgflash < 0.0f) dmgflash = 0.0f;
@@ -551,6 +839,8 @@ void drawHealth(void)
           shownfrac += (frac - shownfrac) * k; }
         fw = (health_blue_attr.width - 2*inset) * shownfrac;
 
+        /* r58e: all bar rgb premultiplied x0.7 (premul canvas ignores alpha)
+         * for "30% more transparent" (user 2026-11-12); anchor 0.10 -> 0.07. */
         /* P2a r15: mirror-trapezoid layers sharing ONE slant d so every
          * diagonal is parallel (kills the "glitch lines"), calm translucent
          * blues ("neon" was too hot). Depleted: hollow bar, outline itself
@@ -558,24 +848,30 @@ void drawHealth(void)
          * the full bar height — r14 kept. */
         if (depleted)
         {
+            /* r59c: depleted keeps the BLUE identity (user 2026-11-12:
+             * "it should always be blue, it should just get brighter and
+             * flash more when damaged" -- the red outline read as a
+             * different HUD). Danger = amplitude: same hue as the healthy
+             * outline, gain 1.68..2.2 on a 3Hz flash, alpha 0.45..0.75. */
             float pk = (tflash > 0.5f) ? 1.0f : 0.35f;
+            float k = 1.4f + 0.8f * pk;
             Draw_TrapezoidGrad (health_blue_attr.x, health_blue_attr.y,
                                 health_blue_attr.width, health_blue_attr.height, slant,
-                                1.00f, 0.30f + 0.20f*pk, 0.26f + 0.10f*pk,
-                                0.62f, 0.08f, 0.10f,
-                                0.28f + 0.30f*pk,
+                                0.245f*k, 0.385f*k, 0.546f*k,
+                                0.084f*k, 0.196f*k, 0.336f*k,
+                                0.45f + 0.30f*pk,
                                 health_blue_attr.y, health_blue_attr.height);
         }
         else
         {
             Draw_TrapezoidGrad (health_blue_attr.x, health_blue_attr.y,
                                 health_blue_attr.width, health_blue_attr.height, slant,
-                                0.35f, 0.55f, 0.78f, 0.12f, 0.28f, 0.48f, 0.40f,
+                                0.245f, 0.385f, 0.546f, 0.084f, 0.196f, 0.336f, 0.40f,
                                 health_blue_attr.y, health_blue_attr.height);
         }
         Draw_TrapezoidGrad (health_blue_attr.x + 2, health_blue_attr.y + 2,
                             health_blue_attr.width - 4, health_blue_attr.height - 4, slant,
-                            0.05f, 0.09f, 0.18f, 0.02f, 0.05f, 0.12f, 0.50f,
+                            0.035f, 0.063f, 0.126f, 0.014f, 0.035f, 0.084f, 0.50f,
                             health_blue_attr.y, health_blue_attr.height);
         /* value fill: deeper calmer blue (only while not depleted) + r16
          * gloss/shadow bands top & bottom 30% for cylinder-like depth */
@@ -583,8 +879,8 @@ void drawHealth(void)
         {
             Draw_TrapezoidGrad (health_blue_attr.x + inset, health_blue_attr.y + inset,
                                 fw, health_blue_attr.height - 2*inset, slant,
-                                0.32f, 0.55f, 0.80f,
-                                0.07f, 0.24f, 0.45f,
+                                0.224f, 0.385f, 0.56f,
+                                0.049f, 0.168f, 0.315f,
                                 0.38f,
                                 health_blue_attr.y, health_blue_attr.height);
             /* r18: gloss/shadow as flat inset strips, NOT mini-trapezoids.
@@ -598,9 +894,9 @@ void drawHealth(void)
                 if (bw > 2)
                 {
                     Draw_FillRGBA (bx, (int)(health_blue_attr.y + inset + 1.0f), bw, 2,
-                                   0.45f, 0.75f, 1.00f, 0.35f);
+                                   0.315f, 0.525f, 0.70f, 0.35f);
                     Draw_FillRGBA (bx, (int)(health_blue_attr.y + health_blue_attr.height - inset - 3.0f), bw, 2,
-                                   0.02f, 0.04f, 0.10f, 0.35f);
+                                   0.014f, 0.028f, 0.07f, 0.35f);
                 }
             }
             /* r17: segment ticks removed — Halo 3 bars don't have them
@@ -610,8 +906,8 @@ void drawHealth(void)
             if (dmgflash > 0.0f)
                 Draw_TrapezoidGrad (health_blue_attr.x + inset, health_blue_attr.y + inset,
                                     fw, health_blue_attr.height - 2*inset, slant,
-                                    0.75f, 0.85f, 0.95f, 0.55f, 0.70f, 0.88f,
-                                    0.30f * (dmgflash / 0.18f),
+                                    0.525f, 0.595f, 0.665f, 0.385f, 0.49f, 0.616f,
+                                    0.60f * (dmgflash / 0.30f),   /* r59c: stronger hit flash (user) */
                                     health_blue_attr.y, health_blue_attr.height);
         }
     }
@@ -740,6 +1036,10 @@ int	ColorForMap (int m)
 Sbar_DeathmatchOverlay
 ==================
 */
+extern unsigned int d_8to24table[256];
+void Draw_FillRGBA (int x, int y, int w, int h, float r, float g, float b, float alpha);
+
+
 void MiniDeathmatchOverlay (void)
 {
     int				i, k, l;
@@ -749,6 +1049,11 @@ void MiniDeathmatchOverlay (void)
     int f;
     char			num[12];
     scoreboard_t	*s;
+
+    if (hud_mapshot.value)      /* r83: hidden for map-photo capture */
+        return;
+    if (sb_showscores)          /* r73: score cluster hides under the leaderboard */
+        return;
 
     y = 0.0;
 
@@ -830,26 +1135,52 @@ void MiniDeathmatchOverlay (void)
             // draw background
             bottom = (teamscores[i].color & 15) <<4;
             bottom = ColorForMap (bottom);
-            Draw_Fill (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, bottom, 0.3);
-            Draw_Fill (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), bottom, 1);
-            // draw foreground
-            Draw_Fill (SX, glheight*(0.8+y), boxw*CLAMP (new_max (teamscores[i].scoreTotal/(fraglimit.value > 0 ? fraglimit.value : new_max(teamscores[0].scoreTotal, 1.0f)), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), bottom, 0.65);
+            /* r59d: translucent like the leaderboard rows -- the premul
+             * 2D canvas ignores Draw_Fill's alpha (and alpha 1 was an
+             * opaque slab), so opacity is baked into rgb here. */
+            {
+                byte *pc = (byte *)&d_8to24table[bottom];
+                float tr = pc[0]/255.0f, tg = pc[1]/255.0f, tb = pc[2]/255.0f;
+                float fr = tr*0.85f, fg = tg*0.85f, fb = tb*0.85f;   /* r59e: bright fill (user: mini-overlay "bad colors and no alpha") */
+                Draw_FillRGBA (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, tr*0.18f, tg*0.18f, tb*0.18f, 0.18f);   /* r61: match LB border */
+                Draw_FillRGBA (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), tr*0.55f, tg*0.55f, tb*0.55f, 0.55f);   /* r61: match LB backing */
+                // draw foreground
+                Draw_FillRGBA (SX, glheight*(0.8+y), boxw*CLAMP (new_max (teamscores[i].scoreTotal/(teamlimit.value > 0 ? teamlimit.value : (fraglimit.value > 0 ? fraglimit.value : new_max(teamscores[0].scoreTotal, 1.0f))), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), fr, fg, fb, 0.65f);
+            }
             // draw score
+            /* r71: blue caret marks my team's bar (#43 addendum; user ask). */
+            if (cl.viewentity >= 1 && cl.viewentity <= cl.maxclients &&
+                (int)(teamscores[i].color & 15) == (int)(cl.scores[cl.viewentity-1].colors & 15))
+                HUD_FillTriRight (SX - 11*HUD_SCALE(), glheight*(0.8+y) + 3.0f*HUD_SCALE(),
+                                  7.0f*HUD_SCALE(), 10.0f*HUD_SCALE(),
+                                  0.45f*0.95f, 0.75f*0.95f, 1.00f*0.95f, 0.95f);
             f = teamscores[i].scoreTotal;
             HUD_itoa(f, num);
             Draw_TTFString(SX + 4*HUD_SCALE(), glheight*(0.8+y) + 13.0f*HUD_SCALE(), num, 1, 1, 1, 1, 15.0f*HUD_SCALE());
             y += (22.0f*HUD_SCALE())/glheight;   /* box height + 2px gap in design px */
         }
-        // send cvar to QuakeC to enter intermission/NextMap logic, once score limit reached
-        if (teamscores[0].scoreTotal >= fraglimit.value) {
-            teamlimit.value = 1;
-            Cbuf_AddText ( va ("teamlimit %u\n", (int)teamlimit.value) );
-        }
+        /* r67: client-side teamlimit hack removed -- team scores now live
+         * server-side in QuakeC (TeamScore_Add/TopTeamScore) and NextLevel
+         * fires from CheckRules against the real teamlimit. */
     } else { // slayer (ffa) or swat
+        int myrow = -1, nrows = 0, rowidx[2], ri;
         SortFrags ();
-        for (i=0; i<l; i++) //only show two lines
+        /* r75: the two visible rows are leader + me (user: last place must
+         * still show own score). Rows past the second always clipped off
+         * the bottom -- 0.8 anchor + 22px pitch only fits two. */
+        for (i = 0; i < l; i++)
+            if (fragsort[i] == cl.viewentity - 1)
+            {
+                myrow = i;
+                break;
+            }
+        if (l > 0)
+            rowidx[nrows++] = fragsort[0];
+        if (l > 1)
+            rowidx[nrows++] = (myrow >= 1) ? fragsort[myrow] : fragsort[1];
+        for (ri = 0; ri < nrows; ri++)
         {
-            k = fragsort[i];
+            k = rowidx[ri];
             s = &cl.scores[k];
             if (!s->name[0])
                 continue;
@@ -859,11 +1190,21 @@ void MiniDeathmatchOverlay (void)
             bottom = ColorForMap (bottom);
             f = s->frags;
             HUD_itoa(f, num);
-            // draw background
-            Draw_Fill (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, bottom, 0.3);
-            Draw_Fill (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), bottom, 1);
-            // draw foreground
-            Draw_Fill (SX, glheight*(0.8+y), boxw*CLAMP (new_max (f/(fraglimit.value > 0 ? fraglimit.value : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), bottom, 0.65);
+            /* r59d: translucent, as above. */
+            {
+                byte *pc = (byte *)&d_8to24table[bottom];
+                float tr = pc[0]/255.0f, tg = pc[1]/255.0f, tb = pc[2]/255.0f;
+                float fr = tr*0.85f, fg = tg*0.85f, fb = tb*0.85f;   /* r59e: bright fill (user: mini-overlay "bad colors and no alpha") */
+                Draw_FillRGBA (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, tr*0.18f, tg*0.18f, tb*0.18f, 0.18f);   /* r61: match LB border */
+                Draw_FillRGBA (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), tr*0.55f, tg*0.55f, tb*0.55f, 0.55f);   /* r61: match LB backing */
+                // draw foreground
+                Draw_FillRGBA (SX, glheight*(0.8+y), boxw*CLAMP (new_max (f/(fraglimit.value > 0 ? fraglimit.value : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), fr, fg, fb, 0.65f);
+            }
+            /* r75: blue caret marks MY row in deathmatch too (user). */
+            if (k == cl.viewentity - 1)
+                HUD_FillTriRight (SX - 11*HUD_SCALE(), glheight*(0.8+y) + 3.0f*HUD_SCALE(),
+                                  7.0f*HUD_SCALE(), 10.0f*HUD_SCALE(),
+                                  0.45f*0.95f, 0.75f*0.95f, 1.00f*0.95f, 0.95f);
             // draw score
             Draw_TTFString(SX + 4*HUD_SCALE(), glheight*(0.8+y) + 13.0f*HUD_SCALE(), num, 1, 1, 1, 1, 15.0f*HUD_SCALE());
             y += (22.0f*HUD_SCALE())/glheight;   /* box height + 2px gap in design px */
@@ -906,9 +1247,210 @@ void HUD_DrawShield (void) {
     GL_SetCanvas(oldcanvas);
 }
 
+/* r66: translucent filled disc, same fixed-function/premul approach as the
+ * shield-bar trapezoids - bake opacity into rgb, alpha passed for form. */
+static void HUD_FillCircle (float x, float y, float r, float cr, float cg, float cb, float a)
+{
+    int i;
+    glDisable (GL_TEXTURE_2D);
+    glDisable (GL_ALPHA_TEST);
+    glEnable (GL_BLEND);
+    glBegin (GL_TRIANGLE_FAN);
+    glColor4f (cr, cg, cb, a);
+    glVertex2f (x, y);
+    for (i = 0; i <= 28; i++)
+    {
+        float ang = (float)i * (6.28318530718f / 28.0f);
+        glVertex2f (x + cosf (ang) * r, y + sinf (ang) * r);
+    }
+    glEnd ();
+    glDisable (GL_BLEND);
+    glEnable (GL_ALPHA_TEST);
+    glEnable (GL_TEXTURE_2D);
+    glColor3f (1,1,1);
+}
+
+#define RADAR_MAXBLIPS 16
+typedef struct { float px, py, born; qboolean teammate; } radar_blip_t;
+static radar_blip_t radar_blips[RADAR_MAXBLIPS];
+static int radar_blips_n;
+static float radar_lastping = -1.0f;
+
+static void drawRadar (void)
+{
+    float s = HUD_SCALE();
+    float R, range, period, ph, age, al, d, scale, dx, dy;
+    float rcx, rcy, ox, oy, ol, f;
+    vec3_t fwd, right, up, rel;
+    int me_colors, i, k, n;
+    entity_t *ent;
+    scoreboard_t *sc;
+
+    if (!hud_radar.value || !deathmatch.value || cl.intermission)
+        return;
+
+    s = HUD_SCALE();
+    R = 34.0f * s;   /* r66b: was 46 - disc too dominant (user) */
+    rcx = 20.0f * s + R;
+    rcy = (float)glheight - 20.0f * s - R;
+    range = q_max (100.0f, radar_range.value);
+
+    /* backing disc + rim (dark navy so it reads on bright sky, like the bar) */
+    /* r66c: one light-blue family (0.45,0.75,1.00) everywhere, different
+     * alpha strengths baked into rgb for the premul canvas (user). */
+    HUD_FillCircle (rcx, rcy, R, 0.45f*0.22f, 0.75f*0.22f, 1.00f*0.22f, 0.55f);   /* r66e: +disc, closes the rim gap feel */
+
+    /* FOV cone: screen up = view forward, +/-45 deg wedge */
+    glDisable (GL_TEXTURE_2D);
+    glDisable (GL_ALPHA_TEST);
+    glEnable (GL_BLEND);
+    glBegin (GL_TRIANGLE_FAN);
+    {
+        /* r66c: fan pulsed like the menu cursor (same sinf recipe) since we
+         * have no sweep yet - and widened to 150 deg, "still too small" (user) */
+        float pulse = 0.06f + 0.14f * (0.5f + 0.5f * sinf ((float)realtime * 2.2f));   /* r66g: way darker - 0.06..0.20 (user: still too solid) */
+        glColor4f (0.45f*pulse, 0.75f*pulse, 1.00f*pulse, pulse);
+    }
+    glVertex2f (rcx, rcy);
+    for (k = 0; k <= 16; k++)
+    {
+        float ang = (-145.0f + (float)k * (110.0f / 16.0f)) * 0.0174532f;   /* r66e: mid -90, was tilted 10 deg left */
+        glVertex2f (rcx + cosf (ang) * R * 0.95f, rcy + sinf (ang) * R * 0.95f);
+    }
+    glEnd ();
+
+    /* r66d: view basis + team anchor computed every frame - ally blips
+     * are live now, so they can't depend on the ping block.
+     * r66h: yaw-only - AngleVectors folds PITCH into fwd/right, which
+     * skewed every blip (and the ping snapshots) whenever the player
+     * looked up or down; a top-down radar cares only about heading. */
+    {
+        float yv = (float)r_refdef.viewangles[1] * 0.0174532f;
+        fwd[0] = cosf (yv);   fwd[1] = sinf (yv);   fwd[2] = 0.0f;
+        right[0] = sinf (yv); right[1] = -cosf (yv); right[2] = 0.0f;
+    }
+    me_colors = cl.scores[cl.viewentity - 1].colors;
+    scale = R / range;
+
+    /* ping: freeze foes' relative position at screen px on each ping */
+    period = q_max (0.5f, radar_ping.value);
+    ph = floorf ((float)realtime / period);
+    if (ph != radar_lastping)
+    {
+        radar_lastping = ph;
+        n = 0;
+        for (i = 1; i <= cl.maxclients && i < cl.num_entities && n < RADAR_MAXBLIPS; i++)
+        {
+            ent = &cl.entities[i];
+            sc = &cl.scores[i - 1];
+            if (!ent->model || !*sc->name)
+                continue;
+            if (i == cl.viewentity)
+                continue;
+            if (!q_strcasecmp (ent->model->name, "progs/plyr.mdl"))
+                continue;   /* corpse */
+            rel[0] = ent->origin[0] - r_refdef.vieworg[0];
+            rel[1] = ent->origin[1] - r_refdef.vieworg[1];
+            rel[2] = 0.0f;
+            d = sqrtf (rel[0]*rel[0] + rel[1]*rel[1]);
+            if (d > range)
+                continue;
+            dx = DotProduct (rel, right);
+            dy = DotProduct (rel, fwd);
+            ox = dx * scale;
+            oy = -dy * scale;
+            ol = sqrtf (ox*ox + oy*oy);
+            if (ol > R * 0.9f)    /* pin far-but-in-range blips to the rim */
+            {
+                f = (R * 0.9f) / ol;
+                ox *= f; oy *= f;
+            }
+            /* r66d: teammates are always visible via the live pass below -
+             * skip them here so they don't double up as fading ping blips */
+            if (teamplay.value != 0 && (int)sc->colors == me_colors)
+                continue;
+            radar_blips[n].px = rcx + ox;
+            radar_blips[n].py = rcy + oy;
+            radar_blips[n].born = (float)realtime;
+            radar_blips[n].teammate = false;
+            n++;
+        }
+        radar_blips_n = n;
+    }
+
+    /* blips live radar_hold sec after their ping, fading out */
+    al = q_max (0.2f, radar_hold.value);
+    for (i = 0; i < radar_blips_n; i++)
+    {
+        float life = 1.0f - ((float)realtime - radar_blips[i].born) / al;
+        if (life <= 0.0f)
+            continue;
+        if (radar_blips[i].teammate)
+            HUD_FillCircle (radar_blips[i].px, radar_blips[i].py,
+                            q_max (1.6f, 2.2f * s),
+                            0.85f * life, 0.75f * life, 0.20f * life, life);   /* yellow ally */
+        else
+            HUD_FillCircle (radar_blips[i].px, radar_blips[i].py,
+                            q_max (1.6f, 2.2f * s),
+                            0.90f * life, 0.25f * life, 0.25f * life, life);   /* red foe */
+    }
+
+    /* r66d: allies always visible - live blips every frame, no ping gating */
+    if (teamplay.value != 0)
+    {
+        for (i = 1; i <= cl.maxclients && i < cl.num_entities; i++)
+        {
+            ent = &cl.entities[i];
+            sc = &cl.scores[i - 1];
+            if (!ent->model || !*sc->name || i == cl.viewentity)
+                continue;
+            if (!q_strcasecmp (ent->model->name, "progs/plyr.mdl"))
+                continue;
+            if ((int)sc->colors != me_colors)
+                continue;
+            rel[0] = ent->origin[0] - r_refdef.vieworg[0];
+            rel[1] = ent->origin[1] - r_refdef.vieworg[1];
+            rel[2] = 0.0f;
+            d = sqrtf (rel[0]*rel[0] + rel[1]*rel[1]);
+            if (d > range)
+                continue;
+            ox = DotProduct (rel, right) * scale;
+            oy = -DotProduct (rel, fwd) * scale;
+            ol = sqrtf (ox*ox + oy*oy);
+            if (ol > R * 0.9f)
+            {
+                f = (R * 0.9f) / ol;
+                ox *= f; oy *= f;
+            }
+            al = 1.0f - 0.35f * (d / range);
+            HUD_FillCircle (rcx + ox, rcy + oy, q_max (1.6f, 2.2f * s),
+                            0.85f * al, 0.75f * al, 0.20f * al, al);   /* yellow ally */
+        }
+    }
+
+    /* cone left the pipeline states down; restore before the markers */
+    glDisable (GL_BLEND);
+    glEnable (GL_ALPHA_TEST);
+    glEnable (GL_TEXTURE_2D);
+
+    /* r66c: self marker = yellow dot inside blue dot (the axis), always on
+     * regardless of blips - replaces the own-player triangle (user) */
+    HUD_FillCircle (rcx, rcy, 6.0f * s, 0.45f*0.55f, 0.75f*0.55f, 1.00f*0.55f, 0.85f);
+    HUD_FillCircle (rcx, rcy, 2.6f * s, 0.95f, 0.85f, 0.20f, 1.0f);
+    glColor3f (1,1,1);
+
+    /* rim last so it frames the content */
+    HUD_DrawCircle (rcx, rcy, R, 0.45f*0.45f, 0.75f*0.45f, 1.00f*0.45f);   /* r66e: border was too harsh */
+}
+
 void HUD_Draw (void) {
     int oldcanvas = currentcanvas;
     if (key_dest != key_game)   /* P2a: HUD hides for pause/menus/console */
+        return;
+    if (sb_showscores)          /* r73: crosshair/nameplates/radar/weapon panel
+                                 * hide under the leaderboard too (Halo) */
+        return;
+    if (hud_mapshot.value)        /* r83: master switch for map-photo capture */
         return;
     GL_SetCanvas(CANVAS_DEFAULT);
     drawHealth();
@@ -916,6 +1458,8 @@ void HUD_Draw (void) {
     drawGrenades();
     drawMedal();
     drawCrosshair();
+    drawNameplates();
+    drawRadar();   /* r66 Tracker-0 */
     drawPickupWeapon();
 //    if (!*cl.scores[1].name) {
 //        Draw_ColoredStringScale(0, glheight-(8*0.8f*HUD_SCALE()), "Its too quiet, Chief! Add bots to get started.", 1,1,1,1,0.8f*HUD_SCALE());

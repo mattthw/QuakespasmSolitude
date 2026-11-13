@@ -797,6 +797,42 @@ static void Sbar_Voice(int y)
 }
 
 /*
+==================
+Sbar_RosterList -- P2a naive lobby
+
+Persistent colored name list (team chip + name): the naive stand-in for
+the full roster screen (#41). Shows while a deathmatch game is live and
+the big overlay is not up. Bots are managed with the "addbot" command
+(team-aware, menu.c) and "impulse 102" (kick) -- bind them to R1/L1 or
+any keys; the QC side caps the session at 7 bots (8 total incl. player).
+==================
+*/
+void Sbar_RosterList (void)
+{
+	int				i, y, oldcanvas;
+	byte			*pc;
+	scoreboard_t	*s;
+
+	if (cls.demoplayback || cl.gametype != GAME_DEATHMATCH || sb_showscores)
+		return;
+
+	Sbar_SortFrags ();	//same stable order as the DM overlay
+	oldcanvas = currentcanvas;
+	GL_SetCanvas (CANVAS_MENU);
+	for (i = 0, y = 20; i < scoreboardlines && y < 130; i++, y += 12)
+	{
+		s = &cl.scores[fragsort[i]];
+		if (!s->name[0])
+			continue;
+		pc = (byte *)d_8to24table + Sbar_ColorForMap ((s->colors & 15) << 4) * 4;
+		Draw_FillRGBA (6, y, 4, 9, pc[0]/255.0f, pc[1]/255.0f, pc[2]/255.0f, 0.85f);
+		Draw_TTFString (14, y + 9, s->name, 1, 1, 1, 0.9f, 12.0f);
+	}
+	glColor3f (1, 1, 1);
+	GL_SetCanvas (oldcanvas);
+}
+
+/*
 ===============
 Sbar_Draw
 ===============
@@ -923,6 +959,9 @@ void Sbar_Draw (void)
     if (deathmatch.value == DM_SLAYER || deathmatch.value == DM_SWAT)
         MiniDeathmatchOverlay ();
     GL_SetCanvas(oldcanvas);
+
+	// P2a lobby roster: the colored name list moved to the matchmaking
+	// menu (M_Matchmaking_Draw); Sbar_RosterList() stays parked unused.
 }
 
 //=============================================================================
@@ -961,6 +1000,126 @@ void Sbar_IntermissionNumber (int x, int y, int num, int digits, int color)
 
 /*
 ==================
+Sbar_LBTeams
+r68: team-grouped leaderboard (Halo 3 style: one column per team).
+Buckets the frag-sorted roster by team nibble (client-side team
+identity is colors&15 -- the same heuristic MiniDeathmatchOverlay
+uses) and draws a header band with each team's total above its rows.
+Column sums mirror the server-side TeamScore_Add arithmetic exactly.
+Returns false when the session has only one color (not a real team
+game yet) so the caller falls back to the flat list.
+==================
+*/
+static qboolean Sbar_LBTeams (int l)
+{
+	int				i, k, n, f, me_nib, en_nib = -1;
+	int				listA[8], listB[8], nA = 0, nB = 0, sumA = 0, sumB = 0;
+	int				*list, cnt, sum, nib, x, y, bottom;
+	scoreboard_t	*s;
+	byte			*pc;
+	char			num[12];
+	float			U;
+
+	if (cl.viewentity < 1 || cl.viewentity > cl.maxclients)
+		return false;
+
+	GL_SetCanvas (CANVAS_DEFAULT);	// r74: native-pixel leaderboard
+	me_nib = cl.scores[cl.viewentity-1].colors & 15;
+
+	for (i = 0; i < l; i++)
+	{
+		k = fragsort[i];
+		s = &cl.scores[k];
+		if (!s->name[0])
+			continue;
+		if ((s->colors & 15) != me_nib && en_nib < 0)
+			en_nib = s->colors & 15;
+	}
+	if (en_nib < 0)
+		return false;
+
+	for (i = 0; i < l; i++)
+	{
+		k = fragsort[i];
+		s = &cl.scores[k];
+		if (!s->name[0])
+			continue;
+		if ((s->colors & 15) == me_nib)
+		{
+			if (nA < 8) listA[nA++] = k;
+			sumA += s->frags;
+		}
+		else
+		{
+			if (nB < 8) listB[nB++] = k;   // non-matching colors fall to the enemy section
+			sumB += s->frags;
+		}
+	}
+
+	/* r74: rebased onto CANVAS_DEFAULT (native pixels). The old layout lived
+	 * in the PS1-era 320x200 virtual space (13-unit pitch vs 14-unit fonts:
+	 * descenders physically bled into the next strip; lb_scale only magnified
+	 * the same cramped world, so taller rosters clipped). Now U = glheight/544:
+	 * pitch 40U vs name font 32U = 1.25 headroom, and the 1+7 worst case ends
+	 * at 538U < 544 with the bottom margin intact. Look-forgeing: same strips,
+	 * gains, palette colours, centring (content still centred on screen x).
+	 * Note Draw_TTFWidth returns width for the size passed, so sizes go in as
+	 * 30.0f*U and results are already pixels -- no second U multiply. */
+	U = (float)glheight / 544.0;
+	x = (int)(glwidth * 0.5f - 225.0f * U);	// band (450U wide) centred on screen x
+	y = (int)(62.0f * U);
+
+	for (n = 0; n < 2; n++)
+	{
+		list = n ? listB : listA;
+		cnt = n ? nB : nA;
+		sum = n ? sumB : sumA;
+		nib = n ? en_nib : me_nib;
+		if (!cnt)
+			continue;
+
+		bottom = Sbar_ColorForMap (nib<<4);
+		pc = (byte *)d_8to24table + bottom*4;
+		Draw_FillRGBA (x, y, (int)(450.0f*U), (int)(42.0f*U), pc[0]/255.0*0.45, pc[1]/255.0*0.45, pc[2]/255.0*0.45, 0.45);
+		Draw_TTFString (x + (int)(13.0f*U), y + (int)(30.0f*U), n ? "ENEMY TEAM" : "YOUR TEAM", 1, 1, 1, 0.95f, 26.0f*U);
+		sprintf (num, "%i", sum);
+		Draw_TTFString (x + (int)(443.0f*U) - (int)Draw_TTFWidth (num, 30.0f*U), y + (int)(31.0f*U), num, 0, 0, 0, 0.8f, 30.0f*U);
+		Draw_TTFString (x + (int)(441.0f*U) - (int)Draw_TTFWidth (num, 30.0f*U), y + (int)(30.0f*U), num, 1, 1, 1, 1.0f, 30.0f*U);
+
+		y += (int)(47.0f * U);
+		for (i = 0; i < cnt; i++)
+		{
+			k = list[i];
+			s = &cl.scores[k];
+			bottom = Sbar_ColorForMap ((s->colors & 15)<<4);
+			pc = (byte *)d_8to24table + bottom*4;
+			if (S_Voip_Speaking(k))
+				Draw_Fill (x - (int)(36.0f*U), y + (int)(8.0f*U), (int)(522.0f*U), (int)(22.0f*U), ((k+1)==cl.viewentity)?75:73, 1);
+			Draw_FillRGBA (x + (int)(2.0f*U), y, (int)(111.0f*U), (int)(38.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
+			Draw_FillRGBA (x + (int)(3.0f*U), y + (int)(2.0f*U), (int)(109.0f*U), (int)(34.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.55);
+			Draw_FillRGBA (x + (int)(124.0f*U), y, (int)(326.0f*U), (int)(38.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
+			Draw_FillRGBA (x + (int)(126.0f*U), y + (int)(2.0f*U), (int)(322.0f*U), (int)(34.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.45);
+
+			f = s->frags;
+			sprintf (num, "%i", f);
+			Draw_TTFString (x + (int)(58.0f*U) - (int)(Draw_TTFWidth (num, 30.0f*U)*0.5f), y + (int)(29.0f*U), num, 0, 0, 0, 0.8f, 30.0f*U);
+			Draw_TTFString (x + (int)(57.0f*U) - (int)(Draw_TTFWidth (num, 30.0f*U)*0.5f), y + (int)(28.0f*U), num, 1, 1, 1, 1.0f, 30.0f*U);
+
+			if (k == cl.viewentity - 1)
+				Draw_CharacterScale (x - (int)(28.0f*U), y + (int)(2.0f*U), 12, 3.1f);
+
+			Draw_TTFString (x + (int)(144.0f*U), y + (int)(29.0f*U), s->name, 0, 0, 0, 0.8f, 32.0f*U);   /* drop shadow */
+			Draw_TTFString (x + (int)(143.0f*U), y + (int)(28.0f*U), s->name, 1, 1, 1, 1.0f, 32.0f*U);
+
+			y += (int)(40.0f * U);
+		}
+		y += (int)(4.0f * U);	// section gap before next header band
+	}
+	return true;
+}
+
+/*
+==================
 Sbar_DeathmatchOverlay
 
 ==================
@@ -974,7 +1133,7 @@ void Sbar_DeathmatchOverlay (void)
 	char	num[12];
 	scoreboard_t	*s;
 
-	GL_SetCanvas (CANVAS_MENU); //johnfitz
+	GL_SetCanvas (CANVAS_LB); //johnfitz  (r61c: 1.2x zoom)
 
 //    if (cl.stats[STAT_HEALTH] > 0) {
 //        pic = Draw_CachePic ("gfx/ranking.lmp");
@@ -988,7 +1147,13 @@ void Sbar_DeathmatchOverlay (void)
 	l = scoreboardlines;
 
 	x = 80; //johnfitz -- simplified becuase some positioning is handled elsewhere
-	y = 40;
+	y = 40;   /* r61b: REVERTED the hand-scaled x1.2 constants (moved every
+	           * element by a slightly different amount and broke alignment
+	           * + header, user 2026-11-12). Original geometry restored;
+	           * uniform scaling must come from the canvas, not constants. */
+	if (teamplay.value && Sbar_LBTeams (l))   /* r68: grouped columns */
+		goto teamcols;
+
     /* P2a round 4: navy header strip (was a palette-0 slab at 0.9 — user:
      * "leaderboard should also use our blue, not black"), grid-header style,
      * with the title in the ExtraBold header font (baseline = old 27+8). */
@@ -1014,19 +1179,20 @@ void Sbar_DeathmatchOverlay (void)
          * Draw_Fill does) instead of alpha-0.9 palette slabs. */
         {
             byte *pc = (byte *)d_8to24table + bottom*4;
-            Draw_FillRGBA (x+11, y-1, 34, 14, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18); //P2a border (canvas min 1 unit; softened per user)
-            Draw_FillRGBA (x+12, y, 32, 12, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.55); //score num bg
-            Draw_FillRGBA (x+49, y-1, 100, 14, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18); //P2a border (softened per user)
-            Draw_FillRGBA (x+50, y, 98, 12, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.45); //player name bg
+            Draw_FillRGBA (x+11, y-1, 34, 14, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
+            Draw_FillRGBA (x+12, y, 32, 12, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.55);
+            Draw_FillRGBA (x+49, y-1, 100, 14, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
+            Draw_FillRGBA (x+50, y, 98, 12, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.45);
         }
 
         // draw number (P2a: TTF, right-aligned in the strip, no padding spaces)
 		f = s->frags;
 		sprintf (num, "%i", f);
-		Draw_TTFString (x+28 - Draw_TTFWidth (num, 13.0f)*0.5f, y + 10, num, 1, 1, 1, 1, 13.0f);
+		Draw_TTFString (x+29 - (int)(Draw_TTFWidth (num, 13.0f)*0.5f), y + 11, num, 0, 0, 0, 0.8f, 13.0f);
+		Draw_TTFString (x+28 - (int)(Draw_TTFWidth (num, 13.0f)*0.5f), y + 10, num, 1, 1, 1, 1, 13.0f);
 
 		if (k == cl.viewentity - 1)
-			Draw_Character ( x - 8, y, 12); //johnfitz -- stretched overlays
+			Draw_Character ( x-8, y, 12); //johnfitz -- stretched overlays
 
 #if 0
 {
@@ -1050,11 +1216,13 @@ void Sbar_DeathmatchOverlay (void)
 //		M_PrintWhite (x-8*5, y, num); //johnfitz -- was Draw_String, changed for stretched overlays
 
         // draw name
-        M_PrintWhite (x+54, y+1, s->name);
+        Draw_TTFString (x+55, y + 10, s->name, 0, 0, 0, 0.8f, 14.0f);   /* r60b drop shadow */
+        M_PrintWhite (x+54, y + 1, s->name);
 
 		y += 16;
 	}
 
+teamcols:
 	GL_SetCanvas (CANVAS_SBAR); //johnfitz
 
 	if (!cls.message.cursize && cl.expectingpingtimes < realtime)

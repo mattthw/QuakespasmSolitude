@@ -79,6 +79,13 @@ float		scr_conlines;		// lines of console to display
 
 //johnfitz -- new cvars
 cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
+cvar_t		lb_scale = {"lb_scale",
+#ifdef VITA
+	"1.05",	/* Vita handheld: half-step bump (was 1.1, felt too big) */
+#else
+	"1.3",	/* Mac/PC r71: pitch 13->12 moved LB bottom edge 180->171, top strip at 23 still fits (100+100/1.3 = 176.9, 100-100/1.3 = 23.1) */
+#endif
+	0};	//r61c-3: leaderboard overlay zoom, platform default (CANVAS_LB)
 cvar_t		scr_sbarscale = {"scr_sbarscale", "1", CVAR_ARCHIVE};
 cvar_t		scr_sbaralpha = {"scr_sbaralpha", "0.75", CVAR_ARCHIVE};
 cvar_t		scr_conwidth = {"scr_conwidth", "0", CVAR_ARCHIVE};
@@ -100,6 +107,8 @@ cvar_t		scr_printspeed = {"scr_printspeed","8",CVAR_NONE};
 cvar_t		gl_triplebuffer = {"gl_triplebuffer", "1", CVAR_ARCHIVE};
 
 extern	cvar_t	crosshair;
+extern	cvar_t	hud_crosshair;	//r64: dynamic tick crosshair (gl_hud.c) hides the native '+'
+extern	cvar_t	hud_mapshot;	//r83 gl_hud.c
 
 qboolean	scr_initialized;		// ready to draw
 
@@ -482,6 +491,7 @@ void SCR_Init (void)
 {
 	//johnfitz -- new cvars
 	Cvar_RegisterVariable (&scr_menuscale);
+	Cvar_RegisterVariable (&lb_scale);	//r61c
 	Cvar_RegisterVariable (&scr_sbarscale);
 	Cvar_SetCallback (&scr_sbaralpha, SCR_Callback_refdef);
 	Cvar_RegisterVariable (&scr_sbaralpha);
@@ -548,7 +558,7 @@ void SCR_DrawFPS (void)
 		oldframecount = r_framecount;
 	}
 
-	if (scr_showfps.value)
+	if (scr_showfps.value && !hud_mapshot.value)	/* r84 */
 	{
 		char	st[16];
 		int	x, y;
@@ -571,7 +581,7 @@ void SCR_DrawClock (void)
 {
 	char	str[12];
 
-	if (scr_clock.value == 1)
+	if (scr_clock.value == 1 && !hud_mapshot.value)	/* r84 */
 	{
 		int minutes, seconds;
 
@@ -750,6 +760,12 @@ SCR_DrawCrosshair -- johnfitz
 void SCR_DrawCrosshair (void)
 {
 	if (!crosshair.value)
+		return;
+	/* r64: the dynamic Halo tick crosshair (gl_hud.c) supersedes the native
+	 * '+' whenever hud_crosshair is on. 'crosshair 0' still kills both. */
+	if (hud_crosshair.value)
+		return;
+	if (hud_mapshot.value)  /* r83: clean shot for gfx/maps thumbnails */
 		return;
 
 	GL_SetCanvas (CANVAS_CROSSHAIR);

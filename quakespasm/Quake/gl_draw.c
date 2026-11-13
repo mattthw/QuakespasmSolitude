@@ -766,6 +766,13 @@ void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, fl
  * @param off offset from center left or right
  * @returns position of top left
  */
+/* r75b: 1 = pin the next grid window to the screen's bottom-left corner
+ * (pause menu per user). Consumed by Draw_WindowGridBase; callers set and
+ * clear it around their draw. */
+int draw_grid_anchor = 0;
+int draw_grid_anchor_x = -1;	/* >=0 pins x in virtual units when anchored */
+int draw_grid_inset = 0;	/* r77: when 1, a Left-pinned (x==0) grid gets x = menu_width/5 */
+
 struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, float detail_alpha, int colr_bg, int colr_h, int cursor, int cursor_cols, float incl_footer, float incl_header, float off) {
     // fundamentals
     int screen_width = (320 /* quake uses 320 as screen width */ * MENU_SCALE);
@@ -802,8 +809,14 @@ struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, in
     int header_height = header * new_max(rowpix, MVS);
     int footer_height = footer * new_max(rowpix, MVS);;
     int menu_height = new_min(header_height + (footer_height*footer) + (rows * rowpix) + border, screen_height); //do not draw out of bounds
-    int x = new_max((screen_width - menu_width)/2 + x_offset, 0);
-    int y = (screen_height - menu_height)/2;
+    int x = (draw_grid_anchor == 1) ? (draw_grid_anchor_x >= 0 ? draw_grid_anchor_x : 0) : new_max((screen_width - menu_width)/2 + x_offset, 0);
+    if (draw_grid_inset && x <= 0)
+        x = menu_width / 5;   /* r77: matchmaking/firefight side margin per user */
+    /* r76b: anchored grids (pause) get half a row of breathing room off the
+     * screen bottom instead of sitting flush. */
+    int y = (draw_grid_anchor == 1) ? screen_height - menu_height - (int)(rowpix / 2) : (screen_height - menu_height)/2;
+    if (draw_grid_anchor == 1)
+        menu_height += (int)(rowpix / 2);   /* r77: panel bg reaches the screen edge; rows keep their padding */
     // padding
     int y_padding_header = header_height - title_height - 4*incl_header;//((header_height - CHARZ /* 8 is charset char width */)/2);
     int y_padding_footer = (footer_height - CHARZ /* 8 is charset char width */)/2;
@@ -1356,8 +1369,20 @@ void Draw_Cursor (int x, int y, int w, int h, bool focused)
      * -> 0.90, ends fall to ~10% brightness) and 2x stronger translucency
      * (0.25 -> 0.125). r7: middle still washed out the white font (user)
       * — gold base darkened 230/172/60 -> 165/122/42. */
+    /* r58: slow pulse reinstated (the old one was removed in r4 because
+     * new_min() clamped it to <=0.1). Sine period ~3.7s, alpha sweeps
+     * 0.125 (the r6/r7 translucent base) up to 0.275 and back.
+     * r58b: too subtle to see (user) -> 0.10..0.45 at ~2.9s. */
     if (focused)
-        Draw_FillGradientEx (x, y, w, h, 165/255.0f, 122/255.0f, 42/255.0f, 0.125f, 0.90f);
+    {
+        /* r58c: the fork's 2D canvas blends GL_ONE, GL_ONE_MINUS_SRC_ALPHA
+         * (premultiplied, premul_hud) -- glColor4f's alpha is IGNORED, so
+         * opacity must be baked into rgb. That is why every alpha tweak,
+         * including the r58b pulse, was invisible. */
+        float pulse = 0.35f + 0.40f * (0.5f + 0.5f * sinf ((float)realtime * 2.2f));
+        Draw_FillGradientEx (x, y, w, h,
+            165/255.0f * pulse, 122/255.0f * pulse, 42/255.0f * pulse, pulse, 0.90f);
+    }
     else
         Draw_FillRGBA (x, y, w, h, 0.235f, 0.251f, 0.275f, 0.5f);
 }
@@ -1485,6 +1510,26 @@ void GL_SetCanvas (canvastype newcanvas)
 		glOrtho (0, 640, 200, 0, -99999, 99999);
 		glViewport (glx + (glwidth - 320*s) / 2, gly + (glheight - 200*s) / 2, 640*s, 200*s);
 		break;
+		/* r61c: CANVAS_LB - same viewport as CANVAS_MENU but the ortho window is
+		 * shrunk 1/1.2 about the visible centre (virtual 160,100), so everything drawn
+		 * in menu coordinates magnifies uniformly 1.2x with no per-constant scaling. */
+	case CANVAS_LB:
+	{ // r61c-2: zoom is a live cvar so it can be tuned from the console with Tab held
+		float z = CLAMP (1.0, lb_scale.value, 3.0);
+		/* r75b: proportional like the rebased team board -- the old
+		 * scr_menuscale clamp froze s at 2 px/unit, which read right at
+		 * 960x544 but tiny at large resolutions. 2.0 * glheight/544
+		 * reproduces the approved Vita-size look and scales with it. */
+		s = 1.6f * (float)glheight / 544.0f;	/* r75c: 0.8x per user verdict */
+		/* r61c-3 (the look the user approved in 26ae44d0): anchor on the LB
+		 * content horizontally (rows+header span x 91..228, center 160) with
+		 * the TOP edge fixed at 16.7,
+		 * so header + score column always survive whatever lb_scale is. */
+		glOrtho ((double)(160.0f - 160.0f/z), (double)(160.0f - 160.0f/z + 640.0f/z),
+		        (double)(16.6667f + 200.0f/z), (double)(16.6667f), -99999, 99999);
+		glViewport (glx + (glwidth - 320*s) / 2, gly + (glheight - 200*s) / 2, 640*s, 200*s);
+		break;
+	}
 	case CANVAS_MENUQC:
 		s = q_min((float)glwidth / 320.0, (float)glheight / 200.0);
 		s = CLAMP (1.0, scr_menuscale.value, s);

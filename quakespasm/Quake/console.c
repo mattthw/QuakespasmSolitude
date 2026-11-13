@@ -1202,7 +1202,7 @@ void Con_DrawNotify (void)
 	GL_SetCanvas (CANVAS_DEFAULT); //johnfitz
 	s     = HUD_SCALE ();
 	rowh  = 12.0f * s;
-	xfeed = 8.0f * s;
+	xfeed = 96.0f * s;	/* r66b: start right of the motion radar disc */
 	ybottom = glheight - 14.0f * s;	// above the FPS corner readout
 
 	void	*shown[NUM_CON_TIMES];
@@ -1228,15 +1228,61 @@ void Con_DrawNotify (void)
 		scr_tileclear_updates = 0; //johnfitz
 	}
 
-	/* newest (last collected) sits at the bottom, stack grows upward */
-	for (i = 0; i < nshown; i++)
+	/* r66b: cyan, translucent, word-wrapped. This canvas is premultiplied
+ * (blend ONE, ONE_MINUS_SRC_ALPHA), where glColor4f's alpha only
+ * attenuates the background -- so the feed alpha is baked into rgb too.
+ * Notify rows are con_linewidth chars (can be ~118); at 12px TTF they
+ * ran past the right edge, so each line is split into word segments
+ * that fit between xfeed and the right margin. Newest segment bottom. */
 	{
-		const char	*p = (const char *) shown[i];
-		while (*p == ' ') p++;	/* QC prints carry leading blanks (" was
-	                             * killed by"); rows must start flush left */
-		q_strlcpy (linebuf, p, sizeof (linebuf));
-		Draw_TTFString (xfeed, ybottom - (nshown - 1 - i) * rowh,
-		                linebuf, 1, 1, 1, 0.35, 12.0f * s);
+		float	fsize = 12.0f * s;
+		float	fa    = 0.65f;
+		float	wmax  = glwidth - xfeed - 12.0f;
+		static char	segstore[NUM_CON_TIMES * 3][160];
+		int	nseg = 0;
+
+		for (i = 0; i < nshown && nseg < NUM_CON_TIMES*3; i++)
+		{
+			const char	*p = (const char *) shown[i];
+			char	seg[160];
+			const char	*q;
+			while (*p == ' ') p++;	/* QC prints carry leading blanks (" was
+		                             * killed by"); rows must start flush left */
+			q_strlcpy (linebuf, p, sizeof (linebuf));
+			q = linebuf;
+			seg[0] = 0;
+			while (*q && nseg < NUM_CON_TIMES*3)
+			{
+				const char	*e;
+				char	word[160];
+				while (*q == ' ') q++;
+				if (!*q) break;
+				e = q;
+				while (*e && *e != ' ') e++;
+				q_strlcpy (word, q, (size_t)(e - q) + 1);
+				q = e;
+				if (seg[0] && Draw_TTFWidth (va("%s %s", seg, word), fsize) > wmax)
+				{
+					q_strlcpy (segstore[nseg++], seg, sizeof (segstore[0]));
+					q_strlcpy (seg, word, sizeof (seg));
+				}
+				else
+				{
+					int sl = (int)strlen (seg);
+					if (sl)
+						seg[sl++] = ' ';
+					q_strlcpy (seg + sl, word, sizeof (seg) - sl);
+				}
+			}
+			if (seg[0] && nseg < NUM_CON_TIMES*3)
+				q_strlcpy (segstore[nseg++], seg, sizeof (segstore[0]));
+		}
+
+		if (nseg > 6)	/* keep the feed to the bottom 6 rows on screen */
+			memmove (segstore[0], segstore[nseg-6], 6*160), nseg = 6;
+		for (i = 0; i < nseg; i++)
+			Draw_TTFString (xfeed, ybottom - (nseg - 1 - i) * rowh, segstore[i],
+			                0.45f*fa, 0.80f*fa, 1.00f*fa, fa, fsize);
 	}
 
 	if (key_dest == key_message)
@@ -1248,12 +1294,12 @@ void Con_DrawNotify (void)
 
 		if (chat_team)
 		{
-			Draw_String (8, (int)v, "say_team:");
+			Draw_String ((int)xfeed, (int)v, "say_team:");
 			x = 11;
 		}
 		else
 		{
-			Draw_String (8, (int)v, "say:");
+			Draw_String ((int)xfeed, (int)v, "say:");
 			x = 6;
 		}
 
@@ -1264,12 +1310,12 @@ void Con_DrawNotify (void)
 
 		while (*text)
 		{
-			Draw_Character ((int)(x * 8 * s), (int)v, *text);
+			Draw_Character ((int)(xfeed + x * 8 * s), (int)v, *text);
 			x++;
 			text++;
 		}
 
-		Draw_Character ((int)(x * 8 * s), (int)v, 10 + ((int)(realtime*con_cursorspeed)&1));
+		Draw_Character ((int)(xfeed + x * 8 * s), (int)v, 10 + ((int)(realtime*con_cursorspeed)&1));
 
 		scr_tileclear_updates = 0; //johnfitz
 	}

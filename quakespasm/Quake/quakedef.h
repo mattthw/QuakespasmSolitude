@@ -397,7 +397,12 @@ typedef enum InpType {
     SELECT_DELETE = 4,
     SELECT_SCROLL_MAPS = 5,
     SCROLL_RULES = 6,
-    SELECT_RULES = 7
+    SELECT_RULES = 7,
+    MATCH_MAIN = 8,
+    MATCH_SCROLL = 9,
+    MATCH_MAIN_TOP = 10,
+    MATCH_SCROLL_TOP = 11,
+    MATCH_BOTTOM = 12
 } InpType;
 
 #define IT_EXTRA_WEAPON2			8388608	    // solitude

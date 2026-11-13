@@ -101,6 +101,7 @@ cvar_t	r_nolerp_list = {"r_nolerp_list", "progs/flame.mdl,progs/flame2.mdl,progs
 cvar_t	r_noshadow_list = {"r_noshadow_list", "progs/flame2.mdl,progs/flame.mdl,progs/bolt1.mdl,progs/bolt2.mdl,progs/bolt3.mdl,progs/laser.mdl", CVAR_NONE};
 
 extern cvar_t	r_vfog;
+extern cvar_t	hud_mapshot;	/* r84: photo mode (gl_hud.c) hides view model too */
 //johnfitz
 
 cvar_t	gl_zfix = {"gl_zfix", "0", CVAR_NONE}; // QuakeSpasm z-fighting fix
@@ -734,7 +735,7 @@ R_DrawViewModel -- johnfitz -- gutted
 */
 void R_DrawViewModel (void)
 {
-	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value || skyroom_drawing/*silly depthrange*/)
+	if (!r_drawviewmodel.value || !r_drawentities.value || chase_active.value || skyroom_drawing/*silly depthrange*/ || hud_mapshot.value)
 		return;
 
 	if (cl.items & IT_INVISIBILITY || cl.stats[STAT_HEALTH] <= 0)
@@ -938,7 +939,7 @@ void R_ShowTris (void)
 
 		// viewmodel
 		currententity = &cl.viewent;
-		if (r_drawviewmodel.value
+		if (r_drawviewmodel.value && !hud_mapshot.value	/* r84 */
 			&& !chase_active.value
 			&& cl.stats[STAT_HEALTH] > 0
 			&& !(cl.items & IT_INVISIBILITY)

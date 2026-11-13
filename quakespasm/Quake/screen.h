@@ -62,6 +62,7 @@ typedef enum {
 	CANVAS_DEFAULT,
 	CANVAS_CONSOLE,
 	CANVAS_MENU,
+	CANVAS_LB,	//r61c: zoomed leaderboard canvas
 	CANVAS_SBAR,
 	CANVAS_WARPIMAGE,
 	CANVAS_CROSSHAIR,
@@ -74,6 +75,7 @@ typedef enum {
 	CANVAS_INVALID = -1
 } canvastype;
 extern	cvar_t		scr_menuscale;
+extern	cvar_t		lb_scale;	//r61c
 extern	cvar_t		scr_sbarscale;
 extern	cvar_t		scr_conwidth;
 extern	cvar_t		scr_conscale;

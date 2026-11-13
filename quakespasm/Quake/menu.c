@@ -984,11 +984,11 @@ int	m_net_cursor;
 
 int PauseOptsCount(void)
 {
-    if (deathmatch.value == 2) {
-        return 2;
-    } else {
-        return 4;
-    }
+    /* r75b: Add/Remove Bot dropped from the pause menu (user) --
+     * bot count lives in the lobby; console keeps impulse 100/101/102.
+     * r75d: three rows in every gametype: Resume, Disconnect, Settings
+     * (user order). */
+    return 3;
 }
 
 int		pause_cursor;
@@ -1005,18 +1005,24 @@ void M_Menu_Pause_f (void)
 void M_Pause_Draw (void)
 {
 
+    /* r75b: pause menu attaches bottom-left (user) and lost its bot rows.
+     * r75c: match the start menu's side distance + width (user). */
+    draw_grid_anchor = 1;
+    draw_grid_anchor_x = (int)main_x_offset_pixels;
     if ((int)deathmatch.value == 2) //firefight
     {
-        struct MenuCoords coords = Draw_WindowGrid("Options", 2, MVS_P, 1, 0.35, 1, pause_cursor, false);
-        M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Settings");
+        struct MenuCoords coords = Draw_WindowGrid("Options", 3, MVS_P, 1, main_percentwidth, 1, pause_cursor, false);
+        M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Return to game");
         M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Disconnect");
-    } else {
-        struct MenuCoords coords = Draw_WindowGrid("Options", 4, MVS_P, 1, 0.35, 1, pause_cursor, false);
-        M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Add Bot");
-        M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Remove Bot");
         M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Settings");
-        M_PrintWhite (coords.grid[0][3].xp, coords.grid[0][3].yp, "Disconnect");
+    } else {
+        struct MenuCoords coords = Draw_WindowGrid("Options", 3, MVS_P, 1, main_percentwidth, 1, pause_cursor, false);
+        M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Return to game");
+        M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Disconnect");
+        M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Settings");
     }
+    draw_grid_anchor = 0;
+    draw_grid_anchor_x = -1;
 }
 
 struct teamcounts {
@@ -1091,37 +1097,25 @@ void M_Pause_Key (int key)
             /* Mac/PC port: Enter selects, like the Vita X button. */
 #endif
             S_LocalSound ("misc/menuenter.wav");
-            if ((int)deathmatch.value == 2) //firefight
+            /* r75d: rows are Resume / Disconnect / Settings in every
+             * gametype; only the post-disconnect menu differs. */
+            if(pause_cursor == 0)
             {
-                if(pause_cursor == 0)
-                {
-                    M_Menu_Options_f ();
-                }
-                if(pause_cursor == 1)
-                {
-                    Cbuf_AddText ("disconnect\n");
-                    theme_started = 0;
+                key_dest = key_game;
+                m_state = m_none;
+            }
+            if(pause_cursor == 1)
+            {
+                Cbuf_AddText ("disconnect\n");
+                theme_started = 0;
+                if ((int)deathmatch.value == 2)
                     M_Menu_Firefight_f(); // todo: do I need to do more than this (probably). Why not use entry menu f?
-                }
-            } else {
-                if(pause_cursor == 0)
-                {
-                    addBot();
-                }
-                if(pause_cursor == 1)
-                {
-                    Cbuf_AddText ("impulse 102\n");
-                }
-                if(pause_cursor == 2)
-                {
-                    M_Menu_Options_f ();
-                }
-                if(pause_cursor == 3)
-                {
-                    Cbuf_AddText ("disconnect\n");
-                    theme_started = 0;
+                else
                     M_Matchmaking_f(); // todo: same as above
-                }
+            }
+            if(pause_cursor == 2)
+            {
+                M_Menu_Options_f ();
             }
             break;
     }
@@ -2470,9 +2464,9 @@ struct opts_t opts = {
         .deathmatch = 1,
         .skill = 1,
         .timelimit = 10,
-        .fraglimit = 10,
+        .fraglimit = 20,   /* r77: Team Slayer default (slayer modes get 10 on switch) */
         .teamlimit = 0,
-        .gametype = SLAYER,
+        .gametype = TEAM_SLAYER,
         /* CUSTOM GAME OPTIONS */
         .custom_primary = 0,
         .custom_secondary = 1,
@@ -2490,7 +2484,8 @@ void resetGameRules() {
     opts.custom_secondary = 1;
     opts.map_weapons_disable = 0;
     opts.infinite_ammo = 0;
-    opts.fraglimit = 4;
+    opts.fraglimit = (opts.gametype == TEAM_SLAYER) ? 20 : 10;   /* r77 per-mode defaults */
+    opts.timelimit = 10;
     opts.skill = 1;
     opts.max_nades = 4;
     opts.grunt_birthday_party = 0;
@@ -2591,7 +2586,7 @@ char* drawDifficulty(int f) {
 size_t		gamerules_cursor;
 size_t		gamerules_first;
 float vertical_gamerules_affordance = 8;
-float rule_list_size = 11; //Should equal sizeof(rule_titles)/sizeof(rule_titles[0])
+float rule_list_size = 13; //Should equal sizeof(rule_titles)/sizeof(rule_titles[0])
 void M_Matchmaking_Gamerules_f (void) {
     key_dest = key_menu;
     m_state = m_matchmaking_gamerules;
@@ -2621,7 +2616,9 @@ void M_Matchmaking_Gamerules_Draw (void) {
         char* name;
         char* value;
     } rule_option_t;
-    struct rule_option_t rule_titles[11] = {
+    struct rule_option_t rule_titles[13] = {
+            {"Score Limit", opts.fraglimit ? va("%i Kills", (int)opts.fraglimit) : "Unlimited"},
+            {"Time Limit", opts.timelimit ? va("%i Minutes", (int)opts.timelimit) : "Unlimited"},
             {"Primary Weapon",gamerule_weapons[opts.custom_primary].name},
             {"Secondary Weapon",gamerule_weapons_secondary[opts.custom_secondary].name},
             {"Disable Ground Weapons",drawRuleData(opts.map_weapons_disable)},
@@ -2651,7 +2648,7 @@ void M_Matchmaking_Gamerules_Draw (void) {
     struct MenuCoords coords = Draw_WindowGrid("Custom Game Rules", vertical_gamerules_affordance, MVS_P, 2, 0.35, 1.0, gamerules_cursor-gamerules_first, true);
     // footer
     switch (gamerules_cursor) {
-        case 10:
+        case 12:
             M_Draw_Hint(SELECT_RULES, coords);
             break;
         default:
@@ -2667,70 +2664,84 @@ void M_Matchmaking_Gamerules_Draw (void) {
 void M_Matchmaking_Gamerules_Submenu_Key (int dir) {
     switch (gamerules_cursor)
     {
-        case 0: //custom primary
+        case 0: //score limit (r77: moved here from the main matchmaking page)
+            opts.fraglimit += dir*5;
+            if (opts.fraglimit > 100)
+                opts.fraglimit = 0;
+            if (opts.fraglimit < 0)
+                opts.fraglimit = 100;
+            break;
+        case 1: //time limit
+            opts.timelimit += dir*5;
+            if (opts.timelimit > 60)
+                opts.timelimit = 0;
+            if (opts.timelimit < 0)
+                opts.timelimit = 60;
+            break;
+        case 2: //custom primary
             opts.custom_primary += dir;
             if (opts.custom_primary >= sizeof(gamerule_weapons)/sizeof(gamerule_weapons[0]))
                 opts.custom_primary = 0;
             if (opts.custom_primary < 0 && dir < 0)
                 opts.custom_primary = sizeof(gamerule_weapons)/sizeof(gamerule_weapons[0])-1;
             break;
-        case 1: //custom secondary
+        case 3: //custom secondary
 //            opts.custom_secondary += dir; todo: fix custom secondary QuakeC code
             if (opts.custom_secondary >= sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0]))
                 opts.custom_secondary = 0;
             if (opts.custom_secondary < 0 && dir < 0)
                 opts.custom_secondary = sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0])-1;
             break;
-        case 2: //ground weapons
+        case 4: //ground weapons
             opts.map_weapons_disable += dir;
             if (opts.map_weapons_disable > 1)
                 opts.map_weapons_disable = 0;
             if (opts.map_weapons_disable < 0)
                 opts.map_weapons_disable = 1;
             break;
-        case 3: //difficulty
+        case 5: //difficulty
             opts.skill += dir;
             if (opts.skill > 3)
                 opts.skill = 0;
             if (opts.skill < 0)
                 opts.skill = 3;
             break;
-        case 4: //max grenades
+        case 6: //max grenades
             opts.max_nades += dir;
             if (opts.max_nades > 8)
                 opts.max_nades = 0;
             if (opts.max_nades < 0)
                 opts.max_nades = 8;
             break;
-        case 5: //infinite ammo
+        case 7: //infinite ammo
             opts.infinite_ammo += dir;
             if (opts.infinite_ammo > 1)
                 opts.infinite_ammo = 0;
             if (opts.infinite_ammo < 0)
                 opts.infinite_ammo = 1;
             break;
-        case 6: //grunt birthday
+        case 8: //grunt birthday
             opts.grunt_birthday_party += dir;
             if (opts.grunt_birthday_party > 1)
                 opts.grunt_birthday_party = 0;
             if (opts.grunt_birthday_party < 0)
                 opts.grunt_birthday_party = 1;
             break;
-        case 7: //gravity
+        case 9: //gravity
             opts.sol_gravity += dir*10;
             if (opts.sol_gravity > 500)
                 opts.sol_gravity = 100;
             if (opts.sol_gravity < 100)
                 opts.sol_gravity = 500;
             break;
-        case 8: //max speed
+        case 10: //max speed
             opts.sol_maxspeed += dir*10;
             if (opts.sol_maxspeed > 500)
                 opts.sol_maxspeed = 100;
             if (opts.sol_maxspeed < 100)
                 opts.sol_maxspeed = 500;
             break;
-        case 9: //jump
+        case 11: //jump
             opts.sol_jump += dir*10;
             if (opts.sol_jump > 500)
                 opts.sol_jump = 100;
@@ -2774,7 +2785,7 @@ void M_Matchmaking_Gamerules_Key (int key) {
             /* Mac/PC port: Enter selects, like the Vita X button. */
 #endif
             switch (gamerules_cursor) {
-                case 10:
+                case 12:
                 {
                     resetGameRules();
                     break;
@@ -2787,7 +2798,7 @@ void M_Matchmaking_Gamerules_Key (int key) {
             S_LocalSound ("misc/menuoption.wav");
             gamerules_cursor--;
             if (gamerules_cursor >= rule_list_size)
-                gamerules_cursor = 10;
+                gamerules_cursor = 12;
             break;
         case K_DOWNARROW:
             S_LocalSound ("misc/menuoption.wav");
@@ -2877,7 +2888,9 @@ void M_Matchmaking_Map_Draw (void) {
     } else {
         strcpy(format, "lmp");
     }
-    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[startepisode].firstLevel + (mlist_cursor)].thumbnail, format));
+    qpic_t *mappic = Draw_TryCachePic (va("gfx/maps/%s.png", levels[episodes[startepisode].firstLevel + (mlist_cursor)].thumbnail), TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);   /* r83: PNG mapshots take precedence over legacy lmp/tga */
+    if (!mappic)
+        mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[startepisode].firstLevel + (mlist_cursor)].thumbnail, format));
     Draw_StretchPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic, coords.colw, coords.rowh*5);
 
     // map bio
@@ -2977,14 +2990,82 @@ void M_Matchmaking_Map_Key (int key) {
 #define MM_HEADER_HEIGHT mvs(3)
 #define MM_FOOTER_HEIGHT mvs(1)
 
-#define	NUM_GAMEOPTIONS	7 //indexing off 1
+#define	NUM_GAMEOPTIONS	3 // r77: NETWORK / PLAYLIST / START MATCHMAKING
 int matchmaking_cursor = 0; //indexing off 0
+
+/* P2a lobby roster: bot count lives in the engine cvar lobby_bots so the
+ * matchmaking menu can adjust it before a match exists (cl.scores is only
+ * allocated on svc_serverinfo, see issue #41). Created in M_Init via
+ * Cvar_Create so it always exists (QC cvar() on unset cvars reads 0).
+ * Default 3 bots + you = 4 players of 8. Names come from bots.cfg
+ * (bot_nameK cvars); QC reads the same cvars at BotConnect, so lobby and
+ * in-game names match. */
+static cvar_t	*lobby_bots;
+
+void M_Lobby_AddBot_f (void)
+{
+	/* r65e: give each freshly added bot a random unused name. The roster preview
+	 * reads slots in order, so swap a random tail slot into the one about to be
+	 * shown; previously every re-add in the same lobby showed the same name
+	 * because the shuffle only ran when the menu opened. */
+	int n = lobby_bots ? (int)lobby_bots->value : 0;
+	char a[32], b[32];
+
+	if (key_dest == key_menu && m_state == m_gameoptions && lobby_bots && lobby_bots->value < 7)
+	{
+		if (n < 7)
+		{
+			int j;
+			srand ((unsigned int)(Sys_DoubleTime () * 1000.0));
+			j = n + rand() % (7 - n);
+			q_strlcpy (a, Cvar_VariableString (va("bot_name%d", n)), sizeof(a));
+			q_strlcpy (b, Cvar_VariableString (va("bot_name%d", j)), sizeof(b));
+			Cvar_Set (va("bot_name%d", n), b);
+			Cvar_Set (va("bot_name%d", j), a);
+		}
+		Cvar_SetValue ("lobby_bots", lobby_bots->value + 1);
+	}
+}
+
+void M_Lobby_DelBot_f (void)
+{
+	if (key_dest == key_menu && m_state == m_gameoptions && lobby_bots && lobby_bots->value > 0)
+		Cvar_SetValue ("lobby_bots", lobby_bots->value - 1);
+}
+
+/* r64: shuffle the bot_nameK cvars (loaded by bots.cfg) each time the lobby
+ * opens. The roster preview reads them in slot order and QC's BotConnect
+ * reads them by connect-order slot, so shuffling HERE makes lobby names and
+ * in-game names agree while still being random per session. Runs as a cbuf
+ * command right after "exec bots.cfg" so the cfg values are already in. */
+void M_Lobby_ShuffleNames_f (void)
+{
+	char names[7][32];
+	char tmp[32];
+	int i, j;
+
+	for (i = 0; i < 7; i++)
+		q_strlcpy (names[i], Cvar_VariableString (va("bot_name%d", i)), sizeof(names[i]));
+
+	srand ((unsigned int)(Sys_DoubleTime () * 1000.0));
+	for (i = 6; i > 0; i--)	/* Fisher-Yates */
+	{
+		j = rand() % (i + 1);
+		q_strlcpy (tmp, names[i], sizeof(tmp));
+		q_strlcpy (names[i], names[j], sizeof(names[i]));
+		q_strlcpy (names[j], tmp, sizeof(names[j]));
+	}
+
+	for (i = 0; i < 7; i++)
+		Cvar_Set (va("bot_name%d", i), names[i]);
+}
 
 void M_Matchmaking_f (void)
 {
     key_dest = key_menu;
     m_state = m_gameoptions;
     m_entersound = true;
+    Cbuf_AddText ("exec bots.cfg\nlobby_shufflenames\n");   // P2a lobby roster names (r64: + shuffle)
     if (maxplayers == 0)
         maxplayers = svs.maxclients;
     if (maxplayers < 2)
@@ -3005,10 +3086,25 @@ void M_Matchmaking_f (void)
  * conchars; it is proportional Archivo TTF now, so the words drifted off
  * their icons (user 2026-11-12). Draw_Button stretches each glyph to 16
  * canvas px; CHARZ (8) is the gap between elements. */
+static int M_HintIconW (qpic_t *icon)
+{
+    /* r80 (user: "L/R images squished horizontally"): backl1/backr1 trigger
+     * art is 32x16 but Draw_Button forced a 16x16 box. Keep height 16 and
+     * scale the width from the source aspect. */
+    if (icon && icon->height && icon->width != icon->height)
+        return (int)(16.0 * icon->width / icon->height + 0.5);
+    return 16;
+}
+
 static void M_HintIcon (int *x, int y, qpic_t *icon)
 {
-    Draw_Button (*x, y, icon);
-    *x += 16;
+    int w = M_HintIconW (icon);
+    /* r79b: buttons fade to 0.6 (user: "kind of bright"). The premul 2D
+     * canvas ignores bare alpha, so rgb is darkened along with it. */
+    glColor4f (0.6f, 0.6f, 0.6f, 0.6f);
+    Draw_StretchPic (*x, y - 4, icon, w, 16);
+    glColor4f (1, 1, 1, 1);
+    *x += w;
 }
 
 static void M_HintWord (int *x, int y, const char *word)
@@ -3018,44 +3114,98 @@ static void M_HintWord (int *x, int y, const char *word)
     *x += (int) Draw_TTFWidth (word, 14.0f) + CHARZ;
 }
 
-void M_Draw_Hint (int type, struct MenuCoords mc) {
-    // footer text hint — each group is icon(s)+word, laid out left to right
-    int x = mc.grid[0][mc.rows].xp + CHARZ;
-    int y = mc.grid[0][mc.rows].yp;
+static void M_Draw_HintY (int type, struct MenuCoords mc, int y) {
+    // footer text hint -- each group is icon(s)+word. r76: measure the
+    // whole group first, then draw it centered in the window; it used to
+    // start pinned at the left cell padding (user 2026-11-12).
+    qpic_t *icons[10];
+    const char *words[10];
+    int n = 0, i, total = 0, x;
+    int lx = mc.grid[0][mc.rows].x;
+    int rx = mc.grid[mc.cols - 1][mc.rows].x + mc.colw;
+
+    #define HINTI(ic) do { icons[n] = (ic); words[n] = NULL; n++; } while (0)
+    #define HINTW(wd) do { icons[n] = NULL; words[n] = (wd); n++; } while (0)
 
     if (type == SCROLL) {
-        M_HintIcon(&x, y, b_bbutton); M_HintWord(&x, y, "Back");
-        M_HintIcon(&x, y, b_left); M_HintIcon(&x, y, b_right); M_HintWord(&x, y, "Change");
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_left); HINTI(b_right); HINTW("Change");
     } else if (type == SELECT) {
-        M_HintIcon(&x, y, b_bbutton); M_HintWord(&x, y, "Back");
-        M_HintIcon(&x, y, b_abutton); M_HintWord(&x, y, "Select");
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_abutton); HINTW("Select");
     } else if (type == SCROLL_RULES) {
-        M_HintIcon(&x, y, b_bbutton); M_HintWord(&x, y, "Back");
-        M_HintIcon(&x, y, b_left); M_HintIcon(&x, y, b_right); M_HintWord(&x, y, "Change");
-        M_HintIcon(&x, y, b_up); M_HintIcon(&x, y, b_down); M_HintWord(&x, y, "Scroll");
-        M_HintIcon(&x, y, b_xbutton); M_HintWord(&x, y, "Defaults"); // triangle
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_left); HINTI(b_right); HINTW("Change");
+        HINTI(b_up); HINTI(b_down); HINTW("Scroll");
+        HINTI(b_xbutton); HINTW("Defaults"); // triangle
     } else if (type == SELECT_RULES) {
-        M_HintIcon(&x, y, b_bbutton); M_HintWord(&x, y, "Back"); // o
-        M_HintIcon(&x, y, b_abutton); M_HintWord(&x, y, "Select"); // x
-        M_HintIcon(&x, y, b_up); M_HintIcon(&x, y, b_down); M_HintWord(&x, y, "Scroll");
-        M_HintIcon(&x, y, b_xbutton); M_HintWord(&x, y, "Defaults"); // triangle
+        HINTI(b_bbutton); HINTW("Back"); // o
+        HINTI(b_abutton); HINTW("Select"); // x
+        HINTI(b_up); HINTI(b_down); HINTW("Scroll");
+        HINTI(b_xbutton); HINTW("Defaults"); // triangle
     } else if (type == INPUT) {
-        M_HintIcon(&x, y, b_bbutton); M_HintWord(&x, y, "Back");
-        M_HintIcon(&x, y, b_xbutton); M_HintWord(&x, y, "Edit");
-        M_HintIcon(&x, y, b_ybutton); M_HintWord(&x, y, "Delete");
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_xbutton); HINTW("Edit");
+        HINTI(b_ybutton); HINTW("Delete");
     } else if (type == SELECT_SCROLL) {
-        M_HintIcon(&x, y, b_bbutton); M_HintWord(&x, y, "Back");
-        M_HintIcon(&x, y, b_abutton); M_HintWord(&x, y, "Select");
-        M_HintIcon(&x, y, b_left); M_HintIcon(&x, y, b_right); M_HintWord(&x, y, "Change");
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_abutton); HINTW("Select");
+        HINTI(b_left); HINTI(b_right); HINTW("Change");
     } else if (type == SELECT_SCROLL_MAPS) {
-        M_HintIcon(&x, y, b_bbutton); M_HintWord(&x, y, "Back");
-        M_HintIcon(&x, y, b_abutton); M_HintWord(&x, y, "Select");
-        M_HintIcon(&x, y, b_left); M_HintIcon(&x, y, b_right); M_HintWord(&x, y, "Change Map Pack");
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_abutton); HINTW("Select");
+        HINTI(b_left); HINTI(b_right); HINTW("Change Map Pack");
+    } else if (type == MATCH_MAIN) {
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_abutton); HINTW("Select");
+        HINTI(b_ybutton); HINTW("Game Options");   /* square (b_ybutton holds fbtnsquare art) */
+        HINTI(b_xbutton); HINTW("Maps");           /* triangle (b_xbutton holds fbtntriangle art) */
+    } else if (type == MATCH_SCROLL) {
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_left); HINTI(b_right); HINTW("Change");
+        HINTI(b_ybutton); HINTW("Game Options");
+        HINTI(b_xbutton); HINTW("Maps");
+    } else if (type == MATCH_MAIN_TOP) {
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_abutton); HINTW("Select");
+    } else if (type == MATCH_SCROLL_TOP) {
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_left); HINTI(b_right); HINTW("Change");
+    } else if (type == MATCH_BOTTOM) {
+        HINTI(b_ybutton); HINTW("Game Options");   /* square */
+        HINTI(b_xbutton); HINTW("Maps");           /* triangle */
     } else if (type == SELECT_DELETE) {
-        M_HintIcon(&x, y, b_bbutton); M_HintWord(&x, y, "Back");
-        M_HintIcon(&x, y, b_abutton); M_HintWord(&x, y, "Edit");
-        M_HintIcon(&x, y, b_ybutton); M_HintWord(&x, y, "Delete");
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_abutton); HINTW("Edit");
+        HINTI(b_ybutton); HINTW("Delete");
     }
+
+    for (i = 0; i < n; i++)
+    {
+        if (words[i])
+            total += CHARZ + (int) Draw_TTFWidth (words[i], 14.0f) + CHARZ;
+        else
+            total += 16;
+    }
+
+    x = lx + ((rx - lx) - total) / 2;
+    if (x < mc.grid[0][mc.rows].xp + CHARZ)
+        x = mc.grid[0][mc.rows].xp + CHARZ;
+    for (i = 0; i < n; i++)
+    {
+        if (words[i])
+            M_HintWord (&x, y, words[i]);
+        else
+            M_HintIcon (&x, y, icons[i]);
+    }
+
+    #undef HINTI
+    #undef HINTW
+}
+
+void M_Draw_Hint (int type, struct MenuCoords mc)
+{
+    M_Draw_HintY (type, mc, mc.grid[0][mc.rows].yp);
 }
 
 void M_Matchmaking_Draw (void)
@@ -3067,25 +3217,52 @@ void M_Matchmaking_Draw (void)
     } else {
         strcpy(format, "lmp");
     }
-    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail, format));
+    qpic_t *mappic = Draw_TryCachePic (va("gfx/maps/%s.png", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail), TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);   /* r83: PNG mapshots take precedence over legacy lmp/tga */
+    if (!mappic)
+        mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail, format));
     int fg_height = MM_HEIGHT_PIX - (MM_HEADER_HEIGHT + MM_FOOTER_HEIGHT +mappic->height);
 
     //background
-    struct MenuCoords mc = Draw_WindowGridLeft("Matchmaking",11,MVS,2,0.2, 0.8, matchmaking_cursor, 1.0, 3.0);
-    // map thumbnail
-    double picheight = mc.rowh*4;
-    double picwidth = (picheight)*1.7; //lets keep 16x9 ratio
-    double pic_x = ((mc.colw*mc.cols)-picwidth)/2;
-    Draw_StretchPic(pic_x, mc.grid[1][mc.rows].y-picheight, mappic, picwidth, picheight);
-
-    switch (matchmaking_cursor) {
-        case 1:
-        case 2:
-        case 3:
-            M_Draw_Hint(SCROLL, mc);
-            break;
-        default:
-            M_Draw_Hint(SELECT, mc);
+    if (matchmaking_cursor >= NUM_GAMEOPTIONS)
+        matchmaking_cursor = 0;   /* r77: list shrank to 3 rows */
+    draw_grid_inset = 1;          /* r77: 20% side margin (user) */
+    struct MenuCoords mc = Draw_WindowGridLeft("Matchmaking",14,MVS*0.8f,2,0.2, 0.8, matchmaking_cursor, 1.0, 3.0);   /* r79b: edge to edge */
+    draw_grid_inset = 0;
+    // map thumbnail -- r79/r80 (user): panel stretches top to bottom;
+    // nav hints (Back/Select/Change) live in the footer bar and the map +
+    // action-hint bar stack up from it, hugging the bottom.
+    double bar_x = mc.grid[0][0].x;
+    double bar_w = (mc.grid[mc.cols - 1][0].x + mc.colw) - bar_x + 2;
+    /* r80 (user: hint rows + map should "stack hugging the bottom" while
+     * the three rows "cling to the top"): lay the block out from the
+     * footer upward -- bottom hint bar (the footer itself), the full 16:9
+     * map touching it from above, and the action-hint bar touching the
+     * map. Any slack lands between the menu rows and the top hint bar.
+     * r79b's no-distortion rule stands: the whole image is shown; the pic
+     * height only clamps if the window can't fit bars + art at all. */
+    int pic_bottom = (int)mc.grid[1][mc.rows].y;
+    int pic_fit = (int)((bar_w - 2) / 1.7);
+    int room = pic_bottom - (int)mc.grid[0][3].y - 2 * (int)mc.rowh;
+    int pic_yfit;
+    int topbar;
+    double pic_x = bar_x + 1;
+    if (pic_fit > room)
+        pic_fit = room;
+    pic_yfit = pic_bottom - pic_fit;
+    topbar = pic_yfit - (int)mc.rowh;
+    /* r78 note kept: pic_x centers in the REAL window bounds (r77 margin).
+     * r79 stretches the pic to the interior instead of keeping 16:9 so it
+     * can touch the bars (user). */
+    Draw_FillRGBA ((int)bar_x, topbar, (int)bar_w, (int)mc.rowh,
+                   20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
+    Draw_StretchPic(pic_x, pic_yfit, mappic, bar_w - 2, pic_fit);
+    M_Draw_HintY(MATCH_BOTTOM, mc, topbar + 5);   /* actions on top */
+    {
+        int botbar = (int)mc.grid[0][mc.rows].yp;
+        if (matchmaking_cursor == 1)
+            M_Draw_HintY(MATCH_SCROLL_TOP, mc, botbar);   /* nav on bottom */
+        else
+            M_Draw_HintY(MATCH_MAIN_TOP, mc, botbar);
     }
 
     //======================== 0
@@ -3101,7 +3278,7 @@ void M_Matchmaking_Draw (void)
     }
     M_Print (mc.grid[1][0].xp, mc.grid[1][0].yp, protocol);
     //======================== 1
-    M_PrintWhite (mc.grid[0][0].xp, mc.grid[0][1].yp, "GAME");
+    M_PrintWhite (mc.grid[0][0].xp, mc.grid[0][1].yp, "PLAYLIST");
     switch(opts.gametype)
     {
         case 0:
@@ -3114,47 +3291,113 @@ void M_Matchmaking_Draw (void)
             M_Print(mc.grid[1][0].xp, mc.grid[1][1].yp, "Swat");
             break;
     }
-    //======================== 2
-    M_PrintWhite (mc.grid[0][2].xp, mc.grid[0][2].yp, "SCORE");
-    if (opts.fraglimit == 0)
-        M_Print (mc.grid[1][2].xp, mc.grid[1][2].yp, "Unlimited");
-    else if (opts.fraglimit < 1000)
-        M_Print (mc.grid[1][2].xp, mc.grid[1][2].yp, va("%i Kills", (int)opts.fraglimit));
-    else
-        M_Print (mc.grid[1][2].xp, mc.grid[1][2].yp, "Rounds");
-    //======================== 3
-    M_PrintWhite (mc.grid[0][3].xp, mc.grid[1][3].yp, "TIME");
-    if (opts.timelimit == 0)
-        M_Print (mc.grid[1][3].xp, mc.grid[1][3].yp, "Unlimited");
-    else
-        M_Print (mc.grid[1][3].xp, mc.grid[1][3].yp, va("%i Minutes", (int)opts.timelimit));
-    //======================== 4
-    M_PrintWhite(mc.grid[0][4].xp, mc.grid[0][4].yp, "Edit Game Options");
-    //======================== 5
-    M_PrintWhite (mc.grid[0][5].xp, mc.grid[1][5].yp, "SELECT MAP");
-    char finalMapName[12];
-    Q_strncpy(finalMapName, levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description, 12);
-    if (Q_strlen(levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description) >= 12) {
-        finalMapName[11] = '.';
-        finalMapName[10] = '.';
-        finalMapName[9] = '.';
-    }
-    /* P2a round 4b: map name in the ExtraBold header font, moved to the
-     * window's bottom-left corner with padding (user 2026-11-12 — it was
-     * bottom-center). Same vertical anchor as before; x now comes from the
-     * footer cell's left edge + one CHARZ, matching the hint-row padding.
-     * Kept dim-grey but lifted 0.3 -> 0.5 so the heavier face reads. */
+    //======================== 2 (r77: score/time/options/map rows removed
+    //                     -- they live behind square/triangle now)
+    /* r78: full map title under the thumbnail -- the old fixed 12-char
+     * buffer chopped "Narrows (wip)" to "Narrows (" (user: "cut off too
+     * short"). Header face, auto-shrinks until it fits the panel width,
+     * never truncated. */
     {
+        const char *mapdesc = levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description;
         float mapname_size = 16.0f;
-        int mapname_top = (int)(mc.grid[1][mc.rows].yp - mc.rowh*1 - 0.0625*8*1.5);
-        int mapname_x = mc.grid[0][mc.rows].xp + CHARZ;
-        Draw_TTFStringHeader (mapname_x, mapname_top + 12, finalMapName, 0.5, 0.5, 0.5, 0.5f, mapname_size);
+        int mapname_x = (int)pic_x + CHARZ;
+        double mapname_avail = (mc.grid[mc.cols - 1][0].x + mc.colw) - mapname_x - 8;
+        while (mapname_size > 9.0f && Draw_TTFHeaderWidth (mapdesc, mapname_size) > mapname_avail)
+            mapname_size -= 0.5f;
+        /* r79: overlaps the picture now that the pic touches the bars --
+         * shadow pass keeps it legible on bright thumbnails. */
+        Draw_TTFStringHeader (mapname_x + 1, pic_yfit + pic_fit - 8, mapdesc, 0, 0, 0, 0.6f, mapname_size);
+        Draw_TTFStringHeader (mapname_x, pic_yfit + pic_fit - 9, mapdesc, 0.85, 0.9, 1.0, 0.9f, mapname_size);
     }
     //========================= 6
     /* P2a round 4b: was a raw Draw_ColoredStringScale conchars run (the old
      * blocky look, user 2026-11-12); route through the TTF funnel like the
      * SELECT MAP row above and the Firefight START GAME row. */
-    M_PrintWhite (mc.grid[0][6].xp, mc.grid[1][6].yp, "START GAME");
+    M_PrintWhite (mc.grid[0][2].xp, mc.grid[1][2].yp, "START MATCHMAKING");
+
+    /* P2a lobby roster: virtual menu space is (320*MENU_SCALE) x
+     * (200*MENU_SCALE) stretched to the window (NOT raw glwidth pixels;
+     * coords past 560x350 project off-screen). Spec (user 2026-11-12):
+     * top-right, 20% below the top, right edge 15% in from the right
+     * limit. Default 3 bots + you = 4/8; friends = floor(n/2) mirrors
+     * populate_bots in client.qc so team games balance (2v2 by default).
+     * Names from bot_nameK cvars (bots.cfg execed on open); unset slots
+     * fall back to "Bot k". */
+    {
+        extern qpic_t *b_lt, *b_rt;   /* L/R trigger butticon art */
+        int rw = (int)(80 * MENU_SCALE);
+        int rx = (int)(320 * MENU_SCALE) - 55 - rw;   /* r58: right-side gap 84 -> 55 (-34%) */
+        int hh = 24;          /* r77: header bigger again (user) */
+        int ry = (int)mc.grid[0][0].y - hh;   /* r76b: strip bottom flush with the Matchmaking header bottom */
+        int n = (int)(lobby_bots ? lobby_bots->value : 3);
+        int fr = (opts.gametype == 1) ? n / 2 : n;
+        int en = n - fr;
+        int pitch = 20;       /* r76b: was 29 */
+        int band = 17;        /* r76b: was 25 */
+        int nfs = 13;         /* r76b: was 19 */
+        int y;
+        int i;
+        int hx, hy;
+        /* r62: FFA band pool mirroring HaloColorAt in frikbot/bot.qc; the
+         * player owns band 14 (bottomcolor), so bots start at blue. */
+        static const int ffa_bands[6] = {13, 12, 11, 6, 2, 14};
+
+        Draw_FillRGBA (rx, ry, rw, hh, 20/255.0f*0.85f, 25/255.0f*0.85f, 44/255.0f*0.85f, 0.85f);
+        Draw_TTFStringHeader (rx + CHARZ - 2, ry + 18, "ROSTER", 1, 1, 1, 0.9f, 14.0f);
+        Draw_TTFString (rx + rw - 8 - (int)Draw_TTFWidth (va("%i/8", n + 1), 14.0f), ry + 18,
+                        va("%i/8", n + 1), 1, 1, 1, 1, 14.0f);
+
+        // you are always on the friends (red) side; r58: the team band
+        // spans the full column behind the name; r76: rows sized to the
+        // cursor height, names drawn straight in 19px Archivo.
+        y = ry + hh + 2;
+        Draw_FillRGBA (rx, y, rw, band, 0.78f*0.35f, 0.12f*0.35f, 0.14f*0.35f, 0.35f);
+        Draw_TTFString (rx + CHARZ, y + nfs, "You", 1, 1, 1, 1, (float)nfs);
+        y += pitch;
+
+        for (i = 0; i < fr; i++)
+        {
+            const char *nm = Cvar_VariableString (va("bot_name%d", i));
+            if (opts.gametype == 1)
+            {
+                Draw_FillRGBA (rx, y, rw, band, 0.78f*0.35f, 0.12f*0.35f, 0.14f*0.35f, 0.35f);
+            }
+            else
+            {   /* r62: Slayer/FFA rows use each bot's own palette band
+                 * instead of one flat team red. Actual in-game colors come
+                 * from FindAnotherColor (collision-avoiding) so a row may
+                 * occasionally differ from this preview. */
+                byte *pc = (byte *)&d_8to24table[ffa_bands[i % 6] * 16 + 8];
+                Draw_FillRGBA (rx, y, rw, band, pc[0]/255.0f*0.35f, pc[1]/255.0f*0.35f, pc[2]/255.0f*0.35f, 0.35f);
+            }
+            Draw_TTFString (rx + CHARZ, y + nfs, (*nm) ? nm : va("Bot %i", i + 1), 1, 1, 1, 1, (float)nfs);
+            y += pitch;
+        }
+        for (i = 0; i < en; i++)
+        {
+            const char *nm = Cvar_VariableString (va("bot_name%d", fr + i));
+            Draw_FillRGBA (rx, y, rw, band, 0.13f*0.35f, 0.36f*0.35f, 0.85f*0.35f, 0.35f);
+            Draw_TTFString (rx + CHARZ, y + nfs, (*nm) ? nm : va("Bot %i", fr + i + 1), 1, 1, 1, 1, (float)nfs);
+            y += pitch;
+        }
+
+        hx = rx + (rw - (M_HintIconW (b_lt) + M_HintIconW (b_rt)) - (int)(Draw_TTFWidth ("Remove", 14.0f) + Draw_TTFWidth ("Add", 14.0f)) - 4*CHARZ) / 2;
+        hy = y + 2;
+        M_HintIcon(&hx, hy, b_lt); M_HintWord(&hx, hy, "Remove");
+        M_HintIcon(&hx, hy, b_rt); M_HintWord(&hx, hy, "Add");
+    }
+
+#ifndef VITA
+    /* r81: PC key legend -- what the Vita pad buttons map to here */
+    {
+        float ls = 12.0f;
+        int lrx = (int)(320 * MENU_SCALE) - 8;
+        const char *leg1 = "Enter:Cross  Esc:Circle  g:Square";
+        const char *leg2 = "m:Triangle  [:L1  ]:R1";
+        Draw_TTFString (lrx - (int)Draw_TTFWidth (leg1, ls), (int)(200 * MENU_SCALE) - 22, leg1, 0.65, 0.70, 0.80, 0.85f, ls);
+        Draw_TTFString (lrx - (int)Draw_TTFWidth (leg2, ls), (int)(200 * MENU_SCALE) - 8, leg2, 0.65, 0.70, 0.80, 0.85f, ls);
+    }
+#endif
 }
 
 void M_Matchmaking_Submenu_Key (int dir)
@@ -3168,6 +3411,7 @@ void M_Matchmaking_Submenu_Key (int dir)
                 opts.gametype = 0;
             if (opts.gametype < 0 && dir < 0)
                 opts.gametype = 2;
+            opts.fraglimit = (opts.gametype == 1) ? 20 : 10;   /* r77: per-mode score defaults */
             break;
         case 2: //score limit
             opts.fraglimit += dir*5;
@@ -3205,9 +3449,30 @@ void M_Matchmaking_Key (int key)
 #endif
         case K_ESCAPE:
         case K_BBUTTON:
-        case K_YBUTTON:
             M_Menu_Main_f ();
             break;
+
+        /* r77 (user): square opens game options, triangle opens the map
+         * list; those two rows are gone from the main page. */
+        case K_XBUTTON:
+            M_Matchmaking_Gamerules_f ();
+            break;
+        case K_YBUTTON:
+            M_Matchmaking_Map_f ();
+            break;
+#ifndef VITA
+        /* r78: Mac/PC has no square/triangle keys -- g/m are unbound in
+         * default.cfg + config.cfg so they reach M_Keydown raw and open
+         * the same two submenus the Vita buttons do. */
+        case 'g':
+        case 'G':
+            M_Matchmaking_Gamerules_f ();
+            break;
+        case 'm':
+        case 'M':
+            M_Matchmaking_Map_f ();
+            break;
+#endif
 
         case K_UPARROW:
             S_LocalSound ("misc/menuoption.wav");
@@ -3224,14 +3489,14 @@ void M_Matchmaking_Key (int key)
             break;
 
         case K_LEFTARROW:
-            if (matchmaking_cursor >= 5 || matchmaking_cursor == 0)
+            if (matchmaking_cursor != 1)
                 break;
             S_LocalSound ("misc/menuoption.wav");
             M_Matchmaking_Submenu_Key (-1);
             break;
 
         case K_RIGHTARROW:
-            if (matchmaking_cursor >= 5 || matchmaking_cursor == 0)
+            if (matchmaking_cursor != 1)
                 break;
             S_LocalSound ("misc/menuoption.wav");
             M_Matchmaking_Submenu_Key (1);
@@ -3244,7 +3509,7 @@ void M_Matchmaking_Key (int key)
             /* Mac/PC port: Enter selects, like the Vita X button. */
 #endif
             S_LocalSound ("misc/menuenter.wav");
-            if (matchmaking_cursor == 6)
+            if (matchmaking_cursor == 2)
             {
 //                S_LocalSound ("misc/menuback.wav"); // why was this here?
 
@@ -3281,9 +3546,18 @@ void M_Matchmaking_Key (int key)
                 }
                 Cbuf_AddText ( va ("deathmatch %u\n", (int)opts.deathmatch) );
                 Cbuf_AddText ( va ("teamplay %u\n", (int)opts.teamplay) );
-                Cbuf_AddText ( va ("fraglimit %u\n", (int)opts.fraglimit) );
+                /* r67: in Team Slayer the menu "score limit" drives the TEAM
+                 * score; an individual fraglimit would race it and end the
+                 * match on one player's streak. */
+                if (opts.gametype == 1)
+                    Cbuf_AddText ( va ("fraglimit %u\n", 0) );
+                else
+                    Cbuf_AddText ( va ("fraglimit %u\n", (int)opts.fraglimit) );
                 Cbuf_AddText ( va ("timelimit %u\n", (int)opts.timelimit) );
-                Cbuf_AddText ( va ("teamlimit %u\n", (int)opts.teamlimit) );
+                if (opts.gametype == 1)
+                    Cbuf_AddText ( va ("teamlimit %u\n", (int)opts.fraglimit) );
+                else
+                    Cbuf_AddText ( va ("teamlimit %u\n", (int)opts.teamlimit) );
                 // custom game options
                 Cbuf_AddText(va ("infinite_ammo %u\n", (int)opts.infinite_ammo));
                 Cbuf_AddText(va ("map_weapons_disable %u\n", (int)opts.map_weapons_disable));
@@ -3299,17 +3573,35 @@ void M_Matchmaking_Key (int key)
                 // map
                 Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
                 return;
-            } else if (matchmaking_cursor == 5) {
-                M_Matchmaking_Map_f();
             } else if (matchmaking_cursor == 0) {
                 m_multiplayer_cursor = 1;
                 M_Menu_LanConfig_f();
-            } else if (matchmaking_cursor == 4) {
-                M_Matchmaking_Gamerules_f();
             }
 
             // todo: safe to remove the below line?
             M_Matchmaking_Submenu_Key (1);
+            break;
+
+        /* P2a lobby roster: shoulders (Vita) / brackets (Mac) adjust the
+         * bot count in the matchmaking menu only; the config.cfg binds
+         * keep them no-ops elsewhere and stop "is unbound" spam. Brackets
+         * arrive raw here because bound keys do not execute in menus. */
+        case K_LSHOULDER:
+        case '[':
+            if (lobby_bots && lobby_bots->value > 0)
+            {
+                Cvar_SetValue ("lobby_bots", lobby_bots->value - 1);
+                S_LocalSound ("misc/menuoption.wav");
+            }
+            break;
+
+        case K_RSHOULDER:
+        case ']':
+            if (lobby_bots && lobby_bots->value < 7)
+            {
+                Cvar_SetValue ("lobby_bots", lobby_bots->value + 1);
+                S_LocalSound ("misc/menuoption.wav");
+            }
             break;
     }
 }
@@ -3335,31 +3627,59 @@ int		firefight_cursor;
 
 void M_Firefight_Draw (void)
 {
-    qpic_t	*p, *gt, *bg, *bar, *skillp, *mapfire, *mapconstruction, *maprandom;
-    int		x, chg;
-
     Draw_MenuBg();
 
-    struct MenuCoords mc = Draw_WindowGridLeft("Firefight",11,MVS,2,0.2, 0.8, firefight_cursor, 1.0, 3.0);
-
-    qpic_t *randmap = Draw_CachePic("gfx/maps/random.lmp");
-    int fg_feight = MM_HEIGHT_PIX - (MM_HEADER_HEIGHT + MM_FOOTER_HEIGHT +randmap->height);
-
-    // footer text hint
-    switch (firefight_cursor) {
-        case 0:
-            M_Draw_Hint(SCROLL, mc);
-            break;
-        default:
-            M_Draw_Hint(SELECT, mc);
-    }
+    /* r82: Firefight restyled to match the r79/r80 matchmaking window --
+     * edge-to-edge, rows top-hugged, map + hint bars bottom-stacked. */
+    draw_grid_inset = 1;
+    struct MenuCoords mc = Draw_WindowGridLeft("Firefight",14,MVS*0.8f,2,0.2, 0.8, firefight_cursor, 1.0, 3.0);
+    draw_grid_inset = 0;
 
     M_Print (mc.grid[0][0].xp, mc.grid[0][0].yp, "MAP");
     M_PrintWhite (mc.grid[1][0].xp - mc.colw/2, mc.grid[1][0].yp, levels[episodes_ff[startepisode].firstLevel + startlevel].description);
-    M_PrintWhite (mc.grid[0][1].xp, mc.grid[0][1].yp, "START GAME");
-    // draw image
-    qpic_t *mappic = Draw_CachePic(va("gfx/maps/%s.lmp", levels[episodes_ff[startepisode].firstLevel + startlevel].thumbnail));
-    M_DrawTransPic(((mc.colw*mc.cols)-mappic->width)/2, mc.grid[0][mc.rows].y-mappic->height, mappic);
+    M_PrintWhite (mc.grid[0][1].xp, mc.grid[0][1].yp, "START FIREFIGHT");
+
+    {
+        double bar_x = mc.grid[0][0].x;
+        double bar_w = (mc.grid[mc.cols-1][0].x + mc.colw) - bar_x + 2;
+        int pic_bottom = (int)mc.grid[1][mc.rows].y;
+        int pic_fit = (int)((bar_w - 2) / 1.7);
+        int room = pic_bottom - (int)mc.grid[0][3].y - (int)(2*mc.rowh);
+        int pic_yfit, topbar;
+        qpic_t *mappic;
+        const char *mapdesc;
+        float mapname_size = 16.0f;
+        int mapname_x;
+        double mapname_avail;
+
+        if (pic_fit > room)
+            pic_fit = room;
+        pic_yfit = pic_bottom - pic_fit;
+        topbar = pic_yfit - (int)mc.rowh;
+
+        Draw_FillRGBA ((int)bar_x, topbar, (int)bar_w, (int)mc.rowh, 20/255.0, 25/255.0, 44/255.0, 0.85);
+        mappic = Draw_TryCachePic (va("gfx/maps/%s.png", levels[episodes_ff[startepisode].firstLevel + startlevel].thumbnail), TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);   /* r83: PNG mapshots take precedence over legacy lmp/tga */
+        if (!mappic)
+            mappic = Draw_CachePic (va("gfx/maps/%s.lmp", levels[episodes_ff[startepisode].firstLevel + startlevel].thumbnail));
+        Draw_StretchPic ((int)(bar_x + 1), pic_yfit, mappic, (int)(bar_w - 2), pic_fit);
+
+        /* bottom hint bar (window footer): Back + Select/Change */
+        if (firefight_cursor == 0)
+            M_Draw_HintY (MATCH_SCROLL_TOP, mc, (int)mc.grid[0][mc.rows].yp);
+        else
+            M_Draw_HintY (MATCH_MAIN_TOP, mc, (int)mc.grid[0][mc.rows].yp);
+
+        /* top hint bar: no extra actions in Firefight -- skip MATCH_BOTTOM */
+
+        /* map name overlapping the pic, auto-shrink (matchmaking style) */
+        mapdesc = levels[episodes_ff[startepisode].firstLevel + startlevel].description;
+        mapname_x = (int)(bar_x + 1) + CHARZ;
+        mapname_avail = (mc.grid[mc.cols-1][0].x + mc.colw) - mapname_x - 8;
+        while (mapname_size > 9.0f && Draw_TTFHeaderWidth (mapdesc, mapname_size) > mapname_avail)
+            mapname_size -= 0.5f;
+        Draw_TTFStringHeader (mapname_x + 1, pic_yfit + pic_fit - 8, mapdesc, 0, 0, 0, 0.6f, mapname_size);
+        Draw_TTFStringHeader (mapname_x, pic_yfit + pic_fit - 9, mapdesc, 0.85, 0.9, 1.0, 0.9f, mapname_size);
+    }
 }
 
 void M_Firefight_Change (int dir)
@@ -3869,6 +4189,12 @@ static void M_MenuRestart_f (void)
 void M_Init (void)
 {
 	Cmd_AddCommand ("togglemenu", M_ToggleMenu_f);
+
+	// P2a lobby roster: bot count cvar + menu commands (see M_Matchmaking_Draw)
+	lobby_bots = Cvar_Create ("lobby_bots", "3");
+	Cmd_AddCommand ("lobby_addbot", M_Lobby_AddBot_f);
+	Cmd_AddCommand ("lobby_delbot", M_Lobby_DelBot_f);
+	Cmd_AddCommand ("lobby_shufflenames", M_Lobby_ShuffleNames_f);
 	Cmd_AddCommand ("menu_cmd", MQC_Command_f);
 	Cmd_AddCommand ("menu_restart", M_MenuRestart_f);	//qss still loads progs on hunk, so we can't do this safely.
 
