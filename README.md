@@ -1,8 +1,5 @@
 # Solitude
 
-> ⚠️ **NOTICE #1:** I am looking for the QC quake code source files to [Halo Revamped](https://www.youtube.com/watch?v=B_GB9LLBATQ) (r17?) for N3DS! Without this, I must use decompilation of lost code to preserve the firefight features.
-
-> ⚠️ **NOTICE #2:** This port is starting from scratch. See the original release [here](https://github.com/mattthw/SolitudeVita). The old version was built ontop of vitaQuake. While this new version is built ontop of Quakespasm-spiked.
 ## Introduction
 QuakespasmSolitude is a port of Solitude for the vita, built ontop of Quakespasm-spiked (a Quake engine ported to Vita by Rinnegatamante). Solitude was originally made for the PSP and released in 2010 by FlamingIce. The forums went down and the game & assets became shareware. Since then several projects started with a goal of releasing on new platforms or improving the base game. This port is still a work in progress.
 
