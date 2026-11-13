@@ -465,7 +465,14 @@ static void HUD_ScanTargets (void)
             float dy = hud_plate[k].sy - cy;   /* r64 fix: was fy (last target's y), not center */
             float r  = 24.0f * hud_plate[k].factor + (float)(14 * HUD_SCALE());
             float d2 = dx * dx + dy * dy;
-            if (d2 < r * r && hud_plate[k].dist < best)
+            /* r101: prefer the traced target. If cl_ch_red fired, the player
+             * we aim at has already been traced server-side; pick that plate
+             * (nearest screen-center one of them if several match) so an
+             * enemy behind a teammate still reads red. Teammate-closer
+             * override below only applies to the plain aim path (red 0). */
+            qboolean traced = (cl_ch_red.value != 0);
+            if (d2 < r * r && (!hud_plate[k].teammate || !traced)
+                && hud_plate[k].dist < best)
             {
                 best = hud_plate[k].dist;
                 hud_plate_reticle = k;
@@ -848,18 +855,16 @@ void drawHealth(void)
          * the full bar height — r14 kept. */
         if (depleted)
         {
-            /* r59c: depleted keeps the BLUE identity (user 2026-11-12:
-             * "it should always be blue, it should just get brighter and
-             * flash more when damaged" -- the red outline read as a
-             * different HUD). Danger = amplitude: same hue as the healthy
-             * outline, gain 1.68..2.2 on a 3Hz flash, alpha 0.45..0.75. */
+            /* r101b: depleted flashes RED again (user 2026-11-13: "why does
+             * the healthbar doesnt flash red at < 30% ... it flashed but its
+             * blue now" -- reversing the r59c blue-identity request).
+             * Same 3Hz pulse mechanics, classic low-shield red palette. */
             float pk = (tflash > 0.5f) ? 1.0f : 0.35f;
-            float k = 1.4f + 0.8f * pk;
             Draw_TrapezoidGrad (health_blue_attr.x, health_blue_attr.y,
                                 health_blue_attr.width, health_blue_attr.height, slant,
-                                0.245f*k, 0.385f*k, 0.546f*k,
-                                0.084f*k, 0.196f*k, 0.336f*k,
-                                0.45f + 0.30f*pk,
+                                1.00f, 0.30f + 0.20f*pk, 0.26f + 0.10f*pk,
+                                0.62f, 0.08f, 0.10f,
+                                0.28f + 0.30f*pk,
                                 health_blue_attr.y, health_blue_attr.height);
         }
         else
