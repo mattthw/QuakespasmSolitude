@@ -771,7 +771,10 @@ void Draw_OffCenterWindow(int x, int y, float width, float height, char *str, fl
  * clear it around their draw. */
 int draw_grid_anchor = 0;
 int draw_grid_anchor_x = -1;	/* >=0 pins x in virtual units when anchored */
-int draw_grid_inset = 0;	/* r77: when 1, a Left-pinned (x==0) grid gets x = menu_width/5 */
+int draw_grid_inset = 0;
+/* r92: grid window opacity switch -- map-select popup asked for
+ * opaque (user); 1 = current translucent look everywhere else. */
+int draw_grid_translucent = 1;	/* r77: when 1, a Left-pinned (x==0) grid gets x = menu_width/5 */
 
 struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, float detail_alpha, int colr_bg, int colr_h, int cursor, int cursor_cols, float incl_footer, float incl_header, float off) {
     // fundamentals
@@ -841,13 +844,13 @@ struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, in
     mc.colw = colpix;
     mc.rowh = rowpix;
     // draw background
-    Draw_FillGradientEx (x, y+header_height, menu_width, menu_height-header_height-footer_height, 23/255.0f, 29/255.0f, 60/255.0f, 0.75f, 0.28f);   /* P2a round 4b: every grid menu same #171d3c, edge gradient deepened 0.15 -> 0.28 (matchmaking wanted more, user 2026-11-12; kept uniform because rule/map overlays stack on this panel) */
+    Draw_FillGradientEx (x, y+header_height, menu_width, menu_height-header_height-footer_height, 23/255.0f, 29/255.0f, 60/255.0f, draw_grid_translucent ? 0.75f : 1.0f, 0.28f);   /* P2a round 4b: every grid menu same #171d3c, edge gradient deepened 0.15 -> 0.28 (matchmaking wanted more, user 2026-11-12; kept uniform because rule/map overlays stack on this panel) */
     // draw cursor
     if (cursor >= 0) {
         Draw_Cursor(mc.grid[0][0].x, mc.grid[0][cursor].y, colpix*cursor_cols, rowpix, true);
     }
     // draw header
-    Draw_FillRGBA (x, y, menu_width, header_height, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);   /* P2a: header darker than body, consistent */
+    Draw_FillRGBA (x, y, menu_width, header_height, 20/255.0f, 25/255.0f, 44/255.0f, draw_grid_translucent ? 0.85f : 1.0f);   /* P2a: header darker than body, consistent */
     // print title — P2a round 4: header font (Archivo ExtraBold). Body menu
     // text is 14px TTF where old conchars drew at scale 1.0; same ratio here
     // (size and baseline drop both scale with title_scale, and the funnel
@@ -855,11 +858,11 @@ struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, in
     Draw_TTFStringHeader (x + x_padding, y + y_padding_header + (int)(8*title_scale), title, 1,1,1,0.8, 14.0f * (float)title_scale);
     // draw footer
     if (footer)
-        Draw_FillRGBA (x, mc.grid[0][mc.rows].y, menu_width, footer_height+1, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
+        Draw_FillRGBA (x, mc.grid[0][mc.rows].y, menu_width, footer_height+1, 20/255.0f, 25/255.0f, 44/255.0f, draw_grid_translucent ? 0.85f : 1.0f);
     // draw borders
-    Draw_FillRGBA (x, y, 1, menu_height, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
-    Draw_FillRGBA (x+menu_width, y, 1, menu_height, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
-    Draw_FillRGBA (x, y+menu_height, menu_width, 1, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
+    Draw_FillRGBA (x, y, 1, menu_height, 20/255.0f, 25/255.0f, 44/255.0f, draw_grid_translucent ? 0.85f : 1.0f);
+    Draw_FillRGBA (x+menu_width, y, 1, menu_height, 20/255.0f, 25/255.0f, 44/255.0f, draw_grid_translucent ? 0.85f : 1.0f);
+    Draw_FillRGBA (x, y+menu_height, menu_width, 1, 20/255.0f, 25/255.0f, 44/255.0f, draw_grid_translucent ? 0.85f : 1.0f);
     return mc;
 }
 

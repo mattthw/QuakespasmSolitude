@@ -381,7 +381,7 @@ void M_Main_Draw (void)
     M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(3), "Spartan");
     M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(4), "Quit");
 
-    M_DrawScrollString(0,0,320*MENU_SCALE, "Welcome to Halo Solitude! This port is a work in progress.");
+    /* r94: welcome marquee disabled per user */
 
     if (main_multi)
         M_Main_Multi_Draw ();
@@ -2358,43 +2358,43 @@ typedef struct
     const char  *thumbnail;
     float targaThumbnail;
 	const char	*description;
-    const char  *mapBio[4];
+    const char  *mapBio;   /* r92: single blurb, word-wrapped at draw time */
     const char  *author;
 } level_t;
 
 level_t		levels[] =
 {
-        // Refined map pack [4]
-        {"narrows", "random", 0, "Narrows (wip)", {"","","",""}, "Mattthw"},
-        {"highground", "random", 0, "High Ground", {"","","",""}, "Mattthw"},
-        {"citadel", "citadel", 0, "Citadel",{"A Forerunner","structure built","in Epitaph.",""}, "Matt"}, //0
-        {"babybloodgulch", "babybloodgulch", 1, "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
-        {"pit3", "pit2", 1, "Pit", {"Training ground","for UNSC forces.","Located somewhere","in Africa."}, "Jukki, Matt"},
-        {"narsp", "narsp", 1, "Narrows", {"One of the Ark's","cooling systems.","Enables life","on the Construct"}, "Scifiknux"},
-        {"skyringbl2", "skyringbl2", 1, "Heavenly Suspense", {"One of the many","Sky ring facilities.","Damaged by","recent conflict"}, "Arkage"},
-        {"wizard", "wizard", 1, "Wizard", {"Round and Round","and Round.","",""}, "IlDucci"},
-        {"lockdown", "lockdown", 1, "Lockdown", {"","","", ""}, "Team Xlink, Matt"},
-        {"lane", "lane", 1, "Lane", {"Outdoor human facility","used for USMC","training.",""}, "Sam"},
-        {"cestra", "cestra", 1, "Cestra", {"Experimental lab","used by USMC","researchers.",""}, "Sam"},
+        // Refined map pack
+        {"highground", "highground", 0, "High Ground", "A vertical fight across high ground above the valley. Control the lift and the overlook and the low ground never comes for you.", "mattthw"},
+        {"citadel", "citadel", 0, "Citadel", "A vast Forerunner monument stacked floor upon floor. Long sightlines reward patience while the stairwells punish it.", "mattthw"},
+        {"babybloodgulch", "babybloodgulch", 1, "Blood Gutch", "Two bases split by a wide open trench. Cross it fast, hug the walls, and never walk the ridge in the open.", "Unknown"},
+        {"pit3", "pit3", 1, "Pit", "A deep UNSC training hole ringed by gantries. Drop in with a shotgun and climb out with a story.", "Jukki, mattthw"},
+        {"narsp", "narsp", 1, "Narrows", "The Ark's cooling channels, still running cold. Tight catwalks over open water make every duel a knife fight.", "Scifiknux"},
+        {"skyringbl2", "skyringbl2", 1, "Heavenly Suspense", "A Halo ring facility under repair, open sky on every side. Snipers own the scaffolds; everyone else hides.", "Arkage"},
+        {"wizard", "wizard", 1, "Wizard", "A small ring arena that never stops turning. Round and round and round - the middle belongs to no one.", "IlDucci"},
+        {"lockdown", "lockdown", 1, "Lockdown", "A prison block on full lockdown. Corridors funnel every push into one bad doorway at a time.", "Team Xlink, mattthw"},
+        {"cestra", "cestra", 1, "Cestra", "A buried research lab the brass never expected anyone to fight through. Every hall tests something new.", "Sam"},
+        {"lane", "lane", 1, "Lane", "An outdoor human training lane: one long corridor of cover with flanking shelves above it.", "Sam"},
         // Classic map pack [6]
-        {"Longest", "Longest", 0, "Longest", {"","","",""}, "Unknown"},
-        {"chill", "random", 0, "Chill Out", {"","","",""}, "Unknown"},
-        {"pri2", "random", 0, "Prisoner 2", {"","","",""}, "Unknown"},
-        {"base", "base", 0, "Minibase", {"","","",""}, "Unknown"},
-        {"plaza", "plaza", 0, "Plaza", {"","","",""}, "Unknown"},
-        {"spider", "spider", 0, "Spiderweb", {"","","",""}, "Unknown"},
+        {"Longest", "Longest", 0, "Longest", "The longest lane in the rotation. Mid-range duels down an endless aisle, with just enough cover to feint.", "Unknown"},
+        {"chill", "chill", 0, "Chill Out", "A frozen outpost of short halls and shorter tempers. Indoor fights end before you find your breath.", "Unknown"},
+        {"pri2", "pri2", 0, "Prisoner 2", "A compact prison complex. Three levels of balconies turn every escort into an ambush.", "Unknown"},
+        {"base", "base", 0, "Minibase", "A small two-flag outpost built for duels. One ridge, two bases, and nowhere to hide.", "Unknown"},
+        {"plaza", "plaza", 0, "Plaza", "An open civic plaza ringed by shops. The middle is a graveyard; own the rooftops instead.", "Unknown"},
+        {"spider", "spider", 0, "Spiderweb", "Towers strung together on narrow webbing. Fall off a bridge and the match is already lost.", "Unknown"},
         // Bonus map pack
-        {"pit", "random", 0, "Pit (original)", {"","","",""}, "Jukki"},
-        {"pit2", "pit2", 1, "Pit (v2)", {"","","",""}, "Jukki, Matt"},
-        {"lock", "lockout", 0, "Lockout2", {"","","",""}, "Unknown"},
-        {"+bloodgulch2", "bgulch", 0, "Blood Gutch", {"You don't know","Blood Gulch? Hey!","This guy doesn't","know Blood Gulch!"}, "Unknown"},
+        {"pit", "random", 0, "Pit (original)", "The first cut of the Pit: three towers, one hole, and no forgiveness for bad jumps.", "Jukki"},
+        {"pit2", "pit2", 1, "Pit (v2)", "The Pit rebuilt - more gantries, more corners, and more reasons to watch your footing.", "Jukki, mattthw"},
+        {"lock", "lockout", 0, "Lockout2", "A tight refinery platform where the fight always comes back to the ramp.", "Unknown"},
+        {"+bloodgulch2", "bgulch", 0, "Blood Gutch", "The full-width Gulch. Same trench, bigger mistake if you stand in it too long.", "Unknown"},
+        {"narrows", "narrows", 0, "Narrows Big", "The Ark channel stretched out big. The water is still cold and the catwalks are still narrow.", "mattthw"},
+        // Firefight map pack
+        {"construction", "construction", 0, "Construction", "An unfinished site of scaffolds and drop-shafts. High ground is free if you survive the climb.", "Unknown"},
+        {"fire", "fire", 0, "Fire!", "A refinery gone up in smoke. Short sightlines, hot decks, and no second chances.", "Unknown"},
 
         //{"lockout", "lockout", "Lockout"},
-
-        // Firefight map pack
-        {"construction", "construction", 0, "Construction", {"","","",""}, "Unknown"},
-        {"fire", "fire", 0, "Fire!", {"","","",""}, "Unknown"}
 };
+
 
 typedef struct
 {
@@ -2405,9 +2405,9 @@ typedef struct
 int NUM_EPISODES = 3;
 episode_t	episodes[] =
         {
-                {"Remastered Maps", 0, 11},
-                {"Classic Maps", 11, 6},
-                {"Bonus Maps", 17, 4}
+                {"New & Remastered", 0, 10},
+                {"Classic Maps", 10, 6},
+                {"Bonus Maps", 16, 5}
         };
 int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
@@ -2846,6 +2846,65 @@ void M_Matchmaking_Map_f (void) {
     IN_UpdateGrabs();
 }
 
+/* r92: greedy word-wrap for map blurbs -- splits on spaces, never mid-word
+ * (user request). Prints through the M_PrintWhite funnel at 14px with a
+ * CHARZ*1.5 baseline step, capped at maxlines. */
+static void M_WrapText (const char *text, int x, int y, int maxpx, int maxlines)
+{
+        char line[128];
+        char word[64];
+        char probe[160];
+        const char *p = text;
+        int lines = 0;
+
+        while (*p && lines < maxlines)
+        {
+                int li = 0;
+                line[0] = 0;
+                while (*p == ' ')
+                        p++;
+                while (*p && lines < maxlines)
+                {
+                        int wi = 0, k;
+                        while (*p && *p != ' ')
+                        {
+                                if (wi < 62)
+                                        word[wi++] = *p;
+                                p++;
+                        }
+                        word[wi] = 0;
+                        if (li + (li ? 1 : 0) + wi > 126)
+                                break;
+                        q_strlcpy (probe, line, sizeof(probe));
+                        if (li)
+                                q_strlcat (probe, " ", sizeof(probe));
+                        q_strlcat (probe, word, sizeof(probe));
+                        if (Draw_TTFWidth (probe, 14.0f) > (float)maxpx && li)
+                        {
+                                M_PrintWhite (x, y, line);
+                                y += CHARZ * 3 / 2;
+                                lines++;
+                                li = 0;
+                                line[0] = 0;
+                                if (lines >= maxlines)
+                                        break;
+                        }
+                        if (li)
+                                line[li++] = ' ';
+                        for (k = 0; k < wi; k++)
+                                line[li++] = word[k];
+                        line[li] = 0;
+                        while (*p == ' ')
+                                p++;
+                }
+                if (li && lines < maxlines)
+                {
+                        M_PrintWhite (x, y, line);
+                        lines++;
+                }
+        }
+}
+
 void M_Matchmaking_Map_Draw (void) {
 
     // set to matchmaking for recursive draw
@@ -2869,9 +2928,23 @@ void M_Matchmaking_Map_Draw (void) {
     Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 0.7f);
     // title
     static char title[128];
-    q_snprintf(title, sizeof(title), "%-18.18s [%-15.15s]\n", "Map Selection", episodes[startepisode].description);
+    q_snprintf(title, sizeof(title), "Map Selection\n");   /* r91: pack name drawn separately in blue */
     // window
     struct MenuCoords coords = Draw_WindowGrid(title, vertical_mlist_affordance, MVS_P, 2, 0.35, 1.0, mlist_cursor-mlist_first, true);
+    /* r92: pack name inline after the title -- the title itself is conchars
+     * at scale 1.3 (13 chars x 8 x 1.3 ~= 135px), not TTF; brackets dropped
+     * per user. */
+    {
+        int pn_x = (int)coords.grid[0][0].x + 135 + 16;
+        int pn_y = (int)coords.grid[0][0].y - 7;
+        draw_grid_translucent = 0;   /* r92: opaque popup */
+        Draw_TTFStringHeader (pn_x, pn_y, episodes[startepisode].description, 0.45f, 0.75f, 1.00f, 0.95f, 14.0f);
+    }
+
+    /* r92: vertical divider between the list column and the info column */
+    Draw_FillRGBA ((int)coords.grid[1][0].x - 2, (int)coords.grid[0][0].y, 2,
+                   (int)(coords.grid[0][coords.rows].yp + coords.rowh - coords.grid[0][0].y),
+                   20/255.0f, 25/255.0f, 44/255.0f, 1.0f);
     //footer
     switch (mlist_cursor) {
         default:
@@ -2888,24 +2961,29 @@ void M_Matchmaking_Map_Draw (void) {
     } else {
         strcpy(format, "lmp");
     }
-    qpic_t *mappic = Draw_TryCachePic (va("gfx/maps/%s.png", levels[episodes[startepisode].firstLevel + (mlist_cursor)].thumbnail), TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);   /* r83: PNG mapshots take precedence over legacy lmp/tga */
+    qpic_t *mappic = NULL;   /* r90: PNG mapshot if it exists, else legacy lmp/tga (Draw_TryCachePic never returns NULL -- gate on COM_FileExists) */
+    {
+        const char *mspath = va("gfx/maps/%s.png", levels[episodes[startepisode].firstLevel + (mlist_cursor)].thumbnail);
+        if (COM_FileExists (mspath, NULL))
+            mappic = Draw_TryCachePic (mspath, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+    }
     if (!mappic)
         mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[startepisode].firstLevel + (mlist_cursor)].thumbnail, format));
     Draw_StretchPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic, coords.colw, coords.rowh*5);
 
-    // map bio
-    int map_y = coords.grid[1][5].yp;
-    M_Print(coords.grid[1][5].x, coords.grid[1][5].yp, "Map Description:");
-    map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio[0]);
-    map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][5].xp, map_y,  levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio[1]);
-    map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][5].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio[2]);
-    map_y += CHARZ * 1.5;
-    M_PrintWhite (coords.grid[1][5].xp, map_y, levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio[3]);
-    M_Print(coords.grid[1][8].x, coords.grid[1][8].yp, "Author:");
-    M_PrintWhite (coords.grid[1][9].xp, coords.grid[1][8].yp + CHARZ*1.5, levels[episodes[startepisode].firstLevel + (mlist_cursor)].author);
+    // map bio (r92: single string, wrapped on words to the column width)
+    {
+        int bio_x = coords.grid[1][5].xp + CHARZ;   /* r93: padding off the column divider */
+        int bio_maxpx = (int)coords.grid[coords.cols - 1][0].x + (int)coords.colw - bio_x - 16;   /* r93: wrap to the window edge, not the screen */
+        const char *bio = levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio;
+        M_Print(coords.grid[1][5].x + CHARZ, coords.grid[1][5].yp, "Map Description:");
+        if (bio && bio[0])
+            M_WrapText (bio, bio_x, coords.grid[1][5].yp + CHARZ * 3 / 2, bio_maxpx, 4);
+        else
+            M_PrintWhite (bio_x, coords.grid[1][5].yp + CHARZ * 3 / 2, "No description available.");
+    }
+    M_Print(coords.grid[1][8].x + CHARZ, coords.grid[1][8].yp, "Author:");   /* r93: column padding */
+    M_PrintWhite (coords.grid[1][9].xp + CHARZ, coords.grid[1][8].yp + CHARZ*1.5, levels[episodes[startepisode].firstLevel + (mlist_cursor)].author);
 }
 
 
@@ -3065,6 +3143,7 @@ void M_Matchmaking_f (void)
     key_dest = key_menu;
     m_state = m_gameoptions;
     m_entersound = true;
+    draw_grid_translucent = 1;   /* r92: overlay windows opt into opaque */
     Cbuf_AddText ("exec bots.cfg\nlobby_shufflenames\n");   // P2a lobby roster names (r64: + shuffle)
     if (maxplayers == 0)
         maxplayers = svs.maxclients;
@@ -3217,7 +3296,12 @@ void M_Matchmaking_Draw (void)
     } else {
         strcpy(format, "lmp");
     }
-    qpic_t *mappic = Draw_TryCachePic (va("gfx/maps/%s.png", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail), TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);   /* r83: PNG mapshots take precedence over legacy lmp/tga */
+    qpic_t *mappic = NULL;   /* r90: PNG mapshot if it exists, else legacy lmp (see map select) */
+    {
+        const char *mspath = va("gfx/maps/%s.png", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail);
+        if (COM_FileExists (mspath, NULL))
+            mappic = Draw_TryCachePic (mspath, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+    }
     if (!mappic)
         mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail, format));
     int fg_height = MM_HEIGHT_PIX - (MM_HEADER_HEIGHT + MM_FOOTER_HEIGHT +mappic->height);
@@ -3306,8 +3390,7 @@ void M_Matchmaking_Draw (void)
             mapname_size -= 0.5f;
         /* r79: overlaps the picture now that the pic touches the bars --
          * shadow pass keeps it legible on bright thumbnails. */
-        Draw_TTFStringHeader (mapname_x + 1, pic_yfit + pic_fit - 8, mapdesc, 0, 0, 0, 0.6f, mapname_size);
-        Draw_TTFStringHeader (mapname_x, pic_yfit + pic_fit - 9, mapdesc, 0.85, 0.9, 1.0, 0.9f, mapname_size);
+        Draw_TTFStringHeader (mapname_x, pic_yfit + pic_fit - 9, mapdesc, 1, 1, 1, 1, mapname_size);   /* r90: single solid draw -- the +1px black ghost read as a duplicate name (user) */
     }
     //========================= 6
     /* P2a round 4b: was a raw Draw_ColoredStringScale conchars run (the old
@@ -3412,6 +3495,7 @@ void M_Matchmaking_Submenu_Key (int dir)
             if (opts.gametype < 0 && dir < 0)
                 opts.gametype = 2;
             opts.fraglimit = (opts.gametype == 1) ? 20 : 10;   /* r77: per-mode score defaults */
+            Cvar_SetValue ("lobby_bots", opts.gametype == 1 ? 5 : 3);   /* r94: TDM lobby defaults to 6 total, slayer/swat to 4 */
             break;
         case 2: //score limit
             opts.fraglimit += dir*5;
@@ -3658,7 +3742,12 @@ void M_Firefight_Draw (void)
         topbar = pic_yfit - (int)mc.rowh;
 
         Draw_FillRGBA ((int)bar_x, topbar, (int)bar_w, (int)mc.rowh, 20/255.0, 25/255.0, 44/255.0, 0.85);
-        mappic = Draw_TryCachePic (va("gfx/maps/%s.png", levels[episodes_ff[startepisode].firstLevel + startlevel].thumbnail), TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);   /* r83: PNG mapshots take precedence over legacy lmp/tga */
+        {
+            const char *mspath = va("gfx/maps/%s.png", levels[episodes_ff[startepisode].firstLevel + startlevel].thumbnail);
+            mappic = NULL;
+            if (COM_FileExists (mspath, NULL))
+                mappic = Draw_TryCachePic (mspath, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+        }
         if (!mappic)
             mappic = Draw_CachePic (va("gfx/maps/%s.lmp", levels[episodes_ff[startepisode].firstLevel + startlevel].thumbnail));
         Draw_StretchPic ((int)(bar_x + 1), pic_yfit, mappic, (int)(bar_w - 2), pic_fit);
@@ -3677,8 +3766,7 @@ void M_Firefight_Draw (void)
         mapname_avail = (mc.grid[mc.cols-1][0].x + mc.colw) - mapname_x - 8;
         while (mapname_size > 9.0f && Draw_TTFHeaderWidth (mapdesc, mapname_size) > mapname_avail)
             mapname_size -= 0.5f;
-        Draw_TTFStringHeader (mapname_x + 1, pic_yfit + pic_fit - 8, mapdesc, 0, 0, 0, 0.6f, mapname_size);
-        Draw_TTFStringHeader (mapname_x, pic_yfit + pic_fit - 9, mapdesc, 0.85, 0.9, 1.0, 0.9f, mapname_size);
+        Draw_TTFStringHeader (mapname_x, pic_yfit + pic_fit - 9, mapdesc, 1, 1, 1, 1, mapname_size);   /* r90: single solid draw -- the +1px black ghost read as a duplicate name (user) */
     }
 }
 
@@ -4191,7 +4279,7 @@ void M_Init (void)
 	Cmd_AddCommand ("togglemenu", M_ToggleMenu_f);
 
 	// P2a lobby roster: bot count cvar + menu commands (see M_Matchmaking_Draw)
-	lobby_bots = Cvar_Create ("lobby_bots", "3");
+	lobby_bots = Cvar_Create ("lobby_bots", "5");   /* r94: TDM default = 6 players total (you + 5) */
 	Cmd_AddCommand ("lobby_addbot", M_Lobby_AddBot_f);
 	Cmd_AddCommand ("lobby_delbot", M_Lobby_DelBot_f);
 	Cmd_AddCommand ("lobby_shufflenames", M_Lobby_ShuffleNames_f);

@@ -68,7 +68,8 @@ struct MenuCoords Draw_WindowGridLeft(char* title, int rows, float rowheight, in
 
 extern int draw_grid_anchor;   /* r75b: 1 = pin grid window bottom-left */
 extern int draw_grid_anchor_x;
-extern int draw_grid_inset;	/* r77: Left-pinned grids get 20%%-width side margin */ /* >=0 pins x (virtual px) when anchored */
+extern int draw_grid_inset;
+extern int draw_grid_translucent;   /* r92: 0 = opaque grid window fills */	/* r77: Left-pinned grids get 20%%-width side margin */ /* >=0 pins x (virtual px) when anchored */
 void Draw_WindowPix(int x, int y, int bgwidth, int bgheight, char *str, float alpha);
 void Draw_CenterWindow(float width, float height, char *str, float alpha);
 void Draw_DebugChar (char num);
