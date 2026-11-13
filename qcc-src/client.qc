@@ -1292,6 +1292,11 @@ void() Voice_announcer = {
 };
 
 void() populate_bots = {
+        if (cvar("hud_mapshot"))      // r89: photo mode boots a botless match (mac.sh mapshot)
+        {
+                remove(self);
+                return;
+        }
         // P2a lobby roster: the matchmaking menu owns the bot count via
         // the lobby_bots cvar (Cvar_Create default 3, menu clamps 0..7;
         // BotConnect also hard-caps at 7). Team games split the bots

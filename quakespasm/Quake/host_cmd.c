@@ -618,7 +618,7 @@ void Host_Noclip_f (void)
 		return;
 	}
 
-	if (pr_global_struct->deathmatch)
+	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot"))	/* r89 photo mode */
 		return;
 
 	//johnfitz -- allow user to explicitly set noclip to on or off
@@ -735,7 +735,7 @@ void Host_Fly_f (void)
 		return;
 	}
 
-	if (pr_global_struct->deathmatch)
+	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot"))	/* r89 photo mode */
 		return;
 
 	//johnfitz -- allow user to explicitly set noclip to on or off
