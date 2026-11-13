@@ -15,7 +15,7 @@ The goals of this project are to:
 | [Solitude](https://www.moddb.com/games/solitude-game)          | ![](https://img.shields.io/badge/-alpha%20released-green)       | 2008       | 2010        | PSP, Windows     | FlamingIce                   | ![](https://img.shields.io/badge/-released**-yellow) | ![](https://img.shields.io/badge/-released**-yellow)   |
 | [Solitude Reborn](https://www.moddb.com/games/solitude-reborn) | ![](https://img.shields.io/badge/-abandoned-red)                | 2014       | 2018        | Vita             | Jukki, Ghost_Fang, Dr_Mabuse | ![](https://img.shields.io/badge/-private-red)       | ![](https://img.shields.io/badge/-closed%20source-red) |
 | [Halo Revamped](https://github.com/CollinScripter/Revamped3DS) | ![](https://img.shields.io/badge/-released-green)               | 2017       | 2017        | 3DS              | TCPixel                      | ![](https://img.shields.io/badge/-lost-yellow)       | ![](https://img.shields.io/badge/-public-green)        |
-| (Quakespasm) Solitude Vita                                     | ![](https://img.shields.io/badge/-in%20development-yellowgreen) | 2020       | 2022        | Vita             | mattthw                      | ![](https://img.shields.io/badge/-none-grey)         | ![](https://img.shields.io/badge/-public-green)        |
+| [(Quakespasm) Solitude Vita](https://github.com/mattthw/QuakespasmSolitude) | ![](https://img.shields.io/badge/-in%20development-yellowgreen) | 2020       | 2026        | Vita             | mattthw                      | ![](https://img.shields.io/badge/-released-green)    | ![](https://img.shields.io/badge/-public-green)        |
 
 **Once released publicly on now dead forums. Now shareware.
 
@@ -72,9 +72,9 @@ this engine anyway? Drop your legally acquired `id1/pak0.pak` into
    > Keep FTP sessions inside data paths: LIST/MKD on `ux0:/app/` or the
    > `ux0:/` root can crash VitaShell's FTP server outright.
 
-### Compile SolitudeVite Quake Code Source
+### Compile Solitude Vita Quake Code Source
 1. Install [FTEQCC](https://www.fteqcc.org/) ([mac](https://github.com/BryanHaley/fteqcc-mac)) to compile or decompile QuakeC code.
-2. Navigate to the `qcc-src`` directory.
+2. Navigate to the ``qcc-src`` directory.
 3. run ``fteqcc`` command.
 4. Copy ``progs.dat`` and ``progs.lno`` to your vita directory ``ux0:/data/Quakespasm/Solitude/``.
 
