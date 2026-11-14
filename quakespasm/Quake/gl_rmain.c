@@ -71,6 +71,9 @@ cvar_t	r_wateralpha = {"r_wateralpha","1",CVAR_ARCHIVE};
 cvar_t	r_dynamic = {"r_dynamic","1",CVAR_ARCHIVE};
 cvar_t	r_novis = {"r_novis","0",CVAR_ARCHIVE};
 
+cvar_t	r_spritemuzzlescale = {"r_spritemuzzlescale","1",CVAR_ARCHIVE};	// perf B10: world footprint factor for muzzle*.spr so hi-res flash art
+	// (128px canvas) can keep its texel density at a small on-screen size
+
 cvar_t	gl_finish = {"gl_finish","0",CVAR_NONE};
 cvar_t	gl_clear = {"gl_clear","1",CVAR_NONE};
 cvar_t	gl_cull = {"gl_cull","1",CVAR_NONE};

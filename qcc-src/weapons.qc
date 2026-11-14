@@ -221,7 +221,7 @@ muzzle.movetype = MOVETYPE_NONE;
 
 
 setmodel(muzzle,"sprites/pistolmuzzleflash.spr");
-setorigin(muzzle,self.origin + v_forward * 30 + v_right * 8 + '0 0 20');
+setorigin(muzzle,self.origin + v_forward * 44 + v_right * 4 + '0 0 18');	// B10-muzzle v2: barrel-tip offset (pistol had no flash at all until this wiring)
 muzzle.think = muzzleflash_think2;
 muzzle.nextthink = time + 0.01;
 };
@@ -877,6 +877,7 @@ void() W_FirePistol =
 	local vector dir;
 	local entity missile;
 	
+	muzzleflash5();
 	sound (self, CHAN_WEAPON, "weapons/pistol.wav", 1, ATTN_NORM); 
 	VK_smallkick(self);
 	self.ammo_shells -= 1;
