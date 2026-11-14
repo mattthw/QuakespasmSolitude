@@ -167,6 +167,23 @@ setorigin(muzzle,self.origin + v_forward * 28 + v_right * 6 + '0 0 19');
 muzzle.think = muzzleflash_think;
 muzzle.nextthink = time + 0.01;
 };
+
+// B10-muzzle v2: sniper keeps its own function (from perf/b10-muzzle) - shares
+// muzzleflash2's art but NOT its offset: the long barrel puts the muzzle far
+// forward and on the centerline, so the flash sits at the crosshair instead of
+// hovering at the hand. Static style (no follow/roll).
+void() muzzleflashsniper = {
+local entity muzzle;
+muzzle = spawn();
+muzzle.owner = self;
+
+muzzle.solid = SOLID_NOT;
+
+setmodel(muzzle,"sprites/muzzleflash1.spr");
+setorigin(muzzle,self.origin + v_forward * 50 + v_right * 0 + '0 0 14');
+muzzle.think = muzzleflash_think;
+muzzle.nextthink = time + 0.01;
+};
 void() muzzleflash_think1 = {
 self.frame = self.frame + 1;
 self.think = SUB_Remove;
@@ -1260,7 +1277,7 @@ void() W_FireSniper =
 	self.ammo_sniper -= 1;
 	W_UpdateAmmoCounts(self);
 	
-	muzzleflash2();
+	muzzleflashsniper(); // B10-muzzle v2: flash on the crosshair
 	dir = aim (self, 100000);
 	pistolsmoke (self.origin + (v_forward * 13) + '0 0 14');
 	FireBullets (1, dir, '0 0 0', MOD_SOLITUDE);

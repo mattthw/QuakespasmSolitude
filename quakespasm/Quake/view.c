@@ -74,6 +74,10 @@ extern	int			in_forward, in_forward2, in_back;
 
 cvar_t r_viewmodeloffset = {"r_viewmodeloffset", "0", CVAR_ARCHIVE};
 
+cvar_t v_buckshot_pitch = {"v_buckshot_pitch", "0", CVAR_ARCHIVE};	//solitude: extra upward pitch (degrees) for the wide buckshot gun (progs/v_shot2.mdl)
+cvar_t v_pistol_pitch = {"v_pistol_pitch", "0", CVAR_ARCHIVE};	//solitude: extra upward pitch (degrees) for the pistol mesh (progs/v_shot.mdl, the vanilla pump-gun model)
+cvar_t v_buckshot_down = {"v_buckshot_down", "0", CVAR_ARCHIVE};	//solitude: lowers the buckshot gun view model (v_shot2.mdl) in world units; r_viewmodeloffset is global, this is per-gun
+
 #ifndef min
 #define min(x, y) (x < y ? x : y)
 #endif
@@ -929,6 +933,21 @@ void V_CalcRefdef (void)
 	view->frame = cl.stats[STAT_WEAPONFRAME];
 	view->netstate.colormap = 0;
 
+	//solitude: lift the shotguns' baked-down rest pose (entity pitch is backward, so += aims the barrel up).
+	//NB: Solitude's real wide-spread gun (WEAPON_SHOT) wears progs/v_shot2.mdl -> v_buckshot_pitch.
+	//The gun named "pistol" wears the vanilla pump mesh progs/v_shot.mdl -> v_pistol_pitch.
+	//"v_shot." matches only the pump mesh; "v_shot2" only the double. Pivot = view entity origin (the eye).
+	//v_buckshot_down nudges the buckshot gun world-Z (positive = lower the model).
+	if (v_pistol_pitch.value && view->model && q_strcasestr (view->model->name, "v_shot."))
+		view->angles[PITCH] += v_pistol_pitch.value;
+	else if (view->model && q_strcasestr (view->model->name, "v_shot2"))
+	{
+		if (v_buckshot_pitch.value)
+			view->angles[PITCH] += v_buckshot_pitch.value;
+		if (v_buckshot_down.value)
+			view->origin[2] -= v_buckshot_down.value;
+	}
+
 //johnfitz -- v_gunkick
 	if (v_gunkick.value == 1) //original quake kick
 		VectorAdd (r_refdef.viewangles, cl.punchangle, r_refdef.viewangles);
@@ -1059,5 +1078,8 @@ void V_Init (void)
 	
 	Cvar_RegisterVariable (&r_viewmodel_quake); //MarkV
 	Cvar_RegisterVariable (&r_viewmodeloffset);
+	Cvar_RegisterVariable (&v_buckshot_pitch);	//solitude
+	Cvar_RegisterVariable (&v_pistol_pitch);	//solitude
+	Cvar_RegisterVariable (&v_buckshot_down);	//solitude
 }
 

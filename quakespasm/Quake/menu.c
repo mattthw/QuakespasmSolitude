@@ -3212,56 +3212,6 @@ static void UNI_SetTexMode (int dir)
 		Cbuf_AddText ("gl_texturemode GL_NEAREST_MIPMAP_LINEAR\n");
 }
 
-// weapon position: same 4-state cycle as the old video menu (r75 era)
-static const char *UNI_ShowWeaponPos (char *buf, int size)
-{
-	if (!r_drawviewmodel.value)
-		q_strlcpy (buf, "Hidden", size);
-	else if (r_viewmodeloffset.value > 0)
-		q_strlcpy (buf, "Right", size);
-	else if (r_viewmodeloffset.value < 0)
-		q_strlcpy (buf, "Left", size);
-	else
-		q_strlcpy (buf, "Center", size);
-	return buf;
-}
-
-static void UNI_SetWeaponPos (int dir)
-{
-	int idx;
-	if (!r_drawviewmodel.value)
-		idx = 3;
-	else if (r_viewmodeloffset.value > 0)
-		idx = 1;
-	else if (r_viewmodeloffset.value < 0)
-		idx = 2;
-	else
-		idx = 0;
-	idx += dir;
-	if (idx > 3)
-		idx = 0;
-	if (idx < 0)
-		idx = 3;
-	switch (idx)
-	{
-	case 1:
-		Cvar_SetValueQuick (&r_drawviewmodel, 1);
-		Cvar_SetValueQuick (&r_viewmodeloffset, 8);
-		break;
-	case 2:
-		Cvar_SetValueQuick (&r_drawviewmodel, 1);
-		Cvar_SetValueQuick (&r_viewmodeloffset, -8);
-		break;
-	case 3:
-		Cvar_SetValueQuick (&r_drawviewmodel, 0);
-		break;
-	default:
-		Cvar_SetValueQuick (&r_drawviewmodel, 1);
-		Cvar_SetValueQuick (&r_viewmodeloffset, 0);
-		break;
-	}
-}
-
 static void UNI_SetInvert (int dir)
 {
 	(void)dir;
@@ -3318,14 +3268,10 @@ static const uni_row_t uni_gfx_rows[] =
 #ifndef VITA
 	{"Contrast",        &vid_contrast,   1,   2, 0.1,  1, 0, NULL, NULL, "Difference between dark and bright. Impact: none."},
 #endif
-#ifdef VITA
 	{"Field of View",   &scr_fov,       75, 130, 5,    0, 0, NULL, NULL, "How wide your view is. Impact: none."},
-#endif
 	{"Water Opacity",   &r_wateralpha,   0,   1, 0.1,  1, 0, NULL, NULL, "How clear the water looks. Impact: low."},
 	{"Texture Filter",  NULL,            0,   1, 1,    0, 1, UNI_SetTexMode, UNI_ShowTexMode, "Smooth vs crisp textures. Impact: low."},
 	{"Vertical Sync",   &vid_vsync,      0,   1, 1,    0, 0, NULL, NULL, "Match the display refresh, no tearing. Impact: none."},
-	{"Weapon Position", NULL,            0,   3, 1,    0, 1, UNI_SetWeaponPos, UNI_ShowWeaponPos, "Where the gun sits on screen."},
-	{"Show Crosshair",  &crosshair,      0,   1, 1,    0, 0, NULL, NULL, "Aim dot in the center of the screen. Impact: none."},
 #ifdef VITA
 	{"Rumble",              &pstv_rumble, 0, 1, 1, 0, 0, NULL, NULL, "Controller vibration on fire and hits."},
 	{"Retro Touch",         &retrotouch,  0, 1, 1, 0, 0, NULL, NULL, "Old-style touchscreen aiming."},
