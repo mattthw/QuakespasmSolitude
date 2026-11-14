@@ -67,6 +67,7 @@ cvar_t	cl_nocsqc = {"cl_nocsqc", "0", CVAR_NONE};	//spike -- blocks the loading 
 cvar_t	sys_ticrate = {"sys_ticrate","0.05",CVAR_NONE}; // dedicated server
 cvar_t	serverprofile = {"serverprofile","0",CVAR_NONE};
 cvar_t	r_perfhud = {"r_perfhud","0",CVAR_NONE};	// perf B1
+cvar_t	sv_max_needles = {"sv_max_needles","0",CVAR_NONE};	// perf B2 - per-shooter live needler cap, 0=off; read by QC cvar()
 
 cvar_t	fraglimit = {"fraglimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	teamlimit = {"teamlimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
@@ -501,6 +502,7 @@ static void Perf_Report_f (void)
 	}
 
 	Con_Printf ("perfreport: %i samples, 50ms each (max per window)\n", perf_ring_count);
+	Con_Printf ("edicts: %i of %i (allocated slots, high-water)\n", sv.qcvm.progs ? sv.qcvm.num_edicts : 0, (int)max_edicts.value);
 	Con_Printf ("        avg      max\n");
 	for (i = 0; i < PERF_N; i++)
 	{
@@ -575,6 +577,7 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&sys_throttle);
 	Cvar_RegisterVariable (&serverprofile);
 	Cvar_RegisterVariable (&r_perfhud); // perf B1
+	Cvar_RegisterVariable (&sv_max_needles); // perf B2
 	Cmd_AddCommand ("perfreport", Perf_Report_f); // perf B1
 
 	Cvar_RegisterVariable (&fraglimit);
