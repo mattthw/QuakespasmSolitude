@@ -104,7 +104,7 @@ def hotspots(verts, cell=256):
     for v in verts:
         bins[(int(v[0] // cell) * cell, int(v[1] // cell) * cell,
               int(v[2] // cell) * cell)] += 1
-    return bins.most_common(3)
+    return bins
 
 
 def audit(path):
@@ -141,7 +141,37 @@ def audit(path):
     lm_mb = L["lighting"][1] / 1024.0 / 1024.0
     lit_faces = sum(1 for fe, ne, ti, lo in faces if lo != -1)
     vtag, vratio = vis_score(L["visibility"][2], numleafs)
-    hs = hotspots(verts)
+
+    # --- hotspot analysis: verts per 256u cell, faces+textures per cell ---
+    edges = read_edges(L["edges"][2])
+    e_ofs, e_len = L["edges"][0], L["edges"][1]
+    nedges = e_len // 4
+    edge_raw = L["edges"][2]
+    bins = hotspots(verts)
+    cell_faces = Counter()
+    cell_tex = {}
+    for fe, ne, ti, lo in faces:
+        if fe >= nedges:
+            continue
+        raw = struct.unpack_from("<2H", edge_raw, fe * 4)
+        # firstedge sign recovered via stored abs; treat index fe, use v0
+        vi = raw[0]
+        if vi >= len(verts):
+            continue
+        v = verts[vi]
+        c = (int(v[0] // 256) * 256, int(v[1] // 256) * 256, int(v[2] // 256) * 256)
+        cell_faces[c] += 1
+        m = miptexes[ti] if 0 <= ti < len(miptexes) else -1
+        tname = tex[m][0] if 0 <= m < len(tex) and tex[m] else "?"
+        cell_tex.setdefault(c, Counter())[tname] += 1
+    occupied = len(bins) or 1
+    mean_occ = len(verts) / float(occupied)
+    hs = []
+    for c, n in sorted(bins.items(), key=lambda kv: -kv[1])[:3]:
+        f = cell_faces.get(c, 0)
+        tops = "; ".join("%s x%d" % t for t in cell_tex.get(c, Counter()).most_common(2))
+        hs.append("(%d,%d,%d) %dv (%.1fx avg) %df [%s]" % (c[0], c[1], c[2], n,
+                    n / mean_occ, f, tops))
     return {
         "file": os.path.basename(path), "size_mb": round(len(data) / 1048576.0, 2),
         "faces": len(faces), "verts": len(verts),
@@ -151,7 +181,9 @@ def audit(path):
         "tex_dxt_mb": round(mb_tex, 1), "tex_ge1024": len(big),
         "gl_max_size_512_saves_mb": round(cap512, 1),
         "top_big_tex": "; ".join("%s %dx%d(%d faces)" % b for b in big[:3]),
-        "top_hotspots": "; ".join("(%d,%d,%d):%d" % (c[0][0], c[0][1], c[0][2], c[1]) for c in hs),
+        "top_hotspots": " || ".join(hs),
+        "hot_ratio_max": round((bins.most_common(1)[0][1] / mean_occ) if bins else 0, 1),
+        "mean_verts_per_cell": round(mean_occ, 1),
     }
 
 
@@ -177,6 +209,7 @@ def main():
         s += 0.5 * r["lightmaps_mb"]
         s += 2.0 * r["tex_ge1024"]
         s += 0.2 * r["gl_max_size_512_saves_mb"]
+        s += 5.0 * min(6.0, r["hot_ratio_max"])
         return s
 
     rows.sort(key=score, reverse=True)
@@ -189,7 +222,8 @@ def main():
 
     md = ["# B0 map audit - 24 matchmaking-menu maps (BSP29, read-only)",
           "",
-          "Score = leak(50) + 20*PVS-weakness + 0.5*lightmap-MB + 2*count(>=1024 tex) + 0.2*gl_max_size512-savings-MB",
+          "Score = leak(50) + 20*PVS-weakness + 0.5*lightmap-MB + 2*count(>=1024 tex) + 0.2*gl_max_size512-savings-MB + 5*hotspot-density-ratio(cap6)",
+          "Hotspots: 256-unit cells; 'Nd (Xx avg) Mf' = N verts, X times the map's mean verts/cell, M faces anchored in cell; tex = top textures there.",
           "",
           "| # | map | vis | >=1024 tex | tex DXT MB | cap512 saves MB | lightmaps MB | faces | verts | leafs |",
           "|---|-----|-----|-----------|------------|-----------------|--------------|-------|-------|-------|"]
@@ -202,13 +236,12 @@ def main():
             r["tex_ge1024"], r["tex_dxt_mb"], r["gl_max_size_512_saves_mb"],
             r["lightmaps_mb"], r["faces"], r["verts"], r["leafs"]))
     md.append("")
-    md.append("## Details (worst first)")
-    for r in rows[:12]:
+    md.append("## Hotspot details (all maps, worst first)")
+    for r in rows:
         if r.get("error"):
             continue
-        md.append("- **%s** vis-ratio %.2f %s | big tex: %s | hotspots(256u): %s" % (
-            r["file"], r["vis_ratio"], r["vis_flag"] or "", r["top_big_tex"] or "none",
-            r["top_hotspots"]))
+        md.append("- **%s** vis-ratio %.2f %s | hotspots: %s" % (
+            r["file"], r["vis_ratio"], r["vis_flag"] or "", r["top_hotspots"]))
     md.append("")
     md.append("## Read-out / recommended actions")
     md.append("- TEXTURE SIZE IS A NON-ISSUE for this set: zero menu maps use >1024px "
@@ -227,6 +260,15 @@ def main():
               "Heaviest well-built maps: narrows/pit2/pit3/highground (10-12k faces, good vis).")
     md.append("- Vertex hotspots (256u cells, coords in Details) are TB-jumpable for face-merge passes "
               "if a specific area tests slow in B1 - don't blanket-remap.")
+    worst_hs = sorted([r for r in rows if not r.get("error")], key=lambda r: -r["hot_ratio_max"])[:5]
+    md.append("- **Worst hotspot outliers** (verts/cell vs map mean): " + "; ".join(
+        "%s %.0fx" % (r["file"].replace(".bsp", ""), r["hot_ratio_max"]) for r in worst_hs) +
+        ". skyRingbl2 is extreme (956 verts/359 faces in one 256u cell, z=768: the metal ring "
+        "structure); highground 37x is {foliage/detail terrain; pit2+pit3 28-30x both driven by "
+        "en_32_number (32px signage tex = hundreds of tiny faces); lockdown 13x fore_128_wall_2 "
+        "carving. These inflate faces-in-PVS, draw calls and lightmap density in exactly the "
+        "open-view lanes of outdoor maps -> prime targets for B4 sub-pixel cull AND map-side face "
+        "merging with TB coords from Hotspot details.")
     if missing:
         md.append("")
         md.append("## In menu but NO runtime BSP found: %s" % ", ".join(missing))
