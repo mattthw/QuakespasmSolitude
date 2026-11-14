@@ -178,7 +178,7 @@ muzzle.velocity = '0 0 0';
 
 setmodel(muzzle,"sprites/muzzleflash1.spr");
 setorigin(muzzle,self.origin + v_forward * 30 + v_right * 8 + '0 0 15');
-muzzle.movedir = '30 8 18'; muzzle.angles_z = (random () - 0.5) * 40;	// B10-muzzle: per-shot roll spin (VP_PARALLEL_ORIENTED)
+muzzle.movedir = '30 8 15';
 	muzzle.cnt = 10;
 muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
@@ -202,7 +202,7 @@ muzzle.velocity = '0 0 0';
 
 setmodel(muzzle,"sprites/muzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 35 + v_right * 5+ '0 0 15');
-muzzle.movedir = '35 5 15'; muzzle.angles_z = (random () - 0.5) * 40;	// B10-muzzle: per-shot roll spin (VP_PARALLEL_ORIENTED)
+muzzle.movedir = '35 5 15';
 	muzzle.cnt = 10;
 muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
@@ -226,7 +226,7 @@ muzzle.velocity = '0 0 0';
 
 setmodel(muzzle,"sprites/muzzleflash2.spr");
 setorigin(muzzle,self.origin + v_forward * 55 + v_right * 10 + '0 0 13');
-muzzle.movedir = '55 10 13'; muzzle.angles_z = (random () - 0.5) * 40;	// B10-muzzle: per-shot roll spin (VP_PARALLEL_ORIENTED)
+muzzle.movedir = '55 10 13';
 	muzzle.cnt = 20;
 muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
@@ -245,7 +245,7 @@ muzzle.velocity = '0 0 0';
 
 setmodel(muzzle,"sprites/pistolmuzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 30 + v_right * 8 + '0 0 20');
-muzzle.movedir = '44 4 18'; muzzle.angles_z = (random () - 0.5) * 40;	// B10-muzzle: per-shot roll spin (VP_PARALLEL_ORIENTED)
+muzzle.movedir = '30 8 20';
 	muzzle.cnt = 10;
 muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
@@ -274,7 +274,7 @@ muzzle.velocity = '0 0 0';
 
 setmodel(muzzle,"sprites/muzzleN.spr");
 setorigin(muzzle,self.origin + v_forward * 35 + v_right * 10 + '0 0 17');
-muzzle.movedir = '35 10 17'; muzzle.angles_z = (random () - 0.5) * 40;	// B10-muzzle: per-shot roll spin (VP_PARALLEL_ORIENTED)
+muzzle.movedir = '35 10 17';
 	muzzle.cnt = 10;
 muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
@@ -293,7 +293,7 @@ muzzle.velocity = '0 0 0';
 
 setmodel(muzzle,"sprites/muzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 45 + v_right * 2 + '0 0 17');
-	muzzle.movedir = '45 2 17'; muzzle.angles_z = (random () - 0.5) * 40;	// B10-muzzle: per-shot roll spin (VP_PARALLEL_ORIENTED)
+	muzzle.movedir = '45 2 17';
 	muzzle.cnt = 10;
 	muzzle.think = muzzle_follow;
 	muzzle.nextthink = time + 0.01;
@@ -909,7 +909,6 @@ void() W_FirePistol =
 	local entity missile;
 	
 	sound (self, CHAN_WEAPON, "weapons/pistol.wav", 1, ATTN_NORM); 
-	muzzleflash5 ();	// B10-muzzle: function existed but was NEVER called upstream
 	VK_smallkick(self);
 	self.ammo_shells -= 1;
 	W_UpdateAmmoCounts(self);
