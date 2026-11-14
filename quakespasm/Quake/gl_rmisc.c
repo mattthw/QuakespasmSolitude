@@ -30,6 +30,8 @@ extern cvar_t r_stereodepth;
 extern cvar_t r_clearcolor;
 extern cvar_t r_drawflat;
 extern cvar_t r_flatlightstyles;
+extern cvar_t r_dlight_cull;
+extern cvar_t r_max_dlights;
 extern cvar_t gl_fullbrights;
 extern cvar_t gl_farclip;
 extern cvar_t gl_overbright;
@@ -222,6 +224,8 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_waterwarp);
 	Cvar_RegisterVariable (&r_drawflat);
 	Cvar_RegisterVariable (&r_flatlightstyles);
+	Cvar_RegisterVariable (&r_dlight_cull);
+	Cvar_RegisterVariable (&r_max_dlights);
 	Cvar_RegisterVariable (&r_oldskyleaf);
 	Cvar_SetCallback (&r_oldskyleaf, R_VisChanged);
 	Cvar_RegisterVariable (&r_drawworld);

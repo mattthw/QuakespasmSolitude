@@ -559,6 +559,8 @@ void R_DrawBrushModel (entity_t *e)
 			if ((cl_dlights[k].die < cl.time) ||
 				(!cl_dlights[k].radius))
 				continue;
+			if (!(r_dlight_active[k >> 5] & (1U << (k & 31))))	//perf B3
+				continue;
 
 			VectorSubtract(cl_dlights[k].origin, e->origin, lightorg);
 			R_MarkLights (&cl_dlights[k], lightorg, k,

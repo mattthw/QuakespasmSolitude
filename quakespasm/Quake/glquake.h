@@ -380,6 +380,7 @@ void R_AnimateLight (void);
 void R_MarkSurfaces (void);
 void R_CullSurfaces (void);
 qboolean R_CullBox (vec3_t emins, vec3_t emaxs);
+extern	unsigned int	r_dlight_active[2];	//perf B3 -- live dlights after cull/nearest-N (bit i = cl_dlights[i])
 void R_StoreEfrags (efrag_t **ppefrag);
 qboolean R_CullModelForEntity (entity_t *e);
 void R_RotateForEntity (vec3_t origin, vec3_t angles, unsigned char scale);

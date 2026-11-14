@@ -24,8 +24,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 
 int	r_dlightframecount;
+unsigned int	r_dlight_active[2];	//perf B3 -- active dlight set for this eye, see R_SelectDlights
 
 extern cvar_t r_flatlightstyles; //johnfitz
+extern cvar_t r_dlight_cull, r_max_dlights; //perf B3
 
 //Spike - made this a general function
 void CL_UpdateLightstyle(unsigned int idx, const char *str)
@@ -171,6 +173,8 @@ void R_RenderDlights (void)
 	{
 		if (l->die < cl.time || !l->radius)
 			continue;
+		if (!(r_dlight_active[i >> 5] & (1U << (i & 31))))	//perf B3
+			continue;
 		R_RenderDlight (l);
 	}
 
@@ -261,6 +265,87 @@ start:
 
 /*
 =============
+R_SelectDlights -- perf B3
+
+Builds r_dlight_active: the live dlights worth processing for this eye
+(frustum + distance pre-cull gated by r_dlight_cull, then nearest-N keep
+gated by r_max_dlights, 0 = unlimited). Consumers: R_PushDlights below,
+the per-bmodel loop in R_DrawBrushModel, and the glow path in
+R_RenderDlights. Runs once per eye per R_RenderScene call (skyroom and
+stereo passes included), so the mask always matches the current frustum.
+=============
+*/
+#define DLIGHT_CULL_MARGIN	512	//perf B3 -- leash beyond each light's own radius
+void R_SelectDlights (void)
+{
+	typedef struct { float d2; int idx; } dlightsel_t;
+	static dlightsel_t	cand[MAX_DLIGHTS];
+	vec3_t		v, mins, maxs;
+	dlight_t	*l;
+	float		d2, limit;
+	int			count, i, j, best, keep, idx;
+
+	r_dlight_active[0] = r_dlight_active[1] = 0;
+
+	l = cl_dlights;
+	count = 0;
+	for (i=0 ; i<MAX_DLIGHTS ; i++, l++)
+	{
+		if (l->die < cl.time || !l->radius)
+			continue;
+
+		VectorSubtract (l->origin, r_refdef.vieworg, v);
+		d2 = DotProduct (v, v);
+
+		if (r_dlight_cull.value)
+		{
+			for (j=0 ; j<3 ; j++)	// test the light's own sphere as a box
+			{
+				mins[j] = l->origin[j] - l->radius;
+				maxs[j] = l->origin[j] + l->radius;
+			}
+			if (R_CullBox (mins, maxs))
+				continue;
+			limit = l->radius + DLIGHT_CULL_MARGIN;
+			if (d2 > limit*limit)
+				continue;
+		}
+
+		cand[count].d2 = d2;
+		cand[count].idx = i;
+		count++;
+	}
+
+	keep = (int) r_max_dlights.value;
+	if (keep > 0 && count > keep)
+	{	// partial selection sort: nearest 'keep' to the front (ties -> lower slot)
+		for (i=0 ; i<keep ; i++)
+		{
+			best = i;
+			for (j=i+1 ; j<count ; j++)
+				if (cand[j].d2 < cand[best].d2)
+					best = j;
+			if (best != i)
+			{
+				float	td2 = cand[i].d2;
+				int		tidx = cand[i].idx;
+				cand[i] = cand[best];
+				cand[best].d2 = td2;
+				cand[best].idx = tidx;
+			}
+		}
+		count = keep;
+	}
+
+	for (i=0 ; i<count ; i++)
+	{
+		idx = cand[i].idx;
+		r_dlight_active[idx >> 5] |= 1U << (idx & 31);
+	}
+}
+
+/*
+=============
 R_PushDlights
 =============
 */
@@ -268,6 +353,8 @@ void R_PushDlights (void)
 {
 	int		i;
 	dlight_t	*l;
+
+	R_SelectDlights ();	//perf B3 -- shared active set for this eye (glow path included)
 
 	if (gl_flashblend.value)
 		return;
@@ -280,7 +367,7 @@ void R_PushDlights (void)
 
 	for (i=0 ; i<MAX_DLIGHTS ; i++, l++)
 	{
-		if (l->die < cl.time || !l->radius)
+		if (!(r_dlight_active[i >> 5] & (1U << (i & 31))))	//perf B3
 			continue;
 		R_MarkLights (l, l->origin, i, cl.worldmodel->nodes);
 	}
