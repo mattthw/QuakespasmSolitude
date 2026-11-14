@@ -19,6 +19,13 @@ The goals of this project are to:
 
 **Once released publicly on now dead forums. Now shareware.
 
+# Documentation
+
+- [docs/waypointing-guide.md](docs/waypointing-guide.md) - bot waypointing:
+  the `.way` format, in-game editor, AI flags, door/lift patterns, density
+  rules, and the stuck-bot triage chart.
+- [docs/hud-rework-spec.md](docs/hud-rework-spec.md) - HUD rework spec.
+
 # Issues
 ![](https://img.shields.io/github/issues-raw/mattthw/QuakespasmSolitude) ![](https://img.shields.io/github/issues-closed-raw/mattthw/QuakespasmSolitude)
 
