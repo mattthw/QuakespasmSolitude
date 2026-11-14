@@ -259,7 +259,11 @@ void	Host_FindMaxClients (void)
 		svs.maxclients = MAX_SCOREBOARD;
 
     // override max clients
-    svs.maxclients = 8;
+    // r98: "-editor" (scripted TrenchBroom flythrough boot) keeps a
+    // single client: svs.maxclients=1 leaves the deathmatch cvar at 0
+    // below, so the QC world spawns single-player and no lobby bots.
+    if (!COM_CheckParm ("-editor"))
+        svs.maxclients = 8;
     // end override
 
 	svs.maxclientslimit = svs.maxclients;
