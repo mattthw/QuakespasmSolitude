@@ -1022,24 +1022,33 @@ void R_RenderScene (void)
 
 	Fog_EnableGFog (); //johnfitz
 
+	Perf_Begin (PERF_WLD);	//perf B1
 	Sky_DrawSky (); //johnfitz
 
 	R_DrawWorld ();
+	Perf_End (PERF_WLD);	//perf B1
 	currententity = NULL;
 
 	S_ExtraUpdate (); // don't let sound get messed up if going slow
 
+	Perf_Begin (PERF_ENT);	//perf B1
 	if (r_refdef.drawworld)
 		R_DrawShadows (); //johnfitz -- render entity shadows
 
 	R_DrawEntitiesOnList (false); //johnfitz -- false means this is the pass for nonalpha entities
+	Perf_End (PERF_ENT);	//perf B1
 
+	Perf_Begin (PERF_WLD);	//perf B1
 	R_DrawWorld_Water (); //johnfitz -- drawn here since they might have transparency
 
+	Perf_End (PERF_WLD);	//perf B1
+	Perf_Begin (PERF_ENT);	//perf B1
 	R_DrawEntitiesOnList (true); //johnfitz -- true means this is the pass for alpha entities
 
 	R_RenderDlights (); //triangle fan dlights -- johnfitz -- moved after water
+	Perf_End (PERF_ENT);	//perf B1
 
+	Perf_Begin (PERF_PRT);	//perf B1
 	if (r_refdef.drawworld)
 	{
 		R_DrawParticles ();
@@ -1048,9 +1057,12 @@ void R_RenderScene (void)
 #endif
 	}
 
+	Perf_End (PERF_PRT);	//perf B1
 	Fog_DisableGFog (); //johnfitz
 
+	Perf_Begin (PERF_ENT);	//perf B1
 	R_DrawViewModel (); //johnfitz -- moved here from R_RenderView
+	Perf_End (PERF_ENT);	//perf B1
 
 	R_ShowTris (); //johnfitz
 

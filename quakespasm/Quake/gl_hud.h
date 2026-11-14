@@ -43,3 +43,24 @@ void MiniDeathmatchOverlay (void);
 void HUD_Init (void);
 
 //void HUD_NewMap (void);
+// perf B1 - per-frame timing buckets behind r_perfhud
+typedef enum
+{
+    PERF_QC,
+    PERF_WLD,
+    PERF_ENT,
+    PERF_PRT,
+    PERF_TOTAL,
+    PERF_N
+} perf_bucket_t;
+
+extern cvar_t         r_perfhud;
+extern const char     *perf_names[PERF_N];
+extern float          perf_fps;                // smoothed frames per second
+
+void Perf_Begin (int bucket);
+void Perf_End (int bucket);
+// copies up to 'want' recent 50ms samples (oldest->newest), returns n
+int  Perf_RingWindow (int bucket, double *out, int want);
+int  Perf_PresentWindow (double *out, int want);
+void HUD_DrawPerf (void);

@@ -1475,3 +1475,150 @@ void HUD_Draw (void) {
 //        MiniDeathmatchOverlay ();
     GL_SetCanvas(oldcanvas);
 }
+
+// perf B1 - r_perfhud overlay. Drawn from SCR_UpdateScreen (not HUD_Draw) so
+// it stays visible while dead / on scores - it is a dev tool. Hidden for
+// hud_mapshot (clean thumbnails). Text rows: recent = max of last ~250ms,
+// window = max over the 3s chart; one stacked frame-time chart below.
+void HUD_DrawPerf (void) {
+    static double s_qc[60], s_wld[60], s_ent[60], s_prt[60], s_tot[60], s_pres[60];
+    static const float col[4][3] = {
+        {0.35f, 0.61f, 1.00f},   /* QC  blue */
+        {0.21f, 0.82f, 0.63f},   /* WLD teal */
+        {1.00f, 0.71f, 0.30f},   /* ENT orange */
+        {0.78f, 0.49f, 1.00f}    /* PRT purple */
+    };
+    int oldcanvas = currentcanvas;
+    float s, sz;
+    int i, x, y, gy, gh, gw, j, k, n;
+    double scale, st, tot;
+
+    if (!r_perfhud.value || hud_mapshot.value) {
+        GL_SetCanvas(oldcanvas);
+        return;
+    }
+
+    s = HUD_SCALE();
+    sz = 11.0f * s;
+    x = (int)(6 * s);
+    y = (int)(14 * s);
+
+    GL_SetCanvas(CANVAS_DEFAULT);
+
+    n = Perf_RingWindow(PERF_TOTAL, s_tot, 60);   /* 50ms samples, old->new */
+    Perf_RingWindow(PERF_QC,  s_qc,  60);
+    Perf_RingWindow(PERF_WLD, s_wld, 60);
+    Perf_RingWindow(PERF_ENT, s_ent, 60);
+    Perf_RingWindow(PERF_PRT, s_prt, 60);
+    Perf_PresentWindow(s_pres, 60);            /* displayed us per window */
+
+    Draw_FillRGBA(x - (int)(4 * s), y - (int)(13 * s), (int)(340 * s),
+                  (int)(6 * (sz + 3 * s) + 67 * s),
+                  20 / 255.0f, 25 / 255.0f, 44 / 255.0f, 0.85f);
+
+    Draw_FillRGBA(x, y - (int)(9 * s), (int)(10 * s), (int)(10 * s),
+                  0.60f, 0.95f, 0.35f, 0.95f);   /* lime chip = displayed line */
+    Draw_TTFString(x + (int)(14 * s), y, va("FPS %3i.%01i", (int)perf_fps, ((int)(perf_fps * 10.0f)) % 10),
+                   1.0f, 1.0f, 1.0f, 0.9f, sz);
+    y += (int)(sz + 3 * s);
+
+    for (i = 0; i < PERF_N; i++) {
+        double *buf = (i == PERF_QC) ? s_qc : (i == PERF_WLD) ? s_wld :
+                      (i == PERF_ENT) ? s_ent : (i == PERF_PRT) ? s_prt : s_tot;
+        double cur = 0, winmax = 0;
+        int cur_c, max_c;
+        float r = 1.0f, g = 1.0f, b = 1.0f;
+
+        for (j = 0; j < n; j++)
+            if (buf[j] > winmax)
+                winmax = buf[j];
+        for (j = (n > 5) ? n - 5 : 0; j < n; j++)   /* last ~250ms */
+            if (buf[j] > cur)
+                cur = buf[j];
+
+        if (i < 4) { r = col[i][0]; g = col[i][1]; b = col[i][2]; }
+        else { r = 0.55f; g = 0.60f; b = 0.70f; }             /* TOTAL = chart backdrop grey */
+        if (cur > 16666.0) { r = 0.95f; g = 0.35f; b = 0.30f; }  /* over Vita 60fps budget */
+
+        cur_c = (int)(cur * 0.1 + 0.5);          /* integer centiseconds: */
+        max_c = (int)(winmax * 0.1 + 0.5);       /* Vita printf has no float */
+        Draw_FillRGBA(x, y - (int)(9 * s), (int)(10 * s), (int)(10 * s),
+                      r, g, b, 0.95f);           /* color chip = graph segment */
+        Draw_TTFString(x + (int)(14 * s), y, perf_names[i], r, g, b, 0.9f, sz);
+        Draw_TTFString(x + (int)(54 * s), y, va("%4i.%02i / %4i.%02i ms",
+                       cur_c / 100, cur_c % 100, max_c / 100, max_c % 100),
+                       0.9f, 0.92f, 0.95f, 0.9f, sz);
+
+        y += (int)(sz + 3 * s);
+    }
+
+    /* frame-time chart: 60 x 50ms columns, buckets stacked inside TOTAL,
+     * red top line = 3s max (scale headroom 10%), grey gap = unmeasured */
+    gy = y + (int)(2 * s);
+    gh = (int)(44 * s);
+    gw = (int)(330 * s);
+    scale = 1000.0;                               /* 1ms floor */
+    for (j = 0; j < n; j++) {
+        if (s_tot[j] > scale)
+            scale = s_tot[j];
+        if (s_pres[j] > scale)
+            scale = s_pres[j];                 /* line must fit in the chart */
+    }
+    scale *= 1.10;
+
+    for (j = 0; j < n; j++) {
+        int px = x + (int)((double)j * gw / 60.0);
+        int bw = (int)((double)gw / 60.0) - (int)(1 * s);
+        int total_h, prev, top;
+
+        if (bw < 1)
+            bw = 1;
+        tot = s_tot[j];
+        total_h = (int)(tot / scale * (double)gh + 0.5);
+        Draw_FillRGBA(px, gy + gh - total_h, bw, total_h,
+                      0.55f, 0.60f, 0.70f, 0.35f);   /* TOTAL backdrop */
+        st = 0;
+        for (k = 0; k < 4; k++) {
+            double v = (k == 0) ? s_qc[j] : (k == 1) ? s_wld[j] :
+                       (k == 2) ? s_ent[j] : s_prt[j];
+            if (st + v > tot)
+                v = tot - st;                        /* keep stack inside TOTAL */
+            if (v < 0)
+                v = 0;
+            prev = (int)(st / scale * (double)gh + 0.5);
+            top  = (int)((st + v) / scale * (double)gh + 0.5);
+            if (top > prev)
+                Draw_FillRGBA(px, gy + gh - top, bw, top - prev,
+                              col[k][0], col[k][1], col[k][2], 0.9f);
+            st += v;
+        }
+    }
+
+    /* displayed frame-time line (lime): where it floats above the grey
+     * TOTAL column tops is time outside the four buckets (GPU, vsync) */
+    for (j = 1; j < n; j++) {
+        double a = s_pres[j - 1], b = s_pres[j];
+        int    ax, ay, bx, by, top, hgt;
+
+        if (!a || !b)
+            continue;
+        if (a > scale)
+            a = scale;                      // keep the line inside the chart
+        if (b > scale)
+            b = scale;
+        ax = x + (int)((double)(j - 1) * gw / 60.0);
+        bx = x + (int)((double)j * gw / 60.0);
+        ay = gy + gh - (int)(a / scale * (double)gh + 0.5);
+        by = gy + gh - (int)(b / scale * (double)gh + 0.5);
+        top = (ay < by) ? ay : by;
+        hgt = ((ay < by) ? by - ay : ay - by) + (int)(1 * s) + 1;
+        Draw_FillRGBA(ax, top, bx - ax + 1, hgt, 0.60f, 0.95f, 0.35f, 0.9f);
+    }
+
+    Draw_FillRGBA(x, gy, gw, (int)(1 * s) + 1, 0.94f, 0.27f, 0.27f, 0.9f);  /* 3s max line */
+    Draw_TTFString(x + gw - (int)(46 * s), gy - (int)(2 * s), "3s max",
+                   0.94f, 0.27f, 0.27f, 0.9f, 8.0f * s);
+    Draw_FillRGBA(x, gy + gh, gw, 1, 0.8f, 0.85f, 0.9f, 0.5f);              /* baseline */
+
+    GL_SetCanvas(oldcanvas);
+}

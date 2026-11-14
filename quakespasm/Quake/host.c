@@ -66,6 +66,7 @@ cvar_t	cl_nocsqc = {"cl_nocsqc", "0", CVAR_NONE};	//spike -- blocks the loading 
 
 cvar_t	sys_ticrate = {"sys_ticrate","0.05",CVAR_NONE}; // dedicated server
 cvar_t	serverprofile = {"serverprofile","0",CVAR_NONE};
+cvar_t	r_perfhud = {"r_perfhud","0",CVAR_NONE};	// perf B1
 
 cvar_t	fraglimit = {"fraglimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	teamlimit = {"teamlimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
@@ -293,6 +294,262 @@ void Host_Callback_Notify (cvar_t *var)
 
 /*
 =======================
+perf B1 - per-frame timing buckets (r_perfhud)
+=======================
+*/
+
+const char	*perf_names[PERF_N] = {"QC", "WLD", "ENT", "PRT", "TOTAL"};
+
+float		perf_fps;
+
+#define PERF_SAMPLES 60	// 60 x 50ms = 3-second graph window
+#define PERF_SAMPLE_US 50000.0
+
+static double	perf_acc[PERF_N];
+static double	perf_span_t0[PERF_N];
+static qboolean	perf_span_on[PERF_N];
+static double	perf_ring[PERF_SAMPLES][PERF_N];	// max of each 50ms window
+static double	perf_ring_pres[PERF_SAMPLES];		// displayed us per window (0 = none)
+static int		perf_pres_base;					// r_framecount at last window push
+static double	perf_pres_ema;					// smoothed displayed frame time
+static int		perf_ring_idx;
+static int		perf_ring_count;
+static double	perf_sampmax[PERF_N];
+static double	perf_samp_t0;
+static double	perf_t0;
+
+/*
+================
+Perf_Begin
+
+Starts a span for this bucket. Accumulates across multiple spans per
+frame (e.g. R_RenderScene runs twice for skyroom maps - honest cost).
+================
+*/
+void Perf_Begin (int bucket)
+{
+	if (!r_perfhud.value)
+		return;
+	perf_span_t0[bucket] = Sys_DoubleTime () * 1000000.0;
+	perf_span_on[bucket] = true;
+}
+
+/*
+================
+Perf_End
+================
+*/
+void Perf_End (int bucket)
+{
+	double	t;
+
+	if (!r_perfhud.value)
+		return;
+	if (!perf_span_on[bucket])
+		return;	// Begin was skipped (cvar toggled off mid-frame)
+	perf_span_on[bucket] = false;
+	t = Sys_DoubleTime () * 1000000.0 - perf_span_t0[bucket];
+	if (t > 0)
+		perf_acc[bucket] += t;
+}
+
+static void Perf_BeginFrame (void)
+{
+	int	i;
+
+	if (!r_perfhud.value)
+		return;
+	for (i = 0; i < PERF_N; i++)
+	{
+		perf_acc[i] = 0;
+		perf_span_on[i] = false;
+	}
+	perf_t0 = Sys_DoubleTime () * 1000000.0;
+}
+
+static void Perf_EndFrame (void)
+{
+	double	now = Sys_DoubleTime () * 1000000.0;
+	double	total = now - perf_t0;
+	int		i;
+
+	if (!r_perfhud.value)
+		return;
+	if (total < 0 || total > 2000000.0)
+		total = 0;	// implausible (suspend/resume); report nothing this frame
+	perf_acc[PERF_TOTAL] = total;
+
+	// fold this frame into the in-progress 50ms sample window
+	for (i = 0; i < PERF_N; i++)
+		if (perf_acc[i] > perf_sampmax[i])
+			perf_sampmax[i] = perf_acc[i];
+
+	if (now - perf_samp_t0 >= PERF_SAMPLE_US || now < perf_samp_t0)
+	{
+		for (i = 0; i < PERF_N; i++)
+		{
+			perf_ring[perf_ring_idx][i] = perf_sampmax[i];
+			perf_sampmax[i] = perf_acc[i];	// next window starts with this frame
+		}
+		if (perf_ring_count)	// displayed frame time (skip the seed push)
+		{
+			int		pres = r_framecount - perf_pres_base;
+			double	win = now - perf_samp_t0;
+
+			// a 50ms window holds only 3-4 vsynced frames, so the raw
+			// window/presented ratio jitters by a whole frame at a time;
+			// EMA smooths that out - real hitches persist across windows.
+			if (pres > 0 && win > 0.0)
+			{
+				double	v = win / (double) pres;
+				perf_pres_ema = (perf_pres_ema > 0.0) ? perf_pres_ema * 0.7 + v * 0.3 : v;
+				perf_ring_pres[perf_ring_idx] = perf_pres_ema;
+			}
+		}
+		else
+			perf_ring_pres[perf_ring_idx] = 0;
+		perf_pres_base = r_framecount;
+		perf_ring_idx = (perf_ring_idx + 1) % PERF_SAMPLES;
+		if (perf_ring_count < PERF_SAMPLES)
+			perf_ring_count++;
+		perf_samp_t0 = now;
+	}
+
+	// FPS = displayed frames, same measurement as SCR_DrawFPS; the host
+	// loop itself can run several times faster than the renderer.
+	{
+		static double	oldtime = 0;
+		static int		oldcount = 0;
+		double			elapsed = realtime - oldtime;
+		int				frames = r_framecount - oldcount;
+
+		if (elapsed >= 0.75 && frames >= 0)
+		{
+			perf_fps = (float) frames / (float) elapsed;
+			oldtime = realtime;
+			oldcount = r_framecount;
+		}
+		else if (elapsed < 0)
+		{
+			oldtime = realtime;
+			oldcount = r_framecount;
+		}
+	}
+}
+
+/*
+================
+Perf_RingWindow
+================
+*/
+int Perf_RingWindow (int bucket, double *out, int want)
+{
+	int	n, i, start;
+
+	n = perf_ring_count;
+	if (want > PERF_SAMPLES)
+		want = PERF_SAMPLES;
+	if (n > want)
+		n = want;
+	if (n <= 0)
+		return 0;
+	start = (perf_ring_idx - n + PERF_SAMPLES) % PERF_SAMPLES;
+	for (i = 0; i < n; i++)
+		out[i] = perf_ring[(start + i) % PERF_SAMPLES][bucket];
+	return n;
+}
+
+/*
+================
+Perf_PresentWindow
+================
+*/
+int Perf_PresentWindow (double *out, int want)
+{
+	int	n, i, start;
+
+	n = perf_ring_count;
+	if (want > PERF_SAMPLES)
+		want = PERF_SAMPLES;
+	if (n > want)
+		n = want;
+	if (n <= 0)
+		return 0;
+	start = (perf_ring_idx - n + PERF_SAMPLES) % PERF_SAMPLES;
+	for (i = 0; i < n; i++)
+		out[i] = perf_ring_pres[(start + i) % PERF_SAMPLES];
+	return n;
+}
+
+/*
+================
+Perf_Report_f
+
+Dump per-bucket avg/max over the recent ring window (B1 test procedure).
+Console formatting stays integer (centiseconds) - Vita printf has no %f.
+================
+*/
+static void Perf_Report_f (void)
+{
+	static double	samp[PERF_SAMPLES];
+	int	i, j, n;
+
+	if (!perf_ring_count)
+	{
+		Con_Printf ("perfreport: no samples yet (set r_perfhud 1 and let it run)\n");
+		return;
+	}
+
+	Con_Printf ("perfreport: %i samples, 50ms each (max per window)\n", perf_ring_count);
+	Con_Printf ("        avg      max\n");
+	for (i = 0; i < PERF_N; i++)
+	{
+		double	sum = 0, max = 0;
+		int		a2, m2;
+
+		n = Perf_RingWindow (i, samp, PERF_SAMPLES);
+		for (j = 0; j < n; j++)
+		{
+			sum += samp[j];
+			if (samp[j] > max)
+				max = samp[j];
+		}
+		if (!n)
+			continue;
+		a2 = (int) (sum / n * 0.1 + 0.5);	// centiseconds, rounded
+		m2 = (int) (max * 0.1 + 0.5);
+		Con_Printf ("  %-6s %5i.%02i %5i.%02i ms\n", perf_names[i],
+			a2 / 100, a2 % 100, m2 / 100, m2 % 100);
+	}
+
+	// displayed frame time: the gap to the TOTAL max is what the four
+	// buckets did not explain (GPU, vsync wait).
+	n = Perf_PresentWindow (samp, PERF_SAMPLES);
+	if (n)
+	{
+		double	sum = 0, max = 0;
+		int		a2, m2, cnt = 0;
+
+		for (j = 0; j < n; j++)
+			if (samp[j] > 0)
+			{
+				sum += samp[j];
+				cnt++;
+				if (samp[j] > max)
+					max = samp[j];
+			}
+		if (cnt)
+		{
+			a2 = (int) (sum / cnt * 0.1 + 0.5);
+			m2 = (int) (max * 0.1 + 0.5);
+			Con_Printf ("  %-6s %5i.%02i %5i.%02i ms (displayed)\n", "FPSms",
+				a2 / 100, a2 % 100, m2 / 100, m2 % 100);
+		}
+	}
+}
+
+/*
+=======================
 Host_InitLocal
 ======================
 */
@@ -317,6 +574,8 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&sys_ticrate);
 	Cvar_RegisterVariable (&sys_throttle);
 	Cvar_RegisterVariable (&serverprofile);
+	Cvar_RegisterVariable (&r_perfhud); // perf B1
+	Cmd_AddCommand ("perfreport", Perf_Report_f); // perf B1
 
 	Cvar_RegisterVariable (&fraglimit);
     Cvar_RegisterVariable (&teamlimit);
@@ -887,6 +1146,7 @@ void _Host_Frame (double time)
 	accumtime += host_netinterval?CLAMP(0, time, 0.2):0;	//for renderer/server isolation
 	if (!Host_FilterTime (time))
 		return;			// don't run too fast, or packets will flood out
+	Perf_BeginFrame ();	//perf B1
 
 // get new key events
 	Key_UpdateForDest ();
@@ -922,6 +1182,7 @@ void _Host_Frame (double time)
 	CL_AccumulateCmd ();
 
 	//Run the server+networking (client->server->client), at a different rate from everything else
+	Perf_Begin (PERF_QC);	//perf B1
 	if (accumtime >= host_netinterval)
 	{
 		float realframetime = host_frametime;
@@ -954,6 +1215,7 @@ void _Host_Frame (double time)
 		SV_Physics();
 		PR_SwitchQCVM(NULL);
 	}
+	Perf_End (PERF_QC);	//perf B1
 
 // fetch results from server
 	if (cls.state == ca_connected)
@@ -995,6 +1257,7 @@ void _Host_Frame (double time)
 					pass1+pass2+pass3, pass1, pass2, pass3);
 	}
 
+	Perf_EndFrame ();	//perf B1
 	host_framecount++;
 
 }

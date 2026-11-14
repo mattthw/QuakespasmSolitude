@@ -1264,6 +1264,7 @@ void SCR_UpdateScreen (void)
 		SCR_CheckDrawCenterString ();
 		SCR_DrawDevStats (); //johnfitz
 		SCR_DrawFPS (); //johnfitz
+		HUD_DrawPerf (); //perf B1
 		SCR_DrawClock (); //johnfitz
 		SCR_DrawConsole ();
 		M_Draw ();
