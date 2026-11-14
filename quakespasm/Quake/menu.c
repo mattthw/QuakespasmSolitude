@@ -3670,11 +3670,11 @@ void M_Options_Key (int k)
 
 	case K_LSHOULDER:	// perf fix: Vita L/R report as shoulders, not triggers
 	case K_LTRIGGER:
-		M_Options_CycleTab (1);
+		M_Options_CycleTab (-1);
 		return;
 	case K_RSHOULDER:
 	case K_RTRIGGER:
-		M_Options_CycleTab (-1);
+		M_Options_CycleTab (1);
 		return;
 #ifndef VITA
 	// Mac convenience: Tab cycles, Q/E jump either way
