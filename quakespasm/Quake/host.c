@@ -259,11 +259,10 @@ void	Host_FindMaxClients (void)
 		svs.maxclients = MAX_SCOREBOARD;
 
     // override max clients
-    // r98: "-editor" (scripted TrenchBroom flythrough boot) keeps a
-    // single client: svs.maxclients=1 leaves the deathmatch cvar at 0
-    // below, so the QC world spawns single-player and no lobby bots.
-    if (!COM_CheckParm ("-editor"))
-        svs.maxclients = 8;
+    // r100: unconditional again (was: -editor left it at 1). -editor now
+    // only defers boot cheat cmds to the spawned player (host_cmd.c) --
+    // deathmatch stays 1 so Gametypes.qc still runs the SLAYER setup.
+    svs.maxclients = 8;
     // end override
 
 	svs.maxclientslimit = svs.maxclients;
@@ -1218,6 +1217,7 @@ void _Host_Frame (double time)
 			PR_SwitchQCVM(&sv.qcvm);
 			Host_ServerFrame ();
 			PR_SwitchQCVM(NULL);
+			{ extern void Ed_CheckBootCheats (void); Ed_CheckBootCheats (); }
 		}
 		host_frametime = realframetime;
 		Cbuf_Waited();
@@ -1276,6 +1276,7 @@ void _Host_Frame (double time)
 	host_framecount++;
 
 }
+
 
 void Host_Frame (double time)
 {

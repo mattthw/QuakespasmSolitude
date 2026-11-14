@@ -518,15 +518,25 @@ Host_God_f
 Sets client to godmode
 ==================
 */
+static qboolean Ed_DeferCheatCmd (void);
+
 void Host_God_f (void)
 {
-	if (cmd_source != src_client)
+	//r100 v3: boot-cheat replays run with NULL globals (no QCVM) -- go via server
+	if (cmd_source != src_client && !pr_global_struct)
 	{
 		Cmd_ForwardToServer ();
 		return;
 	}
+	if (cmd_source != src_client)
+	{
+		if (Ed_DeferCheatCmd ())
+			return;
+		Cmd_ForwardToServer ();
+		return;
+	}
 
-	if (pr_global_struct->deathmatch)
+	if (pr_global_struct->deathmatch && !COM_CheckParm ("-editor"))	//r100
 		return;
 
 	//johnfitz -- allow user to explicitly set god mode to on or off
@@ -610,15 +620,76 @@ qboolean noclip_anglehack;
 Host_Noclip_f
 ==================
 */
+
+//r100 -- -editor boot cheats: +noclip/+god/+fly from the command line arrive
+//with cmd_source==src_command before the client is connected, so
+//Cmd_ForwardToServer() used to drop them ("Can't ... not connected"). With
+//-editor, each such request is queued verbatim and replayed as src_client the
+//moment the local player has actually spawned, so scripted TrenchBroom boots
+//can start with cheats. hud_mapshot stays 0 -- HUD visible.
+static char		ed_bootcmds[512];
+static qboolean	ed_pending;
+
+static qboolean Ed_DeferCheatCmd (void)
+{
+	if (!COM_CheckParm ("-editor"))
+		return false;
+	if (svs.clients && svs.clients[0].spawned)
+		return false;	//r100 v3: spawned -> normal forward path works
+	q_strlcat (ed_bootcmds, Cmd_Argv(0), sizeof(ed_bootcmds));
+	q_strlcat (ed_bootcmds, " ", sizeof(ed_bootcmds));
+	if (Cmd_Argc() > 1)
+		q_strlcat (ed_bootcmds, Cmd_Argv(1), sizeof(ed_bootcmds));
+	q_strlcat (ed_bootcmds, "\n", sizeof(ed_bootcmds));
+	ed_pending = true;
+	return true;
+}
+
+void Ed_CheckBootCheats (void)
+{
+	char	buf[512];
+	char	*line, *next, *t;
+
+	if (!ed_pending)
+		return;
+	if (cls.state != ca_connected || !sv.active || !svs.clients || !svs.clients[0].spawned)
+		return;
+	ed_pending = false;
+	q_strlcpy (buf, ed_bootcmds, sizeof(buf));
+	ed_bootcmds[0] = 0;
+	for (line = buf; line && *line; line = next)
+	{
+		next = strchr (line, '\n');
+		if (next)
+			*next++ = 0;
+		t = line + strlen(line);
+		while (t > line && (t[-1] == ' ' || t[-1] == '\t' || t[-1] == ';'))
+			*--t = 0;
+		if (*line)
+		{
+			Cbuf_AddText (line);
+			Cbuf_AddText ("\n");
+		}
+	}
+}
+
 void Host_Noclip_f (void)
 {
-	if (cmd_source != src_client)
+	//r100 v3: boot-cheat replays run with NULL globals (no QCVM) -- go via server
+	if (cmd_source != src_client && !pr_global_struct)
 	{
 		Cmd_ForwardToServer ();
 		return;
 	}
+	if (cmd_source != src_client)
+	{
+		if (Ed_DeferCheatCmd ())
+			return;
+		Cmd_ForwardToServer ();
+		return;
+	}
 
-	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot"))	/* r89 photo mode */
+	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot") && !COM_CheckParm ("-editor"))	/* r89 photo mode, r100 editor exception */
 		return;
 
 	//johnfitz -- allow user to explicitly set noclip to on or off
@@ -729,13 +800,21 @@ Sets client to flymode
 */
 void Host_Fly_f (void)
 {
-	if (cmd_source != src_client)
+	//r100 v3: boot-cheat replays run with NULL globals (no QCVM) -- go via server
+	if (cmd_source != src_client && !pr_global_struct)
 	{
 		Cmd_ForwardToServer ();
 		return;
 	}
+	if (cmd_source != src_client)
+	{
+		if (Ed_DeferCheatCmd ())
+			return;
+		Cmd_ForwardToServer ();
+		return;
+	}
 
-	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot"))	/* r89 photo mode */
+	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot") && !COM_CheckParm ("-editor"))	/* r89 photo mode, r100 editor exception */
 		return;
 
 	//johnfitz -- allow user to explicitly set noclip to on or off
