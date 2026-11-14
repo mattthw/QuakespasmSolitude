@@ -669,7 +669,7 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, fsaa > 0 ? 1 : 0);
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, fsaa);
 #endif
-	q_snprintf(caption, sizeof(caption), ENGINE_NAME_AND_VER);
+	q_snprintf(caption, sizeof(caption), "Solitude (QuakeSpasm " QUAKESPASM_VER_STRING QUAKESPASM_VER_SUFFIX ")");
 
 #if defined(USE_SDL2)
 #ifndef VITA
