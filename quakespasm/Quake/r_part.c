@@ -838,9 +838,11 @@ void R_DrawParticles (void)
 {
 	particle_t		*p;
 	float			scale;
+	float			viewz, cap, cap_k;	//perf B4
 	vec3_t			up, right, p_up, p_right, p_upright; //johnfitz -- p_ vectors
 	GLubyte			color[4], *c; //johnfitz -- particle transparency
 	extern	cvar_t	r_particles; //johnfitz
+	extern	cvar_t	r_part_maxrad; //perf B4
 	//float			alpha; //johnfitz -- particle transparency
 
 	if (!r_particles.value)
@@ -849,6 +851,14 @@ void R_DrawParticles (void)
 	//ericw -- avoid empty glBegin(),glEnd() pair below; causes issues on AMD
 	if (!active_particles)
 		return;
+
+	//perf B4 -- precompute a world-scale cap so each particle's projected
+	//radius stays under r_part_maxrad px (0 = off). Sprite extent is
+	//scale*1.5 along vup/vright, so:
+	//scale <= viewz * r_part_maxrad * 2*tan(fov_y/2) / (0.75*vrect.height)
+	cap_k = 0;
+	if (r_part_maxrad.value > 0)
+		cap_k = (float) (r_part_maxrad.value * 2.0 * tan (r_refdef.fov_y * M_PI / 360.0) / (0.75 * r_refdef.vrect.height));
 
 	VectorScale (vup, 1.5, up);
 	VectorScale (vright, 1.5, right);
@@ -864,17 +874,24 @@ void R_DrawParticles (void)
 		for (p=active_particles ; p ; p=p->next)
 		{
 			// hack a scale up to keep particles from disapearing
-			scale = (p->org[0] - r_origin[0]) * vpn[0]
+			viewz = (p->org[0] - r_origin[0]) * vpn[0]
 				  + (p->org[1] - r_origin[1]) * vpn[1]
 				  + (p->org[2] - r_origin[2]) * vpn[2];
-			if (scale < 20)
+			if (viewz < 20)
 				scale = 1 + 0.08; //johnfitz -- added .08 to be consistent
 			else
-				scale = 1 + scale * 0.004;
+				scale = 1 + viewz * 0.004;
 
 			scale /= 2.0; //quad is half the size of triangle
 
 			scale *= texturescalefactor; //johnfitz -- compensate for apparent size of different particle textures
+
+			if (cap_k > 0 && viewz > 0) //perf B4 -- screen-size clamp
+			{
+				cap = viewz * cap_k;
+				if (scale > cap)
+					scale = cap;
+			}
 
 			//johnfitz -- particle transparency and fade out
 			c = (GLubyte *) &d_8to24table[(int)p->color];
@@ -911,15 +928,22 @@ void R_DrawParticles (void)
 		for (p=active_particles ; p ; p=p->next)
 		{
 			// hack a scale up to keep particles from disapearing
-			scale = (p->org[0] - r_origin[0]) * vpn[0]
+			viewz = (p->org[0] - r_origin[0]) * vpn[0]
 				  + (p->org[1] - r_origin[1]) * vpn[1]
 				  + (p->org[2] - r_origin[2]) * vpn[2];
-			if (scale < 20)
+			if (viewz < 20)
 				scale = 1 + 0.08; //johnfitz -- added .08 to be consistent
 			else
-				scale = 1 + scale * 0.004;
+				scale = 1 + viewz * 0.004;
 
 			scale *= texturescalefactor; //johnfitz -- compensate for apparent size of different particle textures
+
+			if (cap_k > 0 && viewz > 0) //perf B4 -- screen-size clamp
+			{
+				cap = viewz * cap_k;
+				if (scale > cap)
+					scale = cap;
+			}
 
 			//johnfitz -- particle transparency and fade out
 			c = (GLubyte *) &d_8to24table[(int)p->color];

@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 
 extern cvar_t gl_fullbrights, r_drawflat, gl_overbright, r_oldwater, r_oldskyleaf, r_showtris; //johnfitz
+extern cvar_t r_subpixel_cull; //perf B4
 
 byte *SV_FatPVS (vec3_t org, qmodel_t *worldmodel);
 
@@ -198,6 +199,38 @@ qboolean R_BackFaceCull (msurface_t *surf)
 
 /*
 ================
+R_SurfaceSubpixel -- perf B4 -- true when the surface's bounding box projects
+under the sub-pixel threshold: caller precomputed k = threshold_px * 2 *
+tan(fov_y/2) / vrect.height, so cull when half-diagonal radius < k * eye
+distance (conservative: overestimates the sprite, culls slightly less than
+the true projected box). Sky/turb/warp surfaces are exempt by request.
+================
+*/
+static qboolean R_SurfaceSubpixel (msurface_t *s, float k)
+{
+	vec3_t	center, ext, toctr;
+	float	radius, dist;
+
+	if (s->flags & (SURF_DRAWSKY | SURF_DRAWTURB))
+		return false;
+	if (s->texinfo->texture->warpimage) //animated water/lava/slime
+		return false;
+
+	VectorAdd (s->mins, s->maxs, center);
+	VectorScale (center, 0.5f, center);
+	VectorSubtract (center, r_refdef.vieworg, toctr);
+	dist = VectorLength (toctr);
+	if (dist < 1)
+		return false; //eye basically at the surface -- never sub-pixel
+
+	VectorSubtract (s->maxs, s->mins, ext);
+	radius = VectorLength (ext) * 0.5f;
+
+	return radius < k * dist;
+}
+
+/*
+================
 R_CullSurfaces -- johnfitz
 ================
 */
@@ -206,9 +239,15 @@ void R_CullSurfaces (void)
 	msurface_t *s;
 	int i;
 	texture_t *t;
+	float subpix_k;	//perf B4
 
 	if (!r_drawworld_cheatsafe)
 		return;
+
+	//perf B4 -- 0 = off (default); threshold in screen pixels
+	subpix_k = 0;
+	if (r_subpixel_cull.value > 0)
+		subpix_k = (float) (r_subpixel_cull.value * 2.0 * tan (r_refdef.fov_y * M_PI / 360.0) / r_refdef.vrect.height);
 
 // ericw -- instead of testing (s->visframe == r_visframecount) on all world
 // surfaces, use the chained surfaces, which is exactly the same set of sufaces
@@ -222,6 +261,8 @@ void R_CullSurfaces (void)
 		for (s = t->texturechains[chain_world]; s; s = s->texturechain)
 		{
 			if (R_CullBox(s->mins, s->maxs) || R_BackFaceCull (s))
+				s->culled = true;
+			else if (subpix_k > 0 && R_SurfaceSubpixel (s, subpix_k)) //perf B4
 				s->culled = true;
 			else
 			{
