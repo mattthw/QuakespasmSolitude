@@ -1407,6 +1407,15 @@ void Host_Init (void)
 	// johnfitz -- in case the vid mode was locked during vid_init, we can unlock it now.
 		// note: two leading newlines because the command buffer swallows one of them.
 		Cbuf_AddText ("\n\nvid_unlock\n");
+		// solitude fork: upstream spike moved stuffcmds into the dedicated-only
+		// branch below, which made command-line "+commands" dead on a normal
+		// GUI boot -- scripted launches (TrenchBroom engine profile, mac.sh)
+		// passing +map <name> silently did nothing and booted to the menu.
+		// Queue it for listen boots as well; the quake.rc chain runs first
+		// (InsertText), so a requested map loads last and wins over the
+		// title state. Absence of +commands keeps r94's boot-to-menu default
+		// exactly as designed.
+		Cbuf_AddText ("stuffcmds\n");
 	}
 
 	if (cls.state == ca_dedicated)

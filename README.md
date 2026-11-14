@@ -211,9 +211,12 @@ The layout above (the old `Quakespasm/working/` game dir) predates the project m
     ``${GAME_DIR_PATH}/assets/maps/`` — always with trailing slash (directory targets).
     The old extension-less targets are how strays like `assets/maps/narrows2` were born.
 - Root-level compile intermediates (`/*.bsp /*.lit /*.vis /*.map /*.prt`) are gitignored.
-- **Engine launch profile is intentionally NOT updated:** it still points at the archived
-  Mac build `solitude/local/archive/resources/Quakespasm/QuakeSpasm-SDL2.app`, which is
-  the correct binary for local test play. Don't "fix" this path.
+- **Engine launch profile UPDATED 2026-11-14:** it now launches the Mac fork bundle
+  `toolchain/fork-engine-mac/QuakeSpasmSolitude.app` with `mac.sh launch`-style parameters
+  (`-nolauncher -basedir ${GAME_DIR_PATH} -game solitude -window -condebug +exec config-mac.cfg
+  +hud_mapshot 0 +map ${MAP_BASE_NAME}`). The previous targets — stock 0.97
+  (`toolchain/quakespasm-0.97.0`) and the archived 2021 app — are `./mac.sh stock` fallbacks only;
+  they don't understand the fork's cvars (`Unknown command` spam, no HUD/perf features).
 - If you hand-edit TB's own files in `~/Library/Application Support/TrenchBroom/`,
   quit TrenchBroom first — it rewrites `Preferences.json` on exit.
 
