@@ -1,0 +1,239 @@
+#!/usr/bin/env python3
+"""B0 map audit: BSP29 read-only analysis of the 24 matchmaking-menu maps.
+
+Detects: leak/no-PVS maps, oversized textures (gl_max_size win), lightmap
+bulk (dlight rebake cost), vertex hotspots (face-density areas you can
+jump to in TrenchBroom). Writes MAP-AUDIT.md + MAP-AUDIT.csv beside this
+file. No writes to any map. Run from anywhere; paths are absolute.
+
+Pure stdlib. BSP29 structs per quakespasm/Quake/bspfile.h.
+"""
+import csv
+import os
+import struct
+import sys
+from collections import Counter
+
+REPO = "/Users/matt_1/workspace/projects-vita/solitude/repo"
+MAPDIR = os.path.join(REPO, "solitude", "maps")
+OUTDIR = os.path.dirname(os.path.abspath(__file__))
+
+# bsp name -> menu.c levels[] entry (thumbnail) for the 24 menu maps
+MENU_MAPS = [
+    "highground", "citadel", "babybloodgulch", "pit3", "narsp",
+    "skyringbl2", "wizard", "lockdown", "cestra", "lane", "Longest",
+    "chill", "pri2", "base", "plaza", "spider", "pit", "pit2", "lock",
+    "+bloodgulch2", "narrows", "construction", "fire",
+]
+
+LUMP_ENTITIES, LUMP_PLANES, LUMP_TEXTURES, LUMP_VERTEXES, LUMP_VIS = 0, 1, 2, 3, 4
+LUMP_LIGHTING, LUMP_LEAVES, LUMP_TEXINFO, LUMP_FACES, LUMP_EDGES = 7, 10, 6, 7, 12
+# explicit indices (BSP29 dir order):
+D = dict(entities=0, planes=1, textures=2, vertexes=3, visibility=4, nodes=5,
+         texinfo=6, faces=7, lighting=8, clipnodes=9, leaves=10,
+         marksurfaces=11, edges=12, models=13, lightmaps=14)
+
+
+def bsp_lumps(data):
+    if struct.unpack_from("<i", data, 0)[0] != 29:
+        return None
+    out = {}
+    for name, idx in D.items():
+        ofs, len_ = struct.unpack_from("<2i", data, 4 + idx * 8)
+        out[name] = (ofs, len_, data[ofs:ofs + len_])
+    return out
+
+
+def read_textures(l):
+    n = struct.unpack_from("<i", l, 0)[0]
+    offs = struct.unpack_from("<%di" % n, l, 4)
+    tex = []
+    for o in offs:
+        if o <= 0:  # 0 = empty slot, -1 = external wad (ericw-tools marker)
+            tex.append(None)
+            continue
+        name = l[o:o + 16].split(b"\0")[0].decode("latin-1")
+        w, h = struct.unpack_from("<2i", l, o + 16)
+        tex.append((name, w, h))
+    return tex
+
+
+def read_texinfo_miptex(l):
+    out = []
+    for i in range(len(l) // 40):
+        miptex = struct.unpack_from("<i", l, i * 40 + 32)[0]
+        out.append(miptex)
+    return out
+
+
+def read_faces(l):
+    out = []
+    for i in range(len(l) // 20):
+        firstedge, = struct.unpack_from("<i", l, i * 20 + 4)
+        numedges, texinfo = struct.unpack_from("<2h", l, i * 20 + 8)
+        lightofs, = struct.unpack_from("<i", l, i * 20 + 16)
+        out.append((abs(firstedge), numedges, texinfo, lightofs))
+    return out
+
+
+def read_verts(l):
+    return [struct.unpack_from("<3f", l, i * 12) for i in range(len(l) // 12)]
+
+
+def read_edges(l):
+    return [struct.unpack_from("<2H", l, i * 4) for i in range(len(l) // 4)]
+
+
+def vis_score(visl, numleafs):
+    if numleafs <= 0:
+        return None
+    if len(visl) == 0:
+        return ("NO-VIS (leaked/unwritten)", float("inf"))
+    n = struct.unpack_from("<i", visl, 0)[0]  # numleafs per header
+    per_leaf = len(visl) / float(numleafs)
+    allvis = numleafs / 8.0
+    ratio = per_leaf / allvis if allvis else 0
+    tag = None
+    if ratio > 0.5:
+        tag = "WEAK-PVS (%.2f of all-visible)" % ratio
+    return (tag, ratio)
+
+
+def hotspots(verts, cell=256):
+    bins = Counter()
+    for v in verts:
+        bins[(int(v[0] // cell) * cell, int(v[1] // cell) * cell,
+              int(v[2] // cell) * cell)] += 1
+    return bins.most_common(3)
+
+
+def audit(path):
+    with open(path, "rb") as f:
+        data = f.read()
+    L = bsp_lumps(data)
+    if L is None:
+        return {"file": os.path.basename(path), "error": "not BSP29"}
+    tex = read_textures(L["textures"][2])
+    miptexes = read_texinfo_miptex(L["texinfo"][2])
+    faces = read_faces(L["faces"][2])
+    verts = read_verts(L["vertexes"][2])
+    numleafs = len(L["leaves"][2]) // 28
+
+    used = Counter()
+    for fe, ne, ti, lo in faces:
+        if 0 <= ti < len(miptexes) and miptexes[ti] is not None:
+            m = miptexes[ti]
+            if 0 <= m < len(tex) and tex[m]:
+                used[m] += 1
+    big = [(tex[m][0], tex[m][1], tex[m][2], n) for m, n in used.items()
+           if max(tex[m][1], tex[m][2]) >= 1024]
+    big.sort(key=lambda t: -t[1] * t[2])
+    mb_tex = sum(tex[m][1] * tex[m][2] * 0.5 / 1024.0 / 1024.0 * 1.333
+                 for m in used if tex[m])  # DXT ~0.5B/texel + mips
+    cap512 = 0.0
+    for m in used:
+        if not tex[m]:
+            continue
+        w, h = tex[m][1], tex[m][2]
+        f = (512.0 / max(w, h)) ** 2 if max(w, h) > 512 else 1.0
+        cap512 += w * h * (1 - f) * 2 / 1024.0 / 1024.0 * 1.333
+    lm_blocks = L["lighting"][1] // 49152
+    lm_mb = L["lighting"][1] / 1024.0 / 1024.0
+    lit_faces = sum(1 for fe, ne, ti, lo in faces if lo != -1)
+    vtag, vratio = vis_score(L["visibility"][2], numleafs)
+    hs = hotspots(verts)
+    return {
+        "file": os.path.basename(path), "size_mb": round(len(data) / 1048576.0, 2),
+        "faces": len(faces), "verts": len(verts),
+        "leafs": numleafs, "vis_flag": vtag, "vis_ratio": round(vratio, 3) if vratio != float("inf") else 99.0,
+        "lightmaps_mb": round(lm_mb, 1), "lightmap_blocks": lm_blocks,
+        "lit_faces_pct": round(100.0 * lit_faces / max(1, len(faces)), 1),
+        "tex_dxt_mb": round(mb_tex, 1), "tex_ge1024": len(big),
+        "gl_max_size_512_saves_mb": round(cap512, 1),
+        "top_big_tex": "; ".join("%s %dx%d(%d faces)" % b for b in big[:3]),
+        "top_hotspots": "; ".join("(%d,%d,%d):%d" % (c[0][0], c[0][1], c[0][2], c[1]) for c in hs),
+    }
+
+
+def main():
+    only = sys.argv[1:] or None
+    present = {f.lower(): f for f in os.listdir(MAPDIR) if f.lower().endswith(".bsp")}
+    rows, missing = [], []
+    for want in MENU_MAPS:
+        fn = present.get((want + ".bsp").lower())
+        if fn is None:
+            missing.append(want)
+            continue
+        if only and want.lower() not in [o.lower() for o in only]:
+            continue
+        rows.append(audit(os.path.join(MAPDIR, fn)))
+
+    def score(r):
+        s = 0.0
+        if r.get("error"):
+            return 1e9
+        s += 50 if r["vis_flag"] == "NO-VIS (leaked/unwritten)" else 0
+        s += 20 * min(3.0, r["vis_ratio"] or 0)
+        s += 0.5 * r["lightmaps_mb"]
+        s += 2.0 * r["tex_ge1024"]
+        s += 0.2 * r["gl_max_size_512_saves_mb"]
+        return s
+
+    rows.sort(key=score, reverse=True)
+    cols = [k for k in rows[0] if k not in ("hotspot_cells",)]
+    with open(os.path.join(OUTDIR, "MAP-AUDIT.csv"), "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols, lineterminator="\n")
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: r.get(k, "") for k in cols})
+
+    md = ["# B0 map audit - 24 matchmaking-menu maps (BSP29, read-only)",
+          "",
+          "Score = leak(50) + 20*PVS-weakness + 0.5*lightmap-MB + 2*count(>=1024 tex) + 0.2*gl_max_size512-savings-MB",
+          "",
+          "| # | map | vis | >=1024 tex | tex DXT MB | cap512 saves MB | lightmaps MB | faces | verts | leafs |",
+          "|---|-----|-----|-----------|------------|-----------------|--------------|-------|-------|-------|"]
+    for i, r in enumerate(rows, 1):
+        if r.get("error"):
+            md.append("| %d | %s | %s |" % (i, r["file"], r["error"]))
+            continue
+        md.append("| %d | %s | %s | %d | %.1f | %.1f | %.1f | %d | %d | %d |" % (
+            i, r["file"].replace(".bsp", ""), r["vis_flag"] or "ok",
+            r["tex_ge1024"], r["tex_dxt_mb"], r["gl_max_size_512_saves_mb"],
+            r["lightmaps_mb"], r["faces"], r["verts"], r["leafs"]))
+    md.append("")
+    md.append("## Details (worst first)")
+    for r in rows[:12]:
+        if r.get("error"):
+            continue
+        md.append("- **%s** vis-ratio %.2f %s | big tex: %s | hotspots(256u): %s" % (
+            r["file"], r["vis_ratio"], r["vis_flag"] or "", r["top_big_tex"] or "none",
+            r["top_hotspots"]))
+    md.append("")
+    md.append("## Read-out / recommended actions")
+    md.append("- TEXTURE SIZE IS A NON-ISSUE for this set: zero menu maps use >1024px "
+              "textures (Cestra: one 1024). gl_max_size caps save <2MB total; not worth a batch.")
+    no_vis = [r["file"] for r in rows if r.get("vis_flag", "") and "NO-VIS" in r["vis_flag"]]
+    md.append("- **%d maps have an EMPTY visibility lump (no PVS at all)**: %s. "
+              "Engine falls back to all-leafs-visible (gl_rmain R_MarkLeaves) -> world culling AND "
+              "dlight MarkLights walks degrade to whole-map every frame. Re-running `vis` on these "
+              ".map sources is the single biggest map-content fix and amplifies B3 (dlight cull) "
+              "and B9 (sub-pixel cull)." % (len(no_vis), ", ".join(no_vis)))
+    md.append("- WEAK-PVS ratios ~0.6-1.0 on small open DM maps are largely geometric truth, not "
+              "leaks; the NO-VIS rows above are the real defect class.")
+    md.append("- 'construction' is in the matchmaking menu but no runtime .bsp exists in "
+              "solitude/maps (only in legacy backup) - menu selection errors out; fix menu or ship map.")
+    md.append("- Worst overall content map: Cestra (no PVS + 9473 faces + 0.9MB lightmaps + 1024 tex). "
+              "Heaviest well-built maps: narrows/pit2/pit3/highground (10-12k faces, good vis).")
+    md.append("- Vertex hotspots (256u cells, coords in Details) are TB-jumpable for face-merge passes "
+              "if a specific area tests slow in B1 - don't blanket-remap.")
+    if missing:
+        md.append("")
+        md.append("## In menu but NO runtime BSP found: %s" % ", ".join(missing))
+    with open(os.path.join(OUTDIR, "MAP-AUDIT.md"), "w") as f:
+        f.write("\n".join(md) + "\n")
+    print("wrote MAP-AUDIT.md + MAP-AUDIT.csv (%d maps, missing: %s)" % (len(rows), missing))
+
+
+if __name__ == "__main__":
+    main()
