@@ -2858,11 +2858,13 @@ void M_Matchmaking_Gamerules_Key (int key) {
             if (gamerules_cursor >= rule_list_size)
                 gamerules_cursor = 0;
             break;
+        case K_LSHOULDER:	// perf fix: Vita L/R report as shoulders, not triggers
         case K_LTRIGGER:
         case K_LEFTARROW:
             S_LocalSound ("misc/menuoption.wav");
             M_Matchmaking_Gamerules_Submenu_Key(-1);
             break;
+        case K_RSHOULDER:	// perf fix: Vita L/R report as shoulders, not triggers
         case K_RTRIGGER:
         case K_RIGHTARROW:
             S_LocalSound ("misc/menuoption.wav");
@@ -3666,9 +3668,11 @@ void M_Options_Key (int k)
 		}
 		return;
 
+	case K_LSHOULDER:	// perf fix: Vita L/R report as shoulders, not triggers
 	case K_LTRIGGER:
 		M_Options_CycleTab (1);
 		return;
+	case K_RSHOULDER:
 	case K_RTRIGGER:
 		M_Options_CycleTab (-1);
 		return;
@@ -4089,6 +4093,7 @@ void M_Matchmaking_Map_Key (int key) {
             if (mlist_cursor >= (size_t)M_Maps_LevelCount ())
                 mlist_cursor = 0;
             break;
+        case K_LSHOULDER:	// perf fix: Vita L/R report as shoulders, not triggers
         case K_LTRIGGER:
         case K_LEFTARROW:
 #ifndef VITA
@@ -4102,6 +4107,7 @@ void M_Matchmaking_Map_Key (int key) {
             if (startepisode == NUM_EPISODES - 1)
                 M_Maps_ScanCustom ();	// perf B7: refresh the folder list on tab entry
             break;
+        case K_RSHOULDER:	// perf fix: Vita L/R report as shoulders, not triggers
         case K_RTRIGGER:
         case K_RIGHTARROW:
 #ifndef VITA
