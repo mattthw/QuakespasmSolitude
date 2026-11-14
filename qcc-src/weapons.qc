@@ -1397,7 +1397,11 @@ void () Bounce_Off_Walls =
 	self.think = bounce_a;
 
 	if (self.velocity == '0 0 0')
+	{
+		if (self.counted_needle)	// B2: shared with Mario needles; only counted ones track
+			self.owner.live_needles -= 1;
 		remove (self);
+	}
 };
 
 
@@ -1414,6 +1418,8 @@ void () Needler_Touch =
 		return;
 	}
 	
+	if (self.counted_needle)		// B2: hit or bounce-exhausted end of life
+		self.owner.live_needles -= 1;
 	remove(self);
 };
 
@@ -1428,10 +1434,20 @@ void() NeedlerHome =
 	
 	// issue #44 fix: was a 0.5s think with steering only at each beat, so a
 	// 550 u/s needle covered ~275 units of stale heading between corrections.
-	// Now 0.1s think with 3.3x turn authority, and re-acquisition of the
-	// NEAREST valid target (rate-limited to ~3 Hz to bound the findradius
-	// cost - needles live 15 s and Vita QC budget is tight; see #38).
-	if (self.enemy == world || self.enemy.health <= 0 || (time - self.delay) > 0.3)
+	// Now 0.1s think with 3.3x turn authority. B2: re-acquisition of the
+	// NEAREST valid target now requires the current enemy to be missing or
+	// dead (was: unconditional re-lock every 0.3 s - a full-edict-chain
+	// findradius per needle per third-second, which grew slower as leaked
+	// entities accumulated). Still rate-limited to ~3 Hz so targetless
+	// needles cannot re-scan every beat (Vita QC budget; see #38).
+	if (time > self.armorvalue)		// enforce the 15 s lifetime stamped at spawn (was never read)
+	{
+		if (self.counted_needle)
+			self.owner.live_needles -= 1;
+		remove(self);
+		return;
+	}
+	if ((self.enemy == world || self.enemy.health <= 0) && (time - self.delay) >= 0.3)
 	{
 		self.delay = time;			// reuse as last-retarget stamp (unused on needles)
 		te = findradius(self.origin, 950);
@@ -1486,7 +1502,11 @@ void() W_FireNeedler =
 {
 	local entity fshell;
 	local float r;
+	local float cap;
 	local vector spread;
+	cap = cvar("sv_max_needles");	// B2: per-shooter live-needle cap; 0 (default) = unlimited
+	if (cap > 0 && self.live_needles >= cap)
+		return;			// shot fizzles: no sound, no ammo, no heat
 	r = random();
 	muzzleflash6();
 	sound (self, CHAN_WEAPON, "weapons/needler.wav", 1, ATTN_NORM); 
@@ -1527,10 +1547,12 @@ void() W_FireNeedler =
 	setmodel (fshell, "progs/needproy.mdl");
 	setsize (fshell, '0 0 0', '0 0 0');
 	setorigin (fshell, ((self.origin + (v_forward * 8)) + '0 0 16'));  //setorigin (fshell, ((self.origin + (v_forward * 8)) + '0 0 16'));
-	if (pointcontents(self.origin) == CONTENT_SKY) {
-	remove(self);
+	if (pointcontents(fshell.origin) == CONTENT_SKY) {	// B2: was self.origin + remove(self) - killed the SHOOTER at sky and leaked the needle
+	remove(fshell);
 	return;
 	}
+	fshell.counted_needle = 1;	// B2: tracked in owner.live_needles (expiry + cap)
+	self.live_needles += 1;
 };
 
 float(vector veca, vector vecb) crossproduct =

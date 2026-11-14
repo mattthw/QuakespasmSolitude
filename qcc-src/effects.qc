@@ -104,15 +104,16 @@ other.nade_lives = other.nade_lives + 1;
 };
 
 */
-void() s_smokee6 = [5,		SUB_Remove] {};
-void() s_smokee5 = [4,		s_smokee6] {};
-void() s_smokee4 = [3,		s_smokee5] {};
-void() s_smokee3 = [2,		s_smokee4] {};
-void() s_smokee2 = [1,		s_smokee3] {};
-void() s_smokee1 = [0,		s_smokee2] {};
-void() s_needle3 = [2,		SUB_Remove] {};
-void() s_needle2 = [1,		s_needle3] {};
-void() s_needle1 = [0,		s_needle2] {};
+// B2: the old [frame, next] {} state-chain stubs set self.frame/self.think but
+// (empty body) never scheduled self.nextthink, so fteqcc compiled them into
+// no-ops that froze every dust/smoke entity on frame 0 and leaked the edict
+// until map change. Dust now runs the real 3-frame grow animation of
+// needler_dust.spr (0.1 s/beat, 0.3 s life) and self-removes; the s_smokee
+// chain is gone entirely - s_smoke2.spr is blank in all 6 frames, so smoke
+// gets a plain SUB_Remove despawn in pistolsmoke below.
+void() s_needle3 = [2,		SUB_Remove]	{ self.nextthink = time + 0.1; };
+void() s_needle2 = [1,		s_needle3]	{ self.nextthink = time + 0.1; };
+void() s_needle1 = [0,		s_needle2]	{ self.nextthink = time + 0.1; };
 //void() s_plasma14 = [13,		SUB_Remove] {};
 //void() s_plasma13 = [12,		s_plasma14] {};
 //void() s_plasma12 = [11,		s_plasma13] {};
@@ -165,7 +166,8 @@ void(vector org) pistolsmoke =
 	setmodel (self, "sprites/s_smoke2.spr");
 	setorigin (self, ((org + (v_forward * 15)) + '0 0 12'));
 	self.solid = SOLID_NOT;
-	s_smokee1();
+	self.think = SUB_Remove;	// B2: s_smoke2.spr is fully transparent; despawn, never animate
+	self.nextthink = time + 0.5;
 	self = s; // restore old self
 };
 
