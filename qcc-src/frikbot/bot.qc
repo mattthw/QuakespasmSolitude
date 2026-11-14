@@ -1384,6 +1384,13 @@ void() BotImpulses =
 {
 	local float f;
 
+	// waypoint-mode gate: test-bot/botcam/kick impulses (100-103) are inert
+	// outside the waypoint editor so = - v binds can't touch a live match.
+	// impulse 104 (editor toggle) stays always-on -- it IS the mode switch.
+	if (waypoint_mode < WM_EDITOR && (self.impulse == 100
+		|| self.impulse == 101 || self.impulse == 102 || self.impulse == 103))
+		return;
+
 	if (self.impulse == 100)
 	{
 		f = cvar("skill");
