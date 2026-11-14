@@ -61,6 +61,8 @@ float           teamlimit; // used to determine when to end team based games
 .float needler_heat;		// needler fires faster the longer it's held down
 .float live_needles;		// B2: shooter's in-flight W_FireNeedler count (sv_max_needles cap)
 .float counted_needle;		// B2: 1 = projectile tracked in owner.live_needles (Mario needles untracked)
+// B10-impl: sticky plasma nade trail/attach flash (sv_grenade_trail)
+.float trail_flash_end;		// 0 = none; else time when EF_DIMLIGHT reverts to EF_FLAG2
 
 .float ammo_shells2;
 .float ammo_hshells;

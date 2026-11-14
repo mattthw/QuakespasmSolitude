@@ -68,6 +68,7 @@ int				cl_maxvisedicts;
 entity_t		**cl_visedicts;
 
 extern cvar_t	r_lerpmodels, r_lerpmove; //johnfitz
+extern cvar_t		sv_grenade_trail;	// perf B10-impl: nade trails, registered in host.c
 extern float	host_netinterval;	//Spike
 
 void CL_ClearTrailStates(void)
@@ -793,8 +794,11 @@ void CL_RelinkEntities (void)
 			if (PScript_EntParticleTrail(oldorg, ent, "TR_KNIGHTSPIKE"))
 				R_RocketTrail (oldorg, ent->origin, 5);
 		}
-		else if (modelflags & EF_ROCKET)
+		else if ((modelflags & EF_ROCKET) && !(modelflags & EF_GRENADE))
 		{
+			// B10-impl: fraggren.mdl carries an obsolete EF_ROCKET bit in its
+			// IDPO header flags; QC now requests the smoke trail via the
+			// EF_GRENADE high-byte bit, which must win (no dlight).
 			if (PScript_EntParticleTrail(oldorg, ent, "TR_ROCKET"))
 				R_RocketTrail (oldorg, ent->origin, 0);
 			dl = CL_AllocDlight (i);
@@ -804,8 +808,35 @@ void CL_RelinkEntities (void)
 		}
 		else if (modelflags & EF_GRENADE)
 		{
-			if (PScript_EntParticleTrail(oldorg, ent, "TR_GRENADE"))
+			if (sv_grenade_trail.value && PScript_EntParticleTrail(oldorg, ent, "TR_GRENADE"))
 				R_RocketTrail (oldorg, ent->origin, 1);
+		}
+		else if (ent->model && !strcmp(ent->model->name, "progs/plasgren.mdl"))
+		{
+			// perf B10-impl: plasma sticky - blue gradient smoke keyed on the
+			// model every sticky uses. sv_grenade_trail is read live, so the
+			// trail (frag smoke above too) can be killed mid-flight.
+			if (sv_grenade_trail.value)
+			{
+				vec3_t	up;
+
+				if (modelflags & 8)	// QC "stuck" bit (8<<24 in effects)
+				{
+					// Attached (wall-welded or riding a host): one short bright
+					// puff on the spot roughly every third frame until the fuse
+					// removes the entity. R_RocketTrail walks its segment in 3u
+					// steps (and emits nothing on a zero-length one), so a 2.9u
+					// stub spawns exactly one particle with type-7 jitter.
+					if ((rand () % 3) == 0)
+					{
+						VectorCopy (ent->origin, up);
+						up[2] += 2.9;
+						R_RocketTrail (ent->origin, up, 7);
+					}
+				}
+				else
+					R_RocketTrail (oldorg, ent->origin, 7);
+			}
 		}
 		else if (modelflags & EF_TRACER3)
 		{

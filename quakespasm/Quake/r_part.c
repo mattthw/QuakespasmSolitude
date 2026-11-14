@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 int		ramp1[8] = {0x6f, 0x6d, 0x6b, 0x69, 0x67, 0x65, 0x63, 0x61};
 int		ramp2[8] = {0x6f, 0x6e, 0x6d, 0x6c, 0x6b, 0x6a, 0x68, 0x66};
 int		ramp3[8] = {0x6d, 0x6b, 6, 5, 4, 3};
+int		ramp_plasma[6] = {245, 244, 244, 208, 208, 209};	// perf B10-impl: ice -> sky -> pure blue, no violet tail
 
 particle_t	*active_particles, *free_particles, *particles;
 
@@ -667,6 +668,7 @@ void R_RocketTrail (vec3_t start, vec3_t end, int type)
 				p->ramp = (rand()&3) + 2;
 				p->color = ramp3[(int)p->ramp];
 				p->type = pt_fire;
+				p->die = cl.time + 0.24;	// B10-impl round-4: frag smoke = 2x plasma trail
 				for (j=0 ; j<3 ; j++)
 					p->org[j] = start[j] + ((rand()%6)-3);
 				break;
@@ -716,6 +718,14 @@ void R_RocketTrail (vec3_t start, vec3_t end, int type)
 				p->die = cl.time + 0.3;
 				for (j=0 ; j<3 ; j++)
 					p->org[j] = start[j] + ((rand()&15)-8);
+				break;
+			case 7:	// perf B10-impl: plasma sticky - blue gradient smoke, short
+				p->ramp = (rand()&1);	// start bright, fade toward pure blue
+				p->color = ramp_plasma[(int)p->ramp];
+				p->type = pt_fireblue;
+				p->die = cl.time + 0.12;	// B10-impl round-4: 0.6x the old plasma trail
+				for (j=0 ; j<3 ; j++)
+					p->org[j] = start[j] + ((rand()%5)-2);
 				break;
 		}
 
@@ -784,6 +794,15 @@ void CL_RunParticles (void)
 				p->die = -1;
 			else
 				p->color = ramp3[(int)p->ramp];
+			p->vel[2] += grav;
+			break;
+
+		case pt_fireblue:
+			p->ramp += time1;
+			if (p->ramp >= 6)
+				p->die = -1;
+			else
+				p->color = ramp_plasma[(int)p->ramp];
 			p->vel[2] += grav;
 			break;
 

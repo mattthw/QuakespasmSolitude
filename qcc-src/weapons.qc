@@ -154,6 +154,18 @@ self.think = SUB_Remove;
 self.nextthink = time + 0.02;
 };
 
+/* Round-5: keep the flash on the barrel while the shooter turns.
+   Velocity alone only carried translation; origin is re-derived each
+   tick from the owner's current view angles. movedir packs the helper's
+   'forward right up' offsets; cnt is the remaining tick budget (~10/s). */
+void() muzzle_follow = {
+	if (!self.owner || self.owner.health <= 0 || self.cnt <= 0) { remove(self); return; }
+	self.cnt = self.cnt - 1;
+	makevectors(self.owner.v_angle);
+	self.origin = self.owner.origin + v_forward * self.movedir_x + v_right * self.movedir_y + v_up * self.movedir_z;
+	self.nextthink = time + 0.01;
+};
+
 void() muzzleflash2 = {
 local entity muzzle;
 muzzle = spawn();
@@ -161,10 +173,14 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
+muzzle.movetype = MOVETYPE_FLY;
+muzzle.velocity = '0 0 0';
 
 setmodel(muzzle,"sprites/muzzleflash1.spr");
-setorigin(muzzle,self.origin + v_forward * 28 + v_right * 6 + '0 0 19');
-muzzle.think = muzzleflash_think;
+setorigin(muzzle,self.origin + v_forward * 30 + v_right * 8 + '0 0 15');
+muzzle.movedir = '30 8 15';
+	muzzle.cnt = 10;
+muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
 };
 void() muzzleflash_think1 = {
@@ -180,12 +196,15 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_NONE;
+muzzle.movetype = MOVETYPE_FLY;
+muzzle.velocity = '0 0 0';
 
 
 setmodel(muzzle,"sprites/muzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 35 + v_right * 5+ '0 0 15');
-muzzle.think = muzzleflash_think1;
+muzzle.movedir = '35 5 15';
+	muzzle.cnt = 10;
+muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
 };
 void() muzzleflash_think2 = {
@@ -201,12 +220,15 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_NONE;
+muzzle.movetype = MOVETYPE_FLY;
+muzzle.velocity = '0 0 0';
 
 
 setmodel(muzzle,"sprites/muzzleflash2.spr");
 setorigin(muzzle,self.origin + v_forward * 55 + v_right * 10 + '0 0 13');
-muzzle.think = muzzleflash_think1;
+muzzle.movedir = '55 10 13';
+	muzzle.cnt = 20;
+muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
 };
 
@@ -217,12 +239,15 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_NONE;
+muzzle.movetype = MOVETYPE_FLY;
+muzzle.velocity = '0 0 0';
 
 
 setmodel(muzzle,"sprites/pistolmuzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 30 + v_right * 8 + '0 0 20');
-muzzle.think = muzzleflash_think2;
+muzzle.movedir = '30 8 20';
+	muzzle.cnt = 10;
+muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
 };
 
@@ -243,12 +268,15 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_NONE;
+muzzle.movetype = MOVETYPE_FLY;
+muzzle.velocity = '0 0 0';
 
 
 setmodel(muzzle,"sprites/muzzleN.spr");
 setorigin(muzzle,self.origin + v_forward * 35 + v_right * 10 + '0 0 17');
-muzzle.think = muzzleflash_think6;
+muzzle.movedir = '35 10 17';
+	muzzle.cnt = 10;
+muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
 };
 
@@ -259,13 +287,16 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_NONE;
+muzzle.movetype = MOVETYPE_FLY;
+muzzle.velocity = '0 0 0';
 
 
 setmodel(muzzle,"sprites/muzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 45 + v_right * 2 + '0 0 17');
-muzzle.think = muzzleflash_think1;
-muzzle.nextthink = time + 0.01;
+	muzzle.movedir = '45 2 17';
+	muzzle.cnt = 10;
+	muzzle.think = muzzle_follow;
+	muzzle.nextthink = time + 0.01;
 };
 
 #define crandom() (2*(random()-0.5))
@@ -1227,7 +1258,6 @@ void() W_FireUzi =
 	W_UpdateAmmoCounts(self);
 
 	self.punchangle_x = -2;
-	muzzleflash3();
 	dir = aim (self, 100000);
 	FireBullets (1, dir, '0.06 0.06 0.02', MOD_SOLITUDE);
 
@@ -1771,6 +1801,15 @@ void () GrenadeExplode =
 	remove(self);
 };
 
+// perf B10-impl: Halo 3-style sticky plasma nade trail. Sprites (networked
+// entities), not particles, so every client sees them - and NOT an effects
+// bit: cl_main.c consumes only BRIGHTFIELD/MUZZLEFLASH/BRIGHTLIGHT/DIMLIGHT
+// plus the modelflags OR-channel, so EF_FLAG2/ef_blue on the nade draw
+// nothing. plasma_glow.spr is already precached (Procs) - zero new assets.
+// No dlight on the trail ever: a moving dlight re-creates the per-frame
+// R_MarkLights/lightmap re-bake cost B3/B10 exist to remove. Gated by
+// sv_grenade_trail, registered engine-side in host.c (QC cvar() is
+// read-only in this fork - B2/B6 precedent).
 void () Stick =
 {
 	if (((self.enemy != world) && (self.enemy.health > 1)))
@@ -1839,6 +1878,17 @@ void () StickyNade_Stick =
 		return;
 	}
 	
+	// B10-impl: end the attach flash when its short fuse is up. The engine
+	// blue trail rides the origin updates above, so a nade stuck to a
+	// moving host keeps painting trail right off the body for free.
+	if (self.trail_flash_end != 0)
+	{
+		if (self.trail_flash_end < time)
+		{
+			self.effects = (EF_FLAG2 + 8*16777216);
+			self.trail_flash_end = 0;
+		}
+	}
 	self.nextthink = time + 0.1;
 };
 
@@ -1862,6 +1912,18 @@ void () GrenadeBounce =
 				self.think = StickyNade_Stick;
 				self.enemy = other;
 				self.nextthink = time;
+			// B10-impl: Halo attach cue - one-shot EF_DIMLIGHT burst (stable
+			// r=200 post-B3, culled off-view by B3) that StickyNade_Stick
+			// reverts to inert EF_FLAG2 after 0.3 s. No dlight otherwise:
+			// a persistent moving one is what this batch exists to remove.
+			if (cvar ("sv_grenade_trail") != 0)
+			{
+				// B10-impl: raw modelflag bit 8 (8<<24) is unclaimed by the
+				// engine trail chain - client reads it as "stuck" and sizzles
+				// on the spot instead of drawing the flight trail.
+				self.effects = (EF_FLAG2 + EF_DIMLIGHT + 8*16777216);
+				self.trail_flash_end = (time + 0.3);
+			}
 			}
 			else {
 				sound (self, 1, "effects/bodyhit2.wav", 1, 1);
@@ -1887,6 +1949,11 @@ void () GrenadeBounce =
 			traceline (spot1, spot2, 0.000000, self);
 			self.angles = (vectoangles (trace_plane_normal) + '90.000000 0.000000 0.000000');
 			setorigin (self, (self.origin + (trace_plane_normal * 6.000000)));
+			// B10-impl: welded to level geometry - same stuck bit, so it
+			// sizzles through the 1.5 s fuse (setorigin is 3-tabbed inside
+			// the sticky/wall branch only; frags never come through here).
+			if (cvar ("sv_grenade_trail") != 0)
+				self.effects = (EF_FLAG2 + 8*16777216);
 		}
 	}
 	else
@@ -1897,12 +1964,8 @@ void () GrenadeBounce =
 	{
 		self.avelocity = '0.000000 0.000000 0.000000';
 	}
-	// perf B2: frag/plasma nade EF_DIMLIGHT broadcasts a dlight to every client
-	// while it lives; drop it once the thrower is >600u away. Checked at every
-	// bounce (including the resting one) - no new fuse think, and B3's
-	// R_PushDlights cull supersedes the off-view case.
-	if (self.selnade != GRENADE_STICKY && vlen (self.origin - self.owner.origin) > 600)
-		self.effects = 0;
+	// B10-impl: supersedes the B2 dlight-kill here - frags no longer carry
+	// EF_DIMLIGHT at all, and self.effects = 0 would have wiped the trail bit.
 	self.nextthink = (time + 1.5);
 	self.think = GrenadeExplode;
 };
@@ -1939,12 +2002,18 @@ void () W_ThrowGrenade =
 	//missile.think = GrenadeExplode;
 	if (self.selnade == GRENADE_STICKY) 
 		{
+		// B10-impl: no glow, no sprite puffs - the engine keys a blue
+		// gradient trail on this exact model (cl_main.c, gated live by
+		// sv_grenade_trail), and it paints while the nade sticks too.
 		missile.effects = EF_FLAG2;
 		setmodel (missile, "progs/plasgren.mdl");
 		}
 	else 
 		{
-		missile.effects = EF_DIMLIGHT;
+		// B10-impl: the old EF_DIMLIGHT WAS the "light trail" and the huge
+		// resting glow. Grey engine smoke instead: EF_GRENADE modelflag
+		// (raw bit 2) lives in the effects high byte -> R_RocketTrail type 1.
+		missile.effects = (EF_FLAG2 + 2*16777216);
 		setmodel (missile, "progs/fraggren.mdl");
 		}
 	

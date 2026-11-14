@@ -130,7 +130,7 @@ void() normal_elite =
 	setsize (self, VEC_HULL_MIN, VEC_HULL_MAX);
       self.health = 150;
 	self.elite = 0;	
-	self.selnade = GRENADE_STICKY;
+	self.selnade = (random () >= 0.5);	// B10-impl: bots randomize frag/sticky
 	self.th_stand = elite_stand1;
 	self.th_walk = elite_walk1;
 	self.th_run = elite_run1;
@@ -178,7 +178,7 @@ void() red_elite =
 	setsize (self, VEC_HULL_MIN, VEC_HULL_MAX);
       self.health = 150;
 	self.elite = 1;		//States what Elite type it is, so Different stats/weapons can be set.
-	self.selnade = GRENADE_STICKY;
+	self.selnade = (random () >= 0.5);	// B10-impl: bots randomize frag/sticky
 	self.th_stand = elite_stand1;
 	self.th_walk = elite_walk1;
 	self.th_run = elite_run1;
@@ -225,7 +225,7 @@ void() white_elite =
 	setsize (self, VEC_HULL_MIN, VEC_HULL_MAX);
       self.health = 170;
 	self.elite = 2;
-	self.selnade = GRENADE_STICKY;
+	self.selnade = (random () >= 0.5);	// B10-impl: bots randomize frag/sticky
 	self.th_stand = elite_stand1;
 	self.th_walk = elite_walk1;
 	self.th_run = elite_run1;
@@ -271,7 +271,7 @@ void() normal_grunt =
 	setmodel (self, "progs/soldier.mdl");
 	self.skin = 0;
 	self.elite = 1;		//For Melee damage
-	self.selnade = GRENADE_STICKY;
+	self.selnade = (random () >= 0.5);	// B10-impl: bots randomize frag/sticky
 	setsize (self, VEC_HULL_MIN, VEC_HULL_MAX);
       self.health = 50;
 	self.th_stand = grunt_stand1;
