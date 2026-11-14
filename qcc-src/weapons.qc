@@ -154,18 +154,6 @@ self.think = SUB_Remove;
 self.nextthink = time + 0.02;
 };
 
-/* Round-5: keep the flash on the barrel while the shooter turns.
-   Velocity alone only carried translation; origin is re-derived each
-   tick from the owner's current view angles. movedir packs the helper's
-   'forward right up' offsets; cnt is the remaining tick budget (~10/s). */
-void() muzzle_follow = {
-	if (!self.owner || self.owner.health <= 0 || self.cnt <= 0) { remove(self); return; }
-	self.cnt = self.cnt - 1;
-	makevectors(self.owner.v_angle);
-	self.origin = self.owner.origin + v_forward * self.movedir_x + v_right * self.movedir_y + v_up * self.movedir_z;
-	self.nextthink = time + 0.01;
-};
-
 void() muzzleflash2 = {
 local entity muzzle;
 muzzle = spawn();
@@ -173,14 +161,10 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_FLY;
-muzzle.velocity = '0 0 0';
 
 setmodel(muzzle,"sprites/muzzleflash1.spr");
-setorigin(muzzle,self.origin + v_forward * 30 + v_right * 8 + '0 0 15');
-muzzle.movedir = '30 8 15';
-	muzzle.cnt = 10;
-muzzle.think = muzzle_follow;
+setorigin(muzzle,self.origin + v_forward * 28 + v_right * 6 + '0 0 19');
+muzzle.think = muzzleflash_think;
 muzzle.nextthink = time + 0.01;
 };
 void() muzzleflash_think1 = {
@@ -196,15 +180,12 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_FLY;
-muzzle.velocity = '0 0 0';
+muzzle.movetype = MOVETYPE_NONE;
 
 
 setmodel(muzzle,"sprites/muzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 35 + v_right * 5+ '0 0 15');
-muzzle.movedir = '35 5 15';
-	muzzle.cnt = 10;
-muzzle.think = muzzle_follow;
+muzzle.think = muzzleflash_think1;
 muzzle.nextthink = time + 0.01;
 };
 void() muzzleflash_think2 = {
@@ -220,15 +201,12 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_FLY;
-muzzle.velocity = '0 0 0';
+muzzle.movetype = MOVETYPE_NONE;
 
 
 setmodel(muzzle,"sprites/muzzleflash2.spr");
 setorigin(muzzle,self.origin + v_forward * 55 + v_right * 10 + '0 0 13');
-muzzle.movedir = '55 10 13';
-	muzzle.cnt = 20;
-muzzle.think = muzzle_follow;
+muzzle.think = muzzleflash_think1;
 muzzle.nextthink = time + 0.01;
 };
 
@@ -239,15 +217,12 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_FLY;
-muzzle.velocity = '0 0 0';
+muzzle.movetype = MOVETYPE_NONE;
 
 
 setmodel(muzzle,"sprites/pistolmuzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 30 + v_right * 8 + '0 0 20');
-muzzle.movedir = '30 8 20';
-	muzzle.cnt = 10;
-muzzle.think = muzzle_follow;
+muzzle.think = muzzleflash_think2;
 muzzle.nextthink = time + 0.01;
 };
 
@@ -268,15 +243,12 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_FLY;
-muzzle.velocity = '0 0 0';
+muzzle.movetype = MOVETYPE_NONE;
 
 
 setmodel(muzzle,"sprites/muzzleN.spr");
 setorigin(muzzle,self.origin + v_forward * 35 + v_right * 10 + '0 0 17');
-muzzle.movedir = '35 10 17';
-	muzzle.cnt = 10;
-muzzle.think = muzzle_follow;
+muzzle.think = muzzleflash_think6;
 muzzle.nextthink = time + 0.01;
 };
 
@@ -287,16 +259,13 @@ muzzle.owner = self;
 
 
 muzzle.solid = SOLID_NOT;
-muzzle.movetype = MOVETYPE_FLY;
-muzzle.velocity = '0 0 0';
+muzzle.movetype = MOVETYPE_NONE;
 
 
 setmodel(muzzle,"sprites/muzzleflash.spr");
 setorigin(muzzle,self.origin + v_forward * 45 + v_right * 2 + '0 0 17');
-	muzzle.movedir = '45 2 17';
-	muzzle.cnt = 10;
-	muzzle.think = muzzle_follow;
-	muzzle.nextthink = time + 0.01;
+muzzle.think = muzzleflash_think1;
+muzzle.nextthink = time + 0.01;
 };
 
 #define crandom() (2*(random()-0.5))
