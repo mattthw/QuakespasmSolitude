@@ -843,6 +843,9 @@ struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, in
     mc.rows = rows;
     mc.colw = colpix;
     mc.rowh = rowpix;
+    mc.x0 = x;			// perf B7: panel rect for full-width bands
+    mc.panelw = menu_width;
+    mc.headerh = header_height;
     // draw background
     Draw_FillGradientEx (x, y+header_height, menu_width, menu_height-header_height-footer_height, 23/255.0f, 29/255.0f, 60/255.0f, draw_grid_translucent ? 0.75f : 1.0f, 0.28f);   /* P2a round 4b: every grid menu same #171d3c, edge gradient deepened 0.15 -> 0.28 (matchmaking wanted more, user 2026-11-12; kept uniform because rule/map overlays stack on this panel) */
     // draw cursor

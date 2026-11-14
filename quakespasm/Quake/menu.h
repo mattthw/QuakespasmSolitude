@@ -41,6 +41,7 @@ enum m_state_e {
 	m_gameoptions,
     m_matchmaking_map,
     m_matchmaking_gamerules,
+    m_performance,
 	m_search,
 	m_slist,
 #ifdef VITA

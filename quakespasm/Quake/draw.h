@@ -36,11 +36,14 @@ struct Coord {
     int yp; // with padding for text
 };
 struct MenuCoords {
-    struct Coord grid[10][20];
+    struct Coord grid[10][24]; //perf B7: was [10][20]; Options+perf row under VITA needs index 20 for footer
     int cols;
     int rows;
     int colw;
     int rowh;
+    int x0;		// perf B7: panel rect, for full-width bands
+    int panelw;
+    int headerh;
 };
 
 struct PicAttr {
@@ -65,6 +68,7 @@ void Draw_OffCenterWindowPix(int x, int y, int width, int height, char *str, flo
 struct MenuCoords Draw_WindowGrid(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor, float incl_footer);
 struct MenuCoords Draw_WindowGridOffset(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor, float incl_footer, float off);
 struct MenuCoords Draw_WindowGridLeft(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, int cursor, float incl_footer, float incl_header);
+struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, float detail_alpha, int colr_bg, int colr_h, int cursor, int cursor_cols, float incl_footer, float incl_header, float off);	// perf B7 unified options
 
 extern int draw_grid_anchor;   /* r75b: 1 = pin grid window bottom-left */
 extern int draw_grid_anchor_x;

@@ -66,11 +66,11 @@ cvar_t	cl_nocsqc = {"cl_nocsqc", "0", CVAR_NONE};	//spike -- blocks the loading 
 
 cvar_t	sys_ticrate = {"sys_ticrate","0.05",CVAR_NONE}; // dedicated server
 cvar_t	serverprofile = {"serverprofile","0",CVAR_NONE};
-cvar_t	r_perfhud = {"r_perfhud","0",CVAR_NONE};	// perf B1
-cvar_t	sv_max_needles = {"sv_max_needles","0",CVAR_NONE};	// perf B2 - per-shooter live needler cap, 0=off; read by QC cvar()
-cvar_t	sv_bot_thinkrate = {"sv_bot_thinkrate","0",CVAR_NONE};	// perf B6 - max Hz for bot AI decisions, 0=every frame; read by QC cvar()
-cvar_t	sv_particle_scale = {"sv_particle_scale","0",CVAR_NONE};	// perf B6 - percent scale of QC particle() counts, 0=off; read by QC cvar()
-cvar_t	sv_max_gibs = {"sv_max_gibs","0",CVAR_NONE};	// perf B6 - live gib cap (remove-oldest), 0=off; read by QC cvar()
+cvar_t	r_perfhud = {"r_perfhud","0",CVAR_ARCHIVE};	// perf B1
+cvar_t	sv_max_needles = {"sv_max_needles","0",CVAR_ARCHIVE};	// perf B2 - per-shooter live needler cap, 0=off; read by QC cvar()
+cvar_t	sv_bot_thinkrate = {"sv_bot_thinkrate","0",CVAR_ARCHIVE};	// perf B6 - max Hz for bot AI decisions, 0=every frame; read by QC cvar()
+cvar_t	sv_particle_scale = {"sv_particle_scale","75",CVAR_ARCHIVE};	// perf B6 - percent scale of QC particle() counts, 0=off; read by QC cvar() // perf B7: Balanced default
+cvar_t	sv_max_gibs = {"sv_max_gibs","12",CVAR_ARCHIVE};	// perf B6 - live gib cap (remove-oldest), 0=off; read by QC cvar() // perf B7: Balanced default
 
 cvar_t	fraglimit = {"fraglimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	teamlimit = {"teamlimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
@@ -85,7 +85,7 @@ cvar_t	map_weapons_disable = {"map_weapons_disable","0",CVAR_SERVERINFO};
 cvar_t  custom_primary = {"custom_primary", "0", CVAR_SERVERINFO};
 cvar_t  custom_secondary = {"custom_secondary", "1", CVAR_SERVERINFO};
 cvar_t  grunt_birthday_party = {"grunt_birthday_party", "0", CVAR_SERVERINFO};
-cvar_t  max_nades = {"max_nades", "4", CVAR_SERVERINFO};
+cvar_t  max_nades = {"max_nades", "2"  /* perf B7: was 4 */, CVAR_SERVERINFO};
 cvar_t  infinite_ammo = {"infinite_ammo", "0", CVAR_SERVERINFO};
 cvar_t	sol_gravity = {"sol_gravity","340",CVAR_SERVERINFO};
 cvar_t  sol_maxspeed = {"sol_maxspeed", "200", CVAR_SERVERINFO};

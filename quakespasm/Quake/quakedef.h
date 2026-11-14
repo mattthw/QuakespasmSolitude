@@ -402,7 +402,8 @@ typedef enum InpType {
     MATCH_SCROLL = 9,
     MATCH_MAIN_TOP = 10,
     MATCH_SCROLL_TOP = 11,
-    MATCH_BOTTOM = 12
+    MATCH_BOTTOM = 12,
+    PERF = 13
 } InpType;
 
 #define IT_EXTRA_WEAPON2			8388608	    // solitude

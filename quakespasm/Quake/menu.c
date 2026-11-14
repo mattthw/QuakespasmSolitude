@@ -22,10 +22,38 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
+#ifndef _WIN32
+#include <dirent.h>	// perf B7: Custom Maps tab folder scan (same precedent as host_cmd.c)
+#endif
 
 qpic_t *menu_bg;
 
 extern cvar_t scr_fov;
+
+// perf B7 - cvars surfaced on the new Performance menu page
+extern cvar_t	r_dlight_cull, r_max_dlights, r_part_maxrad, r_subpixel_cull, r_light_cache, r_lerpskip_dist;
+extern cvar_t	r_perfhud, sv_max_needles, sv_bot_thinkrate, sv_particle_scale, sv_max_gibs;
+extern cvar_t	r_particles, r_dynamic, gl_flashblend, r_shadows, r_lerpmodels;
+// unified Options menu (perf B7): the cvars its tabs bind to
+extern cvar_t	crosshair, gl_texturemode, vid_vsync, r_viewmodeloffset;
+extern cvar_t	pstv_rumble, retrotouch, motioncam, motion_horizontal_sensitivity, motion_vertical_sensitivity;
+
+enum
+{
+	UNI_TAB_PERF, UNI_TAB_GFX, UNI_TAB_CTRL, UNI_TAB_SND, UNI_TAB_GEN, UNI_TABS
+};
+
+static const char	*uni_tab_names[UNI_TABS] = {"Performance", "Graphics", "Controls", "Sound", "General"};
+static int	 uni_tab, uni_cursor, uni_first;
+static enum m_state_e uni_return_state;
+
+static void M_Performance_Body (struct MenuCoords *coords, int rowh, size_t shown);
+static void M_Performance_ResetWindow (void);
+static void M_Options_CycleTab (int dir);
+static void M_Draw_Scrollbar (struct MenuCoords *coords, int rowh, int total, size_t first, int shown);
+static int M_HintIconW (qpic_t *icon);	// perf B7: reuse matchmaking hint icons in the tab strip
+static void M_HintIcon (int *x, int y, qpic_t *icon);
+cvar_t	perf_preset = {"perf_preset", "2", CVAR_ARCHIVE};	// perf B7 - 1/2/3 = last preset applied, 0 = custom; ships Balanced
 
 void (*vid_menucmdfn)(void); //johnfitz
 void (*vid_menudrawfn)(void);
@@ -50,6 +78,7 @@ void M_Menu_Main_f (void);
 	void M_Menu_Options_f (void);
 		void M_Menu_Keys_f (void);
 		void M_Menu_Video_f (void);
+		void M_Menu_Performance_f (void);	// perf B7
 	void M_Menu_Help_f (void);
 	void M_Menu_Quit_f (void);
     void M_Menu_Pause_f (void);
@@ -1013,13 +1042,13 @@ void M_Pause_Draw (void)
     {
         struct MenuCoords coords = Draw_WindowGrid("Options", 3, MVS_P, 1, main_percentwidth, 1, pause_cursor, false);
         M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Return to game");
-        M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Disconnect");
-        M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Settings");
+        M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Settings");
+        M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Disconnect");
     } else {
         struct MenuCoords coords = Draw_WindowGrid("Options", 3, MVS_P, 1, main_percentwidth, 1, pause_cursor, false);
         M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Return to game");
-        M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Disconnect");
-        M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Settings");
+        M_PrintWhite (coords.grid[0][1].xp, coords.grid[0][1].yp, "Settings");
+        M_PrintWhite (coords.grid[0][2].xp, coords.grid[0][2].yp, "Disconnect");
     }
     draw_grid_anchor = 0;
     draw_grid_anchor_x = -1;
@@ -1097,8 +1126,7 @@ void M_Pause_Key (int key)
             /* Mac/PC port: Enter selects, like the Vita X button. */
 #endif
             S_LocalSound ("misc/menuenter.wav");
-            /* r75d: rows are Resume / Disconnect / Settings in every
-             * gametype; only the post-disconnect menu differs. */
+            /* perf B7: rows are Resume / Settings / Disconnect (user order). */
             if(pause_cursor == 0)
             {
                 key_dest = key_game;
@@ -1106,16 +1134,16 @@ void M_Pause_Key (int key)
             }
             if(pause_cursor == 1)
             {
+                M_Menu_Options_f ();
+            }
+            if(pause_cursor == 2)
+            {
                 Cbuf_AddText ("disconnect\n");
                 theme_started = 0;
                 if ((int)deathmatch.value == 2)
                     M_Menu_Firefight_f(); // todo: do I need to do more than this (probably). Why not use entry menu f?
                 else
                     M_Matchmaking_f(); // todo: same as above
-            }
-            if(pause_cursor == 2)
-            {
-                M_Menu_Options_f ();
             }
             break;
     }
@@ -1153,6 +1181,7 @@ enum
 //#ifdef _WIN32
 //	OPT_USEMOUSE,
 //#endif
+	OPT_PERFORMANCE,	// perf B7
 	OPT_VIDEO,	// This is the last before OPTIONS_ITEMS
 	OPTIONS_ITEMS
 };
@@ -1171,6 +1200,11 @@ int		options_cursor;
 
 void M_Menu_Options_f (void)
 {
+	uni_return_state = m_state;		// m_main or m_pause at entry
+	uni_tab = UNI_TAB_PERF;			// performance is the default tab (user)
+	uni_cursor = uni_first = 0;
+	M_Performance_ResetWindow ();
+
 	key_dest = key_menu;
 	m_state = m_options;
 	m_entersound = true;
@@ -1332,7 +1366,9 @@ void M_DrawCheckbox (int x, int y, int on)
         M_PrintWhite (x, y, "off");
 }
 
-void M_Options_Draw (void)
+// unified Options menu (perf B7): the flat pre-tab page below is kept as the
+// legacy reference but is no longer dispatched; M_Options_Draw/Key are the tabbed ones.
+void M_Options_DrawOld (void)
 {
 	float		r, l;
     float alpha = 0.8;
@@ -1437,6 +1473,9 @@ void M_Options_Draw (void)
 	M_PrintWhite (mc.grid[0][17].xp ,mc.grid[0][17].yp, "Select Mod");
 #endif
 
+	// OPT_PERFORMANCE:	// perf B7
+	M_PrintWhite (mc.grid[0][OPT_PERFORMANCE].xp ,mc.grid[0][OPT_PERFORMANCE].yp, "Performance");
+
 	// OPT_VIDEO:
 	if (vid_menudrawfn)
         M_PrintWhite (mc.grid[0][OPTIONS_ITEMS-1].xp ,mc.grid[0][OPTIONS_ITEMS-1].yp, "Advanced Options");
@@ -1444,7 +1483,8 @@ void M_Options_Draw (void)
 }
 
 
-void M_Options_Key (int k)
+// legacy: see M_Options_Key (unified, perf B7)
+void M_Options_KeyOld (int k)
 {
 	switch (k)
 	{
@@ -1485,6 +1525,9 @@ void M_Options_Key (int k)
 			M_Menu_Mods_f ();
 			break;
 #endif
+		case OPT_PERFORMANCE:	// perf B7
+			M_Menu_Performance_f ();
+			break;
 		case OPT_VIDEO:
 			M_Menu_Video_f ();
 			break;
@@ -2402,12 +2445,13 @@ typedef struct
 	int		firstLevel;
 	int		levels;
 } episode_t;
-int NUM_EPISODES = 3;
+int NUM_EPISODES = 4;
 episode_t	episodes[] =
         {
                 {"New & Remastered", 0, 10},
                 {"Classic Maps", 10, 6},
-                {"Bonus Maps", 16, 5}
+                {"Bonus Maps", 16, 5},
+                {"Custom Maps", 0, 0}	// perf B7: loose .bsp files from maps/custom, counted at runtime
         };
 int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
@@ -2471,7 +2515,7 @@ struct opts_t opts = {
         .custom_primary = 0,
         .custom_secondary = 1,
         .map_weapons_disable = 0,
-        .max_nades = 4,
+        .max_nades = 2,	/* perf B7 */
         .infinite_ammo = 0,
         .grunt_birthday_party = 0,
         .sol_gravity = DEFAULT_GRAVITY, // todo: pull from cvar_t
@@ -2487,7 +2531,7 @@ void resetGameRules() {
     opts.fraglimit = (opts.gametype == TEAM_SLAYER) ? 20 : 10;   /* r77 per-mode defaults */
     opts.timelimit = 10;
     opts.skill = 1;
-    opts.max_nades = 4;
+    opts.max_nades = 2;	/* perf B7 */
     opts.grunt_birthday_party = 0;
     opts.sol_jump = DEFAULT_JUMP;
     opts.sol_gravity = DEFAULT_GRAVITY;
@@ -2641,8 +2685,8 @@ void M_Matchmaking_Gamerules_Draw (void) {
     if (gamerules_first > gamerules_cursor)
         gamerules_first = gamerules_cursor;
 
-    // background tint
-    Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 0.7f);
+    // background tint (perf B7: opaque, like the unified Options)
+    Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 1.0f);
 
     // window
     struct MenuCoords coords = Draw_WindowGrid("Custom Game Rules", vertical_gamerules_affordance, MVS_P, 2, 0.35, 1.0, gamerules_cursor-gamerules_first, true);
@@ -2658,6 +2702,14 @@ void M_Matchmaking_Gamerules_Draw (void) {
     // draw rules
     for (int n = 0; n < gamerules_shown; n++) {
         M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, rule_titles[gamerules_first+n].name);        M_Print (coords.grid[1][n].xp, coords.grid[1][n].yp, rule_titles[gamerules_first+n].value);
+    }
+
+    // perf B7: left gutter scrollbar (Options treatment)
+    {
+        int	rowh = coords.grid[1][1].y - coords.grid[1][0].y;
+        if (rowh <= 0)
+            rowh = MVS;
+        M_Draw_Scrollbar (&coords, rowh, (int)(sizeof(rule_titles)/sizeof(rule_titles[0])), gamerules_first, (int)gamerules_shown);
     }
 }
 
@@ -2822,12 +2874,955 @@ void M_Matchmaking_Gamerules_Key (int key) {
     }
 }
 
+//=============================================================================
+/* perf B7 - PERFORMANCE MENU: presets + direct control of the B1-B6 cvars
+ * and the classic render knobs. One scrolling page, styled slider widget. */
+
+enum
+{
+	PERF_PRESET_ROWS = 1,	// one cycling row: Preset [Custom/Quality/Balanced/Performance]
+	PERF_KNOB_ROWS   = 16,
+	PERF_ROWS        = PERF_PRESET_ROWS + PERF_KNOB_ROWS
+};
+
+static char	*perf_preset_names[4] = {"Custom", "Quality", "Balanced", "Performance"};
+static float	perf_preset_color[4][3] = {	// Custom gray, Quality blue, Balanced gold, Performance orange
+	{0.60f, 0.62f, 0.68f},
+	{0.40f, 0.65f, 1.00f},
+	{0.92f, 0.75f, 0.30f},
+	{1.00f, 0.50f, 0.25f},
+};
+
+typedef struct
+{
+	const char	*name;
+	cvar_t		*cvar;
+	float		minval, maxval, step;
+	const char	*suffix;	// appended to numeric values
+	int			scale100;	// stored 0..1, shown as percent
+	int			zeroOff;	// show "Off" at 0
+	int			zeroUnltd;	// show "Unlimited" at 0
+	const char	*desc;		// shown under the panel for the cursor row
+} perf_knob_t;
+
+// rows 0..11 are set by the presets (order matches perf_preset_vals below);
+// rows 12..15 are passthrough knobs the presets leave alone.
+static perf_knob_t	perf_knobs[PERF_KNOB_ROWS] =
+{
+	{"Perf HUD",         &r_perfhud,         0, 1,    1,    "",  0, 0, 0, "Framerate info on screen. Impact: none."},
+	{"Cull Lights",      &r_dlight_cull,     0, 1,    1,    "",  0, 0, 0, "Ignores light flashes hidden by walls. Impact: high."},
+	{"Max Lights",       &r_max_dlights,     0, 32,   4,    "",  0, 0, 1, "How many lights from gunfire and blasts. Impact: med."},
+	{"Light Cache",      &r_light_cache,     0, 4,    1,    "",  0, 1, 0, "Lighting redraws every few frames. Impact: med."},
+	{"Far Detail",       &r_subpixel_cull,   0, 8,    1,    " px", 0, 1, 0, "Tiny far-off wall details are skipped. Impact: med."},
+	{"Big Particles",    &r_part_maxrad,     0, 128,  8,    " px", 0, 1, 0, "Huge particle clouds are skipped. Impact: med."},
+	{"Particles",        &r_particles,       0, 1,    0.25, "%", 1, 0, 0, "How much smoke, sparks and blood you see. Impact: high."},
+	{"Blood & Debris",   &sv_particle_scale, 0, 100,  25,   "%", 0, 1, 0, "Blood and debris from multiplayer kills. Impact: high."},
+	{"Gib Cap",          &sv_max_gibs,       0, 32,   4,    "",  0, 1, 0, "Body parts flying at once. Impact: med."},
+	{"Bot Think Hz",     &sv_bot_thinkrate,  0, 20,   5,    " Hz", 0, 1, 0, "How often bots make decisions. Impact: high."},
+	{"Nail Cap",         &sv_max_needles,    0, 64,   8,    "",  0, 1, 0, "Nailgun shots flying at once. Impact: high."},
+	{"Far Smoothing",    &r_lerpskip_dist,   0, 2400, 400,  "",  0, 1, 0, "Distant players move in steps, not smoothly. Impact: low."},
+	{"Dynamic Lights",   &r_dynamic,         0, 1,    1,    "",  0, 0, 0, "Muzzle flashes light up the room. Impact: high."},
+	{"Simple Flashes",   &gl_flashblend,     0, 1,    1,    "",  0, 0, 0, "Flashes drawn as simple colored glows. Impact: med."},
+	{"Shadows",          &r_shadows,         0, 1,    1,    "",  0, 0, 0, "Shadow blobs under players and items. Impact: low."},
+	{"Smooth Anim",      &r_lerpmodels,      0, 1,    1,    "",  0, 0, 0, "Smooths character animation between frames. Impact: low."},
+};
+
+static const char	*perf_preset_desc[4] =
+{
+	"Each option below is set by hand.",
+	"Best looks, lowest framerate.",
+	"Small limits on lights only, looks nearly the same.",
+	"Big limits on effects and bots, plays smoothest.",
+};
+
+// Quality: every B1-B6 limiter off (pure stock behaviour), max fidelity.
+// Balanced: safe caps only -- no bot throttle, no needle cap.
+// Performance: aggressive caps for the Vita.
+// Columns track the first 12 knobs above (Perf HUD first, then B1-B6 caps).
+static const float	perf_preset_vals[3][12] =
+{
+	{0, 1, 0,  0, 0, 0,  1,    100, 0,  0,  0,    0},	// Quality
+	{0, 1, 16, 2, 2, 64, 1,     75, 12,  0,  0, 1600},	// Balanced
+	{0, 1, 8,  3, 4, 32, 0.5f,  50, 8,  10, 16, 1000},	// Performance
+};
+
+size_t		perf_cursor;
+size_t		perf_first;
+float		vertical_perf_affordance = 11;	// perf B7: 10 data rows + footnote band
+static enum m_state_e	perf_return_state = m_main;	// page we came from (options / pause / main)
+
+static void M_Performance_ApplyPreset (int p)	// 1..3
+{
+	int	i;
+	for (i = 0; i < 12; i++)
+		Cvar_SetValueQuick (perf_knobs[i].cvar, perf_preset_vals[p-1][i]);
+	Cvar_SetValueQuick (&perf_preset, p);
+	Host_WriteConfiguration ();	// persist immediately -- user picked a whole profile
+}
+
+static void M_Performance_Step (int dir)
+{
+	perf_knob_t	*k;
+	float		v;
+	int			p;
+	if (perf_cursor < PERF_PRESET_ROWS)
+	{	// preset row cycles Custom -> Quality -> Balanced -> Performance
+		p = (int)perf_preset.value + dir;
+		if (p > 3)
+			p = 0;
+		if (p < 0)
+			p = 3;
+		if (p > 0)
+		{
+			M_Performance_ApplyPreset (p);	// selecting a preset applies it at once
+			S_LocalSound ("misc/menu2.wav");	// confirm sound: values just moved
+		}
+		else
+			Cvar_SetValueQuick (&perf_preset, 0);	// back to Custom: knobs stay where they are
+		return;
+	}
+	k = &perf_knobs[perf_cursor - PERF_PRESET_ROWS];
+	v = k->cvar->value + dir * k->step;
+	if (v > k->maxval + 0.001f)
+		v = k->minval;	// wrap: fastest travel to the other end
+	if (v < k->minval - 0.001f)
+		v = k->maxval;
+	Cvar_SetValueQuick (k->cvar, v);
+	if (perf_preset.value)	// manual edit = custom mix
+		Cvar_SetValueQuick (&perf_preset, 0);
+}
+
+static const char *M_Performance_Value (int i)
+{
+	const perf_knob_t	*k = &perf_knobs[i];
+	float	v = k->cvar->value;
+	if (k->maxval <= 1.0f)
+		return v ? "On" : "Off";
+	if (k->zeroUnltd && v == 0)
+		return "Unlimited";
+	if (k->zeroOff && v == 0)
+		return "Off";
+	if (k->scale100)
+		return va("%i%s", (int)(v * 100.0f + 0.5f), k->suffix);
+	return va("%i%s", (int)(v + 0.5f), k->suffix);
+}
+
+// styled slider: dark track, blue fill, gold handle -- Draw_FillRGBA quads.
+static void M_Draw_PerfSlider (struct MenuCoords *mc, int row, int rowh, float frac, const char *value, int toggle)
+{
+	int		bary = mc->grid[1][row].y + (rowh - 10) / 2;	// band top
+	int		x, barw, hw, hx, tx;
+	if (frac < 0) frac = 0;
+	if (frac > 1) frac = 1;
+	if (toggle)
+	{	// compact pill, clearly different from value sliders
+		x = mc->grid[1][row].x + 12;
+		barw = 56; hw = 22;
+		Draw_FillRGBA (x, bary + 2, barw, 6, 0.16f, 0.18f, 0.26f, 1.0f);
+		Draw_FillRGBA (x - 3, bary, 2, 10, 0.70f, 0.73f, 0.80f, 1.0f);
+		Draw_FillRGBA (x + barw + 1, bary, 2, 10, 0.70f, 0.73f, 0.80f, 1.0f);
+		hx = (frac >= 0.999f) ? x + barw - hw : x;
+		Draw_FillRGBA (hx, bary, hw, 10,
+			frac >= 0.999f ? 0.30f : 0.42f, frac >= 0.999f ? 0.55f : 0.44f, frac >= 0.999f ? 1.0f : 0.50f, 1.0f);
+	}
+	else
+	{	// uniform-width value slider
+		x = mc->grid[1][row].x + 12;
+		barw = (int)(mc->colw * 0.58f); hw = 10;
+		Draw_FillRGBA (x, bary + 2, barw, 6, 0.36f, 0.39f, 0.46f, 1.0f);	// solid brighter grey
+		if (frac > 0)
+			Draw_FillRGBA (x, bary + 2, (int)(barw * frac), 6, 0.22f, 0.42f, 0.75f, 1.0f);
+		// edge ticks: gold when the handle is pinned at that end
+		Draw_FillRGBA (x - 3, bary, 2, 10, frac <= 0.001f ? 1.0f : 0.70f, frac <= 0.001f ? 0.80f : 0.73f, frac <= 0.001f ? 0.30f : 0.80f, 1.0f);
+		Draw_FillRGBA (x + barw + 1, bary, 2, 10, frac >= 0.999f ? 1.0f : 0.70f, frac >= 0.999f ? 0.80f : 0.73f, frac >= 0.999f ? 0.30f : 0.80f, 1.0f);
+		hx = x + (int)((barw - hw) * frac);
+		Draw_FillRGBA (hx, bary, hw, 10, 0.85f, 0.68f, 0.25f, 1.0f);
+	}
+	tx = mc->grid[1][row].x + mc->colw - (int)Draw_TTFWidth (value, 14.0f) - 12;
+	M_PrintWhite (tx, mc->grid[1][row].yp, value);
+}
+
+void M_Menu_Performance_f (void)
+{
+	// unified Options menu (perf B7): perfmenu now lands on the tabbed menu's
+	// Performance tab instead of the old standalone page.
+	M_Menu_Options_f ();
+}
+
+void M_Performance_Draw (void)
+{
+	size_t			n, shown;
+	enum m_state_e	saved;
+	int				rowh;
+	struct MenuCoords	coords;
+
+	// recursive background = the page we came from
+	saved = m_state;
+	m_state = perf_return_state;
+	m_recursiveDraw = true;
+	M_Draw ();
+	m_state = saved;
+
+	// background tint
+	Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 0.7f);
+
+	// scrolling window setup (gamerules pattern); last grid slot = description band
+	shown = PERF_ROWS;
+	if (shown > (size_t)vertical_perf_affordance - 1)
+		shown = (size_t)vertical_perf_affordance - 1;
+	if (perf_first + shown - 1 < perf_cursor)
+		perf_first = perf_cursor - (shown - 1);
+	if (perf_first > perf_cursor)
+		perf_first = perf_cursor;
+
+	coords = Draw_WindowGrid("Performance", vertical_perf_affordance, MVS_P, 2, 0.4, 1.0, (int)(perf_cursor - perf_first), true);
+	M_Draw_Hint(PERF, coords);
+
+	rowh = coords.grid[1][1].y - coords.grid[1][0].y;
+	if (rowh <= 0)
+		rowh = MVS;
+
+	M_Performance_Body (&coords, rowh, shown);
+}
+
+void M_Performance_Key (int key)
+{
+	switch (key)
+	{
+	case K_YBUTTON: // triangle
+#ifdef VITA
+	case K_ENTER:
+#endif
+	case K_ESCAPE:
+	case K_BBUTTON: // circle
+		if (perf_return_state != m_options)
+			Host_WriteConfiguration ();	// console entry point: persist before leaving the menu flow
+		if (perf_return_state == m_options)
+		{
+			m_state = m_options;
+			m_entersound = true;
+		}
+		else if (perf_return_state == m_pause)
+			M_Menu_Pause_f ();
+		else
+			M_Menu_Main_f ();
+		break;
+
+	case K_ABUTTON: // x
+	case 'y':
+	case 'Y':
+#ifndef VITA
+	case K_ENTER:
+	case K_KP_ENTER:
+		/* Mac/PC port: Enter selects, like the Vita X button. */
+#endif
+		if (perf_cursor < PERF_PRESET_ROWS && (int)perf_preset.value > 0)
+		{	// re-apply the current preset (undoes manual tweaks)
+			S_LocalSound ("misc/menu2.wav");
+			M_Performance_ApplyPreset ((int)perf_preset.value);
+		}
+		break;
+
+	case K_UPARROW:
+		S_LocalSound ("misc/menuoption.wav");
+		perf_cursor--;
+		if (perf_cursor >= PERF_ROWS)
+			perf_cursor = PERF_ROWS - 1;
+		break;
+
+	case K_DOWNARROW:
+		S_LocalSound ("misc/menuoption.wav");
+		perf_cursor++;
+		if (perf_cursor >= PERF_ROWS)
+			perf_cursor = 0;
+		break;
+
+	// NOTE: L/R triggers deliberately NOT bound here (perf B7 design:
+	// triggers are reserved for page changes; arrows step the values).
+	case K_LEFTARROW:
+		S_LocalSound ("misc/menu3.wav");
+		M_Performance_Step (-1);
+		break;
+
+	case K_RIGHTARROW:
+		S_LocalSound ("misc/menu3.wav");
+		M_Performance_Step (1);
+		break;
+
+	default:
+		break;
+	}
+}
+
+//=============================================================================
+// unified Options menu (perf B7): tabbed Options; Performance tab reuses the
+// exact perf rows via M_Performance_Body. Rows bind EXISTING cvars (name-string
+// Cvar_SetValue is not used here: Cvar_SetValueQuick takes the pointer).
+
+typedef struct
+{
+	const char	*label;
+	cvar_t		*cvar;			// NULL for action/text rows
+	float		 minval, maxval, stepval;
+	int			 percent;		// display value*100 with a %% suffix
+	int			 noslider;		// right-aligned text only, no track
+	void		 (*set)(int dir);	// custom adjuster (dir==0 on select)
+	const char	*(*show)(char *buf, int size);
+	const char	*desc;
+} uni_row_t;
+
+static void UNI_SetScale (int dir)
+{
+	float v = scr_menuscale.value + dir * 0.1f;
+	if (v < 1.0f)
+		v = 2.5f;
+	if (v > 2.5f)
+		v = 1.0f;
+	Cvar_SetValueQuick (&scr_menuscale, v);
+	Cvar_SetValueQuick (&scr_conscale, v);
+	Cvar_SetValueQuick (&scr_sbarscale, v);
+}
+
+static const char *UNI_ShowScale (char *buf, int size)
+{
+	q_snprintf (buf, size, "%i%%", (int)(scr_menuscale.value * 100.0f + 0.5f));
+	return buf;
+}
+
+static const char *UNI_ShowSens (char *buf, int size)
+{
+	q_snprintf (buf, size, "%g", sensitivity.value);
+	return buf;
+}
+
+static const char *UNI_ShowTexMode (char *buf, int size)
+{
+	q_strlcpy (buf, strstr (gl_texturemode.string, "NEAREST") ? "Nearest" : "Smooth", size);
+	return buf;
+}
+
+static void UNI_SetTexMode (int dir)
+{
+	(void)dir;
+	if (strstr (gl_texturemode.string, "NEAREST"))
+		Cbuf_AddText ("gl_texturemode GL_LINEAR_MIPMAP_LINEAR\n");
+	else
+		Cbuf_AddText ("gl_texturemode GL_NEAREST_MIPMAP_LINEAR\n");
+}
+
+// weapon position: same 4-state cycle as the old video menu (r75 era)
+static const char *UNI_ShowWeaponPos (char *buf, int size)
+{
+	if (!r_drawviewmodel.value)
+		q_strlcpy (buf, "Hidden", size);
+	else if (r_viewmodeloffset.value > 0)
+		q_strlcpy (buf, "Right", size);
+	else if (r_viewmodeloffset.value < 0)
+		q_strlcpy (buf, "Left", size);
+	else
+		q_strlcpy (buf, "Center", size);
+	return buf;
+}
+
+static void UNI_SetWeaponPos (int dir)
+{
+	int idx;
+	if (!r_drawviewmodel.value)
+		idx = 3;
+	else if (r_viewmodeloffset.value > 0)
+		idx = 1;
+	else if (r_viewmodeloffset.value < 0)
+		idx = 2;
+	else
+		idx = 0;
+	idx += dir;
+	if (idx > 3)
+		idx = 0;
+	if (idx < 0)
+		idx = 3;
+	switch (idx)
+	{
+	case 1:
+		Cvar_SetValueQuick (&r_drawviewmodel, 1);
+		Cvar_SetValueQuick (&r_viewmodeloffset, 8);
+		break;
+	case 2:
+		Cvar_SetValueQuick (&r_drawviewmodel, 1);
+		Cvar_SetValueQuick (&r_viewmodeloffset, -8);
+		break;
+	case 3:
+		Cvar_SetValueQuick (&r_drawviewmodel, 0);
+		break;
+	default:
+		Cvar_SetValueQuick (&r_drawviewmodel, 1);
+		Cvar_SetValueQuick (&r_viewmodeloffset, 0);
+		break;
+	}
+}
+
+static void UNI_SetInvert (int dir)
+{
+	(void)dir;
+	Cvar_SetValueQuick (&m_pitch, -m_pitch.value);
+}
+
+static const char *UNI_ShowInvert (char *buf, int size)
+{
+	q_strlcpy (buf, m_pitch.value < 0 ? "On" : "Off", size);
+	return buf;
+}
+
+static void UNI_SetMlook (int dir)
+{
+	(void)dir;
+	Cbuf_AddText ((in_mlook.state & 1) ? "-mlook\n" : "+mlook\n");
+}
+
+static const char *UNI_ShowMlook (char *buf, int size)
+{
+	q_strlcpy (buf, (in_mlook.state & 1) ? "On" : "Off", size);
+	return buf;
+}
+
+static void UNI_ActionKeys (int dir)
+{
+	(void)dir;
+	M_Menu_Keys_f ();
+}
+
+static void UNI_ActionConsole (int dir)
+{
+	(void)dir;
+	m_state = m_none;
+	Con_ToggleConsole_f ();
+}
+
+static void UNI_ActionDefaults (int dir)
+{
+	(void)dir;
+	if (SCR_ModalMessage("This will reset all controls\n"
+			"and stored cvars. Continue? (y/n)\n", 15.0f))
+	{
+		Cbuf_AddText ("resetcfg\n");
+		Cbuf_AddText ("exec default.cfg\n");
+	}
+}
+
+static const uni_row_t uni_gfx_rows[] =
+{
+	{"Screen Size",     &scr_viewsize,  30, 120, 10,   0, 0, NULL, NULL, "Size of the 3D view in the window. Impact: none."},
+	{"UI Scale",        &scr_menuscale,    1, 2.5, 0.1,  0, 0, UNI_SetScale, UNI_ShowScale, "Size of menus and status text. Impact: none."},
+	{"Brightness",      &vid_gamma,   0.5,   1, 0.05,  1, 0, NULL, NULL, "Overall screen lightness. Impact: none."},
+#ifndef VITA
+	{"Contrast",        &vid_contrast,   1,   2, 0.1,  1, 0, NULL, NULL, "Difference between dark and bright. Impact: none."},
+#endif
+#ifdef VITA
+	{"Field of View",   &scr_fov,       75, 130, 5,    0, 0, NULL, NULL, "How wide your view is. Impact: none."},
+#endif
+	{"Water Opacity",   &r_wateralpha,   0,   1, 0.1,  1, 0, NULL, NULL, "How clear the water looks. Impact: low."},
+	{"Texture Filter",  NULL,            0,   1, 1,    0, 1, UNI_SetTexMode, UNI_ShowTexMode, "Smooth vs crisp textures. Impact: low."},
+	{"Vertical Sync",   &vid_vsync,      0,   1, 1,    0, 0, NULL, NULL, "Match the display refresh, no tearing. Impact: none."},
+	{"Weapon Position", NULL,            0,   3, 1,    0, 1, UNI_SetWeaponPos, UNI_ShowWeaponPos, "Where the gun sits on screen."},
+	{"Show Crosshair",  &crosshair,      0,   1, 1,    0, 0, NULL, NULL, "Aim dot in the center of the screen. Impact: none."},
+#ifdef VITA
+	{"Rumble",              &pstv_rumble, 0, 1, 1, 0, 0, NULL, NULL, "Controller vibration on fire and hits."},
+	{"Retro Touch",         &retrotouch,  0, 1, 1, 0, 0, NULL, NULL, "Old-style touchscreen aiming."},
+	{"Gyroscope Aim",       &motioncam,   0, 1, 1, 0, 0, NULL, NULL, "Look by tilting the system."},
+	{"Gyro Speed X",  &motion_horizontal_sensitivity, 0, 10, 1, 0, 0, NULL, NULL, "Tilt sensitivity left/right."},
+	{"Gyro Speed Y",  &motion_vertical_sensitivity,   0, 10, 1, 0, 0, NULL, NULL, "Tilt sensitivity up/down."},
+#endif
+};
+
+static const uni_row_t uni_ctrl_rows[] =
+{
+	{"Mouse Speed",    &sensitivity, 1, 11, 1, 0, 0, NULL, UNI_ShowSens, "Look speed with mouse or sticks. Impact: none."},
+	{"Invert Mouse",   &m_pitch,    -1,  1, 1, 0, 1, UNI_SetInvert, UNI_ShowInvert, "Flip vertical look direction."},
+	{"Mouse Look",     NULL,         0,  1, 1, 0, 1, UNI_SetMlook, UNI_ShowMlook, "Mouse turns the player (vs strafing)."},
+	{"Lookspring",     &lookspring,  0,  1, 1, 0, 0, NULL, NULL, "View drifts back to center after looking. Impact: none."},
+	{"Key Bindings",   NULL,         0,  1, 1, 0, 1, UNI_ActionKeys, NULL, "Rebind buttons on the legacy keys page."},
+};
+
+static const uni_row_t uni_snd_rows[] =
+{
+	{"Sound Volume",   &sfxvolume,   0, 1, 0.05, 1, 0, NULL, NULL, "Effects and weapons volume. Impact: none."},
+	{"Music Volume",   &bgmvolume,   0, 1, 0.05, 1, 0, NULL, NULL, "Background music volume. Impact: none."},
+};
+
+static const uni_row_t uni_gen_rows[] =
+{
+	{"Goto Console",   NULL, 0, 1, 1, 0, 1, UNI_ActionConsole, NULL, "Open the developer console."},
+	{"Restore Defaults", NULL, 0, 1, 1, 0, 1, UNI_ActionDefaults, NULL, "Reset all controls and stored settings."},
+};
+
+static const uni_row_t	*uni_tab_rows[UNI_TABS] =
+{ NULL, uni_gfx_rows, uni_ctrl_rows, uni_snd_rows, uni_gen_rows };
+static const int uni_tab_nrows[UNI_TABS] =
+{ 0,
+  (int)(sizeof(uni_gfx_rows)   / sizeof(uni_gfx_rows[0])),
+  (int)(sizeof(uni_ctrl_rows)  / sizeof(uni_ctrl_rows[0])),
+  (int)(sizeof(uni_snd_rows)   / sizeof(uni_snd_rows[0])),
+  (int)(sizeof(uni_gen_rows)   / sizeof(uni_gen_rows[0])) };
+
+static const char *UNI_Value (const uni_row_t *r, char *buf, int size)
+{
+	if (r->show)
+		return r->show (buf, size);
+	if (!r->cvar)
+	{
+		q_strlcpy (buf, "Open", size);
+		return buf;
+	}
+	if (r->percent)
+	{
+		q_snprintf (buf, size, "%i%%", (int)(r->cvar->value * 100.0f + 0.5f));
+		return buf;
+	}
+	if (r->maxval <= 1.0f)
+	{
+		q_strlcpy (buf, r->cvar->value > 0 ? "On" : "Off", size);
+		return buf;
+	}
+	q_snprintf (buf, size, "%i", (int)(r->cvar->value + 0.001f));
+	return buf;
+}
+
+static void UNI_Step (const uni_row_t *r, int dir)
+{
+	float v = r->cvar->value + dir * r->stepval;
+	if (v < r->minval)
+		v = r->maxval;
+	if (v > r->maxval)
+		v = r->minval;
+	Cvar_SetValueQuick (r->cvar, v);
+}
+
+// thin scrollbar on the panel's right edge: shows rows hidden off-screen (perf B7)
+static void M_Draw_Scrollbar (struct MenuCoords *coords, int rowh, int total, size_t first, int shown)
+{
+	int		top, trackh, ty, th, sx;
+	if (total <= shown)
+		return;
+	top = coords->grid[0][0].y;
+	trackh = rowh * shown;
+	// left gutter INSIDE the panel, on a matching backing strip (user: never
+	// float it over the page background). Grid text starts at x0+15, so a
+	// 12-unit gutter never collides with rows or the gold cursor.
+	Draw_FillRGBA (coords->x0, top, 12, trackh, 0.055f, 0.075f, 0.135f, 1.0f);
+	sx = coords->x0 + 4;
+	Draw_FillRGBA (sx, top, 4, trackh, 0.10f, 0.12f, 0.18f, 1.0f);
+	ty = top + (int)((float)first / total * trackh);
+	th = (int)((float)shown / total * trackh);
+	if (th < 6)
+		th = 6;
+	if (ty + th > top + trackh)
+		ty = top + trackh - th;
+	Draw_FillRGBA (sx, ty, 4, th, 0.55f, 0.58f, 0.65f, 1.0f);
+}
+
+static void M_Performance_ResetWindow (void)
+{
+	perf_cursor = 0;
+	perf_first = 0;
+}
+
+static void M_Options_CycleTab (int dir)
+{
+	S_LocalSound ("misc/menuoption.wav");
+	uni_tab = (uni_tab + dir + UNI_TABS) % UNI_TABS;
+	uni_cursor = uni_first = 0;
+	M_Performance_ResetWindow ();
+}
+
+// the Performance tab's rows + footnote band, shared by the old standalone
+// page (legacy) and the unified menu. Identical pixels, edge-to-edge band fix.
+static void M_Performance_Body (struct MenuCoords *coords, int rowh, size_t shown)
+{
+	size_t	n;
+
+	for (n = 0; n < shown; n++)
+	{
+		size_t idx = perf_first + n;
+		if (idx < PERF_PRESET_ROWS)
+		{	// the single preset row: dark navy strip, colored accent bar +
+			// oversized colored preset name (no brackets, no gold-on-gold)
+			int		px = coords->grid[0][n].x;
+			int		py = coords->grid[0][n].y;
+			int		pw = coords->colw * coords->cols;
+			int		p = (int)perf_preset.value;
+			int		vw;
+			float	cr = perf_preset_color[p][0], cg = perf_preset_color[p][1], cb = perf_preset_color[p][2];
+			Draw_FillRGBA (px, py, pw, rowh, 0.055f, 0.075f, 0.135f, 1.0f);
+			// caret (left accent bar) removed per user; the gold row cursor IS
+			// wanted here -- re-strike it on top of our opaque strip, before text
+			if ((int)(perf_cursor - perf_first) == (int)n)
+				Draw_Cursor (px, py, coords->colw, rowh, true);
+			Draw_TTFStringHeader (px + 14, coords->grid[0][n].yp + 8, "Preset", 1, 1, 1, 1.0f, 14.0f);
+			vw = (int)Draw_TTFHeaderWidth (perf_preset_names[p], 14.0f);
+			Draw_TTFStringHeader (px + pw - vw - 14, coords->grid[0][n].yp + 8, perf_preset_names[p], cr, cg, cb, 1.0f, 14.0f);
+		}
+		else
+		{
+			const perf_knob_t	*k = &perf_knobs[idx - PERF_PRESET_ROWS];
+			float	frac = 0;
+			if (k->maxval > k->minval)
+				frac = (k->cvar->value - k->minval) / (k->maxval - k->minval);
+			M_PrintWhite (coords->grid[0][n].xp, coords->grid[0][n].yp, k->name);
+			M_Draw_PerfSlider (coords, (int)n, rowh, frac, M_Performance_Value((int)idx - PERF_PRESET_ROWS), k->maxval <= 1.0f && !k->scale100);
+		}
+	}
+
+	// description for the row under the cursor, in its own band above the footer.
+	// styled as a footnote (grey, smaller, indented) so it does not read as a row.
+	// perf B7 (user): pinned to the bottom slot, not right under short tabs.
+	{
+		const char	*d = (perf_cursor < PERF_PRESET_ROWS)
+			? perf_preset_desc[(int)perf_preset.value]
+			: perf_knobs[perf_cursor - PERF_PRESET_ROWS].desc;
+		int	bn = (int)vertical_perf_affordance - 1;
+		Draw_FillRGBA (coords->x0, coords->grid[0][bn].y,
+			coords->panelw, rowh, 0.04f, 0.05f, 0.09f, 0.75f);
+		Draw_FillRGBA (coords->x0, coords->grid[0][bn].y,
+			coords->panelw, 2, 0.30f, 0.33f, 0.40f, 0.9f);
+		Draw_TTFString (coords->grid[0][bn].xp + 12, coords->grid[0][bn].y + rowh / 2 + 6, d,
+			0.62f, 0.65f, 0.72f, 1.0f, 12.0f);
+	}
+}
+
+void M_Options_Draw (void)
+{
+	size_t			n, shown;
+	enum m_state_e	saved;
+	int				rowh;
+	int				i, segw, bandy;
+	struct MenuCoords	coords;
+
+	// recursive background = the page we came from (same pattern as perf page)
+	saved = m_state;
+	m_state = uni_return_state;
+	m_recursiveDraw = true;
+	M_Draw ();
+	m_state = saved;
+
+	// opaque background for the whole options page (user: no translucency)
+	Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 1.0f);
+
+	if (uni_tab == UNI_TAB_PERF)
+	{
+		shown = PERF_ROWS;
+		if (shown > (size_t)vertical_perf_affordance - 1)
+			shown = (size_t)vertical_perf_affordance - 1;
+		if (perf_first + shown - 1 < perf_cursor)
+			perf_first = perf_cursor - (shown - 1);
+		if (perf_first > perf_cursor)
+			perf_first = perf_cursor;
+	}
+	else
+	{
+		int nrows = uni_tab_nrows[uni_tab];
+		shown = (size_t)nrows;
+		if (shown > (size_t)vertical_perf_affordance - 1)
+			shown = (size_t)vertical_perf_affordance - 1;
+		if ((size_t)uni_first + shown - 1 < (size_t)uni_cursor)
+			uni_first = uni_cursor - ((int)shown - 1);
+		if (uni_first > uni_cursor)
+			uni_first = uni_cursor;
+	}
+
+	// header scale 2.0 -> the double-height header band hosts the tab strip
+	coords = Draw_WindowGridBase ("", vertical_perf_affordance, MVS_P, 2, 0.4, 1.0, 1.0, 0, 2,
+		(uni_tab == UNI_TAB_PERF) ? (int)(perf_cursor - perf_first) : (int)(uni_cursor - uni_first),
+		1, 1.0, 1.5, 0.0);
+	M_Draw_Hint(PERF, coords);
+
+	rowh = coords.grid[1][1].y - coords.grid[1][0].y;
+	if (rowh <= 0)
+		rowh = MVS;
+
+		// tab strip: L/R cycling arrows occupy their own edge slots, drawn like
+	// disabled tabs (user: not boxes floating over the strip)
+	{
+		extern qpic_t	*b_lt, *b_rt;	// L/R trigger button art
+		int	ih = coords.headerh;
+		int	slotw = 34;
+		int	ix0 = coords.x0 + slotw;
+		int	iw = coords.panelw - 2 * slotw;
+		bandy = coords.grid[0][0].y - ih;
+		segw = iw / UNI_TABS;
+		for (i = 0; i < UNI_TABS; i++)
+			if (i == uni_tab)
+				Draw_FillRGBA (ix0 + i * segw, bandy + 2, segw, ih - 2,
+					0.055f, 0.075f, 0.135f, 1.0f);	// solid, matches the body strip
+		{	// same art + size as the matchmaking hints (M_HintIcon: native
+			// aspect at 16px tall, 0.6 fade reads as "disabled tab" per user)
+			int		lx = coords.x0 + (slotw - M_HintIconW (b_lt)) / 2;
+			int		rx = coords.x0 + coords.panelw - slotw + (slotw - M_HintIconW (b_rt)) / 2;
+			M_HintIcon (&lx, bandy + ih - 15, b_lt);
+			M_HintIcon (&rx, bandy + ih - 15, b_rt);
+		}
+		for (i = 0; i < UNI_TABS; i++)
+		{
+			int	tw = (int)Draw_TTFHeaderWidth (uni_tab_names[i], 14.0f);
+			int	tx = ix0 + i * segw + (segw - tw) / 2;
+			int	ty = bandy + ih - 15;	// glyphs sit on the band's bottom edge
+			if (i == uni_tab)
+			{
+				Draw_TTFStringHeader (tx, ty, uni_tab_names[i], 1, 1, 1, 1.0f, 14.0f);
+				Draw_FillRGBA (ix0 + i * segw + 4, bandy + ih - 2, segw - 8, 2, 0.85f, 0.68f, 0.25f, 1.0f);
+			}
+			else
+				Draw_TTFStringHeader (tx, ty, uni_tab_names[i], 0.55f, 0.58f, 0.65f, 1.0f, 14.0f);
+		}
+	}
+
+	if (uni_tab == UNI_TAB_PERF)
+	{
+		M_Performance_Body (&coords, rowh, shown);
+		M_Draw_Scrollbar (&coords, rowh, PERF_ROWS, perf_first, (int)shown);
+		return;
+	}
+
+	for (n = 0; n < shown; n++)
+	{
+		const uni_row_t	*r = &uni_tab_rows[uni_tab][uni_first + n];
+		char			 vbuf[64];
+		const char		*v;
+		float			 frac = 0;
+
+		v = UNI_Value (r, vbuf, sizeof(vbuf));
+		M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, r->label);
+		if (!r->noslider && r->cvar && r->maxval > r->minval)
+		{
+			frac = (r->cvar->value - r->minval) / (r->maxval - r->minval);
+			M_Draw_PerfSlider (&coords, (int)n, rowh, frac, v, r->maxval <= 1.0f && !r->percent && !r->show);
+		}
+		else if (r->show && r->maxval <= 1.0f)
+		{	// two-state custom rows (invert, mlook, texture filter) get the pill too
+			frac = (!strcmp (v, "On") || !strcmp (v, "Smooth")) ? 1 : 0;
+			M_Draw_PerfSlider (&coords, (int)n, rowh, frac, v, 1);
+		}
+		else
+		{
+			int vx = coords.grid[0][n].x + coords.colw * coords.cols
+				- (int)Draw_TTFWidth (v, 14.0f) - 12;
+			M_PrintWhite (vx, coords.grid[0][n].yp, v);
+		}
+	}
+
+	// footnote band, edge to edge, same styling as the perf tab; pinned to the bottom slot
+	M_Draw_Scrollbar (&coords, rowh, uni_tab_nrows[uni_tab], uni_first, (int)shown);
+	{
+		const char *d = uni_tab_rows[uni_tab][uni_cursor].desc;
+		int	bn = (int)vertical_perf_affordance - 1;
+		Draw_FillRGBA (coords.x0, coords.grid[0][bn].y,
+			coords.panelw, rowh, 0.04f, 0.05f, 0.09f, 0.75f);
+		Draw_FillRGBA (coords.x0, coords.grid[0][bn].y,
+			coords.panelw, 2, 0.30f, 0.33f, 0.40f, 0.9f);
+		Draw_TTFString (coords.grid[0][bn].xp + 12, coords.grid[0][bn].y + rowh / 2 + 6, d,
+			0.62f, 0.65f, 0.72f, 1.0f, 12.0f);
+	}
+}
+
+void M_Options_Key (int k)
+{
+	switch (k)
+	{
+	case K_ESCAPE:
+	case K_BBUTTON: // circle
+	case K_YBUTTON: // triangle
+#ifdef VITA
+	case K_ENTER:	// Vita: enter closes, like the old standalone perf page
+#endif
+		Host_WriteConfiguration ();	// archived cvars live here now: always persist
+		if (uni_return_state == m_pause)
+			M_Menu_Pause_f ();
+		else
+			M_Menu_Main_f ();
+		return;
+
+	case K_ABUTTON: // x
+	case 'y':
+	case 'Y':
+#ifndef VITA
+	case K_ENTER:
+	case K_KP_ENTER:
+		/* Mac/PC port: Enter selects, like the Vita X button. */
+#endif
+		if (uni_tab == UNI_TAB_PERF)
+		{
+			if (perf_cursor == 0 && (int)perf_preset.value > 0)
+			{	// re-apply the current preset (undoes manual tweaks)
+				S_LocalSound ("misc/menu2.wav");
+				M_Performance_ApplyPreset ((int)perf_preset.value);
+			}
+		}
+		else
+		{
+			const uni_row_t *r = &uni_tab_rows[uni_tab][uni_cursor];
+			if (r->set)
+			{
+				S_LocalSound ("misc/menu2.wav");
+				r->set (0);
+			}
+		}
+		return;
+
+	case K_LTRIGGER:
+		M_Options_CycleTab (1);
+		return;
+	case K_RTRIGGER:
+		M_Options_CycleTab (-1);
+		return;
+#ifndef VITA
+	// Mac convenience: Tab cycles, Q/E jump either way
+	case K_TAB:
+	case 'e':
+	case 'E':
+		M_Options_CycleTab (1);
+		return;
+	case 'q':
+	case 'Q':
+		M_Options_CycleTab (-1);
+		return;
+#endif
+
+	case K_UPARROW:
+		S_LocalSound ("misc/menuoption.wav");
+		if (uni_tab == UNI_TAB_PERF)
+		{
+			perf_cursor--;
+			if (perf_cursor >= PERF_ROWS)
+				perf_cursor = PERF_ROWS - 1;
+		}
+		else
+		{
+			int nrows = uni_tab_nrows[uni_tab];
+			uni_cursor--;
+			if (uni_cursor < 0)
+				uni_cursor = nrows - 1;
+		}
+		return;
+
+	case K_DOWNARROW:
+		S_LocalSound ("misc/menuoption.wav");
+		if (uni_tab == UNI_TAB_PERF)
+		{
+			perf_cursor++;
+			if (perf_cursor >= PERF_ROWS)
+				perf_cursor = 0;
+		}
+		else
+		{
+			int nrows = uni_tab_nrows[uni_tab];
+			uni_cursor++;
+			if (uni_cursor >= nrows)
+				uni_cursor = 0;
+		}
+		return;
+
+	case K_LEFTARROW:
+		S_LocalSound ("misc/menu3.wav");
+		if (uni_tab == UNI_TAB_PERF)
+			M_Performance_Step (-1);
+		else
+		{
+			const uni_row_t *r = &uni_tab_rows[uni_tab][uni_cursor];
+			if (r->set)
+				r->set (-1);
+			else if (r->cvar)
+				UNI_Step (r, -1);
+		}
+		return;
+
+	case K_RIGHTARROW:
+		S_LocalSound ("misc/menu3.wav");
+		if (uni_tab == UNI_TAB_PERF)
+			M_Performance_Step (1);
+		else
+		{
+			const uni_row_t *r = &uni_tab_rows[uni_tab][uni_cursor];
+			if (r->set)
+				r->set (1);
+			else if (r->cvar)
+				UNI_Step (r, 1);
+		}
+		return;
+
+	default:
+		break;
+	}
+}
+
 size_t		mlist_cursor;
 size_t		mlist_first;
-float vertical_mlist_affordance = 10;
+float vertical_mlist_affordance = 9;	// perf B7: 10 -> 9, pack tabs ride the header band; first pack (10 maps) scrolls
+
+// perf B7: Custom Maps tab -- plain .bsp files the user drops into <gamedir>/maps/custom
+#define MAX_CUSTOM_MAPS 64
+static char	custom_names[MAX_CUSTOM_MAPS][32];
+static int	custom_count = -1;	// -1 = not scanned yet
+
+static int custom_cmp (const void *a, const void *b)
+{
+	return q_strcasecmp ((const char *)a, (const char *)b);
+}
+
+static void M_Maps_ScanCustom (void)
+{
+	char			path[MAX_OSPATH];
+	DIR			*dir_p;
+	struct dirent		*dir_t;
+	custom_count = 0;
+	q_snprintf (path, sizeof(path), "%s/maps/custom", com_gamedir);
+	dir_p = opendir (path);
+	if (!dir_p)
+		return;
+	while (custom_count < MAX_CUSTOM_MAPS && (dir_t = readdir (dir_p)) != NULL)
+	{
+		if (q_strcasecmp (COM_FileGetExtension (dir_t->d_name), "bsp") != 0)
+			continue;
+		COM_StripExtension (dir_t->d_name, custom_names[custom_count], sizeof(custom_names[0]));
+		custom_count++;
+	}
+	closedir (dir_p);
+	if (custom_count > 1)
+		qsort (custom_names, custom_count, sizeof(custom_names[0]), custom_cmp);
+}
+
+static int M_Maps_LevelCount (void)
+{
+	if (startepisode == NUM_EPISODES - 1)
+	{
+		if (custom_count < 0)
+			M_Maps_ScanCustom ();
+		return custom_count;
+	}
+	return episodes[startepisode].levels;
+}
+
+// perf B7: the matchmaking summary page wants art/bio for the chosen map;
+// custom picks have neither -- borrow the first refined-pack entry for the
+// picture and never index levels[] with a custom number.
+static const level_t *M_Maps_ChosenDisplay (void)
+{
+	int	idx;
+	if (chosen_level.episode == NUM_EPISODES - 1)
+		return &levels[0];
+	idx = episodes[chosen_level.episode].firstLevel + chosen_level.level;
+	if (idx < 0 || idx >= (int)(sizeof(levels) / sizeof(levels[0])))
+		return &levels[0];
+	return &levels[idx];
+}
+
 const char *M_listPrintMap (size_t index) {
 
     static char	string[64];
+    if (startepisode == NUM_EPISODES - 1)	// perf B7: custom pack = folder names
+    {
+        if ((int)index >= custom_count)
+            return "";
+        q_snprintf(string, sizeof(string), "%-18.18s\n", custom_names[index]);
+        return string;
+    }
     if (index >= episodes[startepisode].levels)
         return "";
 
@@ -2914,35 +3909,66 @@ void M_Matchmaking_Map_Draw (void) {
     // now draw this menu
     m_state = m_matchmaking_map;
 
-    // setup scrolling cursor
+    // setup scrolling cursor (perf B7: custom pack counted live from disk)
     size_t	mlist_shown;
-    mlist_shown = episodes[startepisode].levels;
-    if (mlist_shown > vertical_mlist_affordance)
+    int		levcount = M_Maps_LevelCount ();
+    if ((int)mlist_cursor >= levcount)
+        mlist_cursor = levcount > 0 ? levcount - 1 : 0;
+    mlist_shown = (size_t)levcount;
+    if (mlist_shown > (size_t)vertical_mlist_affordance)
         mlist_shown = vertical_mlist_affordance;
-    if (mlist_first+mlist_shown-1 < mlist_cursor)
+    if (mlist_shown && mlist_first+mlist_shown-1 < mlist_cursor)
         mlist_first = mlist_cursor-(mlist_shown-1);
     if (mlist_first > mlist_cursor)
         mlist_first = mlist_cursor;
 
-    // background tint
-    Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 0.7f);
+    // background tint (perf B7: opaque, like the unified Options)
+    Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 1.0f);
     // title
     static char title[128];
     q_snprintf(title, sizeof(title), "Map Selection\n");   /* r91: pack name drawn separately in blue */
-    // window
-    struct MenuCoords coords = Draw_WindowGrid(title, vertical_mlist_affordance, MVS_P, 2, 0.35, 1.0, mlist_cursor-mlist_first, true);
-    /* r92: pack name inline after the title -- the title itself is conchars
-     * at scale 1.3 (13 chars x 8 x 1.3 ~= 135px), not TTF; brackets dropped
-     * per user. */
+    // window (perf B7: Options-identical band: 1.5 header, no Base title -- the tabs are the header)
+    struct MenuCoords coords = Draw_WindowGridBase ("", vertical_mlist_affordance, MVS_P, 2, 0.35, 1.0, 1.0, 0, 2, mlist_cursor-mlist_first, 1, 1.0, 1.5, 0.0);
+    draw_grid_translucent = 0;   /* r92: opaque popup (perf B7: hoisted from the old pack-name block) */
+    /* perf B7: the packs as a tab strip, exact Options geometry. */
     {
-        int pn_x = (int)coords.grid[0][0].x + 135 + 16;
-        int pn_y = (int)coords.grid[0][0].y - 7;
-        draw_grid_translucent = 0;   /* r92: opaque popup */
-        Draw_TTFStringHeader (pn_x, pn_y, episodes[startepisode].description, 0.45f, 0.75f, 1.00f, 0.95f, 14.0f);
+        extern qpic_t	*b_lt, *b_rt;
+        int	bandy = coords.grid[0][0].y - coords.headerh;
+        int	ih = coords.headerh;
+        int	slotw = 34;
+        int	ix0 = coords.x0 + slotw;
+        int	iw = coords.panelw - 2 * slotw;
+        int	segw = iw / NUM_EPISODES;
+        int	i;
+        for (i = 0; i < NUM_EPISODES; i++)
+            if (i == startepisode)
+                Draw_FillRGBA (ix0 + i * segw, bandy + 2, segw, ih - 2,
+                    0.055f, 0.075f, 0.135f, 1.0f);
+        {
+            int	lx = coords.x0 + (slotw - M_HintIconW (b_lt)) / 2;
+            int	rx = coords.x0 + coords.panelw - slotw + (slotw - M_HintIconW (b_rt)) / 2;
+            M_HintIcon (&lx, bandy + ih - 15, b_lt);
+            M_HintIcon (&rx, bandy + ih - 15, b_rt);
+        }
+        for (i = 0; i < NUM_EPISODES; i++)
+        {
+            int	tw = (int)Draw_TTFHeaderWidth (episodes[i].description, 14.0f);
+            int	tx = ix0 + i * segw + (segw - tw) / 2;
+            int	ty = bandy + ih - 15;
+            if (i == startepisode)
+            {
+                Draw_TTFStringHeader (tx, ty, episodes[i].description, 1, 1, 1, 1.0f, 14.0f);
+                Draw_FillRGBA (ix0 + i * segw + 4, bandy + ih - 2, segw - 8, 2, 0.85f, 0.68f, 0.25f, 1.0f);
+            }
+            else
+                Draw_TTFStringHeader (tx, ty, episodes[i].description, 0.55f, 0.58f, 0.65f, 1.0f, 14.0f);
+        }
     }
 
-    /* r92: vertical divider between the list column and the info column */
-    Draw_FillRGBA ((int)coords.grid[1][0].x - 2, (int)coords.grid[0][0].y, 2,
+    /* r92: vertical divider between the list column and the info column
+     * (perf B7: custom pack has no info column) */
+    if (startepisode != NUM_EPISODES - 1)
+        Draw_FillRGBA ((int)coords.grid[1][0].x - 2, (int)coords.grid[0][0].y, 2,
                    (int)(coords.grid[0][coords.rows].yp + coords.rowh - coords.grid[0][0].y),
                    20/255.0f, 25/255.0f, 44/255.0f, 1.0f);
     //footer
@@ -2954,7 +3980,19 @@ void M_Matchmaking_Map_Draw (void) {
     for (int n = 0; n < mlist_shown; n++) {
         M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, M_listPrintMap (mlist_first+n));
     }
-    // map thumbnail
+    if (levcount == 0)	// perf B7: empty custom folder hint
+        M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "no custom maps: drop .bsp files in maps/custom");
+    // perf B7: left gutter scrollbar (Options treatment)
+    {
+        int	rowh = coords.grid[1][1].y - coords.grid[1][0].y;
+        if (rowh <= 0)
+            rowh = MVS;
+        M_Draw_Scrollbar (&coords, rowh, levcount, mlist_first, (int)mlist_shown);
+    }
+    // map thumbnail (perf B7: custom pack is list-only -- no art, bio or author;
+    // its data does not live in levels[] so the whole info column would read garbage)
+    if (startepisode == NUM_EPISODES - 1)
+        return;
     char format[10];
     if (levels[episodes[startepisode].firstLevel + (mlist_cursor)].targaThumbnail) {
         strcpy(format, "tga"); // why not just bake it into the filename? why did I do it like this? testing? idk
@@ -2982,8 +4020,14 @@ void M_Matchmaking_Map_Draw (void) {
         else
             M_PrintWhite (bio_x, coords.grid[1][5].yp + CHARZ * 3 / 2, "No description available.");
     }
-    M_Print(coords.grid[1][8].x + CHARZ, coords.grid[1][8].yp, "Author:");   /* r93: column padding */
-    M_PrintWhite (coords.grid[1][9].xp + CHARZ, coords.grid[1][8].yp + CHARZ*1.5, levels[episodes[startepisode].firstLevel + (mlist_cursor)].author);
+    /* perf B7: author on one inline row -- the two-row version spilled into
+     * the footer hint band. */
+    {
+        int abx = coords.grid[1][8].x + CHARZ;
+        M_Print(abx, coords.grid[1][8].yp, "Author:");
+        M_PrintWhite (abx + (int)Draw_TTFWidth ("Author:", 14.0f) + 8,
+            coords.grid[1][8].yp, levels[episodes[startepisode].firstLevel + (mlist_cursor)].author);
+    }
 }
 
 
@@ -3025,6 +4069,8 @@ void M_Matchmaking_Map_Key (int key) {
         case K_KP_ENTER:
             /* Mac/PC port: Enter selects, like the Vita X button. */
 #endif
+            if (startepisode == NUM_EPISODES - 1 && custom_count == 0)
+                break;	// perf B7: nothing to pick in an empty custom folder
             chosen_level.episode = startepisode;
             chosen_level.level = mlist_cursor;
             m_state = m_gameoptions;
@@ -3034,28 +4080,41 @@ void M_Matchmaking_Map_Key (int key) {
         case K_UPARROW:
             S_LocalSound ("misc/menuoption.wav");
             mlist_cursor--;
-            if (mlist_cursor >= episodes[startepisode].levels)
-                mlist_cursor = episodes[startepisode].levels - 1;
+            if (mlist_cursor >= (size_t)M_Maps_LevelCount ())
+                mlist_cursor = M_Maps_LevelCount () - 1;
             break;
         case K_DOWNARROW:
             S_LocalSound ("misc/menuoption.wav");
             mlist_cursor++;
-            if (mlist_cursor >= episodes[startepisode].levels)
+            if (mlist_cursor >= (size_t)M_Maps_LevelCount ())
                 mlist_cursor = 0;
             break;
         case K_LTRIGGER:
         case K_LEFTARROW:
+#ifndef VITA
+        case 'q':	// perf B7: same tab aliases as unified Options
+        case 'Q':
+#endif
             S_LocalSound ("misc/menuoption.wav");
             mlist_cursor = 0;
             mlist_first = 0;
             M_Matchmaking_Map_Submenu_Key(-1,0);
+            if (startepisode == NUM_EPISODES - 1)
+                M_Maps_ScanCustom ();	// perf B7: refresh the folder list on tab entry
             break;
         case K_RTRIGGER:
         case K_RIGHTARROW:
+#ifndef VITA
+        case K_TAB:
+        case 'e':
+        case 'E':
+#endif
             S_LocalSound ("misc/menuoption.wav");
             mlist_cursor = 0;
             mlist_first = 0;
             M_Matchmaking_Map_Submenu_Key(1,0);
+            if (startepisode == NUM_EPISODES - 1)
+                M_Maps_ScanCustom ();	// perf B7: refresh the folder list on tab entry
             break;
 
         default:
@@ -3280,6 +4339,10 @@ static void M_Draw_HintY (int type, struct MenuCoords mc, int y) {
         HINTI(b_bbutton); HINTW("Back");
         HINTI(b_abutton); HINTW("Edit");
         HINTI(b_ybutton); HINTW("Delete");
+    } else if (type == PERF) {	// perf B7
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_left); HINTI(b_right); HINTW("Change");
+        HINTI(b_up); HINTI(b_down); HINTW("Scroll");
     }
 
     for (i = 0; i < n; i++)
@@ -3314,19 +4377,34 @@ void M_Matchmaking_Draw (void)
 {
     Draw_MenuBg();
     char format[10];
-    if (levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].targaThumbnail) {
+    if ((*M_Maps_ChosenDisplay ()).targaThumbnail) {
         strcpy(format, "tga");
     } else {
         strcpy(format, "lmp");
     }
     qpic_t *mappic = NULL;   /* r90: PNG mapshot if it exists, else legacy lmp (see map select) */
     {
-        const char *mspath = va("gfx/maps/%s.png", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail);
-        if (COM_FileExists (mspath, NULL))
-            mappic = Draw_TryCachePic (mspath, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+        const char *mspath;
+        int customsel = (chosen_level.episode == NUM_EPISODES - 1);
+        if (customsel)
+        {   /* perf B7: a custom map may ship its own gfx/maps/<name>.png;
+             * without one the summary page shows the placeholder card. */
+            const char *cname = (chosen_level.level < custom_count) ? custom_names[chosen_level.level] : "custom";
+            mspath = va("gfx/maps/%s.png", cname);
+            if (COM_FileExists (mspath, NULL))
+                mappic = Draw_TryCachePic (mspath, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+            else
+                mappic = Draw_TryCachePic ("gfx/maps/custom.png", TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+        }
+        else
+        {
+            mspath = va("gfx/maps/%s.png", (*M_Maps_ChosenDisplay ()).thumbnail);
+            if (COM_FileExists (mspath, NULL))
+                mappic = Draw_TryCachePic (mspath, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+        }
     }
     if (!mappic)
-        mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].thumbnail, format));
+        mappic = Draw_CachePic(va("gfx/maps/%s.%s", (*M_Maps_ChosenDisplay ()).thumbnail, format));
     int fg_height = MM_HEIGHT_PIX - (MM_HEADER_HEIGHT + MM_FOOTER_HEIGHT +mappic->height);
 
     //background
@@ -3405,7 +4483,9 @@ void M_Matchmaking_Draw (void)
      * short"). Header face, auto-shrinks until it fits the panel width,
      * never truncated. */
     {
-        const char *mapdesc = levels[episodes[chosen_level.episode].firstLevel + chosen_level.level].description;
+        const char *mapdesc = chosen_level.episode == NUM_EPISODES - 1
+            ? ((int)chosen_level.level < custom_count ? custom_names[chosen_level.level] : "Custom map")
+            : (*M_Maps_ChosenDisplay ()).description;
         float mapname_size = 16.0f;
         int mapname_x = (int)pic_x + CHARZ;
         double mapname_avail = (mc.grid[mc.cols - 1][0].x + mc.colw) - mapname_x - 8;
@@ -3705,7 +4785,13 @@ void M_Matchmaking_Key (int key)
                 // difficulty
                 Cbuf_AddText ( va ("skill %u\n", (int)opts.skill) );
                 // map
-                Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
+                if (chosen_level.episode == NUM_EPISODES - 1)	// perf B7: custom pack -- launch from the folder scan
+        {
+            if (chosen_level.level < custom_count)
+                Cbuf_AddText ( va ("map custom/%s\n", custom_names[chosen_level.level]) );
+        }
+        else
+            Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
                 return;
             } else if (matchmaking_cursor == 0) {
                 m_multiplayer_cursor = 1;
@@ -4333,6 +5419,9 @@ void M_Init (void)
 	Cmd_AddCommand ("lobby_addbot", M_Lobby_AddBot_f);
 	Cmd_AddCommand ("lobby_delbot", M_Lobby_DelBot_f);
 	Cmd_AddCommand ("lobby_shufflenames", M_Lobby_ShuffleNames_f);
+	// perf B7 - Performance menu: preset memory cvar + console shortcut
+	Cvar_RegisterVariable (&perf_preset);
+	Cmd_AddCommand ("perfmenu", M_Menu_Performance_f);
 	Cmd_AddCommand ("menu_cmd", MQC_Command_f);
 	Cmd_AddCommand ("menu_restart", M_MenuRestart_f);	//qss still loads progs on hunk, so we can't do this safely.
 
@@ -4471,6 +5560,10 @@ void M_Draw (void)
         M_Matchmaking_Gamerules_Draw ();
         break;
 
+    case m_performance:	// perf B7
+        M_Performance_Draw ();
+        break;
+
 	case m_search:
 		M_Search_Draw ();
 		break;
@@ -4572,6 +5665,10 @@ void M_Keydown (int key)
 
     case m_matchmaking_gamerules:
         M_Matchmaking_Gamerules_Key (key);
+        break;
+
+    case m_performance:	// perf B7
+        M_Performance_Key (key);
         break;
 
 	case m_search:
