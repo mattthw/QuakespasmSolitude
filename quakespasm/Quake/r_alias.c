@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 
 extern cvar_t r_drawflat, gl_overbright_models, gl_fullbrights, r_lerpmodels, r_lerpmove; //johnfitz
+extern cvar_t r_light_cache, r_lerpskip_dist; //perf B5
 
 //up to 16 color translated skins
 gltexture_t *playertextures[MAX_SCOREBOARD]; //johnfitz -- changed to an array of pointers
@@ -844,6 +845,7 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, entity_t *e, lerpdata_t *lerpdata
 {
 	int frame = e->frame;
 	int				posenum, numposes;
+	vec3_t			skipd;	//perf B5 -- r_lerpskip_dist distance test
 
 	if ((frame >= paliashdr->numframes) || (frame < 0))
 	{
@@ -934,7 +936,35 @@ void R_SetupAliasFrame (aliashdr_t *paliashdr, entity_t *e, lerpdata_t *lerpdata
 		}
 
 		//set up values
-		if (r_lerpmodels.value && !(e->model->flags & MOD_NOLERP && r_lerpmodels.value != 2))
+		//perf B5 -- r_lerpskip_dist: past this distance, snap to the current pose instead of
+		//blending two (the equal-pose GLSL path already forces blend 0; saves the fixed-function
+		//2-pose CPU lerp on Vita and the pose-attribute setup there). Viewmodel is exempt.
+		if (r_lerpskip_dist.value > 0 && e != &cl.viewent && !(e->eflags & EFLAGS_VIEWMODEL))
+		{
+			VectorSubtract (e->origin, r_refdef.vieworg, skipd);
+			if (DotProduct (skipd, skipd) > r_lerpskip_dist.value * r_lerpskip_dist.value)
+			{
+				lerpdata->blend = 1;
+				lerpdata->pose1 = posenum;
+				lerpdata->pose2 = posenum;
+			}
+			else if (r_lerpmodels.value && !(e->model->flags & MOD_NOLERP && r_lerpmodels.value != 2))
+			{
+				if (e->lerpflags & LERP_FINISH && numposes == 1)
+					lerpdata->blend = CLAMP (0, (cl.time - e->lerp.state.lerpstart) / (e->lerpfinish - e->lerp.state.lerpstart), 1);
+				else
+					lerpdata->blend = CLAMP (0, (cl.time - e->lerp.state.lerpstart) / e->lerp.state.lerptime, 1);
+				lerpdata->pose1 = e->lerp.state.previouspose;
+				lerpdata->pose2 = e->lerp.state.currentpose;
+			}
+			else //don't lerp
+			{
+				lerpdata->blend = 1;
+				lerpdata->pose1 = posenum;
+				lerpdata->pose2 = posenum;
+			}
+		}
+		else if (r_lerpmodels.value && !(e->model->flags & MOD_NOLERP && r_lerpmodels.value != 2))
 		{
 			if (e->lerpflags & LERP_FINISH && numposes == 1)
 				lerpdata->blend = CLAMP (0, (cl.time - e->lerp.state.lerpstart) / (e->lerpfinish - e->lerp.state.lerpstart), 1);
@@ -1055,48 +1085,81 @@ void R_SetupAliasLighting (entity_t	*e)
 	int		quantizedangle;
 	float		radiansangle;
 	float		*origin = e->origin;
+	//perf B5 -- r_light_cache N: reuse the cached probe result for N frames unless the
+	//entity moved > 8 units. The viewmodel probe fires from the eye, so it is never cached.
+	//The 255 fallback below is also never cached, and colormod stays outside the cache so
+	//colormod changes (team colors etc.) apply immediately.
+	qboolean	cacherefresh;
+	qboolean	cachedvalid;
+	vec3_t		cacheddelta;
 
 	if (!r_refdef.drawworld)
 		lightcolor[0] = lightcolor[1] = lightcolor[2] = 255;
 	else
 	{
+		cacherefresh = (e == &cl.viewent) || (e->eflags & EFLAGS_VIEWMODEL) != 0;
+		cachedvalid = false;
+
 		if (e->eflags & EFLAGS_VIEWMODEL)
 			origin = r_refdef.vieworg;
-		R_LightPoint (origin);
 
-		//add dlights
-		for (i=0 ; i<MAX_DLIGHTS ; i++)
+		if (!cacherefresh && r_light_cache.value >= 1
+			&& r_framecount < e->cache_lightframe)
 		{
-			if (cl_dlights[i].die >= cl.time)
-			{
-				VectorSubtract (origin, cl_dlights[i].origin, dist);
-				add = cl_dlights[i].radius - VectorLength(dist);
-				if (add > 0)
-					VectorMA (lightcolor, add, cl_dlights[i].color, lightcolor);
-			}
+			VectorSubtract (origin, e->cache_lightorigin, cacheddelta);
+			if (DotProduct (cacheddelta, cacheddelta) < 64.f) //8 units
+				cachedvalid = true;
 		}
 
-		// minimum light value on gun (24)
-		if (e == &cl.viewent)
+		if (cachedvalid)
 		{
-			add = 72.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
-			if (add > 0.0f)
-			{
-				lightcolor[0] += add / 3.0f;
-				lightcolor[1] += add / 3.0f;
-				lightcolor[2] += add / 3.0f;
-			}
+			VectorCopy (e->cache_lightcolor, lightcolor);
 		}
-
-		// minimum light value on players (8)
-		if (e > cl.entities && e <= cl.entities + cl.maxclients)
+		else
 		{
-			add = 24.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
-			if (add > 0.0f)
+			R_LightPoint (origin);
+
+			//add dlights
+			for (i=0 ; i<MAX_DLIGHTS ; i++)
 			{
-				lightcolor[0] += add / 3.0f;
-				lightcolor[1] += add / 3.0f;
-				lightcolor[2] += add / 3.0f;
+				if (cl_dlights[i].die >= cl.time)
+				{
+					VectorSubtract (origin, cl_dlights[i].origin, dist);
+					add = cl_dlights[i].radius - VectorLength(dist);
+					if (add > 0)
+						VectorMA (lightcolor, add, cl_dlights[i].color, lightcolor);
+				}
+			}
+
+			// minimum light value on gun (24)
+			if (e == &cl.viewent)
+			{
+				add = 72.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+				if (add > 0.0f)
+				{
+					lightcolor[0] += add / 3.0f;
+					lightcolor[1] += add / 3.0f;
+					lightcolor[2] += add / 3.0f;
+				}
+			}
+
+			// minimum light value on players (8)
+			if (e > cl.entities && e <= cl.entities + cl.maxclients)
+			{
+				add = 24.0f - (lightcolor[0] + lightcolor[1] + lightcolor[2]);
+				if (add > 0.0f)
+				{
+					lightcolor[0] += add / 3.0f;
+					lightcolor[1] += add / 3.0f;
+					lightcolor[2] += add / 3.0f;
+				}
+			}
+
+			if (!cacherefresh && r_light_cache.value >= 1)
+			{
+				VectorCopy (lightcolor, e->cache_lightcolor);
+				e->cache_lightframe = r_framecount + (int)r_light_cache.value;
+				VectorCopy (origin, e->cache_lightorigin);
 			}
 		}
 	}

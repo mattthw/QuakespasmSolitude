@@ -111,6 +111,10 @@ typedef struct entity_s
 	vec3_t					previousangles;	//johnfitz -- transform lerping
 	vec3_t					currentangles;	//johnfitz -- transform lerping
 
+	vec3_t					cache_lightcolor;	//perf B5 -- R_SetupAliasLighting result (pre-colormod)
+	int						cache_lightframe;	//perf B5 -- r_framecount at which the cache expires
+	vec3_t					cache_lightorigin;	//perf B5 -- entity origin the probe was cast from
+
 	struct trailstate_s		*trailstate;	//spike -- managed by the particle system, so we don't loose our position and spawn the wrong number of particles, and we can track beams etc
 	struct trailstate_s		*emitstate;		//spike -- for effects which are not so static.
 } entity_t;

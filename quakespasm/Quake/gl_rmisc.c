@@ -34,6 +34,8 @@ extern cvar_t r_dlight_cull;
 extern cvar_t r_max_dlights;
 extern cvar_t r_part_maxrad; //perf B4
 extern cvar_t r_subpixel_cull; //perf B4
+extern cvar_t r_light_cache; //perf B5
+extern cvar_t r_lerpskip_dist; //perf B5
 extern cvar_t gl_fullbrights;
 extern cvar_t gl_farclip;
 extern cvar_t gl_overbright;
@@ -230,6 +232,8 @@ void R_Init (void)
 	Cvar_RegisterVariable (&r_max_dlights);
 	Cvar_RegisterVariable (&r_part_maxrad); //perf B4
 	Cvar_RegisterVariable (&r_subpixel_cull); //perf B4
+	Cvar_RegisterVariable (&r_light_cache); //perf B5
+	Cvar_RegisterVariable (&r_lerpskip_dist); //perf B5
 	Cvar_RegisterVariable (&r_oldskyleaf);
 	Cvar_SetCallback (&r_oldskyleaf, R_VisChanged);
 	Cvar_RegisterVariable (&r_drawworld);
