@@ -91,6 +91,7 @@ cvar_t radar_range = {"radar_range", "2000"};  // r66b: ~50 m, 1000 was too shor
 cvar_t radar_ping  = {"radar_ping", "1.5"};   // r66h: was 2.5 (too delayed); live (0) was too accurate for foes
 cvar_t radar_hold  = {"radar_hold", "1.0"};   // r66h: was 1.2 - blips now blink off briefly between pings
 cvar_t hud_crosshair = {"hud_crosshair", "1"};	//r63 issue #39: dynamic Halo tick crosshair
+cvar_t hud_plate_range = {"hud_plate_range", "0", CVAR_ARCHIVE};	//r67: reticle range readout (sv units)
 cvar_t cl_overlay = {"cl_overlay", "0"};
 cvar_t hide_hud = {"hide_hud", "0"};
 //
@@ -204,6 +205,7 @@ void HUD_Init (void) {
     Cvar_RegisterVariable (&cl_ch_blue);
     Cvar_RegisterVariable (&hud_nameplates);	//r63
     Cvar_RegisterVariable (&hud_crosshair);	//r63
+    Cvar_RegisterVariable (&hud_plate_range);	//r67
     Cvar_RegisterVariable (&cl_debugweapon);	//r65b
     Cvar_RegisterVariable (&hud_mapshot);	//r83
     Cvar_RegisterVariable (&hud_radar);	//r66
@@ -543,6 +545,17 @@ void drawCrosshair(void) {
     if (cl_ch_red.value)                              /* server push (#399 style) */
         { cr = 0.90f; cg = 0.25f; cb = 0.25f; }
 
+    /* r67: hud_plate_range - print the world distance to the reticle target
+     * so damage-falloff bands and lead times can be judged in play. The
+     * plate already carries depth-along-view from the scan (units ~=
+     * inches; a bot is 56 tall). Off by default: stock/Vita untouched. */
+    if (hud_plate_range.value && hud_plate_reticle >= 0)
+    {
+        char rng_str[16];
+        sprintf (rng_str, "%iu", (unsigned int)(hud_plate[hud_plate_reticle].dist + 0.5f));
+        Draw_TTFString (cx - 20, cy + (int)(30.0f * s), rng_str, cr, cg, cb, 1, 11.0f * s);
+    }
+
     /* r65b: weapon-specific shapes (user), keyed off the HELD weapon item
      * flags in STAT_ACTIVEWEAPON (same source as drawWeapon's getWeaponName
      * - cl_ww is only the world/pickup weapon and was the earlier bug).
@@ -553,6 +566,10 @@ void drawCrosshair(void) {
     case IT_SHOTGUN:         /* Pistol - r65e: tiny ring (user: ticks read as
                               * 'no crosshair' and wrong vs sniper/SMG) */
         HUD_DrawCircle (cx, cy, q_max (2.5f, (float)(gap + len) * 0.18f), cr, cg, cb);
+        return;
+    case IT_SUPER_SHOTGUN:     /* Shotgun - r67: RL-style ring, no plus,
+                              * slightly bigger (user) */
+        HUD_DrawCircle (cx, cy, (float)(gap + len) * 1.2f, cr, cg, cb);
         return;
     case IT_ROCKET_LAUNCHER:
         {

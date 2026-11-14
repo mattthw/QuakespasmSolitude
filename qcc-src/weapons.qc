@@ -198,8 +198,8 @@ muzzle.movetype = MOVETYPE_FLY;
 muzzle.velocity = '0 0 0';
 
 setmodel(muzzle,"sprites/muzzleflash1.spr");
-setorigin(muzzle,self.origin + v_forward * 50 + v_right * 0 + '0 0 14');
-muzzle.movedir = '50 0 14'; muzzle.angles_z = (random () - 0.5) * 40;
+setorigin(muzzle,self.origin + v_forward * 65 + v_right * 8 + '0 0 30');
+muzzle.movedir = '65 8 30'; muzzle.angles_z = (random () - 0.5) * 40; // round-16: to barrel tip, above eye (screenshot)
 	muzzle.cnt = 10;
 muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
@@ -410,9 +410,25 @@ float (float t_wep) W_BulletDamage =
         case WEAPON_BR:
             return 18; //6*3
             break;
-		case WEAPON_SHOT:
-			return 15;
-			break;
+		case IT_SUPER_SHOTGUN:  // shottie + SSG (pellet dmg; distance falloff -
+			// strong close/medium, weak and scattered far; see W_FireShotgun)
+			{
+				local float sd;
+				sd = vlen (trace_endpos - (self.origin + '0 0 16'));
+				// round-13: tier bounds re-anchored to user-measured ranges
+				// (hud_plate_range): point blank <160u, medium <230u, dead past 600u.
+				if (sd < 160)
+				{
+					if (trace_endpos_z > trace_ent.origin_z + 16)
+						return 104;	// close torso/head (round-15: +30%, user)
+					return 52;	// close limbs (round-15: +30%)
+				}
+				if (sd < 230)
+					return 13;	// medium (round-15: +30%)
+				if (sd < 600)
+					return 4;	// far (round-15: ~+30%; 4 is the integer step)
+				return 1;	// beyond max reach (600u): nothing
+			}
 //        case WEAPON_PPISTOL:
 //            // Please see Plasma_Diffuse()
 //            break;
@@ -1237,7 +1253,11 @@ void () W_FireShotgun =
 	self.currentammo -= 1;
 	W_UpdateAmmoCounts(self);
 	dir = aim (self, 100000);
-	FireBullets (10, dir, '0.2 0.2 0', MOD_SOLITUDE);
+	// buff 2: tight choked core (deadly close/medium) + wide scatter band
+	// that strays off-target with distance - pairs with the falloff table
+	// in W_BulletDamage for the real-shotgun damage curve.
+	FireBullets (12, dir, '0.10 0.10 0', MOD_SOLITUDE);	// round-15: wider + more buckshot (Vita aim, user)
+	FireBullets (8, dir, '0.24 0.24 0', MOD_SOLITUDE);	// round-15: scatter widened 0.18->0.24, +2 pellets
 	pistolsmoke (self.origin + (v_forward * 13) + '0 0 14');
 };
 
@@ -1294,7 +1314,15 @@ void () W_FireNail2 =
 	self.ammo_shells2 = (self.ammo_shells2 - WEAPON_SHOTGUN);
 	self.currentammo = (self.ammo_shells2 - WEAPON_SHOTGUN);
 	dir = aim (self, 100000);
-	FireBullets (WEAPON_SHOTGUN, dir, '0.07 0.07 0', MOD_SOLITUDE);
+	// B10-shotgun: was FireBullets(WEAPON_SHOTGUN) = TWO pellets per
+	// trigger - the define leaked into a pellet-count argument. A
+	// double-barrel now delivers a full load, tighter choke than the
+	// shottie so both bands carry to medium range.
+	// round-14: double-barrel wall of lead - core cone stays inside the
+	// 32x56 hull out to 400u (10 hits), scatter adds ~1-3; was 0.06/0.14
+	// which hit only ~7/14 at 400u (geometry, not damage, user).
+	FireBullets (10, dir, '0.04 0.04 0', MOD_SOLITUDE);
+	FireBullets (4, dir, '0.09 0.09 0', MOD_SOLITUDE);
 };
 
 /*
