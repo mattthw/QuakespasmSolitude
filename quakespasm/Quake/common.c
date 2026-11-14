@@ -63,7 +63,7 @@ char	com_token[1024];
 int		com_argc;
 char	**com_argv;
 
-#define CMDLINE_LENGTH	256		/* johnfitz -- mirrored in cmd.c */
+#define CMDLINE_LENGTH	1024		/* johnfitz -- mirrored in cmd.c */
 char	com_cmdline[CMDLINE_LENGTH];
 
 qboolean standard_quake = true, rogue, hipnotic, solitude;
