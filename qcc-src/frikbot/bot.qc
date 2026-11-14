@@ -1323,6 +1323,7 @@ void() WaypointWatch =
 void() BotFrame =
 {
 	local float num;
+	local float bot_stagger;
 
 	// for the sake of speed
 	sv_maxspeed = cvar("sv_maxspeed");
@@ -1340,7 +1341,22 @@ void() BotFrame =
 		{
 			if (active_clients & ClientBitFlag(num))
 			{
-				frik_obstacles();
+				// perf B6: sv_bot_thinkrate gates the AI decision cadence
+				// (frik_obstacles here, BotAI via BotAI_Staggered in the physics
+				// chain). Movement keeps running every frame. rate 0 = pre-B6.
+				bot_stagger = cvar("sv_bot_thinkrate");
+				if (bot_stagger > 0)
+				{
+					if (self.b_ai_nextthink == 0)
+						self.b_ai_nextthink = time + (num + 1) / bot_stagger;
+					if (time >= self.b_ai_nextthink)
+						frik_obstacles();
+				}
+				else
+				{
+					self.b_ai_nextthink = 0;
+					frik_obstacles();
+				}
 				CL_KeyMove();
 				SV_ClientThink();
 				SV_Physics_Client();

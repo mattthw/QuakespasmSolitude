@@ -1454,6 +1454,7 @@ void(string gibname, float dm) ThrowGib =
 	new.nextthink = time + 10 + random()*10;
 	new.frame = 0;
 	new.flags = 0;
+	GibTrackNew(new);	// perf B6: counted + capped
 };
 
 void(string gibname, float dm) ThrowHead =

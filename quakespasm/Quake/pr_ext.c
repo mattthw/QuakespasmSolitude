@@ -7471,7 +7471,7 @@ static struct
 	{"DP_SV_SETCOLOR"},
 	{"DP_SV_SPAWNFUNC_PREFIX"},
 	{"DP_SV_WRITEUNTERMINATEDSTRING"},
-//	{"DP_TE_BLOOD",				PR_Can_Particles},
+	{"DP_TE_BLOOD",				PR_Can_Particles},
 #ifdef PSET_SCRIPT
 	{"DP_TE_PARTICLERAIN",		PR_Can_Particles},
 	{"DP_TE_PARTICLESNOW",		PR_Can_Particles},

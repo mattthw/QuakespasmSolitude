@@ -645,6 +645,7 @@ void(vector org, vector vel) SpawnMeatSpray =
 // set missile duration
 	missile.nextthink = time + 1;
 	missile.think = SUB_Remove;
+	GibTrackNew(missile);	// perf B6: counted + capped (helper swaps the think)
 
 	setmodel (missile, "progs/zom_gib.mdl");
 	setsize (missile, '0 0 0', '0 0 0');            
@@ -740,13 +741,13 @@ void(float damage, vector dir, INTEGER mod) TraceAttack =
 	}
 	else if (trace_ent.health > 30)
 	{
-	particle (org, '0 0 0', 109, 6);
+	particle (org, '0 0 0', 109, ParticleScaled(6));
 	puff_org = org;
 	AddMultiDamage (trace_ent, damage, mod);
 	}
 	else if (!trace_ent.takedamage)
 	{
-	particle (org, '0 0 0', 11, 8);
+	particle (org, '0 0 0', 11, ParticleScaled(8));
 	puff_org = org;
 	}
 	else
@@ -858,7 +859,7 @@ if (other.takedamage)
 	}
 	else
 	{
-		particle (self.origin, '0 0 0', 6, 10);
+		particle (self.origin, '0 0 0', 6, ParticleScaled(10));
 		puff_org = self.origin;
 	}	
 	self.model = "";
@@ -1035,19 +1036,19 @@ void () Plasma_Diffuse =
         }
         // hit indicator
 		if (other.health >= 30) {
-		    particle (self.origin, '0 0 0', 109, 5); //yellow
-            particle (self.origin, '0 0 0', 244, 5); //blue
+		    particle (self.origin, '0 0 0', 109, ParticleScaled(5)); //yellow
+            particle (self.origin, '0 0 0', 244, ParticleScaled(5)); //blue
 		} else {
-            particle (self.origin, '0 0 0', 109, 3); //yellow
-            particle (self.origin, '0 0 0', 244, 2); //blue
+            particle (self.origin, '0 0 0', 109, ParticleScaled(3)); //yellow
+            particle (self.origin, '0 0 0', 244, ParticleScaled(2)); //blue
 		    spawn_touchblood (8);
 		}
 		T_Damage (other, self, self.owner, damage_modifier*10*self.health /*health of plasma bullet*/, MOD_SOLITUDE);
     }
     else if (!trace_ent.takedamage)
     {
-        particle (self.origin, '0 0 0', 11, 5); //white
-        particle (self.origin, '0 0 0', 47, 5); //blue
+        particle (self.origin, '0 0 0', 11, ParticleScaled(5)); //white
+        particle (self.origin, '0 0 0', 47, ParticleScaled(5)); //blue
     }
     self.nextthink = time + .15;
 };
@@ -1270,7 +1271,7 @@ void () NeedleExplode =
 	self.enemy.needles -= 1;
 	T_Damage (self.enemy, self, self.owner, 4, MOD_SOLITUDE);
 	sound (self, CHAN_WEAPON, "weapons/crystal.wav", 1, ATTN_NORM);
-	particle (self.origin, '6 6 6', 149, 40);
+	particle (self.origin, '6 6 6', 149, ParticleScaled(40));
 	createpinkdust(self.origin);
 	remove(self);
 };
@@ -1314,7 +1315,7 @@ void ( entity f_plyr, entity t_plyr, float at_height ) Add_Needle =
 	if (t_plyr.needles >= 12) {
 		t_plyr.needles -= 7;
 		sound (self, CHAN_WEAPON, "weapons/crystal.wav", 1, ATTN_NORM);
-		particle (self.origin, '0 0 8', 149, 60);
+		particle (self.origin, '0 0 8', 149, ParticleScaled(60));
 		createpinkdust(self.origin);
 		T_Damage (t_plyr, self, f_plyr, 150, MOD_SOLITUDE);
 		remove(self);
@@ -2703,9 +2704,9 @@ void() ServerflagsCommand =
 void () Heal =
 {
 if (self.health >= (self.max_health - 10))
-particle (self.origin, '0 0 15',110, 10);
+particle (self.origin, '0 0 15',110, ParticleScaled(10));
 else
-particle (self.origin, '0 0 10', 110, 1);
+particle (self.origin, '0 0 10', 110, ParticleScaled(1));
 	self.health = (self.health + 0.5);
 };
 

@@ -87,7 +87,7 @@ void(vector org, float damage) _SpawnBlood_TEBlood =
 void(vector org, float damage) _SpawnBlood =
 {
 #ifdef NETQUAKE
-	particle (org, '0 0 0', 73, damage*2);
+	particle (org, '0 0 0', 73, ParticleScaled(damage*2));
 #else
 	EFF_CountEffect(org, damage, TE_BLOOD, MULTICAST_PVS);
 #endif
@@ -330,7 +330,7 @@ void(entity ent, vector start, vector end) _TE_lightning3 =
 void(vector org) TE_lightningblood =
 {
 #ifdef NETQUAKE
-	particle(org, '0 0 100', 225, 120);
+	particle(org, '0 0 100', 225, ParticleScaled(120));
 #else
 	EFF_PointEffect(org, TE_LIGHTNINGBLOOD, MULTICAST_PVS);
 #endif

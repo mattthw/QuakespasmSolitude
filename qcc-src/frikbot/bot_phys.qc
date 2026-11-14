@@ -576,7 +576,7 @@ void() PostPhysics =
 	SV_CheckOnGround();
 
 	PlayerPostThink();
-	BotAI();
+	BotAI_Staggered();
 	self.dmg_take = self.dmg_save = 0;
 
 };
@@ -624,7 +624,7 @@ void() SV_Physics_Toss =
 	if (self.flags & FL_ONGROUND)
 	{
 		self.velocity = '0 0 0';
-		BotAI();
+		BotAI_Staggered();
 		return;
 	}
 	if (self.movetype != MOVETYPE_FLY)
@@ -643,7 +643,7 @@ void() SV_Physics_Client =
 		if (!SV_RunThink())
 			return;
 		PlayerPostThink();
-		BotAI();
+		BotAI_Staggered();
 
 	}
 	else if ((self.movetype == MOVETYPE_WALK) || (self.movetype == MOVETYPE_STEP)) 
@@ -671,7 +671,7 @@ void() SV_Physics_Client =
 		self.origin = self.origin + real_frametime * self.velocity;
 
 		PlayerPostThink();
-		BotAI();
+		BotAI_Staggered();
 	}
 	else
 		error ("SV_Physics_Client: Bad Movetype (BOT)");

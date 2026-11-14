@@ -114,3 +114,91 @@ float   IT_BR                           = 90248441;         // solitude
 void(float to, float f) WriteByte;
 void(float to, string s) WriteString;
 void () reload;
+
+// perf B6: server-side QC perf knobs (sv_bot_thinkrate / sv_particle_scale /
+// sv_max_gibs). Cvars registered engine-side in host.c - QC cvar() is read-only
+// in this fork (B2 / sv_max_needles precedent). All default 0 = off.
+.float b_ai_nextthink;		// B6: per-bot AI decision clock (sv_bot_thinkrate)
+.float gib_serial;			// B6: spawn-order stamp; >0 only on live tracked gibs
+float gib_count;			// B6: number of live tracked gib entities
+float gib_serial_next;		// B6: monotonic stamp source
+
+void() BotAI;				// frikbot/bot_ai.qc
+
+// B6: stagger wrapper for the BotAI calls in the physics chain (bot_phys.qc).
+// rate 0 (default) = pre-B6 behavior (BotAI every frame, its internal per-skill
+// throttle aside). rate > 0: skip unless due on the shared per-bot clock that
+// the BotFrame obstacle gate (bot.qc) uses too, so decisions throttle together.
+void() BotAI_Staggered =
+{
+	local float rate;
+
+	rate = cvar("sv_bot_thinkrate");
+	if (rate <= 0)
+	{
+		BotAI();
+		return;
+	}
+	if (time < self.b_ai_nextthink)
+		return;
+	self.b_ai_nextthink = time + 1 / rate;
+	BotAI();
+};
+
+// B6: sv_particle_scale = percent (50/75) applied to QC particle() counts.
+// 0 or >= 100 = pass-through; rint-rounded with floor 1 so hits keep feedback.
+float(float n) ParticleScaled =
+{
+	local float s;
+
+	s = cvar("sv_particle_scale");
+	if (s <= 0 || s >= 100)
+		return n;
+	n = rint(n * s / 100);
+	if (n < 1)
+		return 1;
+	return n;
+};
+
+// B6: sv_max_gibs = live gib cap, remove-oldest. GibDespawn replaces SUB_Remove
+// on tracked gibs so the counter stays honest; gib_serial is zeroed on EVERY
+// removal path, so a recycled edict slot can never masquerade as a live gib.
+void() GibDespawn =
+{
+	self.gib_serial = 0;
+	gib_count = gib_count - 1;
+	remove(self);
+};
+
+void(entity g) GibTrackNew =
+{
+	local float cap;
+	local entity e, oldest;
+	local float best;
+
+	cap = cvar("sv_max_gibs");
+	gib_serial_next = gib_serial_next + 1;
+	g.gib_serial = gib_serial_next;
+	gib_count = gib_count + 1;
+	g.think = GibDespawn;
+	if (cap <= 0 || gib_count <= cap)
+		return;
+	oldest = world;
+	best = 0;
+	for (e = nextent(world); e != world; e = nextent(e))
+	{
+		if (e.gib_serial <= 0 || e.think != GibDespawn)
+			continue;
+		if (oldest == world || e.gib_serial < best)
+		{
+			oldest = e;
+			best = e.gib_serial;
+		}
+	}
+	if (oldest != world)
+	{
+		oldest.gib_serial = 0;
+		gib_count = gib_count - 1;
+		remove(oldest);
+	}
+};
