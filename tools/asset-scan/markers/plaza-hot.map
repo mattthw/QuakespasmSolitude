@@ -1,0 +1,23 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for plaza (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "384 128 -128"
+"message" "8.0x avg - 88v 22f [nm_concrete_flo x20; blue_concrete_p x2]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "384 -896 -128"
+"message" "7.0x avg - 77v 27f [blue_concrete_p x10; nm_concrete_flo x6]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "128 128 -128"
+"message" "5.0x avg - 55v 17f [nm_concrete_flo x16; blue_concrete_p x1]"
+"noise" "1"
+}

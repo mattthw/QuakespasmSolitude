@@ -62,3 +62,4 @@ Hotspots: 256-unit cells; 'Nd (Xx avg) Mf' = N verts, X times the map's mean ver
 - **Worst hotspot outliers** (verts/cell vs map mean): skyRingbl2 96x; highground 38x; pit3 31x; pit2 28x; pit 18x. skyRingbl2 is extreme (956 verts/359 faces in one 256u cell, z=768: the metal ring structure); highground 37x is {foliage/detail terrain; pit2+pit3 28-30x both driven by en_32_number (32px signage tex = hundreds of tiny faces); lockdown 13x fore_128_wall_2 carving. These inflate faces-in-PVS, draw calls and lightmap density in exactly the open-view lanes of outdoor maps -> prime targets for B4 sub-pixel cull AND map-side face merging with TB coords from Hotspot details.
 
 ## In menu but NO runtime BSP found: construction
+- Marker maps: tools/asset-scan/markers/<map>-hot.map = info_null point entities at hot 256u cell centers (ratio >= 5x, top 5 per map). Open in TrenchBroom, select a marker to jump; re-running this script regenerates them. 95 markers total.

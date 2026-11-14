@@ -166,12 +166,14 @@ def audit(path):
         cell_tex.setdefault(c, Counter())[tname] += 1
     occupied = len(bins) or 1
     mean_occ = len(verts) / float(occupied)
-    hs = []
-    for c, n in sorted(bins.items(), key=lambda kv: -kv[1])[:3]:
+    hs_raw = []
+    for c, n in sorted(bins.items(), key=lambda kv: -kv[1])[:5]:
         f = cell_faces.get(c, 0)
+        ratio = n / mean_occ if mean_occ else 0.0
         tops = "; ".join("%s x%d" % t for t in cell_tex.get(c, Counter()).most_common(2))
-        hs.append("(%d,%d,%d) %dv (%.1fx avg) %df [%s]" % (c[0], c[1], c[2], n,
-                    n / mean_occ, f, tops))
+        hs_raw.append((c, n, round(ratio, 1), f, tops))
+    hs = ["(%d,%d,%d) %dv (%.1fx avg) %df [%s]" % (c[0], c[1], c[2], n, ratio, f, tops)
+          for (c, n, ratio, f, tops) in hs_raw[:3]]
     return {
         "file": os.path.basename(path), "size_mb": round(len(data) / 1048576.0, 2),
         "faces": len(faces), "verts": len(verts),
@@ -182,9 +184,31 @@ def audit(path):
         "gl_max_size_512_saves_mb": round(cap512, 1),
         "top_big_tex": "; ".join("%s %dx%d(%d faces)" % b for b in big[:3]),
         "top_hotspots": " || ".join(hs),
+        "hotspot_cells": hs_raw,
         "hot_ratio_max": round((bins.most_common(1)[0][1] / mean_occ) if bins else 0, 1),
         "mean_verts_per_cell": round(mean_occ, 1),
     }
+
+
+def emit_markers(r):
+    cells = r.get("hotspot_cells") or []
+    picks = [h for h in cells if h[2] >= 5.0]
+    if not picks:
+        return 0
+    base = r["file"][:-4] if r["file"].lower().endswith(".bsp") else r["file"]
+    mdir = os.path.join(OUTDIR, "markers")
+    if not os.path.isdir(mdir):
+        os.makedirs(mdir)
+    lines = ['{', '"worldtype" "idtech1"', '"classname" "worldspawn"',
+             '"message" "B0 hotspot markers for %s (256u cells, ratio >= 5x)"' % base, '}']
+    for c, n, ratio, f, tops in picks:
+        lines += ['{', '"classname" "info_null"',
+                  '"origin" "%d %d %d"' % (c[0] + 128, c[1] + 128, c[2] + 128),
+                  '"message" "%.1fx avg - %dv %df [%s]"' % (ratio, n, f, tops),
+                  '"noise" "1"', '}']
+    with open(os.path.join(mdir, base + "-hot.map"), "w") as fh:
+        fh.write("\n".join(lines) + "\n")
+    return len(picks)
 
 
 def main():
@@ -272,9 +296,15 @@ def main():
     if missing:
         md.append("")
         md.append("## In menu but NO runtime BSP found: %s" % ", ".join(missing))
+    nmark = sum(emit_markers(r) for r in rows if not r.get("error"))
+    md.append("- Marker maps: tools/asset-scan/markers/<map>-hot.map = info_null point entities "
+              "at hot 256u cell centers (ratio >= 5x, top 5 per map). Open in TrenchBroom, "
+              "select a marker to jump; re-running this script regenerates them. %d markers total."
+              % nmark)
     with open(os.path.join(OUTDIR, "MAP-AUDIT.md"), "w") as f:
         f.write("\n".join(md) + "\n")
-    print("wrote MAP-AUDIT.md + MAP-AUDIT.csv (%d maps, missing: %s)" % (len(rows), missing))
+    print("wrote MAP-AUDIT.md + MAP-AUDIT.csv + %d marker entities (%d maps, missing: %s)" % (
+        nmark, len(rows), missing))
 
 
 if __name__ == "__main__":

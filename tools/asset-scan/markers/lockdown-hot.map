@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for lockdown (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "640 128 128"
+"message" "12.8x avg - 367v 143f [fore_128_wall_2 x99; sky_blue x10]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "640 -128 128"
+"message" "11.7x avg - 334v 136f [fore_128_wall_2 x101; fore_256_wall_4 x15]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-640 128 -128"
+"message" "10.3x avg - 294v 106f [fore_128_wall_2 x61; sfloor1_2 x16]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "640 -128 -128"
+"message" "8.9x avg - 255v 95f [metal3_128 x51; fore_128_wall_2 x24]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "128 128 -384"
+"message" "8.3x avg - 237v 80f [fore_128_wall_2 x25; human_128_bench x24]"
+"noise" "1"
+}

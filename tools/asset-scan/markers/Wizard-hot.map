@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for Wizard (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "1664 640 640"
+"message" "6.3x avg - 46v 20f [hum_128_misc_02 x11; sky_blue x6]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "2176 -1408 640"
+"message" "6.0x avg - 44v 25f [human_128_ceili x9; hum_128_misc_02 x7]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "2176 128 640"
+"message" "5.8x avg - 42v 15f [hum_128_misc_02 x8; sky_blue x5]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "896 640 384"
+"message" "5.8x avg - 42v 12f [hum_128_misc_02 x6; fore_128_wall_0 x3]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "1152 -640 384"
+"message" "5.6x avg - 41v 13f [fore_128_wall_0 x5; hum_wall_01 x3]"
+"noise" "1"
+}

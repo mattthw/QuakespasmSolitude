@@ -1,0 +1,29 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for chill (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-128 -1152 128"
+"message" "13.0x avg - 146v 67f [chillp x36; -0wlstucco x17]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "128 384 -128"
+"message" "7.4x avg - 83v 47f [cemold4 x24; -0wlstucco x14]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-128 384 128"
+"message" "5.6x avg - 63v 30f [cemold4 x11; -0wlstucco x10]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-128 384 -128"
+"message" "5.3x avg - 59v 29f [cemold4 x17; -0wlstucco x8]"
+"noise" "1"
+}

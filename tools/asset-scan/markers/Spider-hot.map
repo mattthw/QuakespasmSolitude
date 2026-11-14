@@ -1,0 +1,17 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for Spider (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "896 -128 384"
+"message" "5.9x avg - 28v 9f [metal1_256 x5; metal3_128 x2]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "1152 -128 384"
+"message" "5.2x avg - 25v 9f [steel_1_128 x3; metal1_256 x3]"
+"noise" "1"
+}

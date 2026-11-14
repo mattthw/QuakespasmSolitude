@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for pit (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "896 384 -128"
+"message" "18.5x avg - 178v 57f [floor_plain x45; wall_complex2 x7]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-640 384 -128"
+"message" "14.6x avg - 140v 51f [wall_plain x15; chain_fence x14]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-128 896 -384"
+"message" "13.3x avg - 128v 44f [floor_plain x12; wall_line_light x12]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "128 896 -384"
+"message" "12.5x avg - 120v 36f [floor_plain x13; wall_line_light x9]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "384 896 -384"
+"message" "9.8x avg - 94v 32f [wall_line_green x12; wall_plain x11]"
+"noise" "1"
+}

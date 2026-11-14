@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for Cestra (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-2432 3456 -384"
+"message" "17.5x avg - 175v 79f [hum_barricadel x66; en_128_rock_03 x7]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-3456 2688 -384"
+"message" "17.0x avg - 170v 90f [en_128_cliff_02 x46; sky_blue_bright x13]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-3456 2176 -384"
+"message" "16.6x avg - 166v 76f [en_128_rock_03 x18; metal_black x14]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-3456 3456 -384"
+"message" "16.4x avg - 164v 78f [en_128_rock_03 x24; cliff_tan_10 x17]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-3200 2176 -128"
+"message" "14.9x avg - 149v 80f [hum128_concret_ x29; human_128_wall x27]"
+"noise" "1"
+}

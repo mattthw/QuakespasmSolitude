@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for lock (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "128 -1152 384"
+"message" "16.4x avg - 121v 47f [base16_7 x40; snowup x5]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "384 -384 128"
+"message" "11.1x avg - 82v 34f [base16_7 x27; snowup x5]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-640 -1152 128"
+"message" "9.9x avg - 73v 26f [base16_7 x17; snowup x6]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "384 -1152 128"
+"message" "9.9x avg - 73v 31f [base16_7 x25; snowup x6]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-128 -1152 384"
+"message" "9.6x avg - 71v 34f [base16_7 x28; snowup x3]"
+"noise" "1"
+}

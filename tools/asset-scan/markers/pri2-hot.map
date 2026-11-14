@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for pri2 (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-640 -128 128"
+"message" "7.4x avg - 207v 78f [cementwall x27; UnNamed4 x26]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-1152 -384 384"
+"message" "6.0x avg - 170v 71f [cementwall x22; unnamed20 x16]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-384 -896 128"
+"message" "5.6x avg - 158v 57f [halo#143 x29; cementwall x17]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "384 -640 384"
+"message" "5.3x avg - 148v 49f [cementwall x20; halo#143 x15]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-896 -896 128"
+"message" "5.1x avg - 144v 52f [cementwall x16; halo#143 x15]"
+"noise" "1"
+}

@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for pit3 (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-640 -640 -128"
+"message" "30.6x avg - 449v 212f [human_128_bench x60; mmetal1_6 x33]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "640 -384 -128"
+"message" "30.6x avg - 448v 207f [floor_plain x38; human_256_wall x23]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "896 -128 -128"
+"message" "29.9x avg - 438v 201f [en_32_number x76; human_128_bench x27]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "640 -640 -128"
+"message" "26.7x avg - 392v 192f [{hum128_ceiling x32; human_256_wall x29]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-640 -384 -128"
+"message" "25.2x avg - 370v 175f [wall_line_light x35; human_128_bench x30]"
+"noise" "1"
+}

@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for +bloodgulch2 (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-1152 -1920 -128"
+"message" "7.9x avg - 59v 26f [metal1_256 x8; d_wall_no_strip x7]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "128 -384 -128"
+"message" "7.9x avg - 59v 22f [metal2_256 x5; h_t1 x4]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "128 1664 -128"
+"message" "7.5x avg - 56v 20f [h_t1 x9; c_cliff x7]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "128 384 -128"
+"message" "7.2x avg - 54v 20f [c_cliff x11; h_t1 x4]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "640 896 -128"
+"message" "6.6x avg - 49v 20f [metal1_256 x7; c_cliff x5]"
+"noise" "1"
+}

@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for narrows (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-1408 -640 -128"
+"message" "9.3x avg - 130v 53f [fore_128_wall_3 x33; {hum128_ceil x9]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "1408 -640 -128"
+"message" "8.7x avg - 122v 41f [hum_wall_01 x12; fore_256_wall_2 x8]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "3712 128 -128"
+"message" "7.4x avg - 103v 39f [hum_wall_01 x21; floor_dark x5]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "384 128 -128"
+"message" "6.9x avg - 96v 41f [metal3_128 x16; fore_256_wall_2 x6]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-896 384 -384"
+"message" "6.6x avg - 92v 30f [fore_128_wall_2 x9; floor_dark x7]"
+"noise" "1"
+}

@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for base (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-640 128 128"
+"message" "10.6x avg - 90v 44f [fore_128_door x18; metal4 x14]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "384 -128 128"
+"message" "7.6x avg - 64v 28f [metal4 x17; steel_1_128 x7]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "128 640 128"
+"message" "6.0x avg - 51v 26f [fore_128_door x19; metal4 x5]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-640 -128 128"
+"message" "5.8x avg - 49v 20f [fore_128_door x13; metal4 x5]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-640 384 128"
+"message" "5.7x avg - 48v 17f [metal4 x9; steel_1_128 x5]"
+"noise" "1"
+}

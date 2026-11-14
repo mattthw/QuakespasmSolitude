@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for babybloodgulch (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "128 -384 -128"
+"message" "7.7x avg - 62v 18f [d_light_side x7; metal1_256 x5]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "640 640 -128"
+"message" "7.5x avg - 61v 24f [en_128_grass_01 x6; d_wall1c_highqu x5]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-384 -1408 -128"
+"message" "6.8x avg - 55v 17f [d_light_side x6; d_wall1c_highqu x6]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-1152 -1920 -128"
+"message" "6.7x avg - 54v 15f [d_light_side x10; d_wall1c_highqu x4]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "640 1152 -128"
+"message" "6.5x avg - 53v 19f [met_floor_128 x9; en_128_grass_01 x4]"
+"noise" "1"
+}

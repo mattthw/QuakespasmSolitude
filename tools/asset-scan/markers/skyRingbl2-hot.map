@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for skyRingbl2 (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-1920 -384 896"
+"message" "96.1x avg - 956v 359f [metal1_256 x137; steel1_256 x72]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-384 -384 896"
+"message" "84.3x avg - 838v 376f [metal3_128 x177; sfloor1_2 x64]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-2176 -896 896"
+"message" "33.6x avg - 334v 116f [metal3_128 x35; steel1_256 x32]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-384 -640 896"
+"message" "30.2x avg - 300v 128f [d_wall1c_highqu x32; sfloor1_2 x30]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-384 -128 896"
+"message" "22.9x avg - 228v 99f [metal3_128 x49; metal2_256 x16]"
+"noise" "1"
+}

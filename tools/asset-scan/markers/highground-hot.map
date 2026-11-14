@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for highground (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-896 -896 128"
+"message" "37.6x avg - 519v 266f [{foliage x104; en_128_wood x73]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-896 -640 128"
+"message" "36.9x avg - 509v 287f [en_128_rock_01 x73; groundsm_red02 x72]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-3456 384 128"
+"message" "31.2x avg - 430v 209f [en_128_cliff_01 x52; fore_128_wall_2 x26]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-1664 -384 384"
+"message" "30.4x avg - 419v 209f [hum_128_ceiling x43; human_128_concr x35]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-1664 -128 384"
+"message" "25.2x avg - 347v 168f [en_128_rock_01 x55; fore_128_wall_2 x36]"
+"noise" "1"
+}

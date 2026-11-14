@@ -1,0 +1,17 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for fire (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-640 -384 128"
+"message" "5.6x avg - 60v 25f [hum128_concret_ x10; hum_wall_01 x4]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-640 -1152 128"
+"message" "5.1x avg - 55v 18f [hum_wall_01 x13; hum128_concret_ x3]"
+"noise" "1"
+}

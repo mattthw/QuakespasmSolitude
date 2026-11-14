@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for lane (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "-384 896 -1408"
+"message" "12.5x avg - 150v 76f [? x26; en_128_cliff_01 x18]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-128 -640 -1408"
+"message" "12.4x avg - 149v 79f [en_128_cliff_01 x28; metal2_256 x24]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-384 -384 -1408"
+"message" "11.1x avg - 133v 67f [en_128_grass_01 x27; en_128_cliff_01 x15]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "-128 -384 -1408"
+"message" "9.5x avg - 114v 56f [en_128_cliff_01 x17; metal2_256 x14]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "128 1152 -1408"
+"message" "9.1x avg - 109v 57f [en_128_cliff_01 x18; metal2_256 x15]"
+"noise" "1"
+}

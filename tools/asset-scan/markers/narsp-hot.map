@@ -1,0 +1,35 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for narsp (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "1664 -1920 -1920"
+"message" "10.3x avg - 132v 55f [structuretex x25; sky_blue_cloudy x18]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "1152 -2176 -1920"
+"message" "8.3x avg - 106v 42f [steel1_256 x21; met_floor_128 x16]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "1152 -896 -1920"
+"message" "7.0x avg - 89v 32f [steel1_256 x16; structuretex x9]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "1152 -1920 -1920"
+"message" "6.5x avg - 83v 31f [steel1_256 x14; met_floor_128 x10]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "896 -1920 -1920"
+"message" "6.3x avg - 81v 31f [met_floor_128 x17; steel1_256 x10]"
+"noise" "1"
+}

@@ -1,0 +1,29 @@
+{
+"worldtype" "idtech1"
+"classname" "worldspawn"
+"message" "B0 hotspot markers for longest (256u cells, ratio >= 5x)"
+}
+{
+"classname" "info_null"
+"origin" "1408 -128 -384"
+"message" "12.5x avg - 108v 42f [eshinytin x30; s20 x11]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "2176 128 -384"
+"message" "7.3x avg - 63v 25f [eshinytin x20; text19 x4]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "1920 128 -384"
+"message" "6.1x avg - 53v 18f [eshinytin x18]"
+"noise" "1"
+}
+{
+"classname" "info_null"
+"origin" "1664 -128 -384"
+"message" "5.0x avg - 43v 14f [s42 x8; eshinytin x6]"
+"noise" "1"
+}
