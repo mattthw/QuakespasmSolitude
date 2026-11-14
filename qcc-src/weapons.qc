@@ -183,6 +183,27 @@ muzzle.movedir = '30 8 18'; muzzle.angles_z = (random () - 0.5) * 40;	// B10-muz
 muzzle.think = muzzle_follow;
 muzzle.nextthink = time + 0.01;
 };
+
+// B10-muzzle: sniper own function - shares muzzleflash2's art but NOT
+// its offset: the long barrel puts the muzzle far forward and on the
+// centerline, so the flash sits at the crosshair instead of hovering at
+// the hand.
+void() muzzleflashsniper = {
+local entity muzzle;
+muzzle = spawn();
+muzzle.owner = self;
+
+muzzle.solid = SOLID_NOT;
+muzzle.movetype = MOVETYPE_FLY;
+muzzle.velocity = '0 0 0';
+
+setmodel(muzzle,"sprites/muzzleflash1.spr");
+setorigin(muzzle,self.origin + v_forward * 50 + v_right * 0 + '0 0 14');
+muzzle.movedir = '50 0 14'; muzzle.angles_z = (random () - 0.5) * 40;
+	muzzle.cnt = 10;
+muzzle.think = muzzle_follow;
+muzzle.nextthink = time + 0.01;
+};
 void() muzzleflash_think1 = {
 self.frame = self.frame + 1;
 self.think = SUB_Remove;
@@ -1291,7 +1312,7 @@ void() W_FireSniper =
 	self.ammo_sniper -= 1;
 	W_UpdateAmmoCounts(self);
 	
-	muzzleflash2();
+	muzzleflashsniper(); // B10-muzzle: long-barrel offset
 	dir = aim (self, 100000);
 	pistolsmoke (self.origin + (v_forward * 13) + '0 0 14');
 	FireBullets (1, dir, '0 0 0', MOD_SOLITUDE);
