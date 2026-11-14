@@ -66,14 +66,14 @@ graph TD
     M --> F1[AI Flag Management page 1]
     F1 --> F2[AI Flags page 2]
     N --> N1[make way here / delete / move]
-    N --> N2[teleport bot here / order test bot here]
+    N --> N2["Bot Management: add / order here / remove / stop"]
     L --> L1[link one-way]
     L --> L2[link X2 bidirectional]
     L --> L3[unlink / telelink]
-    F1 --> K1["1 Door  2 Precision  3 Surface  4 Blind"]
-    F1 --> K2["5 Jump  6 Directional  7 Super Jump"]
+    F1 --> K1["1 Door Flag  2 Precision  3 Surface for air"]
+    F1 --> K1b["4 Blind mode  5 Jump  6 Directional  7 Super Jump"]
     F2 --> K3["1 Difficult  2 Wait for plat  3 Ride train"]
-    F2 --> K4["4 Door no open  5 Ambush  6 Snipe  7 Trace Test"]
+    F2 --> K4["4 Door flag no open  5 Ambush  6 Snipe  7 Trace Test"]
 ```
 
 ## 4. Links and direction
@@ -95,21 +95,23 @@ A link is an edge: "a bot can physically traverse from node A to node B".
 
 From `bot.qc:173-189`. "Consulted" says when the engine reads the flag:
 `plan` = during route selection, `arrive` = when the bot reaches the node,
-`route-test` = revalidated when a route is chosen.
+`route-test` = revalidated when a route is chosen. In the editor each row
+shows as `[{133}] Name` - the leading brackets hold the toggle state of the
+currently selected node (filled = set), and pressing the number flips it.
 
 | Key | Flag | Value | Consulted | Meaning / placement |
 |-----|------|-------|-----------|---------------------|
-| p1-1 | Door | 16 | plan, arrive | node sits at a door; blocked bot works the door machinery (see section 7) |
+| p1-1 | Door Flag | 16 | plan, arrive | node sits at a door; blocked bot works the door machinery (see section 7) |
 | p1-2 | Precision | 32 | arrive | land exactly here; rails, narrow beams, narsp catwalks |
-| p1-3 | Surface | 64 | arrive | air-surface jump helper; niche, skip |
-| p1-4 | Blind | 128 | plan | next node not visible from here; bot commits without re-aiming (corners, occluded links) |
+| p1-3 | Surface for air | 64 | arrive | air-surface jump helper; niche, skip |
+| p1-4 | Blind mode | 128 | plan | next node not visible from here; bot commits without re-aiming (corners, occluded links) |
 | p1-5 | Jump | 256 | arrive | jump on arrival - takeoff node of a gap; pair with landing node |
 | p1-6 | Directional | 512 | plan, arrive | must arrive facing a direction; lift-shaft entry, crouch approaches |
 | p1-7 | Super Jump | 4096 | arrive, route-test | rocket-jump edge; sets impulse 7 + 80-degree pitch; route-tests `bot_can_rj`, marks lost if false |
 | p2-1 | Difficult | 65536 | route-test | cost penalty; cheese edges you want used only when clearly best |
 | p2-2 | Wait for plat | 1024 | arrive | bottom node of a moving platform: wait for it |
 | p2-3 | Ride train | 2048 | arrive | node rides a mover (door elevators included) |
-| p2-4 | Door no open | 32768 | plan | never attempt this door (slime/key/secret); blocked = give up |
+| p2-4 | Door flag no open | 32768 | plan | never attempt this door (slime/key/secret); blocked = give up |
 | p2-5 | Ambush | 16384 | arrive | camp spot off main flow; a handful per map |
 | p2-6 | Snipe | 8192 | arrive | designated sniper nest; tag 1-3 per map |
 | p2-7 | Trace Test | 131072 | route-test | re-verify visibility; conditional/breakable paths |
@@ -169,7 +171,7 @@ What the code does (`bot_ai.qc:343-381` arrive, `:547-575` blocked trace):
 
 ```mermaid
 graph TD
-    X[bot blocked at door] --> Y{Door no open flag?}
+    X[bot blocked at door] --> Y{Door flag no open?}
     Y -->|yes| Z[wait for door to close, else mark route lost]
     Y -->|no| P{plat/door entity nearby?}
     P -->|nothing found| Q[FindThing door by proximity]
@@ -185,11 +187,11 @@ wrong one; use two nodes, one per door.
 
 | Door type | What to flag |
 |-----------|--------------|
-| walk-up trigger opener | nothing (add Door only if it stays closed between uses) |
-| shootable button | Door |
-| timed / iris | Door (waits instead of mashing) |
+| walk-up trigger opener | nothing (add Door Flag only if it stays closed between uses) |
+| shootable button | Door Flag |
+| timed / iris | Door Flag (waits instead of mashing) |
 | +use button (unshootable) | bots cannot press buttons: telelink pair across it, or route around |
-| slime / key / secret | Door + Door no open |
+| slime / key / secret | Door Flag + Door flag no open |
 | platform-door you ride | Ride train |
 
 ## 8. Density: how many nodes, where
@@ -198,7 +200,7 @@ wrong one; use two nodes, one per door.
   nodes. If A sees B down a 2000-unit corridor, one link, done.
 - Items need nodes only when hidden behind geometry; bots path at items they
   can see from route nodes.
-- Corners need a node (they are steering points); Blind then lets the NEXT
+- Corners need a node (they are steering points); Blind mode then lets the NEXT
   leg target a node just past the corner instead of chaining.
 - Nodes float 24-40 units above the floor.
 - Targets: narrows ~25-30, highground ~35, pit3 ~40 (center is a fight arena,
@@ -208,15 +210,16 @@ wrong one; use two nodes, one per door.
 
 ## 9. Build workflow for a new map
 
-1. Start a match (8+ bots fine), `n` to enter editor, `=` to connect a test
-   bot.
+1. Start a match (8+ bots fine), `n` to enter editor. Bot Management
+   "[1] Add a Test Bot" gives a disposable one (`=` connects a regular one).
 2. Walk the intended patrol route with a node at every decision (section 8).
 3. Link as you go: X2 for flat, one-way for drops/boosts/lifts, telelink only
    for real teleports/lifts.
 4. Flag passes: Jump on takeoffs, Precision on rails, Directional on shafts,
-   Door on door nodes, Snipe/Ambush on the nests you actually want.
-5. Audit with the test bot: `teleport-bot-here` at a node, `order-test-bot-here`
-   to the next - if the bot never moves or bumps geometry, fix the edge now.
+   Door Flag on door nodes, Snipe/Ambush on the nests you actually want.
+5. Audit with the test bot: stand at a node, Bot Management "[2] Order Test
+   Bot here", then stand at the next node and order it again - if the bot
+   never moves or bumps geometry, fix the edge now.
 6. `bot cam` (`v`) to see what the bot sees on the full route.
 7. SaveWays writes `maps/<name>.way`. Commit it next to the map.
 
@@ -224,7 +227,7 @@ wrong one; use two nodes, one per door.
 
 ```mermaid
 graph TD
-    A[bot stuck in room] --> B{teleport-bot + order-out moves it?}
+    A[bot stuck in room] --> B{Order Test Bot here moves it into the room?}
     B -->|no movement| C[graph pocket: add missing X2 links; rooms must be on loops]
     B -->|moves but bumps corner| D[node at the turn + Blind on the pre-corner node]
     B -->|oscillates between two nodes| E[asymmetric leg: add one hub node]
