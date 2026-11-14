@@ -3505,8 +3505,8 @@ void M_Options_Draw (void)
 	M_Draw ();
 	m_state = saved;
 
-	// opaque background for the whole options page (user: no translucency)
-	Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 1.0f);
+	// background for the whole options page (user 2026-11-14: slightly translucent)
+	Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 0.85f);
 
 	if (uni_tab == UNI_TAB_PERF)
 	{
