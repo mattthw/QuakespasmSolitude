@@ -150,13 +150,30 @@ void R_DrawSpriteModel (entity_t *e)
 	else
 		scale = 1;
 
+	// perf B10: live world-footprint knob for the regenerated 128px muzzle
+	// art. Read EVERY draw, so console changes apply mid-map; texels are
+	// untouched, so shrinking also raises apparent density. Name-gated:
+	// no other sprite in the game contains "muzzle". Default 1 = stock.
+	if (r_spritemuzzlescale.value != 1 && currententity->model
+		&& q_strcasestr (currententity->model->name, "muzzle"))
+		scale *= r_spritemuzzlescale.value;
+
 	glColor3f (e->netstate.colormod[0]/32.0,e->netstate.colormod[0]/32.0,e->netstate.colormod[0]/32.0);
 
 	GL_DisableMultitexture();
 
 	GL_Bind(frame->gltexture);
 
-	glEnable (GL_ALPHA_TEST);
+	if (frame->gltexture
+		&& frame->gltexture->source_format == SRC_RGBA)
+	{	// B10-muzzle: spr32 soft alpha -- the "should probably blend these
+		// instead of alphatest" TODO at gl_model.c:3524, now with payers.
+		// The global glAlphaFunc(0.666) would shred feathered edges.
+		glEnable (GL_BLEND);
+		glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	}
+	else
+		glEnable (GL_ALPHA_TEST);
 	glBegin (GL_TRIANGLE_FAN); //was GL_QUADS, but changed to support r_showtris
 
 	glTexCoord2f (0, frame->tmax);
@@ -181,6 +198,7 @@ void R_DrawSpriteModel (entity_t *e)
 
 	glEnd ();
 	glDisable (GL_ALPHA_TEST);
+	glDisable (GL_BLEND);
 
 	glColor3f (1, 1, 1);
 
