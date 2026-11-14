@@ -402,6 +402,7 @@ float   EF_FLAG1                = 16;
 float   EF_FLAG2                = 32;
 float	  EF_FLAG3			  = 64;	//Pink light effect
 float	  EF_FLAG4			  = 128;	//Green Light effect
+float   EF_NOMODELFLAGS           = 8388608;	// protocol.h 1u<<23: suppress model->flags merge into effects (perf B2)
 // GLQuakeWorld Stuff
 // float 	EF_BLUE		=	64;	// Blue Globe effect for Quad
 // float	EF_RED		=	128;	// Red Globe effect for Pentagram

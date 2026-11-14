@@ -456,6 +456,7 @@ void() item_nade =
 	self.owner = other;
 	self.touch = nade_touch;
 	setmodel(self, "progs/fraggren.mdl");
+	self.effects = EF_NOMODELFLAGS;	// perf B2: model modelflags smoke on nade pickups/drops
 	setsize (self, '0 0 0', ' 2 2 2');
 	StartItem();
 };
@@ -467,6 +468,7 @@ void() item_plasma_nade =
 	self.owner = other;
 	self.touch = plasma_nade_touch;
 	setmodel(self, "progs/plasgren.mdl");
+	self.effects = EF_NOMODELFLAGS;	// perf B2: same suppression, harmless if flags are clean
 	setsize (self, '0 0 0', ' 2 2 2');
 	StartItem();
 };

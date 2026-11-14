@@ -1896,6 +1896,12 @@ void () GrenadeBounce =
 	{
 		self.avelocity = '0.000000 0.000000 0.000000';
 	}
+	// perf B2: frag/plasma nade EF_DIMLIGHT broadcasts a dlight to every client
+	// while it lives; drop it once the thrower is >600u away. Checked at every
+	// bounce (including the resting one) - no new fuse think, and B3's
+	// R_PushDlights cull supersedes the off-view case.
+	if (self.selnade != GRENADE_STICKY && vlen (self.origin - self.owner.origin) > 600)
+		self.effects = 0;
 	self.nextthink = (time + 1.5);
 	self.think = GrenadeExplode;
 };
