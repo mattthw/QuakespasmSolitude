@@ -91,6 +91,9 @@ static void Sys_InitSDL (void)
 
 #ifdef VITA
 #include <vitasdk.h>
+/* perf B8: vitaGL entry points (see gl_vidsdl.c note re vitaGL.h/SDL_opengl.h) */
+GLboolean vglInitExtended(int legacy_pool_size, int width, int height, int ram_threshold, SceGxmMultisampleMode msaa);
+void vglSwapBuffers(GLboolean has_commondialog);
 #define DEFAULT_MEMORY (128 * 1024 * 1024) // ericw -- was 72MB (64-bit) / 64MB (32-bit)
 #else
 #define DEFAULT_MEMORY (256 * 1024 * 1024) // ericw -- was 72MB (64-bit) / 64MB (32-bit)
@@ -346,7 +349,7 @@ int main(int argc, char *argv[])
 int main(int argc, char **argv)
 {
 	// We need a bigger stack to run Quake, so we create a new thread with a proper stack size
-	SceUID main_thread = sceKernelCreateThread("Quake", quake_main, 0x40, 0x800000, 0, 0, NULL);
+	SceUID main_thread = sceKernelCreateThread("Quake", (SceKernelThreadEntry)quake_main, 0x40, 0x800000, 0, 0, NULL);
 	if (main_thread >= 0) {
 		sceKernelStartThread(main_thread, 0, NULL);
 		sceKernelWaitThreadEnd(main_thread, NULL, NULL);

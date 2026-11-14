@@ -22,6 +22,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
+/* perf B8: proper prototypes (were implicit; GCC15 errors). Same decls the
+ * Mac shim vgl_shim_apple.h carries; defined in sbar.c. */
+void Sbar_DrawCharacter (int x, int y, int num);
+void Sbar_DrawString (int x, int y, const char *str);
 #ifndef _WIN32
 #include <dirent.h>	// perf B7: Custom Maps tab folder scan (same precedent as host_cmd.c)
 #endif

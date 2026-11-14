@@ -928,7 +928,7 @@ float Draw_ColoredStringScale (int x, int y, const char *str, float r, float g, 
 {
     float ydiff = 0;
     if (y <= -8)
-        return;			// totally off screen
+        return ydiff;		// totally off screen
 
     glEnable (GL_BLEND);
     glColor4f(r, g, b, a);

@@ -28,6 +28,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "resource.h"
 #ifdef VITA
 #include <vitasdk.h>
+/* vitaGL C API (mirrors vgl_shim_apple.h for Mac; vitaGL.h must not be
+ * included here: its GL prototypes conflict with SDL_opengl.h) */
+void *vglGetProcAddress(const char *name);
+void vglSwapBuffers(GLboolean has_commondialog);
+void vglWaitVblankStart(GLboolean enable);
 #endif
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
 #if defined(USE_SDL2)

@@ -20,6 +20,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // gl_hud.c -- status bar code
 
 #include "quakedef.h"
+#ifdef VITA
+#include <vitasdk.h>
+#endif
 
 /* r71: right-pointing filled triangle (mini-overlay caret). Fixed-function,
  * Vita-safe; premul canvas so bake the opacity into rgb at the callsite. */
