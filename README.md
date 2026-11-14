@@ -66,18 +66,46 @@ this engine anyway? Drop your legally acquired `id1/pak0.pak` into
 ## Compiling Quake Source
 
 ### Compile SolitudeVita Engine Source
-1. Install the VitaSDK and set up building with the instructions here; https://vitasdk.org/
-2. Install VitaGL (https://github.com/Rinnegatamante/vitaGl) with "make" then "make install"
-3. Run the following command in this repository's ``./Quake/`` directory, which should produce a working quakehalo.vpk
+
+> **Toolchain compatibility — read this before anything else (measured
+> 2026-11-14, see issue #49).** Current-releases vitaGL **cannot boot this
+> port on device.** Since commit `480c7e0` (2022-07-17) vitaGL's FFP shaders
+> use a `bit_cast` construct that only compiles when SceShaccCgExt's
+> hardcoded patches land inside `libshacccg.suprx` — verified to fail against
+> every extraction method and every modern vitaGL revision (including the
+> official vitasdk package builds), with an invariant NULL-program crash at
+> `SceGxm+0x135c4`. Stay on the pinned versions below; do not "upgrade to
+> test".
+1. Install a **2022-era VitaSDK**. The vitasdk.org bootstrap and the Docker
+   images only provide 2026.08+ (gcc 15 / Newlib 4.1 — no older tags exist,
+   all 248 checked), and while the engine happens to still compile with it,
+   nothing newer than the 2022-era system libraries is safe to link for a
+   shippable vpk. A preserved pre-2026 SDK install is the supported path.
+2. Install **vitaGL pinned to `0a4b031`** (2022-03-26, last revision before
+   the `bit_cast` era):
+   ```
+   git clone https://github.com/Rinnegatamante/vitaGL
+   cd vitaGL && git checkout 0a4b031 && make && make install
+   ```
+   Do NOT use master or `vdpm install vitaGL` — both are post-`bit_cast`.
+3. Install **vitaShaRK pinned to `v.1.3`** = `ec7e82d` (2022-04-29, the last
+   tag before SceShaccCgExt integration in `v.1.4`):
+   ```
+   git clone https://github.com/Rinnegatamante/vitaShaRK
+   cd vitaShaRK && git checkout v.1.3 && make && make install
+   ```
+   `SceShaccCgExt` is NOT needed on this stack — do not install it.
+4. Run the following command in this repository's ``./Quake/`` directory, which should produce a working quakehalo.vpk
    ```make clean && make -f Makefile.vita```
    (If you built for macOS in the same tree first, stale host `.o` files
    break the ARM link — `make clean` or `rm *.o` is mandatory.)
-4. (Optional) After installing quakehalo.vpk for the first time, you can install the changes faster by enabling FTP on the vita then running:
-   ```curl --ftp-method nocwd -T ./build/eboot.bin ftp://<local IP of your vita>:1337/ux0:/app/SOLITUDE0/```
-   > **Warnings:** hot-pushing `eboot.bin` is only for iterating on a build
-   > you already know boots on the device — otherwise install the full vpk.
-   > Keep FTP sessions inside data paths: LIST/MKD on `ux0:/app/` or the
-   > `ux0:/` root can crash VitaShell's FTP server outright.
+5. (Optional) To iterate device installs, use **USB, not FTP**: in VitaShell
+   press **Select** (USB mass mode), on the Mac `diskutil mount /dev/disk4`,
+   copy the vpk into `ux0:/download/`, `sync`, verify the copy's checksum,
+   unmount. macOS leaves AppleDouble sidecars (`._quakehalo.vpk`) on ExFAT —
+   delete them or the installer picks up a 4 KB stub.
+   > **Warning:** VitaShell FTP (ports 1337/1338) is deprecated for this
+   > project — back-to-back/deep-path PUTs were observed crashing the device.
 
 ### Compile Solitude Vita Quake Code Source
 1. Install [FTEQCC](https://www.fteqcc.org/) ([mac](https://github.com/BryanHaley/fteqcc-mac)) to compile or decompile QuakeC code.
@@ -85,10 +113,14 @@ this engine anyway? Drop your legally acquired `id1/pak0.pak` into
 3. run ``fteqcc`` command.
 4. Copy ``progs.dat`` and ``progs.lno`` to your vita directory ``ux0:/data/Quakespasm/Solitude/``.
 
-Example (run from `qcc-src/`; `<vita-ip>` is your device's address):
+Example (run from `qcc-src/`):
 ```
-fteqcc && curl --ftp-method nocwd -T ../progs.dat "ftp://<vita-ip>:1337/ux0:/data/Quakespasm/Solitude/progs.dat"
+fteqcc
 ```
+Then copy ``../solitude/progs.dat`` onto the device via USB (VitaShell →
+Select → mount the card → drop it into ``ux0:/data/Quakespasm/Solitude/``,
+checksum-verify, unmount). The old FTP one-liner is deprecated — see the
+warning in the engine section above.
 
 ## Mapping / Level Design
 
