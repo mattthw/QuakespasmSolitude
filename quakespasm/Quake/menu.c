@@ -1341,7 +1341,7 @@ void M_Options_Draw (void)
     if (!sv.active)
         Draw_MenuBg();
 
-    struct MenuCoords mc = Draw_WindowGrid("Options", 19, MVS*0.6, 2, 0.4, alpha, options_cursor, true);
+    struct MenuCoords mc = Draw_WindowGrid("Options", OPTIONS_ITEMS, MVS*0.6, 2, 0.4, alpha, options_cursor, true);
     //footer
     if (options_cursor > 2 && options_cursor <= 10) {
         M_Draw_Hint(SCROLL, mc);
@@ -1439,7 +1439,7 @@ void M_Options_Draw (void)
 
 	// OPT_VIDEO:
 	if (vid_menudrawfn)
-        M_PrintWhite (mc.grid[0][18].xp ,mc.grid[0][18].yp, "Advanced Options");
+        M_PrintWhite (mc.grid[0][OPTIONS_ITEMS-1].xp ,mc.grid[0][OPTIONS_ITEMS-1].yp, "Advanced Options");
 
 }
 
