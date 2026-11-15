@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "bgmusic.h"
 #ifndef _WIN32
 #include <dirent.h>	// perf B7: Custom Maps tab folder scan (same precedent as host_cmd.c)
+#include "sol_movement.h"	// perf B11: Custom Game Rules physics defaults follow the movement model
 #endif
 
 qpic_t *menu_bg;
@@ -2511,9 +2512,9 @@ typedef struct opts_t {
     int sol_gravity;
 
 } opts_t;
-#define DEFAULT_GRAVITY 340
+#define DEFAULT_GRAVITY SOL_DEFAULT_GRAVITY_I	// perf B11: 230 under the Halo model, 340 legacy (sol_movement.h)
 #define DEFAULT_SPEED 200
-#define DEFAULT_JUMP 225
+#define DEFAULT_JUMP SOL_DEFAULT_JUMP_I	// perf B11: 172 under the Halo model, 225 legacy (sol_movement.h)
 // default options
 struct opts_t opts = {
         .teamplay = 0,

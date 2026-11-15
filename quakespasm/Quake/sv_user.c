@@ -22,12 +22,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // sv_user.c -- server code for moving users
 
 #include "quakedef.h"
+#include "sol_movement.h"	// perf B11 (issue #48): Halo-3 movement model, tuning lives in the header
 
 edict_t	*sv_player;
 
 extern	cvar_t	sv_friction;
 cvar_t	sv_edgefriction = {"edgefriction", "2", CVAR_NONE};
 extern	cvar_t	sv_stopspeed;
+#if SOL_MOVEMENT_HALO
+extern	cvar_t	sv_maxspeed;	// perf B11: defined below SV_UserFriction; the Halo ramps reference it
+#endif
 
 static	vec3_t		forward, right, up;
 
@@ -135,6 +139,12 @@ void SV_UserFriction (void)
 		return;
 
 // if the leading edge is over a dropoff, increase friction
+#if SOL_MOVEMENT_HALO
+	// perf B11: Halo model -- constant linear deceleration: a full stop from
+	// sv_maxspeed in SOL_HALO_DECEL_TIME seconds. No edge-friction trace and
+	// no stopspeed control term.
+	newspeed = speed - host_frametime * (sv_maxspeed.value / SOL_HALO_DECEL_TIME);
+#else
 	start[0] = stop[0] = origin[0] + vel[0]/speed*16;
 	start[1] = stop[1] = origin[1] + vel[1]/speed*16;
 	start[2] = origin[2] + sv_player->v.mins[2];
@@ -150,6 +160,7 @@ void SV_UserFriction (void)
 // apply friction
 	control = speed < sv_stopspeed.value ? sv_stopspeed.value : speed;
 	newspeed = speed - host_frametime*control*friction;
+#endif
 
 	if (newspeed < 0)
 		newspeed = 0;
@@ -169,6 +180,31 @@ cvar_t	sv_maxspeed = {"sv_maxspeed", "320", CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	sv_accelerate = {"sv_accelerate", "10", CVAR_NONE};
 void SV_Accelerate (float wishspeed, const vec3_t wishdir)
 {
+#if SOL_MOVEMENT_HALO
+	// perf B11: Halo model -- linear ground inertia. Velocity chases the wish
+	// velocity horizontally at a constant rate: a full-speed change takes
+	// SOL_HALO_ACCEL_TIME seconds (weighted start/turn/stop, no Quake
+	// dot-product trickery). With no keys held, friction (above) owns the
+	// stop; vertical velocity is untouched.
+	float		len, maxdelta;
+	vec3_t		delta;
+
+	if (!wishspeed)
+		return;
+	delta[0] = wishdir[0]*wishspeed - velocity[0];
+	delta[1] = wishdir[1]*wishspeed - velocity[1];
+	len = sqrt(delta[0]*delta[0] + delta[1]*delta[1]);
+	if (len <= 0)
+		return;
+	maxdelta = sv_maxspeed.value * host_frametime / SOL_HALO_ACCEL_TIME;
+	if (len > maxdelta)
+	{
+		delta[0] *= maxdelta / len;
+		delta[1] *= maxdelta / len;
+	}
+	velocity[0] += delta[0];
+	velocity[1] += delta[1];
+#else
 	int			i;
 	float		addspeed, accelspeed, currentspeed;
 
@@ -182,6 +218,7 @@ void SV_Accelerate (float wishspeed, const vec3_t wishdir)
 
 	for (i=0 ; i<3 ; i++)
 		velocity[i] += accelspeed*wishdir[i];
+#endif
 }
 
 void SV_AirAccelerate (float wishspeed, vec3_t wishveloc)
@@ -197,7 +234,14 @@ void SV_AirAccelerate (float wishspeed, vec3_t wishveloc)
 	if (addspeed <= 0)
 		return;
 //	accelspeed = sv_accelerate.value * host_frametime;
+#if SOL_MOVEMENT_HALO
+	// perf B11: Halo model -- 8% air control. Ledge-nudge only; the radial
+	// cap at the end of SV_AirMove pins airborne speed, so Quake-style
+	// air-strafe (and strafe-jump) build-up is impossible by construction.
+	accelspeed = sv_accelerate.value*wishspeed * host_frametime * SOL_HALO_AIR_CONTROL;
+#else
 	accelspeed = sv_accelerate.value*wishspeed * host_frametime;
+#endif
 	if (accelspeed > addspeed)
 		accelspeed = addspeed;
 
@@ -369,13 +413,41 @@ void SV_AirMove (void)
 	}
 	else if ( onground )
 	{
+#if SOL_MOVEMENT_HALO
+		// perf B11 fix: while a direction key is held the linear ramp owns
+		// velocity entirely. Running the decel friction in the same frame as
+		// the accel (23 lost vs 18.5 gained per tick) ate the whole budget and
+		// left a crawl. Halo ground model: input = authority, friction only
+		// governs the key-release stop ramp.
+		if (wishspeed == 0)
+			SV_UserFriction ();
+#else
 		SV_UserFriction ();
+#endif
 		SV_Accelerate (wishspeed, wishdir);
 	}
 	else
 	{	// not on ground, so little effect on velocity
 		SV_AirAccelerate (wishspeed, wishvel);
 	}
+
+#if SOL_MOVEMENT_HALO
+	// perf B11: strict radial speed cap (issue #48 rule 1) -- horizontal
+	// velocity may never exceed sv_maxspeed in any direction, whatever its
+	// source (movement accel, damage push, air-strafe build-up). Vertical is
+	// untouched: rocket/super-jump launch height survives, horizontal launch
+	// push is clamped like everything else. MOVETYPE_WALK only: noclip and
+	// fly/spectate keep full freedom.
+	if (sv_player->v.movetype == MOVETYPE_WALK)
+	{
+		float	hsp = sqrt(velocity[0]*velocity[0] + velocity[1]*velocity[1]);
+		if (hsp > sv_maxspeed.value)
+		{
+			velocity[0] *= sv_maxspeed.value / hsp;
+			velocity[1] *= sv_maxspeed.value / hsp;
+		}
+	}
+#endif
 }
 
 /*

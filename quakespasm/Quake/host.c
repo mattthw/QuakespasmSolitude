@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
+#include "sol_movement.h"	// perf B11 (issue #48): sol_gravity/sol_jump model defaults
 #include <setjmp.h>
 
 /*
@@ -89,9 +90,9 @@ cvar_t  custom_secondary = {"custom_secondary", "1", CVAR_SERVERINFO};
 cvar_t  grunt_birthday_party = {"grunt_birthday_party", "0", CVAR_SERVERINFO};
 cvar_t  max_nades = {"max_nades", "2"  /* perf B7: was 4 */, CVAR_SERVERINFO};
 cvar_t  infinite_ammo = {"infinite_ammo", "0", CVAR_SERVERINFO};
-cvar_t	sol_gravity = {"sol_gravity","340",CVAR_SERVERINFO};
+cvar_t	sol_gravity = {"sol_gravity",SOL_DEFAULT_GRAVITY_S,CVAR_SERVERINFO};	// perf B11: Halo model default (230); legacy 340 — see sol_movement.h
 cvar_t  sol_maxspeed = {"sol_maxspeed", "200", CVAR_SERVERINFO};
-cvar_t  sol_jump = {"sol_jump", "225", CVAR_SERVERINFO};
+cvar_t  sol_jump = {"sol_jump", SOL_DEFAULT_JUMP_S, CVAR_SERVERINFO};	// perf B11: Halo model default (172); legacy 225 — see sol_movement.h
 
 cvar_t	pausable = {"pausable","1",CVAR_NONE};
 

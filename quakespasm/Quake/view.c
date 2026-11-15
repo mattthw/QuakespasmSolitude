@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // view.c -- player eye positioning
 
 #include "quakedef.h"
+#include "sol_movement.h"	// perf B11 (issue #48): bob softening follows the movement model toggle
 
 extern qboolean	premul_hud;
 /*
@@ -40,7 +41,7 @@ cvar_t	scr_ofsz = {"scr_ofsz","0", CVAR_NONE};
 cvar_t	cl_rollspeed = {"cl_rollspeed", "200", CVAR_NONE};
 cvar_t	cl_rollangle = {"cl_rollangle", "2.0", CVAR_NONE};
 
-cvar_t	cl_bob = {"cl_bob","0.02", CVAR_NONE};
+cvar_t	cl_bob = {"cl_bob", SOL_HALO_CLBOB_DEFAULT, CVAR_NONE};	// perf B11: softer bob default under the Halo model (sol_movement.h)
 cvar_t	cl_bobcycle = {"cl_bobcycle","0.6", CVAR_NONE};
 cvar_t	cl_bobup = {"cl_bobup","0.5", CVAR_NONE};
 
@@ -903,7 +904,7 @@ void V_CalcRefdef (void)
 	view->origin[2] += cl.stats[STAT_VIEWHEIGHT];
 	
 	VectorCopy (r_refdef.vieworg, view->origin);
-	VectorMA (view->origin, bob * 0.4, forward, view->origin);
+	VectorMA (view->origin, bob * SOL_HALO_GUN_BOB, forward, view->origin);	// perf B11: was 0.4; fore-aft gun push gentled under the Halo model (sol_movement.h)
 
 	if (r_viewmodeloffset.string[0]) {
 		float offset[3];

@@ -14,6 +14,16 @@
 #pragma PROGS_DAT ../progs.dat
 #endif
 
+// perf B11 (issue #48): Halo-3 movement model, mirrored from the engine for
+// bot physics (frikbot/bot_phys.qc is a hand-port of sv_user.c). These MUST
+// match quakespasm/Quake/sol_movement.h -- flip SOL_MOVEMENT_HALO (and the
+// three times) in both places together, or bots and humans live under
+// different physics.
+#define SOL_MOVEMENT_HALO
+#define SOL_ACCEL_TIME 0.15
+#define SOL_DECEL_TIME 0.12
+#define SOL_AIR_PCT 0.08
+
 #ifdef FTE
 // if FTE, use FTE style progs and use fteprogs.dat file name
 #pragma target fte

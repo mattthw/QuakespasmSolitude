@@ -165,7 +165,11 @@ void() worldspawn =
 	if (sol_grav)
 		cvar_set ("sv_gravity", ftos(sol_grav));
 	else
+#ifdef SOL_MOVEMENT_HALO
+		cvar_set ("sv_gravity", "230");	// perf B11: Halo model (68% of legacy 340); see sol_movement.h
+#else
 		cvar_set ("sv_gravity", "340");
+#endif
 
 	if (sol_ms)
 		cvar_set ("sv_maxspeed", ftos(sol_ms));

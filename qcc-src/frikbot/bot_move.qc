@@ -343,7 +343,14 @@ void() frik_obstacles =
 		return; // gap is only 20 wide, walkable	
 	ang = self.velocity;
 	ang_z = 0;
+#ifdef SOL_MOVEMENT_HALO
+	// perf B11: hangtime-aware gap planning, model-correct: airtime =
+	// 2*jump impulse / gravity (legacy 540 = vanilla 2*270 was already
+	// stale vs Solitude's 225 impulse).
+	dist = (((2 * cvar("sol_jump")) / sv_gravity) * vlen(ang));
+#else
 	dist = ((540 / sv_gravity) * vlen(ang))/* + 32*/;
+#endif
 	if (test > dist) // I can't make it
 	{
 		if (conts < -3) // bad stuff down dare

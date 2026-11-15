@@ -146,6 +146,17 @@ void() SV_UserFriction =
 	if (!sped)
 		return;
 
+#ifdef SOL_MOVEMENT_HALO
+	// perf B11 mirror of the SV_UserFriction halo branch: constant linear
+	// decel (full stop from sv_maxspeed in SOL_DECEL_TIME), no edge trace.
+	// Tuning note: the legacy curve decayed proportionally to speed (a
+	// gentle long tail near zero); a pure constant stop is shorter than the
+	// distance-based nav checks here were tuned for. SOL_DECEL_SOFT glides
+	// the final speeds so waypoint-arrival can still be reached.
+	newspeed = sped - real_frametime * (sv_maxspeed / SOL_DECEL_TIME);
+	if (sped < 45)
+		newspeed = sped - real_frametime * (sped / 0.08);
+#else
 // if the leading edge is over a dropoff, increase friction
 
 	start_x = stop_x = self.origin_x + vel_x / (sped * 16);
@@ -163,6 +174,7 @@ void() SV_UserFriction =
 		newspeed = sped - real_frametime * sv_stopspeed * friction;
 	else
 		newspeed = sped - real_frametime * sped * friction;
+#endif
 
 	if (newspeed < 0)
 		newspeed = 0;
@@ -196,17 +208,28 @@ void() DropPunchAngle =
 
 void(vector wishvel) SV_AirAccelerate =
 {
-	local float addspeed, wishspd, accelspeed, currentspeed;
+	local float addspeed, wishspd, accelspeed, currentspeed, wishspd_full;
 
-	wishspd = vlen(wishvel);
+	wishspd_full = vlen(wishvel);
 	wishvel = normalize(wishvel);
-	if (wishspd > 30)
+	if (wishspd_full > 30)
 		wishspd = 30;
+	else
+		wishspd = wishspd_full;
 	currentspeed = self.velocity * wishvel;
 	addspeed = wishspd - currentspeed;
 	if (addspeed <= 0)
 		return;
+#ifdef SOL_MOVEMENT_HALO
+	// perf B11 mirror of the SV_AirAccelerate halo branch: engine formula
+	// (full wishspeed scaling) at SOL_AIR_PCT strength, BUT keeping the
+	// legacy bot-only 10x assist: waypoint jump routes were authored for
+	// steerable arcs, and humans' near-zero air control would strand bots
+	// at ledge routes. Radial cap in SV_AirMove still pins the magnitude.
+	accelspeed = 10 * sv_accelerate * wishspd_full * real_frametime * SOL_AIR_PCT;
+#else
 	accelspeed = 10 * sv_accelerate * wishspd * real_frametime;
+#endif
 	if (accelspeed > addspeed)
 		accelspeed = addspeed;
 	
@@ -215,6 +238,27 @@ void(vector wishvel) SV_AirAccelerate =
 
 void(vector wishvel) SV_Accelerate =
 {
+#ifdef SOL_MOVEMENT_HALO
+	// perf B11 mirror of the SV_Accelerate halo branch: linear ground ramp
+	// toward the wish velocity, horizontal only; a full-speed change takes
+	// SOL_ACCEL_TIME. No keys => friction (above) owns the stop.
+	local vector halo_delta;
+	local float halo_want, halo_len, halo_max;
+
+	halo_want = vlen(wishvel);
+	if (!halo_want)
+		return;
+	wishvel = normalize(wishvel);
+	halo_delta = wishvel * halo_want - self.velocity;
+	halo_delta_z = 0;
+	halo_len = vlen(halo_delta);
+	if (halo_len <= 0)
+		return;
+	halo_max = sv_maxspeed * real_frametime / SOL_ACCEL_TIME;
+	if (halo_len > halo_max)
+		halo_delta = halo_delta * (halo_max / halo_len);
+	self.velocity = self.velocity + halo_delta;
+#else
 	local float addspeed, wishspd, accelspeed, currentspeed;
 
 	wishspd = vlen(wishvel);
@@ -228,7 +272,8 @@ void(vector wishvel) SV_Accelerate =
 	if (accelspeed > addspeed)
 		accelspeed = addspeed;
 	
-	self.velocity = self.velocity + accelspeed * wishvel;	
+	self.velocity = self.velocity + accelspeed * wishvel;
+#endif
 };
 void() SV_WaterMove =
 {
@@ -275,6 +320,7 @@ void() SV_WaterMove =
 void() SV_AirMove =
 {
 	local vector wishvel, vangle;
+	local vector halo_hv;
 
 	vangle = self.v_angle;
 	vangle_x = vangle_z = 0;
@@ -294,11 +340,34 @@ void() SV_AirMove =
 		self.velocity = wishvel;
 	else if (self.flags & FL_ONGROUND)
 	{
+#ifdef SOL_MOVEMENT_HALO
+		// perf B11 fix mirror of sv_user.c: while move keys are held the
+		// linear ramp owns velocity; stop-friction only runs on input frames
+		// with zero wish (otherwise it fights the accel budget = crawl).
+		if (!vlen(wishvel))
+			SV_UserFriction();
+#else
 		SV_UserFriction();
+#endif
 		SV_Accelerate(wishvel);
 	}
 	else
 		SV_AirAccelerate (wishvel);
+#ifdef SOL_MOVEMENT_HALO
+	// perf B11 mirror of the engine radial cap: horizontal velocity never
+	// exceeds sv_maxspeed (MOVETYPE_WALK only; vertical untouched).
+	if (self.movetype == MOVETYPE_WALK)
+	{
+		halo_hv = self.velocity;
+		halo_hv_z = 0;
+		if (vlen(halo_hv) > sv_maxspeed)
+		{
+			halo_hv = normalize(halo_hv) * sv_maxspeed;
+			self.velocity_x = halo_hv_x;
+			self.velocity_y = halo_hv_y;
+		}
+	}
+#endif
 };
 
 void() SV_ClientThink = 

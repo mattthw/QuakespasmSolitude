@@ -1050,7 +1050,11 @@ void() PlayerJump = {
         } else {
 #ifdef NETQUAKE
             self.flags = self.flags - FL_ONGROUND;
+#ifdef SOL_MOVEMENT_HALO
+        self.velocity_z = self.velocity_z + 172;	// perf B11: halo-model fallback (sol_jump=0), matches sol_movement.h
+#else
         self.velocity_z = self.velocity_z + 225;
+#endif
 #endif
         }
         self.jump_time = time + .15;
@@ -1150,7 +1154,11 @@ void() CheckWaterJump = {
             traceline(start, end, TRUE, self);
             if (trace_fraction == 1) { // open at eye level
                 self.flags = self.flags | FL_WATERJUMP;
+#ifdef SOL_MOVEMENT_HALO
+                self.velocity_z = 172;	// perf B11: match halo-model ground jump (sol_movement.h)
+#else
                 self.velocity_z = 225;
+#endif
                 self.flags = self.flags - (self.flags & FL_JUMPRELEASED);
                 self.teleport_time = time + 2; // safety net
                 return;
