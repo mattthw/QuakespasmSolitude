@@ -562,6 +562,10 @@ void drawCrosshair(void) {
             Draw_FillRGBA (cx - 1, cy - plen, 2, plen * 2, cr, cg, cb, 1.0f);
             return;
         }
+    case IT_SUPER_SHOTGUN:  /* Shotgun (buckshot) - plain circle wider
+                                   * than the RL ring, no center cross (user) */
+        HUD_DrawCircle (cx, cy, (float)(gap + len) * 1.25f, cr, cg, cb);
+        return;
     case IT_SUPER_NAILGUN:    /* SMG */
         HUD_DrawCircle (cx, cy, q_max (4.0f, (float)(gap + len) * 0.45f), cr, cg, cb);
         return;

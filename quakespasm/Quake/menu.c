@@ -399,8 +399,14 @@ void M_Main_Draw (void)
     //background of menu
     Draw_FillGradient(main_x_offset_pixels, main_y_offset_pixels, main_pixel_width, main_pixel_height, 23/255.0f, 29/255.0f, 60/255.0f, 0.75f); //P2a Halo #171d3c + edge gradient
     Draw_FillRGBA(main_x_offset_pixels, PixHeight(1)-MVS, main_pixel_width, MVS, 23/255.0f, 29/255.0f, 60/255.0f, 0.9f); //P2a #171d3c solid-ish footer
-    M_PrintWhite(main_x_offset_pixels+main_pixel_width-(8*CHARZ), PixHeight(1)-MVS+TEXT_YMARGIN, " Select"); //tip
-    Draw_Button(main_x_offset_pixels+main_pixel_width-(10*CHARZ), PixHeight(1)-MVS+TEXT_YMARGIN, b_abutton);
+    /* hint lives on the footer band, right-aligned WITHIN the main menu
+     * panel's bounds + padding (user): measure icon+text, subtract from the
+     * panel's right edge. M_HintIcon keeps the art native-aspect. */
+    {  int hintw = 16 + CHARZ + (int)Draw_TTFWidth ("Select", 14.0f); // square icon width + gap + measured text
+    int hintx = main_x_offset_pixels + main_pixel_width - 8 - hintw;
+    M_HintIcon (&hintx, PixHeight(1)-MVS+TEXT_YMARGIN, b_abutton);
+    M_PrintWhite(hintx, PixHeight(1)-MVS+TEXT_YMARGIN, "Select"); //tip
+    }
     //cursor
     Draw_Cursor(main_x_offset_pixels, main_y_offset_pixels+mvs(m_main_cursor), main_pixel_width, CURSOR_HEIGHT, !main_multi);
     //menu items
@@ -2041,6 +2047,13 @@ void M_Quit_Char (int key)
 
 void M_Quit_Key (int key)
 {
+    /* keyboard parity (user): Enter confirms like A/X, ESC declines like
+     * B/circle. M_Quit_Char already maps those buttons; nothing upstream
+     * swallows ESC in this state, so translating here is enough. */
+    if (key == K_ENTER)
+        key = K_ABUTTON;
+    else if (key == K_ESCAPE)
+        key = K_BBUTTON;
     M_Quit_Char(key);
 }
 
@@ -2414,17 +2427,17 @@ level_t		levels[] =
         {"pit3", "pit3", 1, "Pit", "A deep UNSC training hole ringed by gantries. Drop in with a shotgun and climb out with a story.", "Jukki, mattthw"},
         {"narsp", "narsp", 1, "Narrows", "The Ark's cooling channels, still running cold. Tight catwalks over open water make every duel a knife fight.", "Scifiknux"},
         {"skyringbl2", "skyringbl2", 1, "Heavenly Suspense", "A Halo ring facility under repair, open sky on every side. Snipers own the scaffolds; everyone else hides.", "Arkage"},
-        {"wizard", "wizard", 1, "Wizard", "A small ring arena that never stops turning. Round and round and round - the middle belongs to no one.", "IlDucci"},
         {"lockdown", "lockdown", 1, "Lockdown", "A prison block on full lockdown. Corridors funnel every push into one bad doorway at a time.", "Team Xlink, mattthw"},
         {"cestra", "cestra", 1, "Cestra", "A buried research lab the brass never expected anyone to fight through. Every hall tests something new.", "Sam"},
-        {"lane", "lane", 1, "Lane", "An outdoor human training lane: one long corridor of cover with flanking shelves above it.", "Sam"},
-        // Classic map pack [6]
+        // Classic map pack [8]
         {"Longest", "Longest", 0, "Longest", "The longest lane in the rotation. Mid-range duels down an endless aisle, with just enough cover to feint.", "Unknown"},
         {"chill", "chill", 0, "Chill Out", "A frozen outpost of short halls and shorter tempers. Indoor fights end before you find your breath.", "Unknown"},
         {"pri2", "pri2", 0, "Prisoner 2", "A compact prison complex. Three levels of balconies turn every escort into an ambush.", "Unknown"},
         {"base", "base", 0, "Minibase", "A small two-flag outpost built for duels. One ridge, two bases, and nowhere to hide.", "Unknown"},
         {"plaza", "plaza", 0, "Plaza", "An open civic plaza ringed by shops. The middle is a graveyard; own the rooftops instead.", "Unknown"},
         {"spider", "spider", 0, "Spiderweb", "Towers strung together on narrow webbing. Fall off a bridge and the match is already lost.", "Unknown"},
+        {"wizard", "wizard", 1, "Wizard", "A small ring arena that never stops turning. Round and round and round - the middle belongs to no one.", "IlDucci"},
+        {"lane", "lane", 1, "Lane", "An outdoor human training lane: one long corridor of cover with flanking shelves above it.", "Sam"},
         // Bonus map pack
         {"pit", "random", 0, "Pit (original)", "The first cut of the Pit: three towers, one hole, and no forgiveness for bad jumps.", "Jukki"},
         {"pit2", "pit2", 1, "Pit (v2)", "The Pit rebuilt - more gantries, more corners, and more reasons to watch your footing.", "Jukki, mattthw"},
@@ -2448,8 +2461,8 @@ typedef struct
 int NUM_EPISODES = 4;
 episode_t	episodes[] =
         {
-                {"New & Remastered", 0, 10},
-                {"Classic Maps", 10, 6},
+                {"New & Remastered", 0, 8},
+                {"Classic Maps", 8, 8},
                 {"Bonus Maps", 16, 5},
                 {"Custom Maps", 0, 0}	// perf B7: loose .bsp files from maps/custom, counted at runtime
         };
@@ -3708,12 +3721,112 @@ float vertical_mlist_affordance = 9;	// perf B7: 10 -> 9, pack tabs ride the hea
 
 // perf B7: Custom Maps tab -- plain .bsp files the user drops into <gamedir>/maps/custom
 #define MAX_CUSTOM_MAPS 64
-static char	custom_names[MAX_CUSTOM_MAPS][32];
+typedef struct {
+	char	name[32];
+	char	disp[32];	// perf B7: title-cased from the filename
+	char	bio[192];	// perf B7: worldspawn "message" pulled from the .bsp
+} custom_map_t;
+static custom_map_t	custom_maps[MAX_CUSTOM_MAPS];
 static int	custom_count = -1;	// -1 = not scanned yet
 
 static int custom_cmp (const void *a, const void *b)
 {
-	return q_strcasecmp ((const char *)a, (const char *)b);
+	return q_strcasecmp (((const custom_map_t *)a)->name, ((const custom_map_t *)b)->name);
+}
+
+static void	M_Maps_ScanCustom (void);
+
+/* perf B7: turn a dropped filename into a tidy title - underscores and
+ * dashes collapse to single spaces, each word starts capitalized, the rest
+ * is left as typed (so "dm2_e1m2" reads "Dm2 E1m2" but "ZTest-Pit" keeps
+ * its caps). */
+static void M_CustomDisplayName (const char *fn, char *out, int outsize)
+{
+	int	o = 0, newword = 1;
+	char c;
+
+	for (; *fn && o < outsize - 2; fn++)
+	{
+		c = *fn;
+		if (c == '_' || c == '-' || c == ' ')
+		{
+			if (o && out[o-1] != ' ')
+				out[o++] = ' ';
+			newword = 1;
+			continue;
+		}
+		if (newword && c >= 'a' && c <= 'z')
+			c -= 32;
+		newword = 0;
+		out[o++] = c;
+	}
+	while (o && out[o-1] == ' ')
+		o--;
+	out[o] = 0;
+}
+
+/* perf B7: read the worldspawn "message" out of a custom .bsp for the blurb.
+ * On disk a BSP is int version + a lump directory of {ofs,len} pairs, and
+ * entities is lump 0 in every BSP20..29 layout. Only the header and a
+ * clamped slice of the entity text are read, so multi-MB maps cost nothing;
+ * any mismatch just leaves an empty string. */
+static void M_CustomBspBio (const char *name, char *out, int outsize)
+{
+	char	path[MAX_OSPATH];
+	byte	hdr[4 + 15*8];
+	static byte	ents[8192];
+	int	h, vers, ofs, len, n;
+	char	*p, *e;
+
+	out[0] = 0;
+	q_snprintf (path, sizeof (path), "%s/maps/custom/%s.bsp", com_gamedir, name);
+	if (Sys_FileOpenRead (path, &h) == -1)
+		return;
+	if (Sys_FileRead (h, hdr, sizeof (hdr)) != (int) sizeof (hdr))
+	{
+		Sys_FileClose (h);
+		return;
+	}
+	vers = *(int *)hdr;
+	ofs = *(int *)(hdr + 4);
+	len = *(int *)(hdr + 8);
+	if (vers < 20 || vers > 30 || ofs < (int)sizeof (hdr) || len <= 0 || len > 0x100000)
+	{
+		Sys_FileClose (h);
+		return;
+	}
+	if (len > (int)sizeof (ents) - 1)
+		len = (int)sizeof (ents) - 1;
+	Sys_FileSeek (h, ofs);
+	n = Sys_FileRead (h, ents, len);
+	Sys_FileClose (h);
+	if (n <= 0)
+		return;
+	ents[n] = 0;
+
+	p = q_strcasestr ((char *)ents, "\"message\"");
+	if (!p)
+		return;
+	p += sizeof ("\"message\"") - 1;
+	while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r')
+		p++;
+	if (*p != '"')
+		return;
+	p++;
+	for (e = out; *p && *p != '"' && e - out < outsize - 1; p++)
+	{
+		if (*p == '^')	// color codes would print literally in the menu font
+			continue;
+		*e++ = *p;
+	}
+	*e = 0;
+}
+
+/* perf B7: manual refresh for when someone drops a new .bsp mid-session */
+static void M_Maps_Rescan_f (void)
+{
+	M_Maps_ScanCustom ();
+	Con_Printf ("%i custom map(s) in maps/custom\n", custom_count);
 }
 
 static void M_Maps_ScanCustom (void)
@@ -3730,12 +3843,14 @@ static void M_Maps_ScanCustom (void)
 	{
 		if (q_strcasecmp (COM_FileGetExtension (dir_t->d_name), "bsp") != 0)
 			continue;
-		COM_StripExtension (dir_t->d_name, custom_names[custom_count], sizeof(custom_names[0]));
+		COM_StripExtension (dir_t->d_name, custom_maps[custom_count].name, sizeof(custom_maps[0].name));
+		M_CustomDisplayName (custom_maps[custom_count].name, custom_maps[custom_count].disp, sizeof(custom_maps[0].disp));
+		M_CustomBspBio (custom_maps[custom_count].name, custom_maps[custom_count].bio, sizeof(custom_maps[0].bio));
 		custom_count++;
 	}
 	closedir (dir_p);
 	if (custom_count > 1)
-		qsort (custom_names, custom_count, sizeof(custom_names[0]), custom_cmp);
+		qsort (custom_maps, custom_count, sizeof(custom_maps[0]), custom_cmp);
 }
 
 static int M_Maps_LevelCount (void)
@@ -3747,6 +3862,27 @@ static int M_Maps_LevelCount (void)
 		return custom_count;
 	}
 	return episodes[startepisode].levels;
+}
+
+/* perf B7: a custom pack entry viewed as a level_t so the map browser can
+ * treat both packs alike in the info column (its thumbnail is resolved
+ * separately: gfx/maps/custom/<name>.png first, placeholder card after). */
+static const level_t *M_Maps_CustomLevel (int idx)
+{
+	static level_t	cv;
+	static char		cfile[64];
+
+	if (idx < 0 || idx >= custom_count)
+		idx = 0;
+	q_strlcpy (cfile, custom_maps[idx].name, sizeof (cfile));
+	q_strlcat (cfile, ".bsp", sizeof (cfile));
+	cv.name = custom_maps[idx].name;
+	cv.thumbnail = custom_maps[idx].name;
+	cv.targaThumbnail = 0;
+	cv.description = custom_maps[idx].disp;
+	cv.mapBio = custom_maps[idx].bio[0] ? custom_maps[idx].bio : NULL;
+	cv.author = cfile;
+	return &cv;
 }
 
 // perf B7: the matchmaking summary page wants art/bio for the chosen map;
@@ -3770,7 +3906,7 @@ const char *M_listPrintMap (size_t index) {
     {
         if ((int)index >= custom_count)
             return "";
-        q_snprintf(string, sizeof(string), "%-18.18s\n", custom_names[index]);
+        q_snprintf(string, sizeof(string), "%-18.18s\n", custom_maps[index].disp);
         return string;
     }
     if (index >= episodes[startepisode].levels)
@@ -3916,9 +4052,8 @@ void M_Matchmaking_Map_Draw (void) {
     }
 
     /* r92: vertical divider between the list column and the info column
-     * (perf B7: custom pack has no info column) */
-    if (startepisode != NUM_EPISODES - 1)
-        Draw_FillRGBA ((int)coords.grid[1][0].x - 2, (int)coords.grid[0][0].y, 2,
+     * (perf B7: the custom pack has a real info column now too) */
+    Draw_FillRGBA ((int)coords.grid[1][0].x - 2, (int)coords.grid[0][0].y, 2,
                    (int)(coords.grid[0][coords.rows].yp + coords.rowh - coords.grid[0][0].y),
                    20/255.0f, 25/255.0f, 44/255.0f, 1.0f);
     //footer
@@ -3931,7 +4066,7 @@ void M_Matchmaking_Map_Draw (void) {
         M_PrintWhite (coords.grid[0][n].xp, coords.grid[0][n].yp, M_listPrintMap (mlist_first+n));
     }
     if (levcount == 0)	// perf B7: empty custom folder hint
-        M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "no custom maps: drop .bsp files in maps/custom");
+        M_PrintWhite (coords.grid[0][0].xp, coords.grid[0][0].yp, "Drop .bsp files into maps/custom to play them here");
     // perf B7: left gutter scrollbar (Options treatment)
     {
         int	rowh = coords.grid[1][1].y - coords.grid[1][0].y;
@@ -3939,31 +4074,48 @@ void M_Matchmaking_Map_Draw (void) {
             rowh = MVS;
         M_Draw_Scrollbar (&coords, rowh, levcount, mlist_first, (int)mlist_shown);
     }
-    // map thumbnail (perf B7: custom pack is list-only -- no art, bio or author;
-    // its data does not live in levels[] so the whole info column would read garbage)
-    if (startepisode == NUM_EPISODES - 1)
-        return;
+    // map thumbnail + info column (perf B7: the custom pack gets the same
+    // treatment now -- its data comes from the folder scan instead of levels[])
+    const level_t *lv;
     char format[10];
-    if (levels[episodes[startepisode].firstLevel + (mlist_cursor)].targaThumbnail) {
+    if (startepisode == NUM_EPISODES - 1)
+    {
+        if (custom_count == 0)
+		return;	// empty folder: no info to show
+        lv = M_Maps_CustomLevel ((int)mlist_cursor);
+    }
+    else
+        lv = &levels[episodes[startepisode].firstLevel + (mlist_cursor)];
+    if (lv->targaThumbnail) {
         strcpy(format, "tga"); // why not just bake it into the filename? why did I do it like this? testing? idk
     } else {
         strcpy(format, "lmp");
     }
     qpic_t *mappic = NULL;   /* r90: PNG mapshot if it exists, else legacy lmp/tga (Draw_TryCachePic never returns NULL -- gate on COM_FileExists) */
+    if (startepisode == NUM_EPISODES - 1)
+	{// perf B7: per-map mapshot first, then the shared placeholder card
+        const char *cp = va("gfx/maps/custom/%s.png", custom_maps[(int)mlist_cursor].name);
+        if (COM_FileExists (cp, NULL))
+            mappic = Draw_TryCachePic (cp, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+        else if (COM_FileExists ("gfx/maps/custom.png", NULL))
+            mappic = Draw_TryCachePic ("gfx/maps/custom.png", TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+    }
+    else
     {
-        const char *mspath = va("gfx/maps/%s.png", levels[episodes[startepisode].firstLevel + (mlist_cursor)].thumbnail);
+        const char *mspath = va("gfx/maps/%s.png", lv->thumbnail);
         if (COM_FileExists (mspath, NULL))
             mappic = Draw_TryCachePic (mspath, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+        if (!mappic)
+            mappic = Draw_CachePic(va("gfx/maps/%s.%s", lv->thumbnail, format));
     }
-    if (!mappic)
-        mappic = Draw_CachePic(va("gfx/maps/%s.%s", levels[episodes[startepisode].firstLevel + (mlist_cursor)].thumbnail, format));
-    Draw_StretchPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic, coords.colw, coords.rowh*5);
+    if (mappic)
+        Draw_StretchPic(coords.grid[1][0].x + 1, coords.grid[1][0].y, mappic, coords.colw, coords.rowh*5);
 
     // map bio (r92: single string, wrapped on words to the column width)
     {
         int bio_x = coords.grid[1][5].xp + CHARZ;   /* r93: padding off the column divider */
         int bio_maxpx = (int)coords.grid[coords.cols - 1][0].x + (int)coords.colw - bio_x - 16;   /* r93: wrap to the window edge, not the screen */
-        const char *bio = levels[episodes[startepisode].firstLevel + (mlist_cursor)].mapBio;
+        const char *bio = lv->mapBio;
         M_Print(coords.grid[1][5].x + CHARZ, coords.grid[1][5].yp, "Map Description:");
         if (bio && bio[0])
             M_WrapText (bio, bio_x, coords.grid[1][5].yp + CHARZ * 3 / 2, bio_maxpx, 4);
@@ -3976,7 +4128,7 @@ void M_Matchmaking_Map_Draw (void) {
         int abx = coords.grid[1][8].x + CHARZ;
         M_Print(abx, coords.grid[1][8].yp, "Author:");
         M_PrintWhite (abx + (int)Draw_TTFWidth ("Author:", 14.0f) + 8,
-            coords.grid[1][8].yp, levels[episodes[startepisode].firstLevel + (mlist_cursor)].author);
+            coords.grid[1][8].yp, lv->author);
     }
 }
 
@@ -4050,8 +4202,6 @@ void M_Matchmaking_Map_Key (int key) {
             mlist_cursor = 0;
             mlist_first = 0;
             M_Matchmaking_Map_Submenu_Key(-1,0);
-            if (startepisode == NUM_EPISODES - 1)
-                M_Maps_ScanCustom ();	// perf B7: refresh the folder list on tab entry
             break;
         case K_RSHOULDER:	// perf fix: Vita L/R report as shoulders, not triggers
         case K_RTRIGGER:
@@ -4065,8 +4215,6 @@ void M_Matchmaking_Map_Key (int key) {
             mlist_cursor = 0;
             mlist_first = 0;
             M_Matchmaking_Map_Submenu_Key(1,0);
-            if (startepisode == NUM_EPISODES - 1)
-                M_Maps_ScanCustom ();	// perf B7: refresh the folder list on tab entry
             break;
 
         default:
@@ -4080,7 +4228,7 @@ void M_Matchmaking_Map_Key (int key) {
 #define MM_FOOTER_HEIGHT mvs(1)
 
 #define	NUM_GAMEOPTIONS	3 // r77: NETWORK / PLAYLIST / START MATCHMAKING
-int matchmaking_cursor = 0; //indexing off 0
+int matchmaking_cursor = NUM_GAMEOPTIONS - 1; // perf B7: open on START MATCHMAKING (user)
 
 /* P2a lobby roster: bot count lives in the engine cvar lobby_bots so the
  * matchmaking menu can adjust it before a match exists (cl.scores is only
@@ -4341,7 +4489,7 @@ void M_Matchmaking_Draw (void)
         if (customsel)
         {   /* perf B7: a custom map may ship its own gfx/maps/<name>.png;
              * without one the summary page shows the placeholder card. */
-            const char *cname = (chosen_level.level < custom_count) ? custom_names[chosen_level.level] : "custom";
+            const char *cname = (chosen_level.level < custom_count) ? custom_maps[chosen_level.level].name : "custom";
             mspath = va("gfx/maps/%s.png", cname);
             if (COM_FileExists (mspath, NULL))
                 mappic = Draw_TryCachePic (mspath, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
@@ -4361,7 +4509,7 @@ void M_Matchmaking_Draw (void)
 
     //background
     if (matchmaking_cursor >= NUM_GAMEOPTIONS)
-        matchmaking_cursor = 0;   /* r77: list shrank to 3 rows */
+        matchmaking_cursor = NUM_GAMEOPTIONS - 1;   /* perf B7: stale index lands on START MATCHMAKING */
     draw_grid_inset = 1;          /* r77: 20% side margin (user) */
     struct MenuCoords mc = Draw_WindowGridLeft("Matchmaking",14,MVS*0.8f,2,0.2, 0.8, matchmaking_cursor, 1.0, 3.0);   /* r79b: edge to edge */
     draw_grid_inset = 0;
@@ -4436,7 +4584,7 @@ void M_Matchmaking_Draw (void)
      * never truncated. */
     {
         const char *mapdesc = chosen_level.episode == NUM_EPISODES - 1
-            ? ((int)chosen_level.level < custom_count ? custom_names[chosen_level.level] : "Custom map")
+            ? ((int)chosen_level.level < custom_count ? custom_maps[chosen_level.level].disp : "Custom map")
             : (*M_Maps_ChosenDisplay ()).description;
         float mapname_size = 16.0f;
         int mapname_x = (int)pic_x + CHARZ;
@@ -4740,7 +4888,7 @@ void M_Matchmaking_Key (int key)
                 if (chosen_level.episode == NUM_EPISODES - 1)	// perf B7: custom pack -- launch from the folder scan
         {
             if (chosen_level.level < custom_count)
-                Cbuf_AddText ( va ("map custom/%s\n", custom_names[chosen_level.level]) );
+                Cbuf_AddText ( va ("map custom/%s\n", custom_maps[chosen_level.level].name) );
         }
         else
             Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
@@ -5376,6 +5524,11 @@ void M_Init (void)
 	Cmd_AddCommand ("perfmenu", M_Menu_Performance_f);
 	Cmd_AddCommand ("menu_cmd", MQC_Command_f);
 	Cmd_AddCommand ("menu_restart", M_MenuRestart_f);	//qss still loads progs on hunk, so we can't do this safely.
+
+	// perf B7: the Custom Maps folder is scanned ONCE at startup (user);
+	// the lazy first-use scan still covers a not-yet-set gamedir.
+	M_Maps_ScanCustom ();
+	Cmd_AddCommand ("rescanmaps", M_Maps_Rescan_f);
 
 	if (!MQC_Init())
 		MQC_Shutdown();
