@@ -447,6 +447,8 @@ void () weapon_touch =
 	
 	if (other.canpickup_time > time) {
 		if (other.weapon == self.weapon || GetPlayerWeapons(other.items) >= 2 ) {
+			if (other.ishuman != #TRUE && !bot_want_swap(self, other))
+				return;		// perf B12: bots swap only for a real upgrade
 			addweapon = 2;		// drop current weapon and replace it
         } else {
 			addweapon = 1;		// add other weapon and switch to it
@@ -546,6 +548,8 @@ void () weapon_touch =
 			W_SetCurrentAmmo();
 			pre_player_pull(other);
 			self = oself;
+			if (other.ishuman != #TRUE)
+				other.bot_last_swap = time;	// perf B12: swap cooldown stamp
 		}
 		CopyAmmo( self, other, self.weapon, 0 );
 		W_UpdateAmmoCounts( other );

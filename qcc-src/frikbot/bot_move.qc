@@ -48,6 +48,79 @@ void() bot_jump =
 	self.button2 = TRUE;
 };
 
+// perf B12 - fall-death gate. The step-over / tail heuristics in
+// frik_obstacles read a lethal drop as a small obstacle and hop bots off
+// rails and platform edges. Before bot_jump() (and for rocket jumps via
+// bot_can_rj) the landing spot is probed downward for sv_bot_safe_drop
+// units (engine cvar, scaled by sv_gravity/800); a deeper void vetoes the
+// jump and the bot just keeps walking. cvar <= 0 = gate off (pre-B12
+// behavior).
+float bot_drop_cval;		// sv_bot_safe_drop the cache was computed at
+float bot_drop_grav;		// sv_gravity the cache was computed at
+float bot_drop_max;			// cached drop limit in units
+
+float() bot_get_drop =
+{
+	local float s;
+
+	s = cvar("sv_bot_safe_drop");
+	if (s == bot_drop_cval && sv_gravity == bot_drop_grav)
+		return bot_drop_max;
+	bot_drop_cval = s;
+	bot_drop_grav = sv_gravity;
+	if (s > 0)
+		s = s * sv_gravity / 800;
+	bot_drop_max = s;
+	return s;
+};
+
+float(vector spot, float refz, entity faller) bot_landing_safe =
+{
+	local float s, drop;
+	local vector top, toe;
+
+	s = bot_get_drop();
+	if (s <= 0)
+		return TRUE;	// gate disabled
+	// measure the DEPTH below the feet, not below the spot: a spot
+	// that is already a found floor must not make a long drop safe
+	top = spot;
+	if (top_z < refz)
+		top_z = refz;
+	top_z = top_z + 8;
+	toe = spot;
+	toe_z = refz - 2048;	// probe deep, measure, then compare with s
+	traceline(top, toe, TRUE, faller);
+	if (trace_startsolid)
+		return TRUE;	// buried; normal heuristics decide
+	if (trace_fraction == 1)
+		return FALSE;	// no floor within probe range
+	drop = refz - trace_endpos_z;
+	if (drop > s)
+		return FALSE;	// floor exists but deeper than SAFE_DROP
+	return TRUE;
+};
+
+// perf B12: rocket-jump landing probe - straight ahead of the bot.
+float(entity e) bot_jump_landing_ok =
+{
+	local vector dir, a;
+
+	dir = e.velocity;
+	dir_z = 0;
+	if (vlen(dir) > 10)
+		dir = normalize(dir);
+	else
+	{
+		a = e.angles;
+		a_x = 0;
+		a_z = 0;
+		makevectors(a);
+		dir = v_forward;
+	}
+	return bot_landing_safe(e.origin + dir * 48, e.origin_z + e.mins_z, e);
+};
+
 float(entity e) bot_can_rj =
 {
 	// this returns true of the bot can rocket/superjump/hook
@@ -69,10 +142,10 @@ float(entity e) bot_can_rj =
 
 	// do I have pent?
 	if (e.items & 1048576)
-		return TRUE;
+		return bot_jump_landing_ok(e);	// perf B12
 
 	if (e.health > 50)
-		return TRUE;
+		return bot_jump_landing_ok(e);	// perf B12
 	else
 		return FALSE;
 };
@@ -215,8 +288,8 @@ Also responsible for jumping gaps.
 
 void() frik_obstacles =
 {
-	local vector start, stop, ang;
-	local float test, conts, dist, hgt;
+	local vector start, stop, ang, land;
+	local float test, conts, dist, hgt, feet;
 
 	if (!(self.flags & FL_ONGROUND))
 		return;
@@ -233,10 +306,13 @@ void() frik_obstacles =
 	if (trace_allsolid || trace_startsolid)
 		return;
 	hgt = trace_endpos_z - stop_z;
+	land = trace_endpos;	// trace_endpos is clobbered by the horizontal traces below
+	feet = stop_z;	// B12: feet level at probe time (stop is clobbered later)
 
 	if (hgt > 18)
 	{
-		bot_jump();
+		if (bot_landing_safe(land + ang * 48, feet, self))	// perf B12
+			bot_jump();
 		return;
 	}
 	if (hgt >= 0)
@@ -248,7 +324,17 @@ void() frik_obstacles =
 	traceline(start, stop, TRUE, self);
 	test = vlen(trace_endpos - start);
 	if (test <= 20)
-		return; // it's a walkable gap, do nothing
+	{
+		start = trace_endpos;
+		start_z = start_z + 1;	// off the hit surface
+		stop = start;
+		stop_z = stop_z + 96;	// probe for the top of what we hit
+		traceline(start, stop, TRUE, self);
+		if (trace_startsolid || trace_fraction == 1 || (trace_endpos_z - feet) >= 18)
+			return; // B12: tall wall/rail blocks the way - classic do nothing, walkmove slides
+		frik_obstructed(ang, TRUE);	// B12: low lip over a drop - back off
+		return;
+	}
 	ang_x = self.velocity_y * -1;
 	ang_y = self.velocity_x;
 	ang = normalize(ang);
@@ -273,7 +359,7 @@ void() frik_obstacles =
 				if ((stop_z - self.origin_z) < -32)
 					return; // safe to fall
 			}
-			frik_obstructed(ang, FALSE);
+			frik_obstructed(ang, !bot_landing_safe(self.origin + ang * 64, feet, self));	// B12: danger only if the edge is a killer drop
 			return;
 		}
 	}
@@ -297,7 +383,7 @@ void() frik_obstacles =
 					if ((stop_z - self.origin_z) < -32)
 						return; // safe to fall
 				}
-				frik_obstructed(ang, FALSE);
+				frik_obstructed(ang, !bot_landing_safe(self.origin + ang * 64, feet, self));	// B12: danger only if the edge is a killer drop
 				return;
 			}
 		}
@@ -315,7 +401,7 @@ void() frik_obstacles =
 				}
 				else
 				{
-					frik_obstructed(ang, FALSE);
+					frik_obstructed(ang, !bot_landing_safe(self.origin + ang * 64, feet, self));	// B12: danger only if the edge is a killer drop
 					return;
 				}
 			}
@@ -337,7 +423,10 @@ void() frik_obstacles =
 				return; // safe to fall
 			}
 		}
-		bot_jump();
+		if (bot_landing_safe(land + ang * 48, feet, self))	// perf B12
+			bot_jump();
+		else
+			frik_obstructed(ang, TRUE);	// B12: vetoed - reroute, do not walk off
 	}
 	// go for it
 };

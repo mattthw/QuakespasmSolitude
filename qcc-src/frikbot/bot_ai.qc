@@ -386,7 +386,8 @@ void() bot_handle_ai =
 	{
 		if (self.flags & FL_ONGROUND)
 		{
-			bot_jump();
+			if (bot_jump_landing_ok(self))	// perf B12
+				bot_jump();
 			self.b_aiflags = self.b_aiflags - AI_JUMP;
 		}
 	}
@@ -642,7 +643,10 @@ float(entity thing) priority_for_thing =
 		{
 			if (!(self.items & thing.weapon)) {			// bot weapon pickup is handled in weapon_pickup
 				//_bprint("SEEK ME WEAPON 2\n");
-				thisp = 75;
+				if (GetPlayerWeapons(self.items) < 2)
+					thisp = 75;				// perf B12: absorb path unchanged
+				else if (bot_want_swap(thing, self))
+					thisp = 25 + (bot_weapon_tier(thing.weapon) - 1) * 5;	// perf B12: rank-weighted desire
 			}
 		}
 		else if (thing.classname == "weapon_supershotgun")

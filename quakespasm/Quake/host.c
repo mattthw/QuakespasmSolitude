@@ -72,6 +72,7 @@ cvar_t	sv_bot_thinkrate = {"sv_bot_thinkrate","0",CVAR_ARCHIVE};	// perf B6 - ma
 cvar_t	sv_particle_scale = {"sv_particle_scale","75",CVAR_ARCHIVE};	// perf B6 - percent scale of QC particle() counts, 0=off; read by QC cvar() // perf B7: Balanced default
 cvar_t	sv_max_gibs = {"sv_max_gibs","12",CVAR_ARCHIVE};	// perf B6 - live gib cap (remove-oldest), 0=off; read by QC cvar() // perf B7: Balanced default
 cvar_t	sv_grenade_trail = {"sv_grenade_trail","1",CVAR_ARCHIVE};	// perf B10 - sticky plasma nade sprite glow trail + attach flash, 0=off; read by QC cvar()
+cvar_t	sv_bot_safe_drop = {"sv_bot_safe_drop","400",CVAR_ARCHIVE};	// perf B12 - max drop depth (units, scaled by sv_gravity/800) a bot will step/jump off, 0=gate off; read by QC cvar()
 
 cvar_t	fraglimit = {"fraglimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
 cvar_t	teamlimit = {"teamlimit","0",CVAR_NOTIFY|CVAR_SERVERINFO};
@@ -589,6 +590,7 @@ void Host_InitLocal (void)
 	Cvar_RegisterVariable (&sv_particle_scale); // perf B6
 	Cvar_RegisterVariable (&sv_max_gibs); // perf B6
 	Cvar_RegisterVariable (&sv_grenade_trail); // perf B10
+	Cvar_RegisterVariable (&sv_bot_safe_drop); // perf B12
 	Cmd_AddCommand ("perfreport", Perf_Report_f); // perf B1
 
 	Cvar_RegisterVariable (&fraglimit);

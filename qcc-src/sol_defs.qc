@@ -63,6 +63,7 @@ float           teamlimit; // used to determine when to end team based games
 .float counted_needle;		// B2: 1 = projectile tracked in owner.live_needles (Mario needles untracked)
 // B10-impl: sticky plasma nade trail/attach flash (sv_grenade_trail)
 .float trail_flash_end;		// 0 = none; else time when EF_DIMLIGHT reverts to EF_FLAG2
+.float bot_last_swap;		// B12: time of this bot's last weapon swap (swap cooldown)
 
 .float ammo_shells2;
 .float ammo_hshells;
@@ -107,6 +108,92 @@ float   IT_BR                           = 90248441;         // solitude
 #define WEAPON_BR           IT_BR
 #define WEAPON_GHOST        IT_GHOST
 #define WEAPON_FLAG         IT_FLAG
+
+// perf B12 - bot weapon-swap preference. bot_want_swap(gun, bot) is the
+// single gate consulted by the drop-current-and-replace branch of
+// weapon_touch (sol_items.qc) and by the bot pickup desire in
+// frikbot/bot_ai.qc priority_for_thing. Rule: strict tier upgrade only
+// (ties never swap, so bots also stop ping-ponging the no-op trio); a
+// one-tier gap additionally needs an ammo-score win with BOT_SWAP_MARGIN
+// hysteresis; BOT_SWAP_COOLDOWN seconds must pass between swaps per bot.
+// Tier order approved 2026-11-14 (strongest first): Sniper > Rocket >
+// Needler > AR > Shotgun > SMG > PlasmaPistol > Pistol > Sword > no-op
+// floor (Plasma Rifle, Skull and Battle Rifle share tier 1 by user
+// design - bots never swap into them and never swap between them).
+// Score = tier*100 + bundled ammo (clamped 0..99), same field convention
+// as the owned-weapon top-up in weapon_touch.
+#define BOT_SWAP_MARGIN		20
+#define BOT_SWAP_COOLDOWN	5
+
+float(float w) bot_weapon_tier =
+{
+	if (w & WEAPON_SNIPER)
+		return 11;
+	if (w & WEAPON_RL)
+		return 10;
+	if (w & WEAPON_NEEDLER)
+		return 9;
+	if (w & WEAPON_AR)
+		return 8;
+	if (w & WEAPON_SHOT)
+		return 7;
+	if (w & WEAPON_UZI)
+		return 6;
+	if (w & WEAPON_PPISTOL)
+		return 5;
+	if (w & WEAPON_PISTOL)
+		return 4;
+	if (w & WEAPON_SWORD)
+		return 3;
+	return 1;	// WEAPON_PRIFLE / WEAPON_SKULL / WEAPON_BR / anything else
+};
+
+float(float a) bot_ammo_clamp =
+{
+	if (a <= 0)
+		return 0;
+	if (a > 99)
+		return 99;
+	return a;
+};
+
+// Ammo bundled with a ground gun entity. W_UpdateAmmoCounts re-mirrors
+// the gun's ammo pools (baked by SetWeaponAmmo / CopyAmmo) into
+// currentammo and armorvalue; pure switch and idempotent - the top-up
+// branch of weapon_touch does exactly this before reading the fields.
+float(entity gun) bot_gun_ammo =
+{
+	W_UpdateAmmoCounts(gun);
+	if (gun.weapon & WEAPON_PPISTOL || gun.weapon & WEAPON_PRIFLE)
+		return bot_ammo_clamp(gun.currentammo);
+	return bot_ammo_clamp(gun.armorvalue);
+};
+
+// Ammo the bot would eject together with its current gun (the swap's
+// CopyAmmo moves the pool onto the thrown weapon). Same mirror, same
+// field convention.
+float(entity bot) bot_carried_ammo =
+{
+	W_UpdateAmmoCounts(bot);
+	if (bot.weapon & WEAPON_PPISTOL || bot.weapon & WEAPON_PRIFLE)
+		return bot_ammo_clamp(bot.currentammo);
+	return bot_ammo_clamp(bot.armorvalue);
+};
+
+float(entity gun, entity bot) bot_want_swap =
+{
+	local float gt, bt;
+
+	if (time - bot.bot_last_swap < BOT_SWAP_COOLDOWN)
+		return FALSE;
+	gt = bot_weapon_tier(gun.weapon);
+	bt = bot_weapon_tier(bot.weapon);
+	if (gt <= bt)
+		return FALSE;
+	if (gt - bt >= 2)
+		return TRUE;	// ammo is clamped 0..99, can never cover 2 tiers
+	return 100 * gt + bot_gun_ammo(gun) > 100 * bt + bot_carried_ammo(bot) + BOT_SWAP_MARGIN;
+};
 
 // Zooming
 .float pfov;
