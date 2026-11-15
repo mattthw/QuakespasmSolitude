@@ -220,10 +220,13 @@ static float TTF_AtlasDraw (glfont_atlas_t *f, int x, int y, const char *str, fl
 			y1 = y + (ch->yoff + (ch->y1 - ch->y0)) * sc;
 			u0 = (float)ch->x0; v0 = (float)ch->y0;
 			u1 = (float)ch->x1; v1 = (float)ch->y1;
-			glTexCoord2f (u0/GLFONT_W, v0/GLFONT_H); glVertex2f (x0, y0);
-			glTexCoord2f (u1/GLFONT_W, v0/GLFONT_H); glVertex2f (x1, y0);
-			glTexCoord2f (u1/GLFONT_W, v1/GLFONT_H); glVertex2f (x1, y1);
-			glTexCoord2f (u0/GLFONT_W, v1/GLFONT_H); glVertex2f (x0, y1);
+			/* visor: 2x2 tessellated cell grid so glyph baselines curve
+			 * with the dome (gl_hud.c); the identity path emits the
+			 * original four verts, byte-for-byte the old batch. */
+			{
+				float uv[4] = { u0/GLFONT_W, v0/GLFONT_H, u1/GLFONT_W, v1/GLFONT_H };
+				HUD_WarpQuad (x0, y0, x1 - x0, y1 - y0, uv, 2);
+			}
 			x += ch->xadvance * sc;
 		}
 	}

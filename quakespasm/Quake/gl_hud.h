@@ -42,6 +42,15 @@ void MiniDeathmatchOverlay (void);
 
 void HUD_Init (void);
 
+// visor warp (issue #40, HUD half) -- emit-time barrel warp, gl_hud.c
+extern cvar_t visor_warp;
+extern cvar_t visor_zoom;
+void     HUD_SetWarpStrength (float k);
+qboolean HUD_WarpActive (void);
+void     HUD_WarpPoint (float x, float y, float *ox, float *oy);
+void     HUD_WarpQuad (float x, float y, float w, float h, const float uv[4], int tess);
+void     HUD_WarpPic (float x, float y, float w, float h, qpic_t *pic);
+
 //void HUD_NewMap (void);
 // perf B1 - per-frame timing buckets behind r_perfhud
 typedef enum

@@ -3283,6 +3283,8 @@ static const uni_row_t uni_gfx_rows[] =
 #endif
 	{"Field of View",   &scr_fov,       75, 130, 5,    0, 0, NULL, NULL, "How wide your view is. Impact: none."},
 	{"Water Opacity",   &r_wateralpha,   0,   1, 0.1,  1, 0, NULL, NULL, "How clear the water looks. Impact: low."},
+	{"Visor Warp",      &visor_warp,     0, 0.25, 0.01, 1, 0, NULL, NULL, "Curves the HUD onto the visor. Impact: none."},
+	{"Visor Zoom",      &visor_zoom,     0, 1, 0.05, 1, 0, NULL, NULL, "Pulls the warped HUD back into view. Impact: none."},
 	{"Texture Filter",  NULL,            0,   1, 1,    0, 1, UNI_SetTexMode, UNI_ShowTexMode, "Smooth vs crisp textures. Impact: low."},
 	{"Vertical Sync",   &vid_vsync,      0,   1, 1,    0, 0, NULL, NULL, "Match the display refresh, no tearing. Impact: none."},
 #ifdef VITA

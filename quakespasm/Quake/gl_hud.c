@@ -21,6 +21,177 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
+/* ======================================================================
+ * visor warp -- Halo visor barrel distortion, HUD ONLY (issue #40, the
+ * vertex-time half). CPU-side, applied per vertex at emit time inside the
+ * HUD warp windows only: menus, console, the TAB leaderboard
+ * (HUD_DrawShield) and the perf overlay stay outside the dome and draw
+ * straight. World and viewmodels are untouched -- that is the FBO pass.
+ * Shape: the #40 radial expansion, normalized PER AXIS by its own
+ * half-extent so horizontal and vertical curvature read equally strong
+ * (visual pass: normalizing both axes by h alone curves the wide axis far
+ * harder -- reads as a one-axis barrel). The expansion is divided by a
+ * constant counter-zoom, tunable with visor_zoom, because the raw warp
+ * pushes the corners off frame, and the rim-pinned membrane variant
+ * distorted frame-adjacent widgets (radar stretched, capsule lensed).
+ * With
+ *   hx = glwidth/2, hy = glheight/2,
+ *   dx = (x-cx)/hx, dy = (y-cy)/hy,   q = dx*dx + dy*dy  (corner q = 2)
+ *   s = (1 + k*q) / (1 + 2*k*v)       k = visor_warp (0..0.25, ship 0.18)
+ *                                     v = visor_zoom (0..1, ship 0.65)
+ *   out = (cx + dx*hx*s, cy + dy*hy*s).
+ * v=1 maps the four screen corners exactly onto the frame (nothing
+ * clips); v=0 is the raw expansion (corners may clip). Cost of the
+ * zoom: center content scales by 1/(1+2kv) -- at k=0.12, v=1 that is
+ * 0.81x -- so the reticle ring and HUD text shrink slightly as k rises.
+ * cx/cy/hx/hy/denom are refreshed once per HUD frame (resize guard;
+ * visor_zoom is read here, not per vertex). k==0 and non-HUD emission
+ * take the identity path, byte-for-byte the old output.
+ * ====================================================================== */
+cvar_t visor_warp = {"visor_warp", "0.18", CVAR_ARCHIVE};
+cvar_t visor_zoom = {"visor_zoom", "0.65", CVAR_ARCHIVE};    /* counter-zoom 0..1 */
+
+static float    hud_warp_k;
+static float    hud_warp_cx, hud_warp_cy, hud_warp_hx, hud_warp_hy, hud_warp_denom;
+static qboolean hud_warp_busy;    /* only warp-window call trees warp */
+
+void HUD_SetWarpStrength (float k)
+{
+    float v;
+
+    if (k < 0.0f) k = 0.0f;
+    if (k > 0.25f) k = 0.25f;
+    hud_warp_k = k;
+    v = visor_zoom.value;
+    if (v < 0.0f) v = 0.0f;
+    if (v > 1.0f) v = 1.0f;
+    hud_warp_denom = 1.0f + 2.0f * k * v;    /* corner counter-zoom, tunable */
+    hud_warp_cx = (float)glwidth * 0.5f;
+    hud_warp_cy = (float)glheight * 0.5f;
+    hud_warp_hx = (float)glwidth * 0.5f;
+    hud_warp_hy = (float)glheight * 0.5f;
+    if (hud_warp_hx < 1.0f)
+        hud_warp_hx = 1.0f;    /* degenerate viewport: stay identity-safe */
+    if (hud_warp_hy < 1.0f)
+        hud_warp_hy = 1.0f;
+}
+
+qboolean HUD_WarpActive (void)
+{
+    return hud_warp_busy && hud_warp_k > 0.0f;
+}
+
+void HUD_WarpPoint (float x, float y, float *ox, float *oy)
+{
+    float dx, dy, s;
+
+    if (!HUD_WarpActive ())
+    {
+        *ox = x;
+        *oy = y;
+        return;
+    }
+    dx = (x - hud_warp_cx) / hud_warp_hx;
+    dy = (y - hud_warp_cy) / hud_warp_hy;
+    s = (1.0f + hud_warp_k * (dx*dx + dy*dy)) / hud_warp_denom;
+    *ox = hud_warp_cx + dx * hud_warp_hx * s;
+    *oy = hud_warp_cy + dy * hud_warp_hy * s;
+}
+
+/* Open/close a warp window. HUD_Draw wraps its call tree; the mini
+ * scorebar (called from Sbar_Draw just outside HUD_Draw) rides the dome
+ * too (user), so it opens its own window. Returns the previous state so
+ * nesting keeps working; strength is re-read live on enter. */
+static qboolean HUD_WarpEnter (void)
+{
+    qboolean was = hud_warp_busy;
+    HUD_SetWarpStrength (visor_warp.value);
+    hud_warp_busy = true;
+    return was;
+}
+
+static void HUD_WarpLeave (qboolean was)
+{
+    hud_warp_busy = was;
+    if (!was)
+        HUD_SetWarpStrength (0.0f);
+}
+
+/* shorthand for the parametric lists (fans, loops, tris) */
+static void HUD_WarpVert (float x, float y)
+{
+    float ox, oy;
+    HUD_WarpPoint (x, y, &ox, &oy);
+    glVertex2f (ox, oy);
+}
+
+/* Emits one rect inside the CALLER's glBegin(GL_QUADS). uv[4] =
+ * {u0,v0,u1,v1}, corners mapped bilinearly. While warping the rect becomes
+ * a tess x tess cell grid -- one warped quad keeps its straight edges,
+ * which read as broken panel seams (plan). The identity path emits the
+ * same four TL,TR,BR,BL verts the legacy code did. */
+void HUD_WarpQuad (float x, float y, float w, float h, const float uv[4], int tess)
+{
+    float ox, oy;
+    int i, j;
+
+    if (!HUD_WarpActive ())
+    {
+        glTexCoord2f (uv[0], uv[1]); glVertex2f (x,   y);
+        glTexCoord2f (uv[2], uv[1]); glVertex2f (x+w, y);
+        glTexCoord2f (uv[2], uv[3]); glVertex2f (x+w, y+h);
+        glTexCoord2f (uv[0], uv[3]); glVertex2f (x,   y+h);
+        return;
+    }
+    if (tess < 2) tess = 2;
+    for (j = 0; j < tess; j++)
+        for (i = 0; i < tess; i++)
+        {
+            float f0 = (float)i / (float)tess, f1 = (float)(i+1) / (float)tess;
+            float g0 = (float)j / (float)tess, g1 = (float)(j+1) / (float)tess;
+            float u0 = uv[0] + (uv[2]-uv[0])*f0, u1 = uv[0] + (uv[2]-uv[0])*f1;
+            float v0 = uv[1] + (uv[3]-uv[1])*g0, v1 = uv[1] + (uv[3]-uv[1])*g1;
+            glTexCoord2f (u0, v0); HUD_WarpPoint (x+w*f0, y+h*g0, &ox, &oy); glVertex2f (ox, oy);
+            glTexCoord2f (u1, v0); HUD_WarpPoint (x+w*f1, y+h*g0, &ox, &oy); glVertex2f (ox, oy);
+            glTexCoord2f (u1, v1); HUD_WarpPoint (x+w*f1, y+h*g1, &ox, &oy); glVertex2f (ox, oy);
+            glTexCoord2f (u0, v1); HUD_WarpPoint (x+w*f0, y+h*g1, &ox, &oy); glVertex2f (ox, oy);
+        }
+}
+
+/* glpic_t is private to gl_draw.c; mirror it (layout must stay in sync). */
+typedef struct { gltexture_t *gltexture; float sl, tl, sh, th; } hud_glpic_t;
+
+/* Warp-aware Draw_StretchPic: same bind+quad, no state changes.
+ * (Scrap_Upload is skipped on purpose: HUD pics never stage through scrap.) */
+void HUD_WarpPic (float x, float y, float w, float h, qpic_t *pic)
+{
+    hud_glpic_t *gl = (hud_glpic_t *)pic->data;
+    float uv[4] = { gl->sl, gl->tl, gl->sh, gl->th };
+
+    GL_Bind (gl->gltexture);
+    glBegin (GL_QUADS);
+    HUD_WarpQuad (x, y, w, h, uv, 4);
+    glEnd ();
+}
+
+/* Warp-aware Draw_FillRGBA (state recipe mirrored from gl_draw.c). */
+static void HUD_WarpFill (float x, float y, float w, float h, float r, float g, float b, float a)
+{
+    float uv[4] = {0, 0, 1, 1};
+
+    glDisable (GL_TEXTURE_2D);
+    glEnable (GL_BLEND);
+    glDisable (GL_ALPHA_TEST);
+    glColor4f (r, g, b, a);
+    glBegin (GL_QUADS);
+    HUD_WarpQuad (x, y, w, h, uv, 4);
+    glEnd ();
+    glColor3f (1,1,1);
+    glDisable (GL_BLEND);
+    glEnable (GL_ALPHA_TEST);
+    glEnable (GL_TEXTURE_2D);
+}
+
 /* r71: right-pointing filled triangle (mini-overlay caret). Fixed-function,
  * Vita-safe; premul canvas so bake the opacity into rgb at the callsite. */
 static void HUD_FillTriRight (float x, float y, float w, float h, float cr, float cg, float cb, float a)
@@ -30,9 +201,9 @@ static void HUD_FillTriRight (float x, float y, float w, float h, float cr, floa
     glEnable (GL_BLEND);
     glBegin (GL_TRIANGLES);
     glColor4f (cr, cg, cb, a);
-    glVertex2f (x, y);
-    glVertex2f (x, y+h);
-    glVertex2f (x+w, y+h*0.5f);
+    HUD_WarpVert (x, y);
+    HUD_WarpVert (x, y+h);
+    HUD_WarpVert (x+w, y+h*0.5f);
     glEnd ();
     glDisable (GL_BLEND);
     glEnable (GL_ALPHA_TEST);
@@ -212,6 +383,8 @@ void HUD_Init (void) {
     Cvar_RegisterVariable (&radar_hold);	//r66
     Cvar_RegisterVariable (&cl_overlay);
     Cvar_RegisterVariable (&hide_hud);
+    Cvar_RegisterVariable (&visor_warp);	//visor: HUD barrel warp (issue #40)
+    Cvar_RegisterVariable (&visor_zoom);	//visor: corner counter-zoom
 
     // buttons
     if (sceKernelGetModel() == 0x20000) { // PSTV
@@ -497,7 +670,7 @@ static void HUD_DrawCircle (float x, float y, float r, float cr, float cg, float
     for (i = 0; i < n; i++)
     {
         float a = (float)i * (tau / (float)n);
-        glVertex2f (x + r * cosf (a), y + r * sinf (a));
+        HUD_WarpVert (x + r * cosf (a), y + r * sinf (a));
     }
     glEnd ();
     glColor3f (1,1,1);
@@ -623,8 +796,8 @@ void drawPickupWeapon(void) {
     /* Y button box is 16*0.8 design px; center it on the text line instead of
      * Draw_ButtonScaled's -4 fudge (that was for 8px conchars rows).
      * TTF baseline sits at glheight*0.24 - 8*s; cap-center ~ 5*s above it. */
-    Draw_StretchPic((int)(glwidth*0.67), (int)(glheight*0.26 - 8*s - 4*s - 7.2f*s),
-                    b_ybutton, (int)(14.0f*s), (int)(14.0f*s));
+    HUD_WarpPic((int)(glwidth*0.67), (int)(glheight*0.26 - 8*s - 4*s - 7.2f*s),
+                (14.0f*s), (14.0f*s), b_ybutton);
     Draw_TTFString(glwidth*0.7, glheight*0.26 - 8*s, prompt, 1, 1, 1, 1, 16.0f*s);
 }
 
@@ -768,7 +941,7 @@ static void Draw_TrapezoidGrad (float x, float y, float w, float h, float d,
             if (t < 0.0f) t = 0.0f;
             if (t > 1.0f) t = 1.0f;
             glColor4f (rt + (rb-rt)*t, gt + (gb-gt)*t, bt + (bb-bt)*t, a);
-            glVertex2f (px[k], py[k]);
+            HUD_WarpVert (px[k], py[k]);   /* visor: color rides the warped vertex */
         }
     glEnd ();
     glColor3f (1,1,1);
@@ -902,10 +1075,10 @@ void drawHealth(void)
                 int bw = (int)(fw - 2.0f*slant - 4.0f);
                 if (bw > 2)
                 {
-                    Draw_FillRGBA (bx, (int)(health_blue_attr.y + inset + 1.0f), bw, 2,
-                                   0.315f, 0.525f, 0.70f, 0.35f);
-                    Draw_FillRGBA (bx, (int)(health_blue_attr.y + health_blue_attr.height - inset - 3.0f), bw, 2,
-                                   0.014f, 0.028f, 0.07f, 0.35f);
+                    HUD_WarpFill (bx, (int)(health_blue_attr.y + inset + 1.0f), bw, 2,
+                                  0.315f, 0.525f, 0.70f, 0.35f);
+                    HUD_WarpFill (bx, (int)(health_blue_attr.y + health_blue_attr.height - inset - 3.0f), bw, 2,
+                                  0.014f, 0.028f, 0.07f, 0.35f);
                 }
             }
             /* r17: segment ticks removed — Halo 3 bars don't have them
@@ -1064,6 +1237,11 @@ void MiniDeathmatchOverlay (void)
     if (sb_showscores)          /* r73: score cluster hides under the leaderboard */
         return;
 
+    /* visor: the score cluster and the gamemode/timer widget ride the
+     * dome too (user: they are HUD). Drawn from Sbar_Draw outside
+     * HUD_Draw, so it opens its own warp window. */
+    qboolean warp_was = HUD_WarpEnter ();
+
     y = 0.0;
 
     /* P2a relocation: score cluster anchors bottom-RIGHT (Halo 3 manual
@@ -1151,10 +1329,10 @@ void MiniDeathmatchOverlay (void)
                 byte *pc = (byte *)&d_8to24table[bottom];
                 float tr = pc[0]/255.0f, tg = pc[1]/255.0f, tb = pc[2]/255.0f;
                 float fr = tr*0.85f, fg = tg*0.85f, fb = tb*0.85f;   /* r59e: bright fill (user: mini-overlay "bad colors and no alpha") */
-                Draw_FillRGBA (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, tr*0.18f, tg*0.18f, tb*0.18f, 0.18f);   /* r61: match LB border */
-                Draw_FillRGBA (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), tr*0.55f, tg*0.55f, tb*0.55f, 0.55f);   /* r61: match LB backing */
+                HUD_WarpFill (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, tr*0.18f, tg*0.18f, tb*0.18f, 0.18f);   /* r61: match LB border */
+                HUD_WarpFill (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), tr*0.55f, tg*0.55f, tb*0.55f, 0.55f);   /* r61: match LB backing */
                 // draw foreground
-                Draw_FillRGBA (SX, glheight*(0.8+y), boxw*CLAMP (new_max (teamscores[i].scoreTotal/(teamlimit.value > 0 ? teamlimit.value : (fraglimit.value > 0 ? fraglimit.value : new_max(teamscores[0].scoreTotal, 1.0f))), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), fr, fg, fb, 0.65f);
+                HUD_WarpFill (SX, glheight*(0.8+y), boxw*CLAMP (new_max (teamscores[i].scoreTotal/(teamlimit.value > 0 ? teamlimit.value : (fraglimit.value > 0 ? fraglimit.value : new_max(teamscores[0].scoreTotal, 1.0f))), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), fr, fg, fb, 0.65f);
             }
             // draw score
             /* r71: blue caret marks my team's bar (#43 addendum; user ask). */
@@ -1204,10 +1382,10 @@ void MiniDeathmatchOverlay (void)
                 byte *pc = (byte *)&d_8to24table[bottom];
                 float tr = pc[0]/255.0f, tg = pc[1]/255.0f, tb = pc[2]/255.0f;
                 float fr = tr*0.85f, fg = tg*0.85f, fb = tb*0.85f;   /* r59e: bright fill (user: mini-overlay "bad colors and no alpha") */
-                Draw_FillRGBA (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, tr*0.18f, tg*0.18f, tb*0.18f, 0.18f);   /* r61: match LB border */
-                Draw_FillRGBA (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), tr*0.55f, tg*0.55f, tb*0.55f, 0.55f);   /* r61: match LB backing */
+                HUD_WarpFill (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, tr*0.18f, tg*0.18f, tb*0.18f, 0.18f);   /* r61: match LB border */
+                HUD_WarpFill (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), tr*0.55f, tg*0.55f, tb*0.55f, 0.55f);   /* r61: match LB backing */
                 // draw foreground
-                Draw_FillRGBA (SX, glheight*(0.8+y), boxw*CLAMP (new_max (f/(fraglimit.value > 0 ? fraglimit.value : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), fr, fg, fb, 0.65f);
+                HUD_WarpFill (SX, glheight*(0.8+y), boxw*CLAMP (new_max (f/(fraglimit.value > 0 ? fraglimit.value : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), fr, fg, fb, 0.65f);
             }
             /* r75: blue caret marks MY row in deathmatch too (user). */
             if (k == cl.viewentity - 1)
@@ -1219,6 +1397,8 @@ void MiniDeathmatchOverlay (void)
             y += (22.0f*HUD_SCALE())/glheight;   /* box height + 2px gap in design px */
         }
     }
+
+    HUD_WarpLeave (warp_was);
 }
 
 void drawMedal (void)
@@ -1244,7 +1424,20 @@ void drawMedal (void)
         return;		/* missing art must not crash the HUD */
     /* scaled with the sbar, per the old todo: same anchor model as the
      * health pics (fraction of free space, art scaled by HUD_SCALE) */
-    Draw_HudPic (getHudPicAttr (0.08, 0.5, drawmedal), drawmedal);
+    /* visor: warp-aware Draw_HudPic -- same state dance (alpha==1 branch),
+     * quad emitted through HUD_WarpQuad instead of the straight 4 verts */
+    {
+        struct PicAttr attr = getHudPicAttr (0.08, 0.5, drawmedal);
+        glEnable (GL_BLEND);
+        glColor4f (1,1,1,1);
+        glDisable (GL_ALPHA_TEST);
+        glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        HUD_WarpPic (attr.x, attr.y, attr.width, attr.height, drawmedal);
+        glTexEnvf (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+        glEnable (GL_ALPHA_TEST);
+        glDisable (GL_BLEND);
+        glColor4f (1,1,1,1);
+    }
 }
 
 /* P2a: shield bubble stays visible while the TAB leaderboard covers the
@@ -1266,11 +1459,11 @@ static void HUD_FillCircle (float x, float y, float r, float cr, float cg, float
     glEnable (GL_BLEND);
     glBegin (GL_TRIANGLE_FAN);
     glColor4f (cr, cg, cb, a);
-    glVertex2f (x, y);
+    HUD_WarpVert (x, y);
     for (i = 0; i <= 28; i++)
     {
         float ang = (float)i * (6.28318530718f / 28.0f);
-        glVertex2f (x + cosf (ang) * r, y + sinf (ang) * r);
+        HUD_WarpVert (x + cosf (ang) * r, y + sinf (ang) * r);
     }
     glEnd ();
     glDisable (GL_BLEND);
@@ -1320,11 +1513,11 @@ static void drawRadar (void)
         float pulse = 0.06f + 0.14f * (0.5f + 0.5f * sinf ((float)realtime * 2.2f));   /* r66g: way darker - 0.06..0.20 (user: still too solid) */
         glColor4f (0.45f*pulse, 0.75f*pulse, 1.00f*pulse, pulse);
     }
-    glVertex2f (rcx, rcy);
+    HUD_WarpVert (rcx, rcy);
     for (k = 0; k <= 16; k++)
     {
         float ang = (-145.0f + (float)k * (110.0f / 16.0f)) * 0.0174532f;   /* r66e: mid -90, was tilted 10 deg left */
-        glVertex2f (rcx + cosf (ang) * R * 0.95f, rcy + sinf (ang) * R * 0.95f);
+        HUD_WarpVert (rcx + cosf (ang) * R * 0.95f, rcy + sinf (ang) * R * 0.95f);
     }
     glEnd ();
 
@@ -1464,6 +1657,10 @@ void HUD_Draw (void) {
     if (hud_mapshot.value)        /* r83: master switch for map-photo capture */
         return;
     GL_SetCanvas(CANVAS_DEFAULT);
+    /* visor: the dome is on for exactly this call tree; everything that
+     * draws outside a warp window (menus, console, leaderboard shield,
+     * perf overlay) sees the identity path. */
+    qboolean warp_was = HUD_WarpEnter ();
     drawHealth();
     drawWeapon();
     drawGrenades();
@@ -1472,6 +1669,7 @@ void HUD_Draw (void) {
     drawNameplates();
     drawRadar();   /* r66 Tracker-0 */
     drawPickupWeapon();
+    HUD_WarpLeave (warp_was);
 //    if (!*cl.scores[1].name) {
 //        Draw_ColoredStringScale(0, glheight-(8*0.8f*HUD_SCALE()), "Its too quiet, Chief! Add bots to get started.", 1,1,1,1,0.8f*HUD_SCALE());
 //    }
