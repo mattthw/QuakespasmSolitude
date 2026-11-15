@@ -172,6 +172,9 @@ muzzle.nextthink = time + 0.01;
 // muzzleflash2's art but NOT its offset: the long barrel puts the muzzle far
 // forward and on the centerline, so the flash sits at the crosshair instead of
 // hovering at the hand. Static style (no follow/roll).
+// 2026-11-14: sits near screen center, offset ~5% down-right from middle:
+// v_right +5, z 17 (eye/center line is z 22 at the 50-unit barrel depth,
+// 1 unit ~ 1% of screen).  Earlier 18-right variants were too far off-axis.
 void() muzzleflashsniper = {
 local entity muzzle;
 muzzle = spawn();
@@ -180,7 +183,7 @@ muzzle.owner = self;
 muzzle.solid = SOLID_NOT;
 
 setmodel(muzzle,"sprites/muzzleflash1.spr");
-setorigin(muzzle,self.origin + v_forward * 50 + v_right * 0 + '0 0 14');
+setorigin(muzzle,self.origin + v_forward * 50 + v_right * 5 + '0 0 17');
 muzzle.think = muzzleflash_think;
 muzzle.nextthink = time + 0.01;
 };
