@@ -43,6 +43,11 @@ cvar_t	cl_rollangle = {"cl_rollangle", "2.0", CVAR_NONE};
 cvar_t	cl_bob = {"cl_bob","0.02", CVAR_NONE};
 cvar_t	cl_bobcycle = {"cl_bobcycle","0.6", CVAR_NONE};
 cvar_t	cl_bobup = {"cl_bobup","0.5", CVAR_NONE};
+cvar_t	cl_bobstyle = {"cl_bobstyle","1", CVAR_ARCHIVE};	//0 = vanilla, 1 = Halo-style (stable camera, viewmodel carries the motion)
+cvar_t	cl_cambob = {"cl_cambob","0.1", CVAR_ARCHIVE};	//style 1: fraction of bob amplitude on the camera (vertical only)
+cvar_t	cl_gunbob = {"cl_gunbob","0.25", CVAR_ARCHIVE};	//style 1: gun vertical bob, added on top of camera fraction
+cvar_t	cl_gunsway = {"cl_gunsway","1", CVAR_ARCHIVE};	//style 1: gun footstep sway -- lateral slide + rigid yaw about the shoulder pivot (negative = reverse rotation)
+cvar_t	cl_gunlag = {"cl_gunlag","1", CVAR_ARCHIVE};	//style 1: gun trails opposite to movement (weapon weight)
 
 cvar_t	v_kicktime = {"v_kicktime", "0.5", CVAR_NONE};
 cvar_t	v_kickroll = {"v_kickroll", "0.6", CVAR_NONE};
@@ -171,6 +176,97 @@ float V_CalcBob (void)
 	else if (bob < -7)
 		bob = -7;
 	return bob;
+}
+
+/*
+===============
+V_CalcBobSmooth
+
+cl_bobstyle 1 -- the camera barely moves; the viewmodel carries the
+rhythm, Halo-style:
+
+ - phase advances with DISTANCE TRAVELLED, so cadence follows your
+   stride instead of a wall clock (cl_bobcycle * 320 = units per step,
+   i.e. same rhythm as vanilla at full run speed)
+ - amplitude is smoothed and gated on ground contact: no popping on
+   accel spikes, no pumping in mid-air
+ - the wave is symmetric (drops the old bob*0.3 DC lift)
+ - the gun gets a side-to-side footstep sway and trails opposite to
+   its velocity (weapon weight); nothing pistons along the view axis
+
+Sets v_smoothbob / v_gunbob_z / v_gunbob_side / v_gunsway_yaw / v_gunlag,
+consumed by V_CalcRefdef.  The sway is a rigid-body yaw about a near-eye
+pivot: perspective makes the butt sweep a wide V while the muzzle traces
+a small arc that stays converged on the crosshair.  Pure client-side
+cosmetics: demos and netplay are unaffected either way.
+===============
+*/
+static float	v_smoothbob;
+static float	v_gunbob_z;
+static float	v_gunbob_side;
+static float	v_gunsway_yaw;
+static float	v_gunlag[2];
+static float	bob_phase, bob_amp;
+
+static void V_CalcBobSmooth (float dt)
+{
+	vec3_t		forward, right, up;
+	int			i;
+	float		speed, vert, side, want[2];
+
+	if (dt <= 0 || dt > 0.1)
+		dt = 0.01;
+
+	if (!cl_bob.value)
+	{
+		v_smoothbob = v_gunbob_z = v_gunbob_side = v_gunsway_yaw = 0;
+		v_gunlag[0] = v_gunlag[1] = 0;
+		bob_phase = bob_amp = 0;
+		return;
+	}
+
+// bob is proportional to velocity in the xy plane
+// (don't count Z, or jumping messes it up)
+	speed = sqrt (cl.velocity[0]*cl.velocity[0] + cl.velocity[1]*cl.velocity[1]);
+
+// amplitude eases toward the speed-scaled target (~0.17s time constant)
+// and decays to zero in the air.  Speed input is capped at run speed so
+// rocket jumps / SRA can't inflate the swing (vanilla's +4/-7 clamp used
+// to cap it implicitly; the symmetric wave needs its own cap)
+	{
+		float target = (cl.onground ? q_min(speed, 320.f) : 0.f) * cl_bob.value;
+		bob_amp += (target - bob_amp) * (1 - exp (-dt * 6.0));
+	}
+
+// stride-locked phase: one cycle per step, wrapped over two steps so
+// the lateral sway can alternate feet
+	if (cl_bobcycle.value > 0)
+		bob_phase += speed * dt / (cl_bobcycle.value * 320);
+	bob_phase = bob_phase - (int)(bob_phase / 2) * 2;
+	vert = sin (bob_phase * 2*M_PI);	//full cycle = one step
+	side = sin (bob_phase * M_PI);		//one cycle = two steps (L/R feet)
+
+	v_smoothbob = vert * bob_amp * cl_cambob.value;
+	v_gunbob_z = vert * bob_amp * cl_gunbob.value;
+// sway: one lateral cycle per two steps (feet alternate).  Slide is kept
+// small (it moves the muzzle); the yaw below is the main cue, and it is
+// applied muzzle-pinned, so its motion lands on the stock/shoulder end
+	v_gunbob_side = side * bob_amp * 0.15 * cl_gunsway.value;
+	v_gunsway_yaw = side * bob_amp * 0.30 * cl_gunsway.value;	//degrees at full amp
+
+// gun velocity lag: move forward -> gun trails back, strafe left ->
+// gun lags right.  ~2 units of trail at full run speed.
+	AngleVectors (cl.viewangles, forward, right, up);
+	want[0] = -DotProduct (cl.velocity, forward) * cl_gunlag.value * (1.92/320);
+	want[1] = -DotProduct (cl.velocity, right) * cl_gunlag.value * (1.92/320);
+	for (i = 0; i < 2; i++)
+	{
+		v_gunlag[i] += (want[i] - v_gunlag[i]) * (1 - exp (-dt * 6.0));
+		if (v_gunlag[i] > 4)
+			v_gunlag[i] = 4;
+		else if (v_gunlag[i] < -4)
+			v_gunlag[i] = -4;
+	}
 }
 
 
@@ -864,7 +960,13 @@ void V_CalcRefdef (void)
 	ent->angles[YAW] = cl.viewangles[YAW];	// the model should face the view dir
 	ent->angles[PITCH] = -cl.viewangles[PITCH];	// the model should face the view dir
 
-	bob = V_CalcBob ();
+	if (cl_bobstyle.value >= 1)
+	{	//Halo-style: `bob` becomes the camera's (small) share, gun handled below
+		V_CalcBobSmooth (cl.time - cl.oldtime);
+		bob = v_smoothbob;
+	}
+	else
+		bob = V_CalcBob ();
 
 // refresh position
 	VectorCopy (ent->origin, r_refdef.vieworg);
@@ -903,7 +1005,21 @@ void V_CalcRefdef (void)
 	view->origin[2] += cl.stats[STAT_VIEWHEIGHT];
 	
 	VectorCopy (r_refdef.vieworg, view->origin);
-	VectorMA (view->origin, bob * 0.4, forward, view->origin);
+	if (cl_bobstyle.value >= 1)
+	{	//gun does all the walking: its own bob + footstep sway + velocity lag (no forward piston)
+		view->origin[2] += v_gunbob_z;
+		VectorMA (view->origin, v_gunbob_side, right, view->origin);
+		VectorMA (view->origin, v_gunlag[0], forward, view->origin);
+		VectorMA (view->origin, v_gunlag[1], right, view->origin);
+		view->angles[YAW] -= v_gunsway_yaw;
+		//yaw is pivoted about the nozzle, not the model origin: undo the
+		//arc a point ~10 units ahead would sweep, so rotation cancels at
+		//the muzzle (locked on the crosshair) and piles up at the stock --
+		//the shoulder end swings, the nose end doesn't
+		VectorMA (view->origin, -v_gunsway_yaw * (M_PI/180) * 10, right, view->origin);
+	}
+	else
+		VectorMA (view->origin, bob * 0.4, forward, view->origin);
 
 	if (r_viewmodeloffset.string[0]) {
 		float offset[3];
@@ -1070,6 +1186,11 @@ void V_Init (void)
 	Cvar_RegisterVariable (&cl_bob);
 	Cvar_RegisterVariable (&cl_bobcycle);
 	Cvar_RegisterVariable (&cl_bobup);
+	Cvar_RegisterVariable (&cl_bobstyle);
+	Cvar_RegisterVariable (&cl_cambob);
+	Cvar_RegisterVariable (&cl_gunbob);
+	Cvar_RegisterVariable (&cl_gunsway);
+	Cvar_RegisterVariable (&cl_gunlag);
 
 	Cvar_RegisterVariable (&v_kicktime);
 	Cvar_RegisterVariable (&v_kickroll);
