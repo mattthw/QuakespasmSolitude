@@ -1,3 +1,6 @@
+// r102: needle homing must respect teams -- definition in combat.qc
+BOOL(entity targ, entity attacker) OnSameTeam;
+
 void() MarioHome = {
         local vector dir,
         vtemp,
@@ -31,7 +34,12 @@ void() MarioHome = {
             te = findradius(self.origin, 950);
             while (te) {
                 if ((te.classname == "player" || te.flags & FL_MONSTER) && te.health > 0 && te != self.owner) {
-                    self.enemy = te;
+                    // r102: don't retarget onto friendly players. OnSameTeam() is the
+                    // game's own rule: coop = allies always, teamplay compares team
+                    // VALUES (not colors -- colors can be shared in FFA), and with
+                    // teamplay 0 (FFA/slayer) every player stays a valid target.
+                    if (te.classname != "player" || !OnSameTeam(te, self.owner))
+                        self.enemy = te;
                     //bprint("found enemy!\n");
                 }
                 te = te.chain;

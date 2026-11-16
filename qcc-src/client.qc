@@ -750,6 +750,13 @@ called each time a player enters a new level
 ============
 */
 void() PutClientInServer = {
+        // r102: real humans never got a .team id -- only bots set theirs
+        // (b_pants + 1, bot.qc). Without one, OnSameTeam() and team scoring
+        // can never match the player, so friendly needles homed on teammates
+        // and human frags skipped TeamScore_Add. Derive it the same way from
+        // the color band (menu pins band 4 in TDM, matching friend bots).
+        if (self.ishuman == TRUE && cvar("teamplay"))
+                self.team = cvar("bottomcolor") + 1;
         Setup_Gametype(); //Rest is done In gametypes.qc
 };
 

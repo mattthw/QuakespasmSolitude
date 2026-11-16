@@ -1476,7 +1476,13 @@ void() NeedlerHome =
 		bestdist = 950;
 		while (te)
 		{
-			if ( (te.classname == "player" || te.flags & FL_MONSTER) && te.health > 0 && te != self.owner)
+			// r102: skip friendly players when acquiring a target -- OnSameTeam()
+			// is gamemode-aware (teamplay compares team VALUES; FFA teamplay 0
+			// leaves every player valid). Monsters unaffected. (The loop in
+			// NeedleAI.qc MarioHome got the same guard; THAT one is the legacy
+			// Bigneedproy variant, this NeedlerHome is what the needler fires.)
+			if ( (te.classname == "player" || te.flags & FL_MONSTER) && te.health > 0 && te != self.owner
+				&& !(te.classname == "player" && OnSameTeam(te, self.owner)) )
 			{
 				vtemp = te.origin - self.origin;
 				if (vlen(vtemp) < bestdist)
