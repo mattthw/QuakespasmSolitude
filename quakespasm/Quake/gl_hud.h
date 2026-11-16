@@ -45,6 +45,9 @@ void HUD_Init (void);
 // visor warp (issue #40, HUD half) -- emit-time barrel warp, gl_hud.c
 extern cvar_t visor_warp;
 extern cvar_t visor_zoom;
+// r101 editor menu: runtime editor exception + photo switch, defined gl_hud.c
+extern cvar_t editor_mode;
+extern cvar_t hud_mapshot;
 void     HUD_SetWarpStrength (float k);
 qboolean HUD_WarpActive (void);
 void     HUD_WarpPoint (float x, float y, float *ox, float *oy);

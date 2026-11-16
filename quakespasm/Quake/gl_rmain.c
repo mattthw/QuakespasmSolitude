@@ -670,7 +670,7 @@ void R_SetupView (void)
 	//johnfitz -- cheat-protect some draw modes
 	r_drawflat_cheatsafe = r_fullbright_cheatsafe = r_lightmap_cheatsafe = false;
 	r_drawworld_cheatsafe = r_refdef.drawworld;
-	if (cl.maxclients == 1 && r_refdef.drawworld)
+	if ((cl.maxclients == 1 || COM_CheckParm ("-editor") || Cvar_VariableValue ("editor_mode")) && r_refdef.drawworld)	//r100/r101 editor exception
 	{
 		if (!r_drawworld.value) r_drawworld_cheatsafe = false;
 
@@ -904,7 +904,7 @@ void R_ShowTris (void)
 	extern cvar_t r_particles;
 	int i;
 
-	if (r_showtris.value < 1 || r_showtris.value > 2 || cl.maxclients > 1)
+	if (r_showtris.value < 1 || r_showtris.value > 2 || (cl.maxclients > 1 && !COM_CheckParm ("-editor") && !Cvar_VariableValue ("editor_mode")))	//r100/r101 editor exception
 		return;
 
 	if (r_showtris.value == 1)

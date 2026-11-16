@@ -37,19 +37,27 @@ extern cvar_t	r_particles, r_dynamic, gl_flashblend, r_shadows, r_lerpmodels;
 // unified Options menu (perf B7): the cvars its tabs bind to
 extern cvar_t	crosshair, gl_texturemode, vid_vsync, r_viewmodeloffset;
 extern cvar_t	pstv_rumble, retrotouch, motioncam, motion_horizontal_sensitivity, motion_vertical_sensitivity;
+// r101 - Editor tab: map debug cvars (defined gl_rmain.c) + live cheat state (host_cmd.c)
+extern cvar_t	r_showtris, r_speeds, r_novis, r_lightmap, r_fullbright, r_drawflat;
+extern int	Host_CheatState (int which);
+extern cvar_t	sv_noclip_speed;	//r101 noclip fly speed (sv_user.c)
 
 enum
 {
-	UNI_TAB_PERF, UNI_TAB_GFX, UNI_TAB_CTRL, UNI_TAB_SND, UNI_TAB_GEN, UNI_TABS
+	UNI_TAB_EDIT, UNI_TAB_PERF, UNI_TAB_GFX, UNI_TAB_CTRL, UNI_TAB_SND, UNI_TAB_GEN, UNI_TABS
 };
 
-static const char	*uni_tab_names[UNI_TABS] = {"Performance", "Graphics", "Controls", "Sound", "General"};
+static const char	*uni_tab_names[UNI_TABS] = {"Editor", "Performance", "Graphics", "Controls", "Sound", "General"}; // r101: Editor first, but only visible in editor mode
 static int	 uni_tab, uni_cursor, uni_first;
 static enum m_state_e uni_return_state;
 
 static void M_Performance_Body (struct MenuCoords *coords, int rowh, size_t shown);
 static void M_Performance_ResetWindow (void);
 static void M_Options_CycleTab (int dir);
+static void M_Options_SetTab (int tab);		// r101: tab + remembered row
+static void M_Options_OpenTab (void);		// r101: first-open heuristic
+static qboolean UNI_EditorVisible (void);	// r101
+static qboolean UNI_TabVisible (int tab);	// r101
 static void M_Draw_Scrollbar (struct MenuCoords *coords, int rowh, int total, size_t first, int shown);
 static int M_HintIconW (qpic_t *icon);	// perf B7: reuse matchmaking hint icons in the tab strip
 static void M_HintIcon (int *x, int y, qpic_t *icon);
@@ -79,6 +87,7 @@ void M_Menu_Main_f (void);
 		void M_Menu_Keys_f (void);
 		void M_Menu_Video_f (void);
 		void M_Menu_Performance_f (void);	// perf B7
+		void M_Menu_Editor_f (void);	// r101
 	void M_Menu_Help_f (void);
 	void M_Menu_Quit_f (void);
     void M_Menu_Pause_f (void);
@@ -1207,9 +1216,8 @@ int		options_cursor;
 void M_Menu_Options_f (void)
 {
 	uni_return_state = m_state;		// m_main or m_pause at entry
-	uni_tab = UNI_TAB_PERF;			// performance is the default tab (user)
-	uni_cursor = uni_first = 0;
-	M_Performance_ResetWindow ();
+	//r101: remember tab + row across opens; first open picks the tab
+	M_Options_OpenTab ();
 
 	key_dest = key_menu;
 	m_state = m_options;
@@ -2698,8 +2706,8 @@ void M_Matchmaking_Gamerules_Draw (void) {
     if (gamerules_first > gamerules_cursor)
         gamerules_first = gamerules_cursor;
 
-    // background tint (perf B7: opaque, like the unified Options)
-    Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 1.0f);
+    // r101: dim shade behind the menu (user) -- panels themselves are opaque
+    Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 0.7f);
 
     // window
     struct MenuCoords coords = Draw_WindowGrid("Custom Game Rules", vertical_gamerules_affordance, MVS_P, 2, 0.35, 1.0, gamerules_cursor-gamerules_first, true);
@@ -3064,6 +3072,16 @@ void M_Menu_Performance_f (void)
 	M_Menu_Options_f ();
 }
 
+void M_Menu_Editor_f (void)
+{
+	//r101: editmenu lands on the tabbed Options menu's Editor tab. Opening
+	//it is an explicit request for the editor context, so the runtime
+	//switch comes on too (keeps the tab visible while inside).
+	Cvar_SetValue ("editor_mode", 1);	// makes the tab visible, then land on it
+	M_Menu_Options_f ();
+	M_Options_SetTab (UNI_TAB_EDIT);
+}
+
 void M_Performance_Draw (void)
 {
 	size_t			n, shown;
@@ -3273,6 +3291,33 @@ static void UNI_ActionDefaults (int dir)
 	}
 }
 
+//r101 Editor tab: cheat rows exec the engine command (it toggles and prints
+//its own ON/OFF); the state column mirrors Host_CheatState (-1 = n/a, no
+//live player). Rows deliberately ignore dir so arrows and select all toggle,
+//matching the Texture Filter / Mouse Look pill pattern.
+static void UNI_SetGod (int dir)      { (void)dir; Cbuf_AddText ("god\n"); }
+static void UNI_SetNotarget (int dir) { (void)dir; Cbuf_AddText ("notarget\n"); }
+static void UNI_SetFly (int dir)      { (void)dir; Cbuf_AddText ("fly\n"); }
+static void UNI_SetNoclip (int dir)   { (void)dir; Cbuf_AddText ("noclip\n"); }
+static const char *UNI_CheatShow (char *buf, int size, int which)
+{
+	int s = Host_CheatState (which);
+	q_strlcpy (buf, s < 0 ? "n/a" : (s > 0 ? "On" : "Off"), size);
+	return buf;
+}
+static const char *UNI_ShowGod (char *buf, int size)       { return UNI_CheatShow (buf, size, 0); }
+static const char *UNI_ShowNotarget (char *buf, int size)  { return UNI_CheatShow (buf, size, 1); }
+static const char *UNI_ShowFly (char *buf, int size)       { return UNI_CheatShow (buf, size, 2); }
+static const char *UNI_ShowNoclip (char *buf, int size)    { return UNI_CheatShow (buf, size, 3); }
+static void UNI_ActionReview (int dir)
+{
+	(void)dir;
+	//review re-launches the current/last map with editor_mode + queued
+	//cheats; drop out of the menu first so the map takes over cleanly.
+	m_state = m_none;
+	Cbuf_AddText ("review\n");
+}
+
 static const uni_row_t uni_gfx_rows[] =
 {
 	{"Screen Size",     &scr_viewsize,  30, 120, 10,   0, 0, NULL, NULL, "Size of the 3D view in the window. Impact: none."},
@@ -3317,14 +3362,78 @@ static const uni_row_t uni_gen_rows[] =
 	{"Restore Defaults", NULL, 0, 1, 1, 0, 1, UNI_ActionDefaults, NULL, "Reset all controls and stored settings."},
 };
 
+//r101 Editor tab (console: editmenu, or the review command): cheat toggles +
+//map debug draws. editor_mode/hud_mapshot defined gl_hud.c (externs gl_hud.h).
+static const uni_row_t uni_edit_rows[] =
+{
+	{"Editor Mode",   &editor_mode,  0, 1, 1, 0, 0, NULL, NULL, "Unlocks cheats and debug draws outside -editor. Session-only, never saved."},
+	{"God Mode",      NULL,          0, 1, 1, 0, 1, UNI_SetGod, UNI_ShowGod, "Cannot be hurt. Toggles."},
+	{"Notarget",      NULL,          0, 1, 1, 0, 1, UNI_SetNotarget, UNI_ShowNotarget, "Enemies ignore you. Toggles."},
+	{"Fly",           NULL,          0, 1, 1, 0, 1, UNI_SetFly, UNI_ShowFly, "Free flight. Toggles."},
+	{"Noclip",        NULL,          0, 1, 1, 0, 1, UNI_SetNoclip, UNI_ShowNoclip, "Walk through walls. Toggles."},
+	{"Noclip Speed",  &sv_noclip_speed, 0, 8000, 100, 0, 0, NULL, NULL, "Fly speed while noclip is on. 0 = normal run cap. Impact: none."},
+	{"Hide HUD",      &hud_mapshot,  0, 1, 1, 0, 0, NULL, NULL, "Photo mode: hides the HUD and bots, unlocks noclip/fly."},
+	{"Reload Map",    NULL,          0, 1, 1, 0, 1, UNI_ActionReview, NULL, "Re-launch the current map with editor cheats."},
+	{"Show Tris",     &r_showtris,   0, 2, 1, 0, 0, NULL, NULL, "1 = lines through walls (hidden too); 2 = visible faces only. Costs a second pass."},
+	{"Draw Flat",     &r_drawflat,   0, 1, 1, 0, 0, NULL, NULL, "Untextured faces, one color each -- spot mis-painted textures. Runs faster."},
+	{"Lightmap View", &r_lightmap,   0, 1, 1, 0, 0, NULL, NULL, "Raw light data in color -- check density and bleeds. Big lightmaps cost VRAM."},
+	{"Fullbright",    &r_fullbright, 0, 1, 1, 0, 0, NULL, NULL, "No lighting at all -- see textures true-color. Authoring view, not a perf switch."},
+	{"No Vis",        &r_novis,      0, 1, 1, 0, 0, NULL, NULL, "Bypass PVS: see worst-case overdraw. Watch Speeds to gauge what vis saves you."},
+	{"Speeds",        &r_speeds,     0, 2, 1, 0, 0, NULL, NULL, "On-screen poly/texture counts per frame (2 = per-pass). Measures cost, adds none."},
+};
+
 static const uni_row_t	*uni_tab_rows[UNI_TABS] =
-{ NULL, uni_gfx_rows, uni_ctrl_rows, uni_snd_rows, uni_gen_rows };
+{ uni_edit_rows, NULL, uni_gfx_rows, uni_ctrl_rows, uni_snd_rows, uni_gen_rows };
 static const int uni_tab_nrows[UNI_TABS] =
-{ 0,
+{ (int)(sizeof(uni_edit_rows)  / sizeof(uni_edit_rows[0])), 0,
   (int)(sizeof(uni_gfx_rows)   / sizeof(uni_gfx_rows[0])),
   (int)(sizeof(uni_ctrl_rows)  / sizeof(uni_ctrl_rows[0])),
   (int)(sizeof(uni_snd_rows)   / sizeof(uni_snd_rows[0])),
   (int)(sizeof(uni_gen_rows)   / sizeof(uni_gen_rows[0])) };
+
+//r101: Options remembers where you were -- last row per tab survives closing
+//the menu; the first open of a session picks the tab (Editor if the editor
+//context is live, else Performance).
+static int		uni_tab_memory[UNI_TABS];
+static qboolean	uni_options_opened;
+
+static void M_Options_SetTab (int tab)
+{
+	int	nrows = (tab == UNI_TAB_PERF) ? PERF_ROWS : uni_tab_nrows[tab];
+	int	row = uni_tab_memory[tab];
+
+	uni_tab = tab;
+	if (row >= nrows)
+		row = nrows - 1;
+	if (row < 0)
+		row = 0;
+	uni_tab_memory[tab] = row;
+	if (tab == UNI_TAB_PERF)
+	{
+		perf_cursor = row;
+		perf_first = 0;		// the draw pass scrolls the window to the cursor
+	}
+	else
+	{
+		uni_cursor = row;
+		uni_first = 0;
+	}
+}
+
+static void M_Options_OpenTab (void)
+{
+	if (!uni_options_opened)
+	{	// first open of the session: Editor when the editor context is
+		// live (review/-editor), Performance otherwise.
+		uni_options_opened = true;
+		M_Options_SetTab (UNI_EditorVisible () ? UNI_TAB_EDIT : UNI_TAB_PERF);
+		return;
+	}
+	if (!UNI_TabVisible (uni_tab))
+		M_Options_SetTab (UNI_TAB_PERF);	// the editor context went away
+	else
+		M_Options_SetTab (uni_tab);
+}
 
 static const char *UNI_Value (const uni_row_t *r, char *buf, int size)
 {
@@ -3388,12 +3497,39 @@ static void M_Performance_ResetWindow (void)
 	perf_first = 0;
 }
 
+//r101: the Editor tab exists only inside an editing context -- editor_mode
+//runtime switch (review/editmenu) or -editor at launch. Hidden elsewhere;
+//tab cycles skip it.
+static qboolean UNI_EditorVisible (void)
+{
+	return Cvar_VariableValue ("editor_mode") != 0 || COM_CheckParm ("-editor") != 0;
+}
+
+static qboolean UNI_TabVisible (int tab)
+{
+	return tab != UNI_TAB_EDIT || UNI_EditorVisible ();
+}
+
+static void UNI_ValidateTab (void)
+{
+	if (UNI_TabVisible (uni_tab))
+		return;
+	uni_tab_memory[uni_tab] = (uni_tab == UNI_TAB_PERF) ? (int)perf_cursor : uni_cursor;	//r101
+	M_Options_SetTab (UNI_TAB_PERF);
+}
+
 static void M_Options_CycleTab (int dir)
 {
+	int	i;
 	S_LocalSound ("misc/menuoption.wav");
-	uni_tab = (uni_tab + dir + UNI_TABS) % UNI_TABS;
-	uni_cursor = uni_first = 0;
-	M_Performance_ResetWindow ();
+	uni_tab_memory[uni_tab] = (uni_tab == UNI_TAB_PERF) ? (int)perf_cursor : uni_cursor;	//r101
+	for (i = 0; i < UNI_TABS; i++)
+	{
+		uni_tab = (uni_tab + dir + UNI_TABS) % UNI_TABS;
+		if (UNI_TabVisible (uni_tab))
+			break;
+	}
+	M_Options_SetTab (uni_tab);	//r101: each tab reopens on its remembered row
 }
 
 // the Performance tab's rows + footnote band, shared by the old standalone
@@ -3459,6 +3595,9 @@ void M_Options_Draw (void)
 	int				i, segw, bandy;
 	struct MenuCoords	coords;
 
+	UNI_ValidateTab ();	//r101: Editor tab can hide itself out from under us
+	uni_tab_memory[uni_tab] = (uni_tab == UNI_TAB_PERF) ? (int)perf_cursor : uni_cursor;	//r101: live row memory
+
 	// recursive background = the page we came from (same pattern as perf page)
 	saved = m_state;
 	m_state = uni_return_state;
@@ -3466,8 +3605,8 @@ void M_Options_Draw (void)
 	M_Draw ();
 	m_state = saved;
 
-	// background for the whole options page (user 2026-11-14: slightly translucent)
-	Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 0.85f);
+	// r101: dim shade behind the menu (user) -- panels themselves are opaque
+	Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 0.7f);
 
 	if (uni_tab == UNI_TAB_PERF)
 	{
@@ -3510,11 +3649,24 @@ void M_Options_Draw (void)
 		int	ix0 = coords.x0 + slotw;
 		int	iw = coords.panelw - 2 * slotw;
 		bandy = coords.grid[0][0].y - ih;
-		segw = iw / UNI_TABS;
-		for (i = 0; i < UNI_TABS; i++)
-			if (i == uni_tab)
-				Draw_FillRGBA (ix0 + i * segw, bandy + 2, segw, ih - 2,
-					0.055f, 0.075f, 0.135f, 1.0f);	// solid, matches the body strip
+		{
+			//r101: hidden tabs take no slot -- the strip packs visible ones
+			int	nvis = 0, slot;
+			for (i = 0; i < UNI_TABS; i++)
+				if (UNI_TabVisible (i))
+					nvis++;
+			segw = iw / (nvis ? nvis : UNI_TABS);
+			slot = 0;
+			for (i = 0; i < UNI_TABS; i++)
+			{
+				if (!UNI_TabVisible (i))
+					continue;
+				if (i == uni_tab)
+					Draw_FillRGBA (ix0 + slot * segw, bandy + 2, segw, ih - 2,
+						0.055f, 0.075f, 0.135f, 1.0f);	// solid, matches the body strip
+				slot++;
+			}
+		}
 		{	// same art + size as the matchmaking hints (M_HintIcon: native
 			// aspect at 16px tall, 0.6 fade reads as "disabled tab" per user)
 			int		lx = coords.x0 + (slotw - M_HintIconW (b_lt)) / 2;
@@ -3522,18 +3674,26 @@ void M_Options_Draw (void)
 			M_HintIcon (&lx, bandy + ih - 15, b_lt);
 			M_HintIcon (&rx, bandy + ih - 15, b_rt);
 		}
-		for (i = 0; i < UNI_TABS; i++)
 		{
-			int	tw = (int)Draw_TTFHeaderWidth (uni_tab_names[i], 14.0f);
-			int	tx = ix0 + i * segw + (segw - tw) / 2;
-			int	ty = bandy + ih - 15;	// glyphs sit on the band's bottom edge
-			if (i == uni_tab)
+			//r101: labels ride the packed slot positions too
+			int	slot = 0;
+			for (i = 0; i < UNI_TABS; i++)
 			{
-				Draw_TTFStringHeader (tx, ty, uni_tab_names[i], 1, 1, 1, 1.0f, 14.0f);
-				Draw_FillRGBA (ix0 + i * segw + 4, bandy + ih - 2, segw - 8, 2, 0.85f, 0.68f, 0.25f, 1.0f);
+				int	tw, tx, ty;
+				if (!UNI_TabVisible (i))
+					continue;
+				tw = (int)Draw_TTFHeaderWidth (uni_tab_names[i], 14.0f);
+				tx = ix0 + slot * segw + (segw - tw) / 2;
+				ty = bandy + ih - 15;	// glyphs sit on the band's bottom edge
+				if (i == uni_tab)
+				{
+					Draw_TTFStringHeader (tx, ty, uni_tab_names[i], 1, 1, 1, 1.0f, 14.0f);
+					Draw_FillRGBA (ix0 + slot * segw + 4, bandy + ih - 2, segw - 8, 2, 0.85f, 0.68f, 0.25f, 1.0f);
+				}
+				else
+					Draw_TTFStringHeader (tx, ty, uni_tab_names[i], 0.55f, 0.58f, 0.65f, 1.0f, 14.0f);
+				slot++;
 			}
-			else
-				Draw_TTFStringHeader (tx, ty, uni_tab_names[i], 0.55f, 0.58f, 0.65f, 1.0f, 14.0f);
 		}
 	}
 
@@ -3587,6 +3747,7 @@ void M_Options_Draw (void)
 
 void M_Options_Key (int k)
 {
+	UNI_ValidateTab ();	//r101
 	switch (k)
 	{
 	case K_ESCAPE:
@@ -3638,14 +3799,17 @@ void M_Options_Key (int k)
 		M_Options_CycleTab (1);
 		return;
 #ifndef VITA
-	// Mac convenience: Tab cycles, Q/E jump either way
+	// Mac convenience: Tab/] /E cycle right, Q/[ left -- r101: brackets
+	// alias the L/R triggers per user
 	case K_TAB:
 	case 'e':
 	case 'E':
+	case ']':
 		M_Options_CycleTab (1);
 		return;
 	case 'q':
 	case 'Q':
+	case '[':
 		M_Options_CycleTab (-1);
 		return;
 #endif
@@ -4010,8 +4174,8 @@ void M_Matchmaking_Map_Draw (void) {
     if (mlist_first > mlist_cursor)
         mlist_first = mlist_cursor;
 
-    // background tint (perf B7: opaque, like the unified Options)
-    Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 1.0f);
+    // r101: dim shade behind the menu (user) -- panels themselves are opaque
+    Draw_FillRGBA(0,0,1000,1000, 0.02f, 0.02f, 0.025f, 0.7f);
     // title
     static char title[128];
     q_snprintf(title, sizeof(title), "Map Selection\n");   /* r91: pack name drawn separately in blue */
@@ -4198,7 +4362,7 @@ void M_Matchmaking_Map_Key (int key) {
         case K_LEFTARROW:
 #ifndef VITA
         case 'q':	// perf B7: same tab aliases as unified Options
-        case 'Q':
+        case '[':	// r101: bracket alias of L trigger
 #endif
             S_LocalSound ("misc/menuoption.wav");
             mlist_cursor = 0;
@@ -4211,7 +4375,7 @@ void M_Matchmaking_Map_Key (int key) {
 #ifndef VITA
         case K_TAB:
         case 'e':
-        case 'E':
+        case ']':	// r101: bracket alias of R trigger
 #endif
             S_LocalSound ("misc/menuoption.wav");
             mlist_cursor = 0;
@@ -4310,7 +4474,7 @@ void M_Matchmaking_f (void)
     key_dest = key_menu;
     m_state = m_gameoptions;
     m_entersound = true;
-    draw_grid_translucent = 1;   /* r92: overlay windows opt into opaque */
+    draw_grid_translucent = 0;   /* r101: opaque panels are the house style (user) */
     if (!lobby_profile_saved)
     {
         lobby_profile_saved = true;
@@ -5274,6 +5438,7 @@ static struct
 //	{"menu_multiplayer", M_Menu_MultiPlayer_f},
 	{"menu_setup", M_Menu_Setup_f},
 	{"menu_options", M_Menu_Options_f},
+	{"menu_editor", M_Menu_Editor_f},	//r101
 	{"menu_keys", M_Menu_Keys_f},
 	{"menu_video", M_Menu_Video_f},
 	{"help", M_Menu_Help_f},
@@ -5524,6 +5689,7 @@ void M_Init (void)
 	// perf B7 - Performance menu: preset memory cvar + console shortcut
 	Cvar_RegisterVariable (&perf_preset);
 	Cmd_AddCommand ("perfmenu", M_Menu_Performance_f);
+	Cmd_AddCommand ("editmenu", M_Menu_Editor_f);	//r101 Editor tab
 	Cmd_AddCommand ("menu_cmd", MQC_Command_f);
 	Cmd_AddCommand ("menu_restart", M_MenuRestart_f);	//qss still loads progs on hunk, so we can't do this safely.
 

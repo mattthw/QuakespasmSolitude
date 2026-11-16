@@ -536,7 +536,7 @@ void Host_God_f (void)
 		return;
 	}
 
-	if (pr_global_struct->deathmatch && !COM_CheckParm ("-editor"))	//r100
+	if (pr_global_struct->deathmatch && !COM_CheckParm ("-editor") && !Cvar_VariableValue ("editor_mode"))	//r100, r101 runtime exception
 		return;
 
 	//johnfitz -- allow user to explicitly set god mode to on or off
@@ -575,13 +575,21 @@ Host_Notarget_f
 */
 void Host_Notarget_f (void)
 {
-	if (cmd_source != src_client)
+	//r101 v3 parity: boot-cheat replays run with NULL globals (no QCVM) -- go via server
+	if (cmd_source != src_client && !pr_global_struct)
 	{
 		Cmd_ForwardToServer ();
 		return;
 	}
+	if (cmd_source != src_client)
+	{
+		if (Ed_DeferCheatCmd ())
+			return;
+		Cmd_ForwardToServer ();
+		return;
+	}
 
-	if (pr_global_struct->deathmatch)
+	if (pr_global_struct->deathmatch && !COM_CheckParm ("-editor") && !Cvar_VariableValue ("editor_mode"))	//r101 editor exception
 		return;
 
 	//johnfitz -- allow user to explicitly set notarget to on or off
@@ -632,7 +640,7 @@ static qboolean	ed_pending;
 
 static qboolean Ed_DeferCheatCmd (void)
 {
-	if (!COM_CheckParm ("-editor"))
+	if (!COM_CheckParm ("-editor") && !Cvar_VariableValue ("editor_mode"))
 		return false;
 	if (svs.clients && svs.clients[0].spawned)
 		return false;	//r100 v3: spawned -> normal forward path works
@@ -689,7 +697,7 @@ void Host_Noclip_f (void)
 		return;
 	}
 
-	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot") && !COM_CheckParm ("-editor"))	/* r89 photo mode, r100 editor exception */
+	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot") && !COM_CheckParm ("-editor") && !Cvar_VariableValue ("editor_mode"))	/* r89 photo mode, r100 editor exception, r101 runtime */
 		return;
 
 	//johnfitz -- allow user to explicitly set noclip to on or off
@@ -745,7 +753,7 @@ void Host_SetPos_f(void)
 		return;
 	}
 	
-	if (pr_global_struct->deathmatch)
+	if (pr_global_struct->deathmatch && !COM_CheckParm ("-editor") && !Cvar_VariableValue ("editor_mode"))	//r101 editor exception
 		return;
 	
 	if (Cmd_Argc() != 7 && Cmd_Argc() != 4)
@@ -814,7 +822,7 @@ void Host_Fly_f (void)
 		return;
 	}
 
-	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot") && !COM_CheckParm ("-editor"))	/* r89 photo mode, r100 editor exception */
+	if (pr_global_struct->deathmatch && !Cvar_VariableValue ("hud_mapshot") && !COM_CheckParm ("-editor") && !Cvar_VariableValue ("editor_mode"))	/* r89 photo mode, r100 editor exception, r101 runtime */
 		return;
 
 	//johnfitz -- allow user to explicitly set noclip to on or off
@@ -1070,6 +1078,80 @@ void Host_Restart_f (void)
 	PR_SwitchQCVM(NULL);
 	if (!sv.active)
 		Host_Error ("cannot restart map %s", mapname);
+}
+
+/*
+==================
+Host_Review_f
+
+r101 -- one-key editor boot (console: "review [map]"). Turns on editor_mode
+(the runtime twin of the -editor process parm), solo through lobby_bots 0,
+relaunches the given or the current/last map, and queues god + fly 0 +
+noclip through the r100 boot-cheat replay so they fire the frame the player
+spawns (noclip last: fly 0 can reset the movetype, NOCLIP must stick).
+==================
+*/
+void Host_Review_f (void)
+{
+	if (cmd_source != src_command)
+		return;
+
+	Cvar_SetValue ("editor_mode", 1);	//name-based (QSS)
+
+	//r101: review is a solo walk-through that spawns like a real match.
+	//host.c boots deathmatch 1 by design (Host_FindMaxClients), so SLAYER
+	//runs and SelectSpawnPoint() uses the map's deathmatch spawns --
+	//zeroing the rules instead falls back to info_player_start, which on
+	//these DM maps is the buried menu-camera spot. Suppress the field at
+	//the source instead: populate_bots spawns cvar("lobby_bots") bots, so
+	//0 means just you. Extra players belong in the matchmaking roster.
+	Cvar_SetValue ("lobby_bots", 0);
+
+	ed_bootcmds[0] = 0;
+	//r101: noclip last -- fly 0 could stomp the movetype if we booted
+	//flying, and MOVETYPE_NOCLIP set here is what must stick.
+	q_strlcpy (ed_bootcmds, "god 1\nfly 0\nnoclip 1\nr_speeds 1\n", sizeof (ed_bootcmds));
+	ed_pending = true;
+
+	if (Cmd_Argc() > 1)
+		Cmd_ExecuteString (va("map \"%s\"\n", Cmd_Argv(1)), src_command);
+	else if (sv.active || *sv.name)
+		Cmd_ExecuteString ("restart\n", src_command);
+	else
+	{
+		ed_bootcmds[0] = 0;
+		ed_pending = false;
+		Con_Printf ("review <map> : launch a map in editor mode (no current map)\n");
+		return;
+	}
+	Con_Printf ("review: editor mode ON -- solo, god/noclip when the map starts\n");
+}
+
+/*
+==================
+Host_CheatState
+
+r101 -- live cheat state for the Editor options tab. which: 0 god, 1
+notarget, 2 fly, 3 noclip. Returns 1 on, 0 off, -1 no live player.
+==================
+*/
+int Host_CheatState (int which)
+{
+	edict_t	*pl;
+
+	if (!sv.active || !svs.clients || !svs.clients[0].spawned)
+		return -1;
+	pl = svs.clients[0].edict;
+	if (!pl)
+		return -1;
+	switch (which)
+	{
+	case 0: return ((int)pl->v.flags & FL_GODMODE) != 0;
+	case 1: return ((int)pl->v.flags & FL_NOTARGET) != 0;
+	case 2: return pl->v.movetype == MOVETYPE_FLY;
+	case 3: return pl->v.movetype == MOVETYPE_NOCLIP;
+	}
+	return -1;
 }
 
 /*
@@ -2932,6 +3014,7 @@ void Host_InitCommands (void)
 	Cmd_AddCommand_ClientCommand ("name", Host_Name_f);
 	Cmd_AddCommand_ClientCommand ("noclip", Host_Noclip_f);
 	Cmd_AddCommand_ClientCommand ("setpos", Host_SetPos_f); //QuakeSpasm
+	Cmd_AddCommand ("review", Host_Review_f); //r101 one-key editor boot
 
 	Cmd_AddCommand_ClientCommand ("say", Host_Say_f);
 	Cmd_AddCommand_ClientCommand ("say_team", Host_Say_Team_f);

@@ -253,6 +253,7 @@ cvar_t cl_ch_blue = {"cl_ch_blue", "1"};
 cvar_t hud_nameplates = {"hud_nameplates", "1"};	//r63 issue #39: nameplates-over-reticle
 cvar_t cl_debugweapon = {"cl_debugweapon", "0"};	//r65b: print STAT_ACTIVEWEAPON on change (crosshair-shape debugging)
 cvar_t hud_mapshot = {"hud_mapshot", "0"};	//r83: one-switch hide of all HUD for map thumbnail shots
+cvar_t editor_mode = {"editor_mode", "0"};	//r101: runtime twin of the -editor process parm (cheats + map debug draws), never archived
 
 /* r66 Tracker-0: Halo-style ping motion radar (bottom-left). No movement
  * gating, no equipment - blips refresh on a ping every radar_ping seconds and
@@ -377,6 +378,16 @@ void HUD_Init (void) {
     Cvar_RegisterVariable (&hud_crosshair);	//r63
     Cvar_RegisterVariable (&cl_debugweapon);	//r65b
     Cvar_RegisterVariable (&hud_mapshot);	//r83
+    Cvar_RegisterVariable (&editor_mode);	//r101
+    //r101b: the -editor process parm and the editor_mode cvar are the same
+    //switch to every gate (parm || cvar), but the Options Editor row only
+    //reads the cvar -- a -editor boot (TrenchBroom profile) showed "off"
+    //while debug draws said otherwise. Mirror the parm into the cvar at
+    //registration so the menu tells the truth. Session-only like the cvar
+    //itself (never archived), and Vita never passes -editor: no device
+    //behavior change beyond the display.
+    if (COM_CheckParm ("-editor"))
+        Cvar_SetValue ("editor_mode", 1);	//name-based (QSS)
     Cvar_RegisterVariable (&hud_radar);	//r66
     Cvar_RegisterVariable (&radar_range);	//r66
     Cvar_RegisterVariable (&radar_ping);	//r66
