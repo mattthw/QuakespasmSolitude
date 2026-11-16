@@ -42,6 +42,7 @@ usercmd_t	cmd;
 
 cvar_t	sv_idealpitchscale = {"sv_idealpitchscale","0.8",CVAR_NONE};
 cvar_t	sv_altnoclip = {"sv_altnoclip","1",CVAR_ARCHIVE}; //johnfitz
+cvar_t	sv_noclip_speed = {"sv_noclip_speed","700",CVAR_ARCHIVE}; //r101: speed while noclip is on; 0 = legacy sv_maxspeed cap
 
 qboolean SV_RunThink (edict_t *ent);
 
@@ -314,15 +315,23 @@ void SV_NoclipMove (void)
 {
 	AngleVectors (sv_player->v.v_angle, forward, right, up);
 
+	float		maxspeed;
+
 	velocity[0] = forward[0]*cmd.forwardmove + right[0]*cmd.sidemove;
 	velocity[1] = forward[1]*cmd.forwardmove + right[1]*cmd.sidemove;
 	velocity[2] = forward[2]*cmd.forwardmove + right[2]*cmd.sidemove;
 	velocity[2] += cmd.upmove*2; //doubled to match running speed
 
-	if (VectorLength (velocity) > sv_maxspeed.value)
+	//r101: dedicated noclip speed so map review flythroughs actually move;
+	//0 falls back to the legacy sv_maxspeed cap.
+	maxspeed = sv_noclip_speed.value > 0 ? sv_noclip_speed.value : sv_maxspeed.value;
+	//r101fix: cmd magnitudes top out at the ~400 u/s full-push value, so a
+	//bare clamp above 400 did nothing -- rescale the vector toward maxspeed.
+	VectorScale (velocity, maxspeed/400.0f, velocity);
+	if (VectorLength (velocity) > maxspeed)
 	{
 		VectorNormalize (velocity);
-		VectorScale (velocity, sv_maxspeed.value, velocity);
+		VectorScale (velocity, maxspeed, velocity);
 	}
 }
 
@@ -335,7 +344,7 @@ void SV_AirMove (void)
 {
 	int			i;
 	vec3_t		wishvel, wishdir;
-	float		wishspeed;
+	float		wishspeed, maxspeed;
 	float		fmove, smove;
 
 	AngleVectors (sv_player->v.angles, forward, right, up);
@@ -357,10 +366,22 @@ void SV_AirMove (void)
 
 	VectorCopy (wishvel, wishdir);
 	wishspeed = VectorNormalize(wishdir);
-	if (wishspeed > sv_maxspeed.value)
+	//r101: noclip gets sv_noclip_speed (map review flythrough); the
+	//fall/ground cases keep sv_maxspeed untouched.
+	if (sv_player->v.movetype == MOVETYPE_NOCLIP && sv_noclip_speed.value > 0)
+		maxspeed = sv_noclip_speed.value;
+	else
+		maxspeed = sv_maxspeed.value;
+	if (sv_player->v.movetype == MOVETYPE_NOCLIP && sv_noclip_speed.value > 0)
+	{	//r101fix: scale the ~400 full-push command toward noclip speed so
+		//sv_noclip_speed above 400 actually moves; recompute for the clamp.
+		VectorScale (wishvel, maxspeed/400.0f, wishvel);
+		wishspeed = VectorLength (wishvel);
+	}
+	if (wishspeed > maxspeed)
 	{
-		VectorScale (wishvel, sv_maxspeed.value/wishspeed, wishvel);
-		wishspeed = sv_maxspeed.value;
+		VectorScale (wishvel, maxspeed/wishspeed, wishvel);
+		wishspeed = maxspeed;
 	}
 
 	if ( sv_player->v.movetype == MOVETYPE_NOCLIP)

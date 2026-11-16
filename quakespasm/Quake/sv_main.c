@@ -1462,6 +1462,7 @@ void SV_Init (void)
 	extern	cvar_t	sv_idealpitchscale;
 	extern	cvar_t	sv_aim;
 	extern	cvar_t	sv_altnoclip; //johnfitz
+	extern	cvar_t	sv_noclip_speed; //r101
 	extern	cvar_t	sv_public;	//spike
 	extern	cvar_t	sv_reportheartbeats;	//spike
 	extern	cvar_t	com_protocolname;	//spike
@@ -1489,6 +1490,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_gameplayfix_setmodelrealbox);
 	Cvar_RegisterVariable (&pr_checkextension);
 	Cvar_RegisterVariable (&sv_altnoclip); //johnfitz
+	Cvar_RegisterVariable (&sv_noclip_speed); //r101
 
 	Cvar_RegisterVariable (&sv_sound_watersplash); //spike
 	Cvar_RegisterVariable (&sv_sound_land); //spike
