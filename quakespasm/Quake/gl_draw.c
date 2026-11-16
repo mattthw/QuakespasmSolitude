@@ -773,8 +773,9 @@ int draw_grid_anchor = 0;
 int draw_grid_anchor_x = -1;	/* >=0 pins x in virtual units when anchored */
 int draw_grid_inset = 0;
 /* r92: grid window opacity switch -- map-select popup asked for
- * opaque (user); 1 = current translucent look everywhere else. */
-int draw_grid_translucent = 1;	/* r77: when 1, a Left-pinned (x==0) grid gets x = menu_width/5 */
+ * opaque (user); r101: default flipped to opaque panels house-wide, menus
+ * that want separation from the page behind them draw their own shade. */
+int draw_grid_translucent = 0;	/* r77: when 1, a Left-pinned (x==0) grid gets x = menu_width/5 */
 
 struct MenuCoords Draw_WindowGridBase(char* title, int rows, float rowheight, int cols, float colwidth, float alpha, float detail_alpha, int colr_bg, int colr_h, int cursor, int cursor_cols, float incl_footer, float incl_header, float off) {
     // fundamentals
