@@ -154,6 +154,7 @@ warning in the engine section above.
 - [Marco's Quake Tools](http://icculus.org/~marco/sources/q1tools.html) C programs for Targa <-> Lmp format
   - the programs are rehosted in *this* repository under ``/solitude/artwork`` in case the website goes down.
 - https://quakewiki.org/wiki/Getting_Started_Mapping
+- [When to use every kind of func_detail](https://www.slipseer.com/index.php?threads/when-to-use-every-kind-of-func_detail.864/) — slipseer forum thread on brush-entity vs detail vs worldspawn geometry
 - Map Icon creation: 
   - must be .tga and size 200x117. filename must match map name. Save from photoshop using *Save as Copy...* -> Targa -> ``<mapname>.tga``
   - code in menu.c must be updated to use image and image must be placed in ``Solitude/gx/maps/``

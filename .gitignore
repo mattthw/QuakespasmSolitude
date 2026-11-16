@@ -76,3 +76,12 @@ dist/
 
 # engine "screenshot" output (spasmNNNN.png/tga/jpg) — local scratch only
 /solitude/spasm*.*
+
+# build-area sidecars dropped by TB compiles run from repo root (derived, never tracked)
+/*.bsp
+/*.lit
+/*.log
+/*.pts
+/*.bsp.json
+/*.bsp.lm_*.png
+/quakespasm/Quake/*.o.tmp
