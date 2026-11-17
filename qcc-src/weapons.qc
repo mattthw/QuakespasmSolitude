@@ -1286,13 +1286,29 @@ void() W_FireSniper =
 	FireBullets (1, dir, '0 0 0', MOD_SOLITUDE);
 };
 
+// r103: sv_max_needles rework -- the B2 per-shooter live-needle count now
+// gates PARTICLE bursts only, never the shot itself. 0 (default) = unlimited
+// FX; nonzero just thins sparkle/dust while that shooter already has cap+
+// needles in flight. Damage, sound, ammo are unaffected.
+float(entity shooter) NeedleFxAllowed =
+{
+	local float cap;
+	cap = cvar("sv_max_needles");
+	if (cap <= 0)
+		return 1;
+	return (shooter.live_needles < cap);
+};
+
 void () NeedleExplode =
 {
 	self.enemy.needles -= 1;
 	T_Damage (self.enemy, self, self.owner, 4, MOD_SOLITUDE);
 	sound (self, CHAN_WEAPON, "weapons/crystal.wav", 1, ATTN_NORM);
-	particle (self.origin, '6 6 6', 149, ParticleScaled(40));
-	createpinkdust(self.origin);
+	if (NeedleFxAllowed(self.owner))	// r103: FX gate, never a firing gate
+	{
+		particle (self.origin, '6 6 6', 149, ParticleScaled(40));
+		createpinkdust(self.origin);
+	}
 	remove(self);
 };
 
@@ -1335,8 +1351,11 @@ void ( entity f_plyr, entity t_plyr, float at_height ) Add_Needle =
 	if (t_plyr.needles >= 12) {
 		t_plyr.needles -= 7;
 		sound (self, CHAN_WEAPON, "weapons/crystal.wav", 1, ATTN_NORM);
-		particle (self.origin, '0 0 8', 149, ParticleScaled(60));
-		createpinkdust(self.origin);
+		if (NeedleFxAllowed(f_plyr))	// r103: FX gate, never a firing gate
+		{
+			particle (self.origin, '0 0 8', 149, ParticleScaled(60));
+			createpinkdust(self.origin);
+		}
 		T_Damage (t_plyr, self, f_plyr, 150, MOD_SOLITUDE);
 		remove(self);
 		return;
@@ -1529,11 +1548,10 @@ void() W_FireNeedler =
 {
 	local entity fshell;
 	local float r;
-	local float cap;
 	local vector spread;
-	cap = cvar("sv_max_needles");	// B2: per-shooter live-needle cap; 0 (default) = unlimited
-	if (cap > 0 && self.live_needles >= cap)
-		return;			// shot fizzles: no sound, no ammo, no heat
+	// r103: B2's fire-blocking cap REMOVED -- a gfx preset must never deny
+	// gunplay (at Performance=8 the needler silently fizzled past 8 airborne
+	// needles). sv_max_needles now only gates needle impact FX (NeedleFxAllowed).
 	r = random();
 	muzzleflash6();
 	sound (self, CHAN_WEAPON, "weapons/needler.wav", 1, ATTN_NORM); 

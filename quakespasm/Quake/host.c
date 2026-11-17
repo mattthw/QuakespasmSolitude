@@ -67,7 +67,7 @@ cvar_t	cl_nocsqc = {"cl_nocsqc", "0", CVAR_NONE};	//spike -- blocks the loading 
 cvar_t	sys_ticrate = {"sys_ticrate","0.05",CVAR_NONE}; // dedicated server
 cvar_t	serverprofile = {"serverprofile","0",CVAR_NONE};
 cvar_t	r_perfhud = {"r_perfhud","0",CVAR_ARCHIVE};	// perf B1
-cvar_t	sv_max_needles = {"sv_max_needles","0",CVAR_ARCHIVE};	// perf B2 - per-shooter live needler cap, 0=off; read by QC cvar()
+cvar_t	sv_max_needles = {"sv_max_needles","0",CVAR_ARCHIVE};	// perf B2 - per-shooter in-flight needle count, 0=off; r103: read by QC NeedleFxAllowed, gates impact FX only, never blocks firing
 cvar_t	sv_bot_thinkrate = {"sv_bot_thinkrate","0",CVAR_ARCHIVE};	// perf B6 - max Hz for bot AI decisions, 0=every frame; read by QC cvar()
 cvar_t	sv_particle_scale = {"sv_particle_scale","75",CVAR_ARCHIVE};	// perf B6 - percent scale of QC particle() counts, 0=off; read by QC cvar() // perf B7: Balanced default
 cvar_t	sv_max_gibs = {"sv_max_gibs","12",CVAR_ARCHIVE};	// perf B6 - live gib cap (remove-oldest), 0=off; read by QC cvar() // perf B7: Balanced default

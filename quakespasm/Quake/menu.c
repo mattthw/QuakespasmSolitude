@@ -2942,7 +2942,7 @@ static perf_knob_t	perf_knobs[PERF_KNOB_ROWS] =
 	{"Blood & Debris",   &sv_particle_scale, 0, 100,  25,   "%", 0, 1, 0, "Blood and debris from multiplayer kills. Impact: high."},
 	{"Gib Cap",          &sv_max_gibs,       0, 32,   4,    "",  0, 1, 0, "Body parts flying at once. Impact: med."},
 	{"Bot Think Hz",     &sv_bot_thinkrate,  0, 20,   5,    " Hz", 0, 1, 0, "How often bots make decisions. Impact: high."},
-	{"Nail Cap",         &sv_max_needles,    0, 64,   8,    "",  0, 1, 0, "Nailgun shots flying at once. Impact: high."},
+	{"Needle FX",        &sv_max_needles,    0, 64,   8,    "",  0, 1, 0, "Thins needle sparkle bursts. Never blocks firing. Impact: med."},
 	{"Far Smoothing",    &r_lerpskip_dist,   0, 2400, 400,  "",  0, 1, 0, "Distant players move in steps, not smoothly. Impact: low."},
 	{"Dynamic Lights",   &r_dynamic,         0, 1,    1,    "",  0, 0, 0, "Muzzle flashes light up the room. Impact: high."},
 	{"Simple Flashes",   &gl_flashblend,     0, 1,    1,    "",  0, 0, 0, "Flashes drawn as simple colored glows. Impact: med."},
@@ -2959,7 +2959,7 @@ static const char	*perf_preset_desc[4] =
 };
 
 // Quality: every B1-B6 limiter off (pure stock behaviour), max fidelity.
-// Balanced: safe caps only -- no bot throttle, no needle cap.
+// Balanced: safe caps only -- no bot throttle; needle row is FX-only (r103).
 // Performance: aggressive caps for the Vita.
 // Columns track the first 12 knobs above (Perf HUD first, then B1-B6 caps).
 static const float	perf_preset_vals[3][12] =
