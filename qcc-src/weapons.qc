@@ -623,10 +623,14 @@ void(float lunge) W_FireSword =
 	if (trace_ent.takedamage)
 	{
 		SpawnBlood (org, 20);
+		/* r116 (user: "an attack from it should be fatal... I have to hit
+		 * them like three times"): both sword hits now execute a fully
+		 * shielded Spartan (100 health + ~100 shields). Lunge keeps the
+		 * bigger number for the blood spray feel / future tuning. */
 		if (lunge) {
-            T_Damage(trace_ent, self, self, 150, MOD_AXE);
+            T_Damage(trace_ent, self, self, 250, MOD_AXE);
         } else {
-            T_Damage(trace_ent, self, self, 75, MOD_AXE);
+            T_Damage(trace_ent, self, self, 250, MOD_AXE);
         }
 	}
 	else

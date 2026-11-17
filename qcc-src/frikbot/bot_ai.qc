@@ -681,8 +681,14 @@ float(entity thing) priority_for_thing =
 		}
         else if (thing.classname == "weapon_sword")
         {
-            if (!(self.items & 4096)) // IT_LIGHTNING
-                thisp = 10;
+            /* r116 (user: "bots holding it spaz out and back up like they
+             * are out of ammo"): the lunge block in W_Attack is written
+             * for a human - it hijacks velocity/fixangle/yaw for one frame
+             * and the bot movement AI fights it, and bot_weapon_switch
+             * never selects the sword anyway (it lives on item bit 4096,
+             * outside the &127 scan). Bots now leave sword pickups alone;
+             * the sword stays a player showcase weapon. */
+            thisp = 0;
         }
         else if (thing.classname == "weapon_skull")
 		{

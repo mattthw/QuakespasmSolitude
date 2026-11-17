@@ -79,9 +79,10 @@ extern	int			in_forward, in_forward2, in_back;
 
 cvar_t r_viewmodeloffset = {"r_viewmodeloffset", "0", CVAR_ARCHIVE};
 
-cvar_t v_buckshot_pitch = {"v_buckshot_pitch", "0", CVAR_ARCHIVE};	//solitude: extra upward pitch (degrees) for the wide buckshot gun (progs/v_shot2.mdl)
-cvar_t v_pistol_pitch = {"v_pistol_pitch", "0", CVAR_ARCHIVE};	//solitude: extra upward pitch (degrees) for the pistol mesh (progs/v_shot.mdl, the vanilla pump-gun model)
-cvar_t v_buckshot_down = {"v_buckshot_down", "0", CVAR_ARCHIVE};	//solitude: lowers the buckshot gun view model (v_shot2.mdl) in world units; r_viewmodeloffset is global, this is per-gun
+cvar_t v_buckshot_pitch = {"v_buckshot_pitch", "15", CVAR_NONE};	//solitude: extra upward pitch (degrees) for the wide buckshot gun (progs/v_shot2.mdl). Default is Solitude tuning, not vanilla (0 restores old behavior). Not archived - code is the source of truth.
+cvar_t v_pistol_pitch = {"v_pistol_pitch", "0", CVAR_NONE};	//solitude: extra upward pitch (degrees) for the pistol mesh (progs/v_shot.mdl, the vanilla pump-gun model)
+cvar_t v_buckshot_down = {"v_buckshot_down", "4", CVAR_NONE};	//solitude: lowers the buckshot gun view model (v_shot2.mdl) in world units; r_viewmodeloffset is global, this is per-gun
+cvar_t v_sword_pitch = {"v_sword_pitch", "8", CVAR_NONE};	//solitude r116d: sword mesh (progs/v_sword.mdl) pitch correction. +15 way too high, -15 nose down; user dialed +4 then final +8 by eye in live console (2026-11-17). Not archived - code is the source of truth.
 
 #ifndef min
 #define min(x, y) (x < y ? x : y)
@@ -1063,6 +1064,8 @@ void V_CalcRefdef (void)
 		if (v_buckshot_down.value)
 			view->origin[2] -= v_buckshot_down.value;
 	}
+	else if (v_sword_pitch.value && view->model && q_strcasestr (view->model->name, "v_sword."))	//r116: same baked-pose lift for the sword
+		view->angles[PITCH] += v_sword_pitch.value;
 
 //johnfitz -- v_gunkick
 	if (v_gunkick.value == 1) //original quake kick
@@ -1202,5 +1205,6 @@ void V_Init (void)
 	Cvar_RegisterVariable (&v_buckshot_pitch);	//solitude
 	Cvar_RegisterVariable (&v_pistol_pitch);	//solitude
 	Cvar_RegisterVariable (&v_buckshot_down);	//solitude
+	Cvar_RegisterVariable (&v_sword_pitch);	//solitude r116
 }
 
