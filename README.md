@@ -164,6 +164,48 @@ warning in the engine section above.
   r_drawviewmodel 0;viewsize 120;fov 120;noclip 1;crosshair 0;bind , screenshot
   ```
 
+### Texture Effects — Alpha, Animation, Water (name prefixes)
+
+Engine behavior is driven by the **first character of the texture name**
+(`gl_model.c`). Verified against our fork on Mac + Vita:
+
+- `+0name` … `+9name` — **animated** texture group. Frames share the name
+  after `+X` (`+0beam`, `+1beam`, …); the brush face references the frame-0
+  name only, the engine cycles the group at 5 fps (0.2 s/frame). `A`–`J` are
+  an alternate sequence. Example in-pack: `+0_fall`…`+7_fall` (highground
+  waterfall). A `+` texture is OPAQUE — `+` and `{` cannot combine.
+- `*name` — **warping** texture: per-frame sine warp of a `warpimage`
+  (`r_brush.c`) gives movement to a static texture (classic Quake water/
+  slime/lava). WARNING: qbsp also stamps `*`-faced leaves as **CONTENTS_WATER**
+  — a player inside that volume gets swim physics + splash
+  (`misc/h2ohit1.wav`). If you want a warped *effect* (energy beam) without
+  liquid physics, put the geometry in a plain `func_illusionary`
+  (SOLID_NOT, own bmodel — never sampled for water contents; add
+  `"_mirrorinside" "1"` so the inner shell renders from inside).
+- `{name` — **alpha / fence** texture: transparent via per-pixel alpha, drawn
+  in the fence pass, NO warp (static). This is the marker the engine uses for
+  transparency — the WAD2 miptex flag byte is ignored by this renderer.
+- `sky` prefix — skybox texture. `skip` / `clip` are compile-time only.
+
+**External PNG overrides** (no WAD recompile needed; `gl_load24bit 1` is the
+default): a texture also resolves from `textures/<mapname>/<name>.png`, then
+`textures/<name>.png`, across the engine searchpath. For `*` textures the sidecar
+is `#` + the name minus the star (`*beam_yl` → `textures/lockdown/#beam_yl.png`).
+PNG RGBA alpha is respected for `{` and `*` faces. This is how the lockdown
+beam kit ships: art lives in `solitude/textures/lockdown/`, and
+`assets/textures/wads/lockfx.wad` holds matching 64×64 proxy lumps (all of
+`{beam_*`, `*beam_*`, `+0beam_*`…) so qbsp/TB can resolve the face names.
+
+**Glow / emission**: any external `<name>.png` may have a sibling
+`<name>_glow.png` (or `_luma`) — it is auto-loaded as an **additive
+fullbright overlay** on that texture. Remove the sibling to make the surface
+lit-only. (Baked alternative: `_surface "texname"` light entities glow
+surfaces at compile time.)
+
+**Music note**: maps set worldspawn `"sounds" "<N>"` (cd-track convention);
+the engine then looks for `music/trackNN.*`, which this pack does not ship —
+background audio in maps is speaker entities, not tracks.
+
 ### Mapping Workflow Setup (macOS Silicon)
 > Note: you must launch trenchbroom from the terminal with command ``cd /Applications/TrenchBroom.app && ./Contents/MacOS/TrenchBroom`` (or run directly with ``/Applications/TrenchBroom.app/Contents/MacOS/TrenchBroom``. Otherwise the compilation tools will fail. This is because they rely on terminal variables.
 1. Install [Quakespasm](https://sourceforge.net/projects/quakespasm/), [alt  silicon build](https://github.com/BryanHaley/Quakespasm-AppleSilicon) to some location
