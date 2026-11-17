@@ -860,6 +860,7 @@ static GLuint useAlphaTestLoc;
 static GLuint alphaLoc;
 #ifdef VITA
 static GLuint fogDensityLoc;
+static GLuint fogColorLoc;
 #endif
 
 #define vertAttrIndex 0
@@ -904,6 +905,7 @@ void GLWorld_CreateShaders (void)
 		"uniform int UseAlphaTest;\n"
 		"uniform float Alpha;\n"
 		"uniform float fog_density;\n"
+		"uniform float4 fog_color;\n"
 		"\n"
 		"float4 main(\n"
 		"	float4 coords : WPOS,\n"
@@ -922,7 +924,7 @@ void GLWorld_CreateShaders (void)
 		"	float FogFragCoord = coords.z / coords.w;\n"
 		"	float fog = exp(-fog_density * fog_density * FogFragCoord * FogFragCoord);\n"
 		"	fog = clamp(fog, 0.0, 1.0);\n"
-		"	result = lerp(float4(0.3, 0.3, 0.3, 1.0), result, fog);\n" // FIXME: Fog color hardcoded to gray
+		"	result = lerp(fog_color, result, fog);\n"
 		"	result.a = Alpha;\n" // FIXME: This will make almost transparent things cut holes though heavy fog
 		"	return result;\n"
 		"}\n";
@@ -1003,6 +1005,7 @@ void GLWorld_CreateShaders (void)
 		alphaLoc = GL_GetUniformLocation (&r_world_program, "Alpha");
 #ifdef VITA
 		fogDensityLoc = GL_GetUniformLocation(&r_world_program, "fog_density");
+		fogColorLoc = GL_GetUniformLocation(&r_world_program, "fog_color");
 #endif
 	}
 }
@@ -1061,7 +1064,11 @@ void R_DrawTextureChains_GLSL (qmodel_t *model, entity_t *ent, texchain_t chain)
 	GL_Uniform1iFunc (useAlphaTestLoc, 0);
 	GL_Uniform1fFunc (alphaLoc, entalpha);
 #ifdef VITA
-	GL_Uniform1fFunc (fogDensityLoc, Fog_GetDensity() / 64.0f);
+	{
+		const float *fogc = Fog_GetColor ();
+		GL_Uniform1fFunc (fogDensityLoc, Fog_GetDensity() / 64.0f);
+		GL_Uniform4fFunc (fogColorLoc, fogc[0], fogc[1], fogc[2], fogc[3]);
+	}
 #endif
 
 	for (i=0 ; i<model->numtextures ; i++)
