@@ -65,6 +65,37 @@ policy, not clicks:
 4. Export PNG → convert via [wad-conversion.md](wad-conversion.md), or ship
    as a sidecar with proxy lumps in a wad.
 
+## External sidecar budget (size discipline)
+
+Rule of thumb: **≤256 px max edge for anything the player can press their face
+against, 128 px otherwise.** At the Vita's 960×544 you will not see more, and
+oversize sidecars cost real money. Measured 2026-11-17 (code + scan):
+
+- **Per-frame GPU cost: zero difference.** Wad and external textures converge
+  in `TexMgr_LoadImage32` — both upload as RGBA8. A big texture displayed small
+  samples via mips ≈ the same texels as a small one.
+- **Load-time cost: externals pay extra.** Wad lumps ship pre-built mips that
+  upload straight through; every sidecar gets its pixels decoded (zlib inflate
+  for PNG, none for uncompressed TGA type 2 — the reason our sidecars are TGA)
+  *and* a CPU box-filter mip chain *plus* an `AlphaEdgeFix` pass per mip level
+  for `{` textures. Cost scales with pixel count: a 512² sidecar is ~64× the
+  load work of a 64px wad lump.
+- **VRAM on Vita is a cliff, not a slope.** 128 MB total, shared with OS, game
+  heap, wad textures and lightmaps (lightmaps are the actual big eaters). The
+  SGX driver does not thrash-and-swap like a desktop GPU — over budget means
+  upload hitches, black textures or crash, not gradual fps loss. Keep sidecars
+  trimmed so the headroom goes to entities/particles/dlights.
+- A root-level `textures/<name>.<ext>` overrides that wad lump on **every map**,
+  not just one — that's a feature; treat root placement as intentional, put
+  experiments in `textures/<map>/`.
+- Current inventory: 93 sidecars, ~9.3 MB on disk, ~14 MB worst-case VRAM.
+  Known offenders from the 2026-11-17 scan: `textures/groundsm_red02.tga`
+  (512², ROOT-level global override — suspected stray), and
+  `textures/highground1/{map_hg_grnd_01,groundsm_red02}.tga` (512²) +
+  `en_256_cliff_02.tga` (256×512). Downscale to ≤256² before the next
+  highground1 ship. (`shield_overlay_*` at 256² are HUD-drawn near-fullscreen —
+  correctly sized, not offenders.)
+
 ## Alpha-by-purpose cheat sheet
 
 | Want | Use |

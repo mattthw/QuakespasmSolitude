@@ -73,7 +73,10 @@ only — they spam `Unknown command` on fork cvars and lack the HUD/perf work.
    tracked; built `.bsp` to `solitude/maps/` per current practice committed
    alongside.
 2. New/proxy wads tracked under `assets/textures/wads/`, `wad` key updated.
-3. Any `textures/<name>.png` sidecars → `solitude/textures/`.
+3. Any `textures/<name>.png` sidecars → `solitude/textures/`. Respect the size
+   budget in `texturing-krita.md` (≤256 px max edge; root-level files override
+   that lump on **every** map, so map-specific art belongs in
+   `textures/<map>/`).
 4. Map icon `.tga` + the menu/`levels` wiring (matchmaking list lives in
    `menu.c` levels table).
 5. Mac play-through, then Vita USB sync + device pass (never FTP — it has
