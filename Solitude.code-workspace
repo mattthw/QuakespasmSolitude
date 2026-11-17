@@ -1,0 +1,36 @@
+{
+    "folders": [
+        { "name": "solitude (repo)", "path": "." },
+        { "name": "toolchain", "path": "../../toolchain" },
+        { "name": "local (wads/art)", "path": "../local" }
+    ],
+    "settings": {
+        // Wiki feel: clicking a .md opens the rendered preview directly.
+        // Source edit = right-click tab > "Open With..." > Text Editor,
+        // or ⌘K V once open to toggle preview <-> source.
+        "workbench.editorAssociations": {
+            "*.md": "vscode.markdown.preview.editor"
+        },
+        "markdown.preview.fontFamily": "-apple-system, 'Segoe UI', sans-serif",
+        "markdown.preview.breaks": true,
+        "editor.wordWrap": "on",
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true,
+        "files.exclude": {
+            "**/.DS_Store": true,
+            "**/__pycache__": true,
+            "solitude/spasm*.png": true,
+            "build": true,
+            "**/*.o": true,
+            "**/*.lno": true
+        },
+        "search.exclude": {
+            "**/solitude/gfx": true,
+            "**/solitude/progs": true,
+            "**/*.bsp": true,
+            "**/*.lit": true,
+            "**/*.pak": true,
+            "**/local/archive": true
+        }
+    }
+}
