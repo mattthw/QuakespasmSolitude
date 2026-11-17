@@ -1310,7 +1310,7 @@ void() WaypointWatch =
 		cvar_set ("saved4", "0");
 		if (max_clients > 1)
 		{
-			localcmd("exec maps/");
+			localcmd("exec data/maps/");
 			localcmd(mapname);
 			localcmd(".way\n");
 			waypoint_mode = WM_DYNAMIC;

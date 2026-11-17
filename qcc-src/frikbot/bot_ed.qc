@@ -1123,7 +1123,7 @@ void() PrintWaypoint =
 		t = self.enemy._next;
 	if (bytecounter >= 8000)
 	{
-		bprint("exec maps/");
+		bprint("exec data/maps/");
 		bprint(mapname);
 		bprint(".wa");
 		h = ftos(filecount);
@@ -1439,11 +1439,11 @@ void() BSPDumpWaypoints =
 
 // FrikaC's file access tutorial...
 string(string s1, string s2) strcat = #82;
-float(string filename, float mode) open = #86;
-string(string s) zone = #79;
-void(string s) unzone = #80;
-void(float handle) close = #87;
-void(float handle, string s) write = #89;
+float(string filename, float mode) fopen = #110;
+string(string s) strzone = #118;
+void(string s) strunzone = #119;
+void(float handle) fclose = #111;
+void(float handle, string s) fputs = #113;
 float file;
 
 void() SaveWaypoint =
@@ -1460,18 +1460,18 @@ void() SaveWaypoint =
 	{
 		h = "maps/";
 		j = ftos(filecount);
-		k = h = zone(strcat("maps/", mapname));
-		l = h = zone(strcat(h, ".wa"));
-		unzone(k);
-		h = zone(strcat(h, j));
-		unzone(l);
-		write(file, "exec ");
-		write(file, h);
-		write(file, "\n");
+		k = h = strzone(strcat("maps/", mapname));
+		l = h = strzone(strcat(h, ".wa"));
+		strunzone(k);
+		h = strzone(strcat(h, j));
+		strunzone(l);
+		fputs(file, "exec data/");
+		fputs(file, h);
+		fputs(file, "\n");
 		filecount = filecount + 1;
-		close(file);
-		file = open(h, 2);
-		unzone(h);
+		fclose(file);
+		file = fopen(h, 2);
+		strunzone(h);
 		if (file == -1)
 		{
 			remove(self);
@@ -1485,8 +1485,8 @@ void() SaveWaypoint =
 	{
 		remove(self);
 		fixer = world;
-		write(file, "saved4 3\n");
-		close(file);
+		fputs(file, "saved4 3\n");
+		fclose(file);
 		bprint("waypoints saved.\n");
 		bytecounter = bytecounter + 27;
 		return;
@@ -1498,9 +1498,9 @@ void() SaveWaypoint =
 // 2001-09-10 FrikBot support by FrikaC/Maddes  end
 	if ((t.origin_x != saved1) || (t.count == 1))
 	{
-		write(file, "saved1 ");
+		fputs(file, "saved1 ");
 		h = ftos(t.origin_x);
-		write(file, h);
+		fputs(file, h);
 		saved1 = t.origin_x;
 		bytecounter = bytecounter + 12;
 		needcolon = TRUE;
@@ -1509,14 +1509,14 @@ void() SaveWaypoint =
 	{
 		if (needcolon)
 		{
-			write(file, "; ");
+			fputs(file, "; ");
 			bytecounter = bytecounter + 2;
 		}
 		else
 			needcolon = TRUE;
-		write(file, "saved2 ");
+		fputs(file, "saved2 ");
 		h = ftos(t.origin_y);
-		write(file, h);
+		fputs(file, h);
 		bytecounter = bytecounter + 12;
 		saved2 = t.origin_y;
 	}
@@ -1524,90 +1524,90 @@ void() SaveWaypoint =
 	{
 		if (needcolon)
 		{
-			write(file, "; ");
+			fputs(file, "; ");
 			bytecounter = bytecounter + 2;
 		}
 		else
 			needcolon = TRUE;
-		write(file, "saved3 ");
+		fputs(file, "saved3 ");
 		h = ftos(t.origin_z);
-		write(file, h);
+		fputs(file, h);
 		bytecounter = bytecounter + 12;
 		saved3 = t.origin_z;
 	}
 	if (needcolon)	// 2001-09-10 FrikBot support by FrikaC/Maddes
 	{
 		bytecounter = bytecounter + 1;
-		write(file, "\n");
+		fputs(file, "\n");
 		needcolon = FALSE;
 	}
 	if ((scratch1 != t.target1.count) || t.count == 1)
 	{
 		needcolon = TRUE;
-		write(file, "scratch1 ");
+		fputs(file, "scratch1 ");
 		bytecounter = bytecounter + 14;
 		h = ftos(t.target1.count);
-		write(file, h);
+		fputs(file, h);
 		scratch1 = t.target1.count;
 	}
 	if ((scratch2 != t.target2.count) || t.count == 1)
 	{
 		if (needcolon)
 		{
-			write(file, "; ");
+			fputs(file, "; ");
 			bytecounter = bytecounter + 2;
 		}
 		else
 			needcolon = TRUE;
-		write(file, "scratch2 ");
+		fputs(file, "scratch2 ");
 		bytecounter = bytecounter + 14;
 		h = ftos(t.target2.count);
-		write(file, h);
+		fputs(file, h);
 		scratch2 = t.target2.count;
 	}
 	if ((scratch3 != t.target3.count) || t.count == 1)
 	{
 		if (needcolon)
 		{
-			write(file, "; ");
+			fputs(file, "; ");
 			bytecounter = bytecounter + 2;
 		}
 		else
 			needcolon = TRUE;
-		write(file, "scratch3 ");
+		fputs(file, "scratch3 ");
 		bytecounter = bytecounter + 14;
 		h = ftos(t.target3.count);
-		write(file, h);
+		fputs(file, h);
 		scratch3 = t.target3.count;
 	}
 	if ((scratch4 != t.target4.count) || t.count == 1)
 	{
 		if (needcolon)
 		{
-			write(file, "; ");
+			fputs(file, "; ");
 			bytecounter = bytecounter + 2;
 		}
 		else
 			needcolon = TRUE;
-		write(file, "scratch4 ");
+		fputs(file, "scratch4 ");
 		bytecounter = bytecounter + 14;
 		h = ftos(t.target4.count);
-		write(file, h);
+		fputs(file, h);
 		scratch4 = t.target4.count;
 	}
 	if (needcolon)	// 2001-09-10 FrikBot support by FrikaC/Maddes
 	{
-		write(file, "\n");
+		fputs(file, "\n");
 		needcolon = FALSE;
 	}
-	write(file, "saved4 ");
+	fputs(file, "saved4 ");
 	bytecounter = bytecounter + 19;
 	if (t.count != 1)
 		h = ftos(t.b_aiflags * 4 + 2);
 	else 
 		h = ftos(t.b_aiflags * 4 + 1);
-	write(file, h);
-	write(file, "; wait\n");
+	fputs(file, h);
+	fputs(file, "; wait\n");
 	self.nextthink = time + 0.01;
 	self.enemy = t;
 };
@@ -1619,10 +1619,10 @@ void() SaveWays =
 	bytecounter = 50; 
 	filecount = 1;
 	h = strcat("maps/", mapname);
-	f = h = zone(h);
+	f = h = strzone(h);
 	h = strcat(h, ".way");
-	unzone(f);
-	file = open(h, 2);
+	strunzone(f);
+	file = fopen(h, 2);
 	if (file == -1)
 	{
 		bprint("Error: failed to open file\n");
