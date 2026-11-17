@@ -14,8 +14,11 @@ exec autoexec.cfg
     cl_backspeed 200
     cl_sidespeed 200
 
-    //menu music
-    play music/theme
+    //menu music: r106 - the theme now comes from PlayMenuTheme() through the
+    //looping bgmusic streamer (music/solitude_ambient_1_justin_medford.mp3).
+    //This old one-shot sample double-played over it; theme.wav itself stays
+    //in the pak, untouched.
+    //play music/theme
 
     //hide console
     toggleconsole

@@ -240,7 +240,8 @@ qpic_t  *healthbar_br;
 // custom cvars for solitude
 cvar_t cl_killmedals = {"cl_killmedals", "0"};
 cvar_t cl_plasmanade = {"cl_plasmanade", "2"};
-cvar_t cl_nadenum = {"cl_nadenum", "4"};
+cvar_t cl_nadenum = {"cl_nadenum", "0"};	// r111: was "4" — stale default showed on spawn before QC sync
+cvar_t cl_nadenum2 = {"cl_nadenum2", "0"};	// r110: alt-type pool count (QC NadeCounter)
 cvar_t cl_round = {"cl_round", "0"};
 cvar_t cl_life = {"cl_life", "1"};
 cvar_t cl_slowmo = {"cl_slowmo", "5"};
@@ -365,6 +366,7 @@ void HUD_Init (void) {
     Cvar_RegisterVariable (&cl_killmedals);	//Kill medals
     Cvar_RegisterVariable (&cl_plasmanade); //Grenade types
     Cvar_RegisterVariable (&cl_nadenum);	//A counter for your grenades.
+    Cvar_RegisterVariable (&cl_nadenum2);	//r110: the other type's counter
     Cvar_RegisterVariable (&cl_ww);	//World weapons
     Cvar_RegisterVariable (&cl_round);
     Cvar_RegisterVariable (&cl_life);
@@ -800,53 +802,116 @@ static void drawNameplates (void)
 void drawPickupWeapon(void) {
     char *string = getPickupWeaponString((int)cl_ww.value);
     char prompt[64];
+    char ammo[10];
     float s = HUD_SCALE();
+    float edgeR, textx;
     if (strcmp(string,"") == 0)
         return;
-    sprintf(prompt, "Pick up/Replace with %s.", string);
-    /* Y button box is 16*0.8 design px; center it on the text line instead of
-     * Draw_ButtonScaled's -4 fudge (that was for 8px conchars rows).
-     * TTF baseline sits at glheight*0.24 - 8*s; cap-center ~ 5*s above it. */
-    HUD_WarpPic((int)(glwidth*0.67), (int)(glheight*0.26 - 8*s - 4*s - 7.2f*s),
+    sprintf(prompt, "Replace with %s.", string);
+    /* r104 (user 2026-11-16): shorter copy "Replace with <weapon>", solitude
+     * blue like the weapon name (127/191/255), +15% size (16 -> 18.4),
+     * raised from glheight*0.26 toward the vertical middle.
+     * r111 (user): whole hint RIGHT-justified on the same edge as the
+     * rightmost ammo count (identical anchor math to drawWeapon), icon
+     * rides in front of the text with a small gap.
+     * Y button box (14*s design px) stays centered on the text line:
+     * baseline glheight*0.33 - 8*s, cap-center offset scaled with the font. */
+    HUD_itoa((int)cl.stats[STAT_ARMOR], ammo);
+    edgeR = glwidth*0.899 + Draw_TTFWidth (ammo, 12.75f*s);
+    textx = edgeR - Draw_TTFWidth (prompt, 18.4f*s);
+    HUD_WarpPic((int)(textx - 14.0f*s - 8.0f*s), (int)(glheight*0.33 - 8*s - 4*s - 8.3f*s),
                 (14.0f*s), (14.0f*s), b_ybutton);
-    Draw_TTFString(glwidth*0.7, glheight*0.26 - 8*s, prompt, 1, 1, 1, 1, 16.0f*s);
+    Draw_TTFString((int)textx, glheight*0.33 - 8*s, prompt, 127/255.0, 191/255.0, 255/255.0, 0.7f, 18.4f*s);
 }
 
 void drawWeapon(void) {
     char primary[30];
     char rounds[10];
     char ammo[10];
+    float s = HUD_SCALE();
+    float edgeR, tw;
     HUD_itoa((int)cl.stats[STAT_AMMO], rounds);
     HUD_itoa((int)cl.stats[STAT_ARMOR], ammo);
     strcpy(primary, getWeaponName((int)cl.stats[STAT_ACTIVEWEAPON]));
-    /* r19: nudged right (0.70/0.77 -> 0.72/0.79) per user 2026-11-12 */
-    Draw_TTFString(glwidth*0.804, glheight*0.10, primary, 127/255.0, 191/255.0, 255/255.0,1, 18.7f*HUD_SCALE());
+    /* r19: nudged right (0.70/0.77 -> 0.72/0.79) per user 2026-11-12;
+     * r104: whole block closer to the right edge (0.804 -> 0.85) and the
+     * ammo rows lowered 0.19 -> 0.165 toward the weapon name (user 2026-11-16)
+     * r111 (user): title is RIGHT-justified on the same edge as the
+     * rightmost ammo count (reserve at 0.899 + its measured width). */
+    edgeR = glwidth*0.899 + Draw_TTFWidth (ammo, 12.75f*s);
+    tw = Draw_TTFWidth (primary, 18.7f*s);
+    Draw_TTFString(edgeR - tw, glheight*0.10, primary, 127/255.0, 191/255.0, 255/255.0,1, 18.7f*s);
     if (strcmp(primary, "Energy Sword") != 0 /* 0 means equal*/) { // dont draw ammo for energy sword
-        Draw_TTFString(glwidth*0.804, glheight*0.19 - 8*HUD_SCALE(), rounds, 171/255.0, 231/255.0, 255/255.0,1, 16.15f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.853, glheight*0.19 - 8*HUD_SCALE(), ammo, 171/255.0, 231/255.0, 255/255.0,1, 12.75f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.85, glheight*0.165 - 8*HUD_SCALE(), rounds, 171/255.0, 231/255.0, 255/255.0,1, 16.15f*HUD_SCALE());
+        Draw_TTFString(glwidth*0.899, glheight*0.165 - 8*HUD_SCALE(), ammo, 171/255.0, 231/255.0, 255/255.0,1, 12.75f*HUD_SCALE());
     }
 }
 
 void drawGrenades() {
     char nadename[10];
     char nadecount[2];
+    char altcount[2];
+    const char *secname = NULL;
+    float s = HUD_SCALE();
+    float edge, x, y1, y2, c1w, n1w, c2w, n2w, p1w, p2w;
     int count = (int)cl_nadenum.value;
+    int alt = (int)cl_nadenum2.value;	// r110: other pool, its own number
     if ((int)cl_plasmanade.value == 1) {
         strcpy(nadename, "Plasma");
+        secname = "Frags";        /* r109: secondary type below (user) */
     } else if ((int)cl_plasmanade.value == 2) {
         strcpy(nadename, "Frags");
+        secname = "Plasma";
+    } else {
+        nadename[0] = 0;
     }
     HUD_itoa(count, nadecount);
-    /* halo3 text-state rule (no icon art exists): zero count dims to gray */
+    /* r109b (user, spasm0068): was jammed against the screen edge and the
+     * secondary row had no count + stayed bright when empty. Now the block
+     * MIRRORS drawWeapon: weapon starts at glwidth*0.85, this block is
+     * right-aligned at glwidth*0.15 (the mirrored edge), rows at the same
+     * heights (name row 0.10, numbers row 0.165-8s). Primary 16.15px,
+     * secondary 12px with the ALT pool's own count (cl_nadenum2, r110). Dimming MUST be rgb-only: the premul 2D canvas blends
+     * GL_ONE,ONE_MINUS_SRC_ALPHA, so glColor alpha barely darkens drawn
+     * text (same trap as M_HintIcon r108). Zero count -> both rows gray
+     * (halo3 text-state rule). Blue left-dpad switch hint stays parked. */
+    if (!nadename[0])
+        return;
+    edge = glwidth*0.15;
+    y1 = glheight*0.10;
+    c1w = Draw_TTFWidth (nadecount, 16.15f*s);
+    n1w = Draw_TTFWidth (nadename, 16.15f*s);
+    p1w = c1w + 6.0f + n1w;
+    x = edge - p1w;
+    y2 = glheight*0.165 - 8*s;
     if (count == 0)
     {
-        Draw_TTFString(glwidth*0.03, glheight*0.12 - 8*HUD_SCALE(), nadecount, 0.45, 0.45, 0.45, 0.75, 16.15f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.08, glheight*0.12 - 8*HUD_SCALE(), nadename, 0.45, 0.45, 0.45, 0.75, 16.15f*HUD_SCALE());
+        Draw_TTFString(x, y1, nadecount, 0.45, 0.45, 0.45, 0.75, 16.15f*s);
+        Draw_TTFString(x + c1w + 6.0f, y1, nadename, 0.45, 0.45, 0.45, 0.75, 16.15f*s);
     }
     else
     {
-        Draw_TTFString(glwidth*0.03, glheight*0.12 - 8*HUD_SCALE(), nadecount, 171/255.0, 231/255.0, 255/255.0,1, 16.15f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.08, glheight*0.12 - 8*HUD_SCALE(), nadename, 171/255.0, 231/255.0, 255/255.0,1, 16.15f*HUD_SCALE());
+        Draw_TTFString(x, y1, nadecount, 171/255.0, 231/255.0, 255/255.0, 1, 16.15f*s);
+        Draw_TTFString(x + c1w + 6.0f, y1, nadename, 171/255.0, 231/255.0, 255/255.0, 1, 16.15f*s);
+    }
+    {  float sr = 12.0f*s;
+    HUD_itoa(alt, altcount);
+    c2w = Draw_TTFWidth (altcount, sr);
+    n2w = Draw_TTFWidth (secname, sr);
+    p2w = c2w + 5.0f + n2w;
+    x = edge - p2w;
+    /* r110: secondary row is the ALT pool — dims on alt's own count, and
+     * the "bright when empty" defect was the premul-alpha trap: rgb dim only. */
+    if (alt == 0)
+    {
+        Draw_TTFString(x, y2, altcount, 0.45, 0.45, 0.45, 0.75, sr);
+        Draw_TTFString(x + c2w + 5.0f, y2, secname, 0.45, 0.45, 0.45, 0.75, sr);
+    }
+    else
+    {
+        Draw_TTFString(x, y2, altcount, 94/255.0, 127/255.0, 140/255.0, 1, sr);
+        Draw_TTFString(x + c2w + 5.0f, y2, secname, 94/255.0, 127/255.0, 140/255.0, 1, sr);
+    }
     }
 }
 

@@ -296,10 +296,13 @@ void M_PrintWhite (int cx, int cy, const char *str)
 	}
 	tmpl[ti] = '\0';
 
+	/* r112: main menu rows read small vs their bands (user: slight bump,
+	 * stay inside the row). 16 vs row height MVS≈19; other menus keep 14. */
 	Draw_TTFString (cx, cy + 8, tmpl,
 		(menu_palette[col*3] + 0.1f) / 255.0f,
 		(menu_palette[col*3+1] + 0.1f) / 255.0f,
-		(menu_palette[col*3+2] + 0.1f) / 255.0f, 1.0f, 14.0f);
+		(menu_palette[col*3+2] + 0.1f) / 255.0f, 1.0f,
+		m_state == m_main ? 16.0f : 14.0f);
 }
 
 void M_PrintCentered (int cy, char *str)
@@ -379,7 +382,14 @@ bool theme_started = false;
 void PlayMenuTheme(bool override) {
     //    Cbuf_AddText ("playdemo title.dem\n"); broken since there is a missing audio track. causes loop. do in config if wanted
     if (!theme_started || override) {
-        Cbuf_AddText("play music/theme.wav\n");
+        /* r106: menu theme moved from the one-shot "play music/theme.wav"
+         * sample to the bgmusic streamer - music/<file>.mp3 decoded by
+         * snd_mp3 (libmad on Vita) and rewound at EOF (bgmloop default 1),
+         * so the ambient track loops under the Music Volume slider. The old
+         * theme.wav stays in the pak untouched. CL_Disconnect/BGM_Stop kills
+         * it on map start; theme_started resets on the pause-disconnect path
+         * so returning to the menu restarts it. */
+        Cbuf_AddText("music solitude_ambient_1_justin_medford.mp3\n");
         theme_started = true;
     }
 }
@@ -411,10 +421,12 @@ void M_Main_Draw (void)
     /* hint lives on the footer band, right-aligned WITHIN the main menu
      * panel's bounds + padding (user): measure icon+text, subtract from the
      * panel's right edge. M_HintIcon keeps the art native-aspect. */
-    {  int hintw = 16 + CHARZ + (int)Draw_TTFWidth ("Select", 14.0f); // square icon width + gap + measured text
+    {  int hintw = 16 + 2 + (int)Draw_TTFWidth ("Select", 16.0f); // r112: funnel draws main at 16
     int hintx = main_x_offset_pixels + main_pixel_width - 8 - hintw;
-    M_HintIcon (&hintx, PixHeight(1)-MVS+TEXT_YMARGIN, b_abutton);
-    M_PrintWhite(hintx, PixHeight(1)-MVS+TEXT_YMARGIN, "Select"); //tip
+    int tx = hintx;
+    M_HintIcon (&tx, PixHeight(1)-MVS+TEXT_YMARGIN, b_abutton);
+    tx += 2;
+    M_PrintWhite(tx, PixHeight(1)-MVS+TEXT_YMARGIN, "Select"); //tip
     }
     //cursor
     Draw_Cursor(main_x_offset_pixels, main_y_offset_pixels+mvs(m_main_cursor), main_pixel_width, CURSOR_HEIGHT, !main_multi);
@@ -820,6 +832,37 @@ int	m_multiplayer_cursor;
 int		setup_cursor = 2;
 int		setup_cursor_table[] = {40, 56, 80, 104, 140};
 
+/* r96: TDM pins teams red/blue; remember the player's profile colors the
+ * first time the lobby opens so FFA matches can restore them.
+ * r113: hoisted above the setup page so M_Setup_Key can keep the capture
+ * in sync with deliberate profile edits (the old capture went stale and
+ * the next lobby open silently stomped a freshly-chosen color back to the
+ * value captured on first entry -- the "I set green, roster shows red"
+ * bug). */
+static qboolean	lobby_profile_saved = false;
+static char		lobby_saved_bottom[8] = "";
+static char		lobby_saved_top[8] = "";
+
+/* r114: Team Slayer pins bottomcolor/topcolor to 4 for the match (QC team
+ * ids and model skins read those cvars). The pin used to leak permanently:
+ * quitting straight from a TDM match wrote 4 into config.cfg before any
+ * lobby open could restore the profile. This helper re-applies the captured
+ * Spartan-page profile synchronously; Host_WriteConfiguration calls it as
+ * the single config-persist chokepoint, and M_Matchmaking_f uses it for the
+ * live repair (Cvar_Set takes effect this frame, so the roster preview
+ * cannot flash the stale pin). */
+void M_Lobby_RestoreProfile (void)
+{
+	if (!lobby_profile_saved || !lobby_saved_bottom[0])
+		return;
+	if (strcmp (Cvar_VariableString ("bottomcolor"), lobby_saved_bottom)
+	    || strcmp (Cvar_VariableString ("topcolor"), lobby_saved_top))
+	{
+		Cvar_Set ("bottomcolor", lobby_saved_bottom);
+		Cvar_Set ("topcolor", lobby_saved_top);
+	}
+}
+
 char	setup_hostname[16];
 char	setup_myname[16];
 int		setup_oldtop;
@@ -954,6 +997,11 @@ forward:
 			Cvar_Set("hostname", setup_hostname);
 		if (setup_top != setup_oldtop || setup_bottom != setup_oldbottom)
 			Cbuf_AddText( va ("color %i %i\n", setup_top, setup_bottom) );
+		/* r113: the lobby profile memory follows deliberate edits (and is
+		 * armed even if the lobby has not been opened yet this session). */
+		lobby_profile_saved = true;
+		q_strlcpy (lobby_saved_top, va("%i", setup_top), sizeof (lobby_saved_top));
+		q_strlcpy (lobby_saved_bottom, va("%i", setup_bottom), sizeof (lobby_saved_bottom));
         if (setup_cursor == 3) {
             m_entersound = true;
             M_Menu_Main_f();
@@ -4463,11 +4511,15 @@ void M_Lobby_ShuffleNames_f (void)
 		Cvar_Set (va("bot_name%d", i), names[i]);
 }
 
-/* r96: TDM pins teams red/blue; remember the player's profile colors the
- * first time the lobby opens so FFA matches can restore them. */
-static qboolean lobby_profile_saved = false;
-static char lobby_saved_bottom[8] = "";
-static char lobby_saved_top[8] = "";
+/* r96/r113: lobby_profile_saved / lobby_saved_bottom / lobby_saved_top
+ * live above the setup page now (M_Setup_Key keeps them fresh). */
+
+/* r62: FFA band pool mirroring HaloColorAt in frikbot/bot.qc; the
+ * player owns band 14 (bottomcolor), so bots start at blue.
+ * r115: hoisted to file scope -- M_Matchmaking_f pins these into the
+ * bot_color<slot> cvars the QC BotConnect ladder reads, making the
+ * preview truth instead of a guess. */
+static const int ffa_bands[6] = {13, 12, 11, 6, 5, 4};   /* r97: 4 = safe red. r115c: was band 2 — the QC ladder rejects 2, so that row's color never matched */
 
 void M_Matchmaking_f (void)
 {
@@ -4483,16 +4535,26 @@ void M_Matchmaking_f (void)
         q_strlcpy (lobby_saved_top, Cvar_VariableString ("topcolor"),
                    sizeof(lobby_saved_top));
     }
-    /* r97: leaving a TDM match re-pins nothing -- repair the live profile
-     * back to what the lobby captured, so the ultrabright pin (era: 14)
-     * never sticks in menus, rosters or config.cfg. */
-    else if (strcmp (Cvar_VariableString ("bottomcolor"), lobby_saved_bottom)
-          || strcmp (Cvar_VariableString ("topcolor"), lobby_saved_top))
-    {
-        Cbuf_AddText (va ("bottomcolor %s\n", lobby_saved_bottom));
-        Cbuf_AddText (va ("topcolor %s\n", lobby_saved_top));
-    }
+    /* r97/r114: leaving a TDM match re-pins nothing -- repair the live profile
+     * back to what the lobby captured (or the Spartan page last set), so the
+     * pin never sticks in menus, rosters or config.cfg. */
+    M_Lobby_RestoreProfile ();
     Cbuf_AddText ("exec bots.cfg\nlobby_shufflenames\n");   // P2a lobby roster names (r64: + shuffle)
+    /* r115: pin the preview's FFA bands into bot_color<slot> so the QC
+     * BotConnect ladder gives each bot exactly the row color shown.
+     * TDM ignores these (hard red vs blue there, by design).
+     * r115b: create inline — the M_Init loop shipped in no deployed build
+     * (stale menu.o relink), so relying on init-order creation left every
+     * lobby open failing with "Cvar_Set: variable bot_colorN not found".
+     * Cvar_Create is idempotent; not CVAR_ARCHIVE, so config.cfg stays clean. */
+    {
+        int ci;
+        for (ci = 0; ci < 7; ci++)
+        {
+            Cvar_Create (va("bot_color%i", ci), "0");
+            Cvar_Set (va("bot_color%i", ci), va("%i", ffa_bands[ci % 6]));
+        }
+    }
     if (maxplayers == 0)
         maxplayers = svs.maxclients;
     if (maxplayers < 2)
@@ -4527,8 +4589,11 @@ static void M_HintIcon (int *x, int y, qpic_t *icon)
 {
     int w = M_HintIconW (icon);
     /* r79b: buttons fade to 0.6 (user: "kind of bright"). The premul 2D
-     * canvas ignores bare alpha, so rgb is darkened along with it. */
-    glColor4f (0.6f, 0.6f, 0.6f, 0.6f);
+     * canvas ignores bare alpha, so rgb is darkened along with it.
+     * r108: alpha must stay 1.0 — Mac's GL_ONE,ONE_MINUS_SRC_ALPHA canvas
+     * multiplies it too and the double-halved texels vanished entirely
+     * (main-menu Select icon "disappeared"); rgb 0.6 alone is the dim. */
+    glColor4f (0.6f, 0.6f, 0.6f, 1.0f);
     Draw_StretchPic (*x, y - 4, icon, w, 16);
     glColor4f (1, 1, 1, 1);
     *x += w;
@@ -4790,9 +4855,8 @@ void M_Matchmaking_Draw (void)
         int y;
         int i;
         int hx, hy;
-        /* r62: FFA band pool mirroring HaloColorAt in frikbot/bot.qc; the
-         * player owns band 14 (bottomcolor), so bots start at blue. */
-        static const int ffa_bands[6] = {13, 12, 11, 6, 2, 4};   /* r97: 4 = safe red */
+        /* r62/r115: FFA band pool now lives at file scope (M_Matchmaking_f
+         * pins it into bot_color<slot> so QC matches this preview). */
         /* r96: FFA preview follows the player's profile band (bottomcolor).
          * 15 is the fullbright glitch band and >14 parses garbage: pin to 14. */
         int prof = atoi (Cvar_VariableString ("bottomcolor"));
@@ -4815,7 +4879,12 @@ void M_Matchmaking_Draw (void)
             byte *pcc = (byte *)&d_8to24table[prof * 16 + 8];
             Draw_FillRGBA (rx, y, rw, band, pcc[0]/255.0f*0.35f, pcc[1]/255.0f*0.35f, pcc[2]/255.0f*0.35f, 0.35f);
         }
-        Draw_TTFString (rx + CHARZ, y + nfs, "You", 1, 1, 1, 1, (float)nfs);
+        /* r113: roster shows the player's real name (Spartan page "Your
+         * name" / cl_name), not a hardcoded "You". */
+        {
+            const char *me = cl_name.string;
+            Draw_TTFString (rx + CHARZ, y + nfs, (*me) ? me : "You", 1, 1, 1, 1, (float)nfs);
+        }
         y += pitch;
 
         for (i = 0; i < fr; i++)
@@ -5683,6 +5752,15 @@ void M_Init (void)
 
 	// P2a lobby roster: bot count cvar + menu commands (see M_Matchmaking_Draw)
 	lobby_bots = Cvar_Create ("lobby_bots", "5");   /* r94: TDM default = 6 players total (you + 5) */
+	/* r115b: lobby-owned bot color cvars (QC BotConnect ladder reads them by
+	 * slot; 0 = never pinned). r115's version put this very call INSIDE the
+	 * block comment (opened before it, closed after) — -O2 deleted the empty
+	 * loop, cvars never existed, every lobby open logged "bot_colorN not
+	 * found" and QC rolled random colors. Brace it, comment on its own lines. */
+	for (int ci = 0; ci < 7; ci++)
+	{
+		Cvar_Create (va("bot_color%i", ci), "0");
+	}
 	Cmd_AddCommand ("lobby_addbot", M_Lobby_AddBot_f);
 	Cmd_AddCommand ("lobby_delbot", M_Lobby_DelBot_f);
 	Cmd_AddCommand ("lobby_shufflenames", M_Lobby_ShuffleNames_f);

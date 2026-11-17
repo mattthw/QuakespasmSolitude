@@ -637,6 +637,8 @@ void Host_WriteConfiguration (void)
 {
 	FILE	*f;
 
+	extern void M_Lobby_RestoreProfile (void);	/* r114: menu.c */
+
 // dedicated servers initialize the host but don't parse and set the
 // config.cfg cvars
 	if (host_initialized && !isDedicated && !host_parms->errstate)
@@ -648,7 +650,12 @@ void Host_WriteConfiguration (void)
 			return;
 		}
 
-		//VID_SyncCvars (); //johnfitz -- write actual current mode to config file, in case cvars were messed with
+		//johnfitz -- write actual current mode to config file, in case cvars were messed with
+
+		/* r114: repair a leaked Team Slayer color pin (menu.c) before the
+		 * archived cvars hit the disk -- TDM must never permanently change
+		 * the Spartan profile. */
+		M_Lobby_RestoreProfile ();
 
 		Key_WriteBindings (f);
 		Cvar_WriteVariables (f);
