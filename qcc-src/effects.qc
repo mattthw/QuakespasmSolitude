@@ -482,6 +482,27 @@ if (client.selnade == GRENADE_REGULAR)
 	stuffcmd (client, "cl_nadenum 1\n");
 	if (client.nade_lives == 0)
 	stuffcmd (client, "cl_nadenum 0\n");
+    /* r110 (user): the HUD only ever saw the ACTIVE type's count and drew
+     * the same number for both rows - plasma/frags are separate pools.
+     * Send the other type's count too so the secondary row is truthful. */
+    if (client.plasma_lives == 8)
+        stuffcmd (client, "cl_nadenum2 8\n");
+    if (client.plasma_lives == 7)
+        stuffcmd (client, "cl_nadenum2 7\n");
+    if (client.plasma_lives == 6)
+        stuffcmd (client, "cl_nadenum2 6\n");
+    if (client.plasma_lives == 5)
+        stuffcmd (client, "cl_nadenum2 5\n");
+    if (client.plasma_lives == 4)
+        stuffcmd (client, "cl_nadenum2 4\n");
+    if (client.plasma_lives == 3)
+        stuffcmd (client, "cl_nadenum2 3\n");
+    if (client.plasma_lives == 2)
+        stuffcmd (client, "cl_nadenum2 2\n");
+    if (client.plasma_lives == 1)
+        stuffcmd (client, "cl_nadenum2 1\n");
+    if (client.plasma_lives == 0)
+        stuffcmd (client, "cl_nadenum2 0\n");
 	}
 else if (client.selnade == GRENADE_STICKY)
 	{
@@ -507,6 +528,25 @@ else if (client.selnade == GRENADE_STICKY)
 	stuffcmd (client, "cl_nadenum 1\n");
 	if (client.plasma_lives == 0)
 	stuffcmd (client, "cl_nadenum 0\n");
+    /* r110: other pool (frags) for the secondary HUD row */
+    if (client.nade_lives == 8)
+        stuffcmd (client, "cl_nadenum2 8\n");
+    if (client.nade_lives == 7)
+        stuffcmd (client, "cl_nadenum2 7\n");
+    if (client.nade_lives == 6)
+        stuffcmd (client, "cl_nadenum2 6\n");
+    if (client.nade_lives == 5)
+        stuffcmd (client, "cl_nadenum2 5\n");
+    if (client.nade_lives == 4)
+        stuffcmd (client, "cl_nadenum2 4\n");
+    if (client.nade_lives == 3)
+        stuffcmd (client, "cl_nadenum2 3\n");
+    if (client.nade_lives == 2)
+        stuffcmd (client, "cl_nadenum2 2\n");
+    if (client.nade_lives == 1)
+        stuffcmd (client, "cl_nadenum2 1\n");
+    if (client.nade_lives == 0)
+        stuffcmd (client, "cl_nadenum2 0\n");
 	}
 
 

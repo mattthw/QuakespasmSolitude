@@ -89,7 +89,9 @@ void() SetNewParms = {
     parm14 = SVC_INTERMISSION;
     parm15 = 60;
     if (deathmatch != SWAT) {
-        parm16 = cvar("max_nades");
+        parm16 = 1;  /* r112c: spawn/respawn loadout is ONE of each type
+                      * (max_nades is now only the pickup cap, not the
+                      * starting grant) */
     }
 };
 
@@ -742,6 +744,21 @@ entity() SelectSpawnPoint = {
 void() DecodeLevelParms;
 void() PlayerDie;
 
+/* r112b: deferred nade sync. The pools are granted correctly at first
+ * connect (throw proves 2/2 was in the entity), but the spawn-frame
+ * stuffcmds ride datagrams the client is still flushing through map
+ * load - the HUD sat at 0/0 until the next mid-session push. Re-run
+ * NadeCounter 0.5s later via a relay entity, the deferral idiom
+ * SpawnQueue_Retry uses. */
+void() NadeSync_Retry =
+{
+        local entity p;
+        p = self.goalentity;
+        remove (self);
+        if (p.classname == "player")
+                NadeCounter (p);
+};
+
 /*
 ===========
 PutClientInServer
@@ -758,6 +775,26 @@ void() PutClientInServer = {
         if (self.ishuman == TRUE && cvar("teamplay"))
                 self.team = cvar("bottomcolor") + 1;
         Setup_Gametype(); //Rest is done In gametypes.qc
+        /* r111b/r112c: custom maps ship no setparm16, so first-connect
+         * decoded parm16 = 0 and the nade pools came up empty. Grant ONE
+         * of each type on connect (matching SetNewParms' respawn loadout);
+         * max_nades is the pickup cap, not the starting amount. Push both
+         * pools to the HUD for every gametype branch. */
+        if (deathmatch && deathmatch != SWAT
+            && self.nade_lives == 0 && self.plasma_lives == 0) {
+                self.nade_lives = 1;
+                self.plasma_lives = 1;
+        }
+        NadeCounter(self);
+        /* r112b: the spawn-frame push above can still be swallowed by
+         * the connect handshake; schedule one more once it settles. */
+        {
+                local entity sync;
+                sync = spawn();
+                sync.nextthink = time + 0.5;
+                sync.think = NadeSync_Retry;
+                sync.goalentity = self;
+        }
 };
 
 /*
@@ -1299,6 +1336,12 @@ void() Voice_announcer = {
 };
 
 void() populate_bots = {
+        /* r115: map changes drop bot entities without running the
+         * disconnect path, so bot_count leaked across matches -- later
+         * matches then read the wrong bot_name/bot_color slot indices
+         * (the "names change when starting a match" bug) and could even
+         * hit the 7-bot cap. Everyone connects fresh here. */
+        bot_count = 0;
         if (cvar("hud_mapshot"))      // r89: photo mode boots a botless match (mac.sh mapshot)
         {
                 remove(self);

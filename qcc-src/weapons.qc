@@ -2433,21 +2433,21 @@ void() W_Attack =
         while (te) {
             if ((te.classname == "player" || te.flags & FL_MONSTER) && te.health > 0 && te != self) {
                 target = te;
-                bprint("found enemy!\n");
+                
             }
             te = te.chain;
         }
 //		traceline (source, target, FALSE, self);
 		
 		if (target.classname == "player" && target.health > 0) {
-            bprint("target: ");bprint(target.netname);bprint("\n");
+            
             //set frame for right lunge animation
             self.weaponframe = 9;
             // calculate lunge direction
             float oldangle = anglemod(self.angles_y);
             float newangle = vectoyaw(target.origin - self.origin);
             float change = newangle - oldangle;
-            bprint("change: ");bprint(ftos(change));bprint("\n");
+            
             //and make sure the range is sane - specifically adjust it so it can cope with the fact that angles wrap.
             while (change > 180)
                 change = change - 360;
@@ -2459,18 +2459,18 @@ void() W_Attack =
             if (change > 90)
                 change = 90;
             float tmp_yaw = anglemod(self.angles_y);
-            bprint("current yaw = ");bprint(ftos(tmp_yaw));bprint("\n");
+            
             //and calculate the new angle.
             newangle = oldangle + change;
             // make character turn to new angle
             self.ideal_yaw = newangle;
-            bprint("ideal yaw = ");bprint(ftos(self.ideal_yaw));bprint("\n");
+            
             self.yaw_speed = 35;
-            bprint("ChangeYaw()...");bprint("\n");
+            
             ChangeYaw();
             tmp_yaw = anglemod(self.angles_y);
-            bprint("current yaw = ");bprint(ftos(tmp_yaw));bprint("\n");
-            bprint("self name = ");bprint(self.netname);bprint("\n");
+            
+            
             self.fixangle = TRUE;
             // move forward
 			self.velocity = v_forward*700;

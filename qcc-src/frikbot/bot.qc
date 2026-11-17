@@ -1067,14 +1067,32 @@ f = ClientNextAvailable();
 		}
 	}
 
-	/* r98: FFA colors. The bot name pool carries b_pants values straight
-	 * onto the model, and some sit in the palette's ultrabright tail
-	 * (band 2 ice blue read as neon cyan, user). Roll the safe
-	 * FindAnotherColor pool when the carried band is unset, bright, or
-	 * in the tail. Teamplay overrides this downstream anyway. */
+	/* r98/r115: FFA colors. The lobby roster preview draws each row with
+	 * a fixed band from its own table; the menu now pins that same band
+	 * into bot_color<slot> (slot = connect order = preview row), so the
+	 * in-game model matches the preview exactly. Fall back to the old
+	 * FindAnotherColor roll only when the cvar is unset (console-started
+	 * matches) or carries an unsafe band (0 / ultrabright tail / ice
+	 * blue 2, which read as neon, user). Teamplay overrides downstream. */
 	if (!teamplay)
 	{
-		if (self.b_pants == 0 || self.b_pants > 13 || self.b_pants == 2)
+		local float want;
+		local float colslot;
+		want = 0;
+		colslot = bot_count - 1;
+		if (colslot == 0) want = cvar("bot_color0");
+		else if (colslot == 1) want = cvar("bot_color1");
+		else if (colslot == 2) want = cvar("bot_color2");
+		else if (colslot == 3) want = cvar("bot_color3");
+		else if (colslot == 4) want = cvar("bot_color4");
+		else if (colslot == 5) want = cvar("bot_color5");
+		else if (colslot == 6) want = cvar("bot_color6");
+		if (want >= 1 && want <= 13 && want != 2)
+		{
+			self.b_pants = want;
+			self.b_shirt = want;
+		}
+		else if (self.b_pants == 0 || self.b_pants > 13 || self.b_pants == 2)
 		{
 			self.b_pants = FindAnotherColor(0);
 			self.b_shirt = self.b_pants;

@@ -316,7 +316,7 @@ void() plasma_nade_touch =
 {
     if (other.classname != "player")
 		return;
-	if (other.plasma_lives < 4) {
+	if (other.plasma_lives < cvar("max_nades")) {  /* r112c: was hardcoded < 4; honor the per-type cap cvar */
         other.plasma_lives += 1;
         NadeCounter(other);
         sprint (other, "picked up a Plasma grenade\n");
@@ -340,7 +340,7 @@ void() nade_touch =
     if (other.classname != "player")
 		return;
 	
-	if (other.nade_lives < 4) {
+	if (other.nade_lives < cvar("max_nades")) {  /* r112c: was hardcoded < 4; honor the per-type cap cvar */
         other.nade_lives += 1;
         NadeCounter(other);
         sprint (other, "picked up a Frag grenade\n");
