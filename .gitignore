@@ -85,3 +85,6 @@ dist/
 /*.bsp.json
 /*.bsp.lm_*.png
 /quakespasm/Quake/*.o.tmp
+
+# staging area for cleaned-out files (human empties it)
+/.trash/
