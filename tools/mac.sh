@@ -9,8 +9,8 @@
 # The fork (quakespasm) ships Makefile.vita and a stock Makefile.darwin, but
 # building the darwin target for THIS fork needs an extra untracked layer
 # created 2026-11-11:
-#   - vgl_shim_apple.h      (Vita API no-op stubs, injected via -include)
-#   - vita_cvars_apple.c    (5 Vita cvars whose defs are #ifdef VITA)
+#   - vgl_shim_host.h       (Vita API no-op stubs, injected via -include)
+#   - vita_cvars_host.c    (5 Vita cvars whose defs are #ifdef VITA)
 #   - gl_hud.o              (Makefile.darwin doesn't list it; Makefile.vita does)
 #   - tracked guarded edits: main_sdl.c (argc/argv seed), sbar.c (HUD_Draw off)
 # Codec dylibs and SDL2.framework are borrowed from the official 0.97 app.
@@ -53,7 +53,7 @@ FW="$STOCK/Contents/Frameworks"
 CODECLIB="$REPO/quakespasm/MacOSX/codecs/lib"
 OPUSINC="$REPO/quakespasm/MacOSX/codecs/include/opus"
 
-CF="-arch x86_64 -Wall -Wno-error=return-mismatch -Wno-return-mismatch -Wno-unused-function -include vgl_shim_apple.h -I$OPUSINC -DMAD_F_64"
+CF="-arch x86_64 -Wall -Wno-error=return-mismatch -Wno-return-mismatch -Wno-unused-function -include vgl_shim_host.h -I$OPUSINC -DMAD_F_64"
 
 launch() {
   pkill -x Solitude 2>/dev/null || true
@@ -114,7 +114,7 @@ build() {
                                            # so VOIP encode must stay compiled out
   cc -c gl_hud.c -o gl_hud.o $CF -DUSE_SDL2 -DSDL_FRAMEWORK \
     -mmacosx-version-min=10.14 -F"$FW"
-  cc -c vita_cvars_apple.c -o vita_cvars_apple.o $CF -DUSE_SDL2 -DSDL_FRAMEWORK \
+  cc -c vita_cvars_host.c -o vita_cvars_host.o $CF -DUSE_SDL2 -DSDL_FRAMEWORK \
     -mmacosx-version-min=10.14 -F"$FW"
   cc -c gl_font.c -o gl_font.o $CF -DUSE_SDL2 -DSDL_FRAMEWORK \
     -mmacosx-version-min=10.14 -F"$FW"

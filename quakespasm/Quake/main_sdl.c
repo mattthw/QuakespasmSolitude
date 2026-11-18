@@ -72,12 +72,23 @@ static void Sys_InitSDL (void)
 #endif
 
 	Sys_Printf("Found SDL version %i.%i.%i\n",sdl_version->major,sdl_version->minor,sdl_version->patch);
-	if (SDL_VERSIONNUM(sdl_version->major,sdl_version->minor,sdl_version->patch) < SDL_REQUIREDVERSION)
+	/* SDL_VERSIONNUM() is X*1000 + Y*100 + Z, so it only sorts correctly while
+	 * the minor version is a single digit: SDL 2.26.5 encodes as 4605, which
+	 * is "newer" than 3.0.0's 3000 and made this check reject every current
+	 * SDL (hit by the Linux dedicated build on Debian bookworm). Compare the
+	 * fields directly instead. */
+	if (sdl_version->major < SDL_MIN_X ||
+	    (sdl_version->major == SDL_MIN_X && sdl_version->minor < SDL_MIN_Y))
 	{	/*reject running under older SDL versions */
 		Sys_Error("You need at least v%d.%d.%d of SDL to run this game.", SDL_MIN_X,SDL_MIN_Y,SDL_MIN_Z);
 	}
-	if (SDL_VERSIONNUM(sdl_version->major,sdl_version->minor,sdl_version->patch) >= SDL_NEW_VERSION_REJECT)
-	{	/*reject running under newer (1.3.x) SDL */
+#if defined(USE_SDL2)
+	if (sdl_version->major >= 3)
+#else
+	if (sdl_version->major > 1 ||
+	    (sdl_version->major == 1 && sdl_version->minor >= 3))
+#endif
+	{	/*reject running under a different major SDL generation */
 		Sys_Error("Your version of SDL library is incompatible with me.\n"
 			  "You need a library version in the line of %d.%d.%d\n", SDL_MIN_X,SDL_MIN_Y,SDL_MIN_Z);
 	}
@@ -148,7 +159,7 @@ int main(int argc, char *argv[])
 	double		time, oldtime, newtime;
 
 	host_parms = &parms;
-#ifdef __APPLE__  /* Mac port: SDL_main receives real argc/argv from AppController; Vita bootstrap below never fills them */
+#if !defined(VITA)  /* host ports (macOS, Linux): real main() gets argc/argv; the Vita bootstrap below never fills them */
 	parms.argc = argc;
 	parms.argv = argv;
 	parms.basedir = NULL; /* resolved from argv[0]/cwd by Sys_Init (sys_sdl_unix.c) */

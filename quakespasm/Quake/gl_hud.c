@@ -1247,7 +1247,10 @@ struct teaminfo {
     int scoreTotal;
     int color;
 };
-int		fragsort[MAX_SCOREBOARD];
+/* gl_hud.c keeps its own frag ordering: sbar.c already owns a global
+ * `fragsort`, and a second definition only linked on hosts whose compiler
+ * still defaults to -fcommon (macOS); GCC 12+ on Linux rejects it. */
+static int	fragsort[MAX_SCOREBOARD];
 struct teaminfo     teamscores[2];
 extern char	scoreboardtext[MAX_SCOREBOARD][20];
 extern int		scoreboardtop[MAX_SCOREBOARD];

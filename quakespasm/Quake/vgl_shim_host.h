@@ -1,8 +1,11 @@
-/* Apple shim for Vita-fork vglGetProcAddress calls on Mac builds.
- * Injected via CFLAGS -include (untracked; build-portability only). */
-#ifdef __APPLE__
-#ifndef VGL_SHIM_APPLE_H
-#define VGL_SHIM_APPLE_H
+/* Host-build shim: the Vita APIs the fork calls unguarded (vitaGL's
+ * vglGetProcAddress/vglWaitVblankStart, sceTouch/sceMotion/sceKernel model and
+ * timers, rumble, Vita keyboard) mapped onto SDL2. Used by every non-Vita
+ * build -- macOS and Linux. The generic Makefile injects it with -include and
+ * tools/mac.sh passes the same flag, so both builds see identical stubs. */
+#if !defined(VITA)
+#ifndef VGL_SHIM_HOST_H
+#define VGL_SHIM_HOST_H
 #include <SDL2/SDL_video.h>
 #include <SDL2/SDL_timer.h>
 static void *vglGetProcAddress(const char *name)
@@ -27,4 +30,4 @@ static int IN_SwitchKeyboard(char *out, int out_len) { if (out && out_len) out[0
 extern void Sbar_DrawString (int x, int y, const char *str);
 extern void Sbar_DrawCharacter (int x, int y, int num);
 #endif
-#endif
+#endif /* !VITA */

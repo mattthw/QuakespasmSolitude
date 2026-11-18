@@ -1,0 +1,20 @@
+# docker compose up -d
+#
+# Game data is mounted read-only: the server only writes qconsole.log and
+# config.cfg, and neither needs to survive the container. Point the volume at
+# a directory that holds id1/ and solitude/.
+services:
+  solitude:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: solitude-server:latest
+    restart: unless-stopped
+    ports:
+      - "26000:26000/udp"
+    environment:
+      MAP: highground
+      PORT: "26000"
+    volumes:
+      - /path/to/game/data:/data:ro
+    stop_grace_period: 10s

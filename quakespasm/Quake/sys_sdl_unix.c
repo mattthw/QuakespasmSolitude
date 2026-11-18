@@ -471,9 +471,18 @@ const char *Sys_ConsoleInput (void)
 {
 	static char	con_text[256];
 	static int	textlen;
+	static qboolean stdin_eof;	/* set once stdin stops producing data */
 	char		c;
+	ssize_t		r;
 	fd_set		set;
 	struct timeval	timeout;
+
+	/* A dedicated host started detached (docker -d, systemd, nohup) has stdin
+	 * at EOF. select() keeps reporting it readable, so without this the loop
+	 * below spun on every frame and printed "Console input too long!" forever
+	 * (seen with the Linux/docker server). */
+	if (stdin_eof)
+		return NULL;
 
 	FD_ZERO (&set);
 	FD_SET (0, &set);	// stdin
@@ -482,7 +491,14 @@ const char *Sys_ConsoleInput (void)
 
 	while (select (1, &set, NULL, NULL, &timeout))
 	{
-		read (0, &c, 1);
+		r = read (0, &c, 1);
+		if (r <= 0)
+		{
+			stdin_eof = true;
+			textlen = 0;
+			con_text[0] = '\0';
+			return NULL;
+		}
 		if (c == '\n' || c == '\r')
 		{
 			con_text[textlen] = '\0';

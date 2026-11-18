@@ -104,6 +104,11 @@ ifeq ($(USE_SDL2),1)
 CFLAGS += -DUSE_SDL2
 endif
 
+# Host builds (Linux/BSD/macOS via this makefile) call Vita APIs unguarded in a
+# few places; vgl_shim_host.h maps them onto SDL2. Vita uses Makefile.vita and
+# the shim switches itself off under -DVITA.
+CFLAGS += -include vgl_shim_host.h
+
 ifeq ($(USE_SDL2),1)
 SDL_CONFIG ?= sdl2-config
 else
@@ -251,7 +256,10 @@ GLOBJS = \
 	r_sprite.o \
 	r_alias.o \
 	r_brush.o \
-	gl_model.o
+	gl_model.o \
+	gl_hud.o \
+	gl_font.o \
+	vita_cvars_host.o
 
 OBJS := strlcat.o \
 	strlcpy.o \
