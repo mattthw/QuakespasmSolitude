@@ -48,6 +48,8 @@ extern cvar_t visor_zoom;
 // r101 editor menu: runtime editor exception + photo switch, defined gl_hud.c
 extern cvar_t editor_mode;
 extern cvar_t hud_mapshot;
+// r112 LB melee: Controls-tab switch, defined gl_hud.c, read by QC by name
+extern cvar_t lb_melee;
 void     HUD_SetWarpStrength (float k);
 qboolean HUD_WarpActive (void);
 void     HUD_WarpPoint (float x, float y, float *ox, float *oy);

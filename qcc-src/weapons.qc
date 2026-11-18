@@ -3008,6 +3008,20 @@ void() ImpulseCommands =
                 return;
             self.pfov = FOV_DEFAULT;
             Set_FOV ( FOV_DEFAULT );
+
+            /* r112b: LB Melee (Options > Controls, cvar lb_melee, default on).
+             * CheckMeleeRange() ran the W_Melee reach test this frame and
+             * set self.melee_hint (same state drives the HUD prompt), so the
+             * swap only fires when the swing would actually land. Sword and
+             * SWAT are already excluded there — the sword's attack IS melee
+             * and player_melee has no sword case (default would swallow both
+             * the swing and the nade). */
+            if (cvar ("lb_melee") != 0 && self.melee_hint != 0)
+            {
+                pre_player_melee ();
+                return;
+            }
+
             if (self.selnade == 0 && self.nade_lives == 0)
             {
                 self.impulse = 27;
@@ -3232,6 +3246,38 @@ void() W_HandlePlayerFrame =
 	
 	self.wepanim = 0;	// turn hack off
 };
+
+/* r112b (user): LB-melee state — one gate for both the case 28 swap and the
+ * HUD prompt. Same 64u/takedamage reach test as W_Melee, re-run every frame
+ * from W_WeaponFrame (ahead of its attack_finished early-return, so it stays
+ * fresh). Pushed to the client as cl_melee_range via stuffcmd -- exactly how
+ * NadeCounter drives cl_plasmanade -- only when it CHANGES, so no per-frame
+ * cbuf spam. */
+void() CheckMeleeRange =
+{
+	local vector msrc;
+	local float  on;
+
+	on = 0;
+	if (cvar ("lb_melee") != 0 && deathmatch != SWAT && self.weapon != WEAPON_SWORD)
+	{
+		makevectors (self.v_angle);
+		msrc = self.origin + '0 0 16';
+		traceline (msrc, msrc + v_forward * 64, FALSE, self);
+		if (trace_fraction != 1 && trace_ent.takedamage != 0)
+			on = 1;
+	}
+	if (on == self.melee_hint)
+		return;
+	self.melee_hint = on;
+	if (self.ishuman == TRUE)
+	{
+		if (on)
+			stuffcmd (self, "cl_melee_range 1\n");
+		else
+			stuffcmd (self, "cl_melee_range 0\n");
+	}
+};
 /*
 ============
 W_WeaponFrame
@@ -3244,6 +3290,7 @@ void() W_WeaponFrame =
 	local INTEGER scount;
 
 	W_HandlePlayerFrame();
+	CheckMeleeRange ();	// r112b: lb-melee swap/prompt state, fresh before ImpulseCommands
 
 	if ((self.health < self.ohealth))
 	{

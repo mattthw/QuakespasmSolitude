@@ -3321,6 +3321,16 @@ static void UNI_ActionKeys (int dir)
 	M_Menu_Keys_f ();
 }
 
+/* r112: LB Melee (Options > Controls). dir==0 (X/Enter) flips; L/R set
+ * explicitly. cvar defined gl_hud.c; QC reads it by name in weapons.qc. */
+static void UNI_SetLbMelee (int dir)
+{
+	if (dir == 0)
+		Cvar_SetValueQuick (&lb_melee, lb_melee.value > 0 ? 0.0f : 1.0f);
+	else
+		Cvar_SetValueQuick (&lb_melee, dir > 0 ? 1.0f : 0.0f);
+}
+
 static void UNI_ActionConsole (int dir)
 {
 	(void)dir;
@@ -3395,6 +3405,7 @@ static const uni_row_t uni_ctrl_rows[] =
 	{"Invert Mouse",   &m_pitch,    -1,  1, 1, 0, 1, UNI_SetInvert, UNI_ShowInvert, "Flip vertical look direction."},
 	{"Mouse Look",     NULL,         0,  1, 1, 0, 1, UNI_SetMlook, UNI_ShowMlook, "Mouse turns the player (vs strafing)."},
 	{"Lookspring",     &lookspring,  0,  1, 1, 0, 0, NULL, NULL, "View drifts back to center after looking. Impact: none."},
+	{"LB Melee",       &lb_melee,    0,  1, 1, 0, 0, UNI_SetLbMelee, NULL, "With an enemy close, LB swings your weapon instead of throwing a grenade. Impact: none."},
 	{"Key Bindings",   NULL,         0,  1, 1, 0, 1, UNI_ActionKeys, NULL, "Rebind buttons on the legacy keys page."},
 };
 

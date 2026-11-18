@@ -50,6 +50,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  * ====================================================================== */
 cvar_t visor_warp = {"visor_warp", "0.18", CVAR_ARCHIVE};
 cvar_t visor_zoom = {"visor_zoom", "0.65", CVAR_ARCHIVE};    /* counter-zoom 0..1 */
+cvar_t lb_melee = {"lb_melee", "1", CVAR_ARCHIVE};	/* r112: LB near a damageable target = melee instead of nade. QC reads cvar("lb_melee") in weapons.qc case 28; hint line drawn under the nade count while on. */
 
 static float    hud_warp_k;
 static float    hud_warp_cx, hud_warp_cy, hud_warp_hx, hud_warp_hy, hud_warp_denom;
@@ -240,6 +241,7 @@ qpic_t  *healthbar_br;
 // custom cvars for solitude
 cvar_t cl_killmedals = {"cl_killmedals", "0"};
 cvar_t cl_plasmanade = {"cl_plasmanade", "2"};
+cvar_t cl_melee_range = {"cl_melee_range", "0"};	// r112b: QC stuffcmd — 1 while a lb_melee target is in W_Melee range
 cvar_t cl_nadenum = {"cl_nadenum", "0"};	// r111: was "4" — stale default showed on spawn before QC sync
 cvar_t cl_nadenum2 = {"cl_nadenum2", "0"};	// r110: alt-type pool count (QC NadeCounter)
 cvar_t cl_round = {"cl_round", "0"};
@@ -365,6 +367,7 @@ void HUD_Init (void) {
     //Client variables
     Cvar_RegisterVariable (&cl_killmedals);	//Kill medals
     Cvar_RegisterVariable (&cl_plasmanade); //Grenade types
+    Cvar_RegisterVariable (&cl_melee_range); //r112b: LB-melee in-range prompt
     Cvar_RegisterVariable (&cl_nadenum);	//A counter for your grenades.
     Cvar_RegisterVariable (&cl_nadenum2);	//r110: the other type's counter
     Cvar_RegisterVariable (&cl_ww);	//World weapons
@@ -398,6 +401,7 @@ void HUD_Init (void) {
     Cvar_RegisterVariable (&hide_hud);
     Cvar_RegisterVariable (&visor_warp);	//visor: HUD barrel warp (issue #40)
     Cvar_RegisterVariable (&visor_zoom);	//visor: corner counter-zoom
+    Cvar_RegisterVariable (&lb_melee);		//r112: LB melee swap + hint
 
     // buttons
     if (sceKernelGetModel() == 0x20000) { // PSTV
@@ -875,10 +879,27 @@ void drawGrenades() {
      * GL_ONE,ONE_MINUS_SRC_ALPHA, so glColor alpha barely darkens drawn
      * text (same trap as M_HintIcon r108). Zero count -> both rows gray
      * (halo3 text-state rule). Blue left-dpad switch hint stays parked. */
-    if (!nadename[0])
-        return;
     edge = glwidth*0.15;
     y1 = glheight*0.10;
+    /* r112b (user): contextual LB-Melee prompt — while the option is on AND
+     * QC says a damageable target is inside W_Melee reach (cl_melee_range,
+     * stuffcmd'd each time it changes, same mechanism as cl_plasmanade),
+     * REPLACE the nade block with "<LB icon> Melee". Same icon-rides-in-front
+     * recipe as the Replace-with-weapon hint (r111); backl1.tga is 32x16,
+     * kept native 2:1. */
+    if (lb_melee.value != 0 && (int)cl_melee_range.value != 0 && b_lshoulder)
+    {
+        const char *m = "Melee";
+        float ms = 16.15f*s;
+        float mw = 28.0f*s, mh = 14.0f*s;
+        float mx = edge - (mw + 8.0f*s + Draw_TTFWidth (m, ms));
+        HUD_WarpPic ((int)mx, (int)(y1 - 13.0f*s), mw, mh, b_lshoulder);
+        Draw_TTFString (mx + mw + 8.0f*s, y1, m,
+                        171/255.0, 231/255.0, 255/255.0, 1, ms);
+        return;
+    }
+    if (!nadename[0])
+        return;
     c1w = Draw_TTFWidth (nadecount, 16.15f*s);
     n1w = Draw_TTFWidth (nadename, 16.15f*s);
     p1w = c1w + 6.0f + n1w;
@@ -1068,6 +1089,13 @@ void drawHealth(void)
     }
     int sheilds = (int)cl.stats[STAT_HEALTH];
     struct PicAttr health_blue_attr = getHudPicAttr(0.5, 0.07, health_blue);
+
+    /* r111 (user): bar 50% wider — Halo 3's shield bar is wider than our
+     * 120px original, and the visor warp squishes it horizontally. Widen,
+     * then re-apply getHudPicAttr's anchor model so it stays centred. */
+    health_blue_attr.width *= 1.5f;
+    health_blue_attr.x = (int)(health_blue_attr.xpercent*glwidth
+                               - health_blue_attr.xpercent*health_blue_attr.width);
 
     /* Halo 3 manual, shields: solid blue when healthy, flash red when
      * depleted. The mod's bar has always been fed by STAT_HEALTH; keep the
