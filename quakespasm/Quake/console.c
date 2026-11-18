@@ -1459,7 +1459,16 @@ void LOG_Init (quakeparms_t *parms)
 	time_t	inittime;
 	char	session[24];
 
-	if (!COM_CheckParm("-condebug"))
+	qboolean	enable_log = COM_CheckParm("-condebug") != 0;
+
+#ifdef VITA
+	/* Vita is launched from the LiveArea and gets no arguments, so
+	 * -condebug can never be passed: log by default there (user 2026-11-18).
+	 * qconsole.log is the only way to read console output off the device. */
+	enable_log = COM_CheckParm("-noconlog") == 0;
+#endif
+
+	if (!enable_log)
 		return;
 
 	inittime = time (NULL);

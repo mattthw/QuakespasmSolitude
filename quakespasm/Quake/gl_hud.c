@@ -267,7 +267,8 @@ cvar_t radar_ping  = {"radar_ping", "1.5"};   // r66h: was 2.5 (too delayed); li
 cvar_t radar_hold  = {"radar_hold", "1.0"};   // r66h: was 1.2 - blips now blink off briefly between pings
 cvar_t hud_crosshair = {"hud_crosshair", "1"};	//r63 issue #39: dynamic Halo tick crosshair
 cvar_t cl_overlay = {"cl_overlay", "0"};
-cvar_t hide_hud = {"hide_hud", "0"};
+cvar_t hide_hud = {"hide_hud", "0", CVAR_ARCHIVE};	// graphics tab: hides the HUD overlay
+cvar_t hud_fps = {"hud_fps", "0", CVAR_ARCHIVE};	// graphics tab: minimal fps chip, no chart panel
 //
 ////Weapon Icons
 //qpic_t		*AR;
@@ -399,6 +400,7 @@ void HUD_Init (void) {
     Cvar_RegisterVariable (&radar_hold);	//r66
     Cvar_RegisterVariable (&cl_overlay);
     Cvar_RegisterVariable (&hide_hud);
+    Cvar_RegisterVariable (&hud_fps);
     Cvar_RegisterVariable (&visor_warp);	//visor: HUD barrel warp (issue #40)
     Cvar_RegisterVariable (&visor_zoom);	//visor: corner counter-zoom
     Cvar_RegisterVariable (&lb_melee);		//r112: LB melee swap + hint
@@ -1336,7 +1338,7 @@ void MiniDeathmatchOverlay (void)
     char			num[12];
     scoreboard_t	*s;
 
-    if (hud_mapshot.value)      /* r83: hidden for map-photo capture */
+    if (hud_mapshot.value || hide_hud.value)      /* r83: hidden for map-photo capture */
         return;
     if (sb_showscores)          /* r73: score cluster hides under the leaderboard */
         return;
@@ -1458,8 +1460,12 @@ void MiniDeathmatchOverlay (void)
         SortFrags ();
         /* r75: the two visible rows are leader + me (user: last place must
          * still show own score). Rows past the second always clipped off
-         * the bottom -- 0.8 anchor + 22px pitch only fits two. */
-        for (i = 0; i < l; i++)
+         * the bottom -- 0.8 anchor + 22px pitch only fits two.
+         * r118 DEFECT FIX (user: 4-player DM, I'm third -> rows were leader
+         * + second, never me): this scan ran i < l where l was already
+         * capped to 2 rows above, so rank 3+ left myrow == -1 and the
+         * fallback picked fragsort[1]. Scan the FULL field. */
+        for (i = 0; i < scoreboardlines; i++)
             if (fragsort[i] == cl.viewentity - 1)
             {
                 myrow = i;
@@ -1758,7 +1764,9 @@ void HUD_Draw (void) {
         return;
     if ((int)cl.stats[STAT_HEALTH] <= 0)   /* r95b: whole HUD hidden while dead (user) */
         return;
-    if (hud_mapshot.value)        /* r83: master switch for map-photo capture */
+    if (hud_mapshot.value || hide_hud.value)  /* r83: master switch for map-photo capture;
+                                 * hide_hud (Graphics tab) rides the same gate
+                                 * without the photo-mode side effects */
         return;
     GL_SetCanvas(CANVAS_DEFAULT);
     /* visor: the dome is on for exactly this call tree; everything that
@@ -1931,6 +1939,17 @@ static void HUD_DrawPerfPolys (void) {
                           0.60f, 0.95f, 0.35f, 0.9f);
     }
 
+    {   /* r118: same half-cap/cap guides mode 1 has (user) */
+        int gi;
+        for (gi = 1; gi <= 2; gi++) {
+            double f = fpsmax * (gi == 1 ? 0.5 : 1.0);
+            int yy = gy + gh - (int)(f / fpsmax * (double)gh + 0.5);
+            Draw_FillRGBA(x, yy, gw, 1, 0.60f, 0.95f, 0.35f, 0.18f);
+            Draw_TTFString(x + gw - (int)(34 * s), yy - (int)(1 * s),
+                           va("%i fps", (int)f), 0.60f, 0.95f, 0.35f, 0.55f, 8.0f * s);
+        }
+    }
+
     Draw_FillRGBA(x, gy + gh, gw, 1, 0.8f, 0.85f, 0.9f, 0.5f);   /* baseline */
     Draw_TTFString(x + gw - (int)(70 * s), gy - (int)(2 * s), va("%3i fps top", (int)fpsmax),
                    0.60f, 0.95f, 0.35f, 0.9f, 8.0f * s);
@@ -1955,6 +1974,28 @@ void HUD_DrawPerf (void) {
     float s, sz;
     int i, x, y, gy, gh, gw, j, k, n;
     double scale, st, tot;
+
+    if (hud_fps.value && !r_perfhud.value && !hud_mapshot.value)
+    {   /* graphics tab "Show FPS": just the number, no chart panel.
+         * perf_fps itself is kept ticking by Perf_FpsUpdate (host.c).
+         * Chip width is measured from the text so it hugs the number. */
+        const char *txt;
+        int tx, ty, bw, tw;
+        s = HUD_SCALE();
+        sz = 11.0f * s;
+        GL_SetCanvas(CANVAS_DEFAULT);
+        txt = va("FPS %3i.%01i", (int)perf_fps, ((int)(perf_fps * 10.0f)) % 10);
+        tw = (int)Draw_TTFWidth(txt, sz);
+        bw = tw + (int)(12 * s);            /* 6px breathing room each side */
+        tx = glwidth - bw - (int)(3 * s);   /* top right (user 2026-11-18) */
+        ty = (int)(4 * s);
+        Draw_FillRGBA(tx, ty, bw, (int)(sz + 8 * s),
+                      20 / 255.0f, 25 / 255.0f, 44 / 255.0f, 0.55f);
+        /* y is the glyph baseline (TTF_AtlasDraw adds ch->yoff*sc), so sit
+         * it on a line that centres the caps inside the band, not at ty. */
+        Draw_TTFString(tx + (int)(6 * s), ty + (int)(0.75f * sz) + (int)(4 * s),
+                       txt, 0.60f, 0.95f, 0.35f, 0.95f, sz);
+    }
 
     if (!r_perfhud.value || hud_mapshot.value) {
         GL_SetCanvas(oldcanvas);
@@ -2063,30 +2104,42 @@ void HUD_DrawPerf (void) {
         }
     }
 
-    /* displayed frame-time line (lime): where it floats above the grey
-     * TOTAL column tops is time outside the four buckets (GPU, vsync) */
-    for (j = 1; j < n; j++) {
-        double a = s_pres[j - 1], b = s_pres[j];
-        int    ax, ay, bx, by, top, hgt;
+    /* fps line (lime) on its OWN axis (user 2026-11-18): on the ms scale a
+     * bucket spike buried it at the floor, so a steady 60fps read as a flat
+     * line along the bottom. fps 0..host_maxfps maps bottom..top; faint
+     * guides + right-margin labels mark half-cap and cap. */
+    {
+        double fpsmax = host_maxfps.value;
+        if (fpsmax < 30)
+            fpsmax = 30;
+        for (j = 1; j < n; j++) {
+            double a2 = s_pres[j - 1], b2 = s_pres[j];
+            double fa, fb;
+            int    ax, ay, bx2, by, top, hgt;
 
-        if (!a || !b)
-            continue;
-        if (a > scale)
-            a = scale;                      // keep the line inside the chart
-        if (b > scale)
-            b = scale;
-        ax = x + (int)((double)(j - 1) * gw / 60.0);
-        bx = x + (int)((double)j * gw / 60.0);
-        ay = gy + gh - (int)(a / scale * (double)gh + 0.5);
-        by = gy + gh - (int)(b / scale * (double)gh + 0.5);
-        top = (ay < by) ? ay : by;
-        hgt = ((ay < by) ? by - ay : ay - by) + (int)(1 * s) + 1;
-        Draw_FillRGBA(ax, top, bx - ax + 1, hgt, 0.60f, 0.95f, 0.35f, 0.9f);
+            if (a2 <= 0.0 || b2 <= 0.0)
+                continue;
+            fa = 1000000.0 / a2;
+            fb = 1000000.0 / b2;
+            if (fa > fpsmax) fa = fpsmax;
+            if (fb > fpsmax) fb = fpsmax;
+            ax = x + (int)((double)(j - 1) * gw / 60.0);
+            bx2 = x + (int)((double)j * gw / 60.0);
+            ay = gy + gh - (int)(fa / fpsmax * (double)gh + 0.5);
+            by = gy + gh - (int)(fb / fpsmax * (double)gh + 0.5);
+            top = (ay < by) ? ay : by;
+            hgt = ((ay < by) ? by - ay : ay - by) + (int)(1 * s) + 1;
+            Draw_FillRGBA(ax, top, bx2 - ax + 1, hgt, 0.60f, 0.95f, 0.35f, 0.9f);
+        }
+        for (i = 1; i <= 2; i++) {
+            double f = fpsmax * (i == 1 ? 0.5 : 1.0);
+            int yy = gy + gh - (int)(f / fpsmax * (double)gh + 0.5);
+            Draw_FillRGBA(x, yy, gw, 1, 0.60f, 0.95f, 0.35f, 0.18f);
+            Draw_TTFString(x + gw - (int)(30 * s), yy - (int)(1 * s),
+                           va("%i fps", (int)f), 0.60f, 0.95f, 0.35f, 0.55f, 8.0f * s);
+        }
     }
 
-    Draw_FillRGBA(x, gy, gw, (int)(1 * s) + 1, 0.94f, 0.27f, 0.27f, 0.9f);  /* 3s max line */
-    Draw_TTFString(x + gw - (int)(46 * s), gy - (int)(2 * s), "3s max",
-                   0.94f, 0.27f, 0.27f, 0.9f, 8.0f * s);
     Draw_FillRGBA(x, gy + gh, gw, 1, 0.8f, 0.85f, 0.9f, 0.5f);              /* baseline */
 
     GL_SetCanvas(oldcanvas);

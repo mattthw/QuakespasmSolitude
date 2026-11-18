@@ -45,7 +45,7 @@ cvar_t	cl_bobcycle = {"cl_bobcycle","0.6", CVAR_NONE};
 cvar_t	cl_bobup = {"cl_bobup","0.5", CVAR_NONE};
 cvar_t	cl_bobstyle = {"cl_bobstyle","1", CVAR_ARCHIVE};	//0 = vanilla, 1 = Halo-style (stable camera, viewmodel carries the motion)
 cvar_t	cl_cambob = {"cl_cambob","0.1", CVAR_ARCHIVE};	//style 1: fraction of bob amplitude on the camera (vertical only)
-cvar_t	cl_gunbob = {"cl_gunbob","0.25", CVAR_ARCHIVE};	//style 1: gun vertical bob, added on top of camera fraction
+cvar_t	cl_gunbob = {"cl_gunbob","0.2", CVAR_ARCHIVE};	//style 1: gun vertical bob, added on top of camera fraction
 cvar_t	cl_gunsway = {"cl_gunsway","1", CVAR_ARCHIVE};	//style 1: gun footstep sway -- lateral slide + rigid yaw about the shoulder pivot (negative = reverse rotation)
 cvar_t	cl_gunlag = {"cl_gunlag","1", CVAR_ARCHIVE};	//style 1: gun trails opposite to movement (weapon weight)
 

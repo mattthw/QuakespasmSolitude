@@ -127,6 +127,7 @@ qboolean r_drawflat_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe, r_d
 
 cvar_t	r_scale = {"r_scale", "1", CVAR_ARCHIVE};
 cvar_t	r_renderscale = {"r_renderscale", "1", CVAR_ARCHIVE};	// perf B9
+cvar_t	r_renderscale_flip = {"r_renderscale_flip", "0", CVAR_ARCHIVE};	// VITA only: 1 flips the blit if the FBO comes back upside down
 
 //==============================================================================
 //
@@ -564,11 +565,20 @@ static qboolean R_ScaleFBO_Resize (void)
 	{
 		tw = w;
 		th = h;
+#ifdef VITA
+		/* NO padding on Vita: vitaGL derives the framebuffer size from the
+		 * attached texture (framebuffers.c: fb->width = sceGxmTextureGetWidth).
+		 * A padded texture therefore made a 512x512 target that we only drew
+		 * a 480x272 corner of, and the blit sampled the wrong sub-rect (the
+		 * device showed the scene in a band, 2026-11-18). vitaGL has no NPOT
+		 * limitation, so exact size keeps target == render area (uv 0..1). */
+#else
 		if (!gl_texture_NPOT)	// pad like R_ScaleView does, correct with smax/tmax
 		{
 			tw = TexMgr_Pad (tw);
 			th = TexMgr_Pad (th);
 		}
+#endif
 		R_ScaleFBO_Delete ();
 		GL_GenFramebuffersFunc (1, &rs_fbo);
 		GL_BindFramebufferFunc (GL_FRAMEBUFFER, rs_fbo);
@@ -580,10 +590,21 @@ static qboolean R_ScaleFBO_Resize (void)
 		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		GL_FramebufferTexture2DFunc (GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rs_fbo_color, 0);
 
+#ifndef VITA	// desktop GL needs an explicit depth attachment
 		GL_GenRenderbuffersFunc (1, &rs_fbo_depth);
 		GL_BindRenderbufferFunc (GL_RENDERBUFFER, rs_fbo_depth);
 		GL_RenderbufferStorageFunc (GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, tw, th);
 		GL_FramebufferRenderbufferFunc (GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rs_fbo_depth);
+#else
+		// vitaGL: do NOT allocate a depth renderbuffer here. The linked
+		// vintage crashes (data abort, NULL deref in initDepthStencilBuffer)
+		// when glRenderbufferStorage is called with a depth format --
+		// verified from a device psp2dmp capture of the r_renderscale path.
+		// Leaving depthbuffer_ptr NULL makes vitaGL auto-allocate a hidden
+		// depth surface at the FBO's size on first scene begin (gxm.c),
+		// and glCheckFramebufferStatus below still reports COMPLETE with
+		// only the color texture attached.
+#endif
 
 		if (GL_CheckFramebufferStatusFunc (GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		{
@@ -594,6 +615,16 @@ static qboolean R_ScaleFBO_Resize (void)
 			return false;
 		}
 		rs_fbo_w = w; rs_fbo_h = h; rs_fbo_tw = tw; rs_fbo_th = th;
+		// one line per resize -- device diagnostics for the partial-render report
+		Con_Printf ("r_renderscale: FBO %ix%i tex %ix%i vrect %ix%i iscale %i eff %i%% npot %i\n",
+			w, h, tw, th, r_refdef.vrect.width, r_refdef.vrect.height, iscale,
+			(int)(eff * 100.0f), (int)!gl_texture_NPOT);
+	Con_Printf ("r_renderscale: blit %i,%i %ix%i screen %ix%i flip %i\n",
+			(int)(glx + r_refdef.vrect.x),
+			(int)(gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height),
+			(int)(r_refdef.vrect.width / iscale),
+			(int)(r_refdef.vrect.height / iscale),
+			(int)glwidth, (int)glheight, (int)r_renderscale_flip.value);
 	}
 
 	// front-buffer rect the blit fills -- deliberately the same rect legacy
@@ -628,13 +659,44 @@ static void R_ScaleFBO_BlitView (void)
 	glDisable (GL_BLEND);
 	glColor4f (1, 1, 1, 1);
 
+	smax = rs_fbo_w / (float)rs_fbo_tw;	// normally 1.0, < 1 when padded
+	tmax = rs_fbo_h / (float)rs_fbo_th;
+
+#ifdef VITA
+	/* Device report (2026-11-18): the world appeared squeezed into the top
+	 * third with black below.  vitaGL does not treat the clip-space quad +
+	 * identity matrices the way desktop GL does, but every 2D canvas in
+	 * this engine draws fine through a y-down pixel-space glOrtho, so use
+	 * that idiom here instead of -1..1 clip coords.  r_renderscale_flip
+	 * covers the FBO v-orientation question (vitaGL flips FBO targets by
+	 * design; setting it to 1 swaps the two v edges). */
+	{
+		float bw = (float)rs_blit_w, bh = (float)rs_blit_h;
+		float vt = r_renderscale_flip.value ? 0.0f : tmax;	/* top edge v */
+		float vb = r_renderscale_flip.value ? tmax : 0.0f;	/* bottom edge v */
+
+		glMatrixMode (GL_PROJECTION);
+		glLoadIdentity ();
+		glOrtho (0, bw, bh, 0, -99999, 99999);
+		glMatrixMode (GL_MODELVIEW);
+		glLoadIdentity ();
+
+		glBegin (GL_QUADS);
+			glTexCoord2f (0, vt);
+			glVertex2f (0, 0);
+			glTexCoord2f (smax, vt);
+			glVertex2f (bw, 0);
+			glTexCoord2f (smax, vb);
+			glVertex2f (bw, bh);
+			glTexCoord2f (0, vb);
+			glVertex2f (0, bh);
+		glEnd ();
+	}
+#else
 	glMatrixMode (GL_PROJECTION);
 	glLoadIdentity ();
 	glMatrixMode (GL_MODELVIEW);
 	glLoadIdentity ();
-
-	smax = rs_fbo_w / (float)rs_fbo_tw;	// normally 1.0, < 1 when padded
-	tmax = rs_fbo_h / (float)rs_fbo_th;
 
 	glBegin (GL_QUADS);
 		glTexCoord2f (0, 0);
@@ -646,6 +708,7 @@ static void R_ScaleFBO_BlitView (void)
 		glTexCoord2f (0, tmax);
 		glVertex2f (-1, 1);
 	glEnd ();
+#endif
 
 	GL_ClearBindings ();
 	rs_fbo_active = false;

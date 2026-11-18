@@ -773,7 +773,28 @@ void() PutClientInServer = {
         // and human frags skipped TeamScore_Add. Derive it the same way from
         // the color band (menu pins band 4 in TDM, matching friend bots).
         if (self.ishuman == TRUE && cvar("teamplay"))
-                self.team = cvar("bottomcolor") + 1;
+        {
+                /* r116: TDM team id must NOT ride on bottomcolor -- the menu
+                 * pin (bottomcolor 4 at START GAME) is skipped by restart and
+                 * quick-start paths, and a green/light-blue profile then gave
+                 * the human a team id no bot shares (alone vs red and blue,
+                 * user 2026-11-18). Bot sides are hard-coded (friend b_pants 4
+                 * -> team 5, enemy 13 -> team 14), so pin the human to the
+                 * friend team id directly. */
+                self.team = 5;
+                /* r119b (user 2026-11-18): the scoreboard groups players by
+                 * the bottomcolor nibble (sbar.c me_nib = colors & 15), NOT
+                 * by .team -- so a green/light-blue profile read as a THIRD
+                 * team even though .team was right. The menu only pins band 4
+                 * on the START GAME path; restart/quick-start/console loads
+                 * skipped it. Force the TDM band on every spawn instead. */
+                /* r119c: the cvars alone do NOT reach the server -- userinfo
+                 * only updates through the "color" command, so the pin above
+                 * left scores[].colors on the old profile and the scoreboard
+                 * drew the human as a lone third team (user screenshot
+                 * 2026-11-18). "color <top> <bottom>" resends userinfo. */
+                stuffcmd(self, "color 4 4\n");
+        }
         Setup_Gametype(); //Rest is done In gametypes.qc
         /* r111b/r112c: custom maps ship no setparm16, so first-connect
          * decoded parm16 = 0 and the nade pools came up empty. Grant ONE
@@ -1363,6 +1384,12 @@ void() populate_bots = {
                         n = 7;
                 if (teamplay) {
                         fr = floor(n / 2);
+                        /* r119 (user 2026-11-18): with n=1 this was 0 friends,
+                         * so every bot spawned as an enemy and the human sat
+                         * alone on team 5 -- "I'm on a third team". Always
+                         * give the human at least one friendly bot. */
+                        if (n >= 1 && fr < 1)
+                                fr = 1;
                         i = 0;
                         while (i < fr) {
                                 BotConnect(0, 0, cvar("skill"));

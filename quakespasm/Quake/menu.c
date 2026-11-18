@@ -36,6 +36,8 @@ extern cvar_t	r_perfhud, sv_max_needles, sv_bot_thinkrate, sv_particle_scale, sv
 extern cvar_t	r_particles, r_dynamic, gl_flashblend, r_shadows, r_lerpmodels;
 // unified Options menu (perf B7): the cvars its tabs bind to
 extern cvar_t	crosshair, gl_texturemode, vid_vsync, r_viewmodeloffset;
+extern cvar_t	host_maxfps;	// Performance tab "Max FPS" (host.c)
+extern cvar_t	cl_cambob, cl_gunbob;	// Graphics tab bob sliders (defined view.c)
 extern cvar_t	pstv_rumble, retrotouch, motioncam, motion_horizontal_sensitivity, motion_vertical_sensitivity;
 // r101 - Editor tab: map debug cvars (defined gl_rmain.c) + live cheat state (host_cmd.c)
 extern cvar_t	r_showtris, r_speeds, r_novis, r_lightmap, r_fullbright, r_drawflat;
@@ -62,6 +64,7 @@ static void M_Draw_Scrollbar (struct MenuCoords *coords, int rowh, int total, si
 static int M_HintIconW (qpic_t *icon);	// perf B7: reuse matchmaking hint icons in the tab strip
 static void M_HintIcon (int *x, int y, qpic_t *icon);
 cvar_t	perf_preset = {"perf_preset", "2", CVAR_ARCHIVE};	// perf B7 - 1/2/3 = last preset applied, 0 = custom; ships Balanced
+cvar_t	perf_custom_backup = {"perf_custom_backup", "", CVAR_ARCHIVE};	// perf B9b: the 12 preset-controlled knob values x100, space separated -- "Custom remembers your mix"
 
 void (*vid_menucmdfn)(void); //johnfitz
 void (*vid_menudrawfn)(void);
@@ -2480,7 +2483,7 @@ level_t		levels[] =
         {"highground", "highground", 0, "High Ground", "A vertical fight across high ground above the valley. Control the lift and the overlook and the low ground never comes for you.", "mattthw"},
         {"citadel", "citadel", 0, "Citadel", "A vast Forerunner monument stacked floor upon floor. Long sightlines reward patience while the stairwells punish it.", "mattthw"},
         {"babybloodgulch", "babybloodgulch", 1, "Blood Gutch", "Two bases split by a wide open trench. Cross it fast, hug the walls, and never walk the ridge in the open.", "Unknown"},
-        {"pit3", "pit3", 1, "Pit", "A deep UNSC training hole ringed by gantries. Drop in with a shotgun and climb out with a story.", "Jukki, mattthw"},
+        {"pit_optimized", "pit3", 1, "Pit", "A deep UNSC training hole ringed by gantries. Drop in with a shotgun and climb out with a story.", "Jukki, mattthw"},
         {"narsp", "narsp", 1, "Narrows", "The Ark's cooling channels, still running cold. Tight catwalks over open water make every duel a knife fight.", "Scifiknux"},
         {"skyringbl2", "skyringbl2", 1, "Heavenly Suspense", "A Halo ring facility under repair, open sky on every side. Snipers own the scaffolds; everyone else hides.", "Arkage"},
         {"lockdown", "lockdown", 1, "Lockdown", "A prison block on full lockdown. Corridors funnel every push into one bad doorway at a time.", "Team Xlink, mattthw"},
@@ -2497,6 +2500,7 @@ level_t		levels[] =
         // Bonus map pack
         {"pit", "random", 0, "Pit (original)", "The first cut of the Pit: three towers, one hole, and no forgiveness for bad jumps.", "Jukki"},
         {"pit2", "pit2", 1, "Pit (v2)", "The Pit rebuilt - more gantries, more corners, and more reasons to watch your footing.", "Jukki, mattthw"},
+        {"pit3", "pit3", 1, "Pit HD", "The full-weight cut of the Pit: same deep hole, every gantry detailed, no budget cuts. The one that started it.", "Jukki, mattthw"},
         {"lock", "lockout", 0, "Lockout2", "A tight refinery platform where the fight always comes back to the ramp.", "Unknown"},
         {"+bloodgulch2", "bgulch", 0, "Blood Gutch", "The full-width Gulch. Same trench, bigger mistake if you stand in it too long.", "Unknown"},
         {"narrows", "narrows", 0, "Narrows Big", "The Ark channel stretched out big. The water is still cold and the catwalks are still narrow.", "mattthw"},
@@ -2519,13 +2523,13 @@ episode_t	episodes[] =
         {
                 {"New & Remastered", 0, 8},
                 {"Classic Maps", 8, 8},
-                {"Bonus Maps", 16, 5},
+                {"Bonus Maps", 16, 6},
                 {"Custom Maps", 0, 0}	// perf B7: loose .bsp files from maps/custom, counted at runtime
         };
 int NUM_EPISODES_FF = 1;
 episode_t	episodes_ff[] =
         {
-                {"Firefight Maps", 21, 2}
+                {"Firefight Maps", 22, 2}
         };
 
 extern cvar_t sv_public;
@@ -3023,9 +3027,44 @@ size_t		perf_first;
 float		vertical_perf_affordance = 11;	// perf B7: 10 data rows + footnote band
 static enum m_state_e	perf_return_state = m_main;	// page we came from (options / pause / main)
 
+// perf B9b (user): Custom remembers your mix. The 12 preset-controlled knobs
+// are mirrored into an archived backup string (value*100, every value fits
+// exactly) whenever you tweak one or make the first preset jump, so cycling
+// the Preset row away by mistake and back to Custom restores what you built.
+static void PERF_Custom_Store (void)
+{
+	char	sbuf[192];
+	int		n = 0, i;
+
+	for (i = 0; i < 12; i++)
+		n += q_snprintf (sbuf + n, sizeof(sbuf) - n, "%s%i",
+				i ? " " : "", (int)(perf_knobs[i].cvar->value * 100.0f + 0.5f));
+	Cvar_Set ("perf_custom_backup", sbuf);
+}
+
+static qboolean PERF_Custom_Restore (void)
+{
+	int	vals[12];
+	int	i, got;
+
+	if (!perf_custom_backup.string[0])
+		return false;
+	got = sscanf (perf_custom_backup.string,
+			"%i %i %i %i %i %i %i %i %i %i %i %i",
+			&vals[0], &vals[1], &vals[2], &vals[3], &vals[4], &vals[5],
+			&vals[6], &vals[7], &vals[8], &vals[9], &vals[10], &vals[11]);
+	if (got != 12)
+		return false;	// stale/garbled backup: leave the knobs alone
+	for (i = 0; i < 12; i++)
+		Cvar_SetValueQuick (perf_knobs[i].cvar, vals[i] / 100.0f);
+	return true;
+}
+
 static void M_Performance_ApplyPreset (int p)	// 1..3
 {
 	int	i;
+	if (!perf_custom_backup.string[0])	// first preset jump: keep what we are about to overwrite
+		PERF_Custom_Store ();
 	for (i = 0; i < 12; i++)
 		Cvar_SetValueQuick (perf_knobs[i].cvar, perf_preset_vals[p-1][i]);
 	Cvar_SetValueQuick (&perf_preset, p);
@@ -3050,7 +3089,14 @@ static void M_Performance_Step (int dir)
 			S_LocalSound ("misc/menu2.wav");	// confirm sound: values just moved
 		}
 		else
-			Cvar_SetValueQuick (&perf_preset, 0);	// back to Custom: knobs stay where they are
+		{	// perf B9b: Custom restores the remembered mix when there is one
+			if (PERF_Custom_Restore ())
+			{
+				S_LocalSound ("misc/menu2.wav");	// values just moved
+				Host_WriteConfiguration ();		// mirror ApplyPreset's immediate persist
+			}
+			Cvar_SetValueQuick (&perf_preset, 0);	// no backup yet: knobs stay where they are
+		}
 		return;
 	}
 	k = &perf_knobs[perf_cursor - PERF_PRESET_ROWS];
@@ -3062,6 +3108,7 @@ static void M_Performance_Step (int dir)
 	Cvar_SetValueQuick (k->cvar, v);
 	if (perf_preset.value)	// manual edit = custom mix
 		Cvar_SetValueQuick (&perf_preset, 0);
+	PERF_Custom_Store ();	// perf B9b: mirror the mix (includes this knob's new value)
 }
 
 static const char *M_Performance_Value (int i)
@@ -3167,16 +3214,32 @@ void M_Performance_Draw (void)
 	M_Performance_Body (&coords, rowh, shown);
 }
 
+static void UNI_ActionDefaults (int dir);	//defined with the General tab rows; the triangle handlers use it too
+
 void M_Performance_Key (int key)
 {
 	switch (key)
 	{
-	case K_YBUTTON: // triangle
+	case K_YBUTTON: // triangle -- restore defaults (confirm modal, like the rules page "Defaults")
+		S_LocalSound ("misc/menu2.wav");
+		UNI_ActionDefaults (0);
+		break;	//stay on the page: sliders read the cvars live, no refresh needed
+
+	case K_XBUTTON: // square -- save the shown values as the Custom mix
+#ifndef VITA
+	case 'g':	// Mac alias for square (matchmaking submenu precedent)
+	case 'G':
+#endif
+		S_LocalSound ("misc/menu2.wav");
+		PERF_Custom_Store ();
+		Host_WriteConfiguration ();	// archive now; do not wait for the page to close
+		break;
+
+	case K_ESCAPE:
+	case K_BBUTTON: // circle
 #ifdef VITA
 	case K_ENTER:
 #endif
-	case K_ESCAPE:
-	case K_BBUTTON: // circle
 		if (perf_return_state != m_options)
 			Host_WriteConfiguration ();	// console entry point: persist before leaving the menu flow
 		if (perf_return_state == m_options)
@@ -3339,14 +3402,80 @@ static void UNI_ActionConsole (int dir)
 	Con_ToggleConsole_f ();
 }
 
+// Scoped default restore (user incident 2026-11-18): the old recipe ran
+// resetcfg + exec default.cfg, which reset the ENTIRE cvar space (names,
+// binds, everything archived) and the menu-close Host_WriteConfiguration
+// then persisted the wreckage over config.cfg. This table covers ONLY what
+// the Options pages can change, each with its built-in engine default (the
+// documented shipping values; sensitivity per user is a menu default of 5).
+typedef struct { cvar_t *cvar; float def; } uni_def_t;
+static const uni_def_t uni_defaults[] =
+{
+	// Performance tab knobs (order mirrors perf_knobs)
+	{ &r_perfhud,           0     },
+	{ &r_dlight_cull,       1     },
+	{ &r_max_dlights,       16    },
+	{ &r_light_cache,       2     },
+	{ &r_subpixel_cull,     2     },
+	{ &r_part_maxrad,       64    },
+	{ &r_particles,         1     },
+	{ &sv_particle_scale,   75    },
+	{ &sv_max_gibs,         12    },
+	{ &sv_bot_thinkrate,    0     },
+	{ &sv_max_needles,      0     },
+	{ &r_lerpskip_dist,     1600  },
+	{ &r_dynamic,           1     },
+	{ &gl_flashblend,       0     },
+	{ &r_shadows,           0     },
+	{ &r_lerpmodels,        1     },
+	{ &r_renderscale,       1     },
+	{ &perf_preset,         2     },	// the defaults above ARE Balanced
+	// Graphics tab
+	{ &scr_viewsize,        100   },
+	{ &scr_menuscale,       1.4f  },
+	{ &vid_gamma,           1     },
+#ifndef VITA
+	{ &vid_contrast,        1     },
+#endif
+	{ &scr_fov,             75    },
+	{ &cl_cambob,           0.1f  },
+	{ &cl_gunbob,           0.2f  },
+	{ &r_wateralpha,        1     },
+	{ &visor_warp,          0.18f },
+	{ &visor_zoom,          0.65f },
+	{ &vid_vsync,           1     },
+	{ &host_maxfps,         60    },
+	{ &hide_hud,            0     },
+	{ &hud_fps,             0     },
+	// Controls tab
+	{ &sensitivity,         5     },
+	{ &m_pitch,             0.022f },
+	{ &lookspring,          0     },
+	{ &lb_melee,            1     },
+#ifdef VITA
+	{ &pstv_rumble,         1     },
+	{ &retrotouch,          0     },
+	{ &motioncam,           0     },
+	{ &motion_horizontal_sensitivity, 0 },
+	{ &motion_vertical_sensitivity,   0 },
+#endif
+	// Sound tab
+	{ &sfxvolume,           0.7f  },
+	{ &bgmvolume,           1     },
+};
+
 static void UNI_ActionDefaults (int dir)
 {
+	size_t	i;
 	(void)dir;
-	if (SCR_ModalMessage("This will reset all controls\n"
-			"and stored cvars. Continue? (y/n)\n", 15.0f))
+	if (SCR_ModalMessage("This will restore the default\n"
+			"values of every menu setting.\n"
+			"Binds and saves are untouched.\n"
+			"Continue? (y/n)\n", 15.0f))
 	{
-		Cbuf_AddText ("resetcfg\n");
-		Cbuf_AddText ("exec default.cfg\n");
+		for (i = 0; i < sizeof(uni_defaults)/sizeof(uni_defaults[0]); i++)
+			Cvar_SetValueQuick (uni_defaults[i].cvar, uni_defaults[i].def);
+		PERF_Custom_Store ();	// perf B9b: defaults are the fresh custom mix
 	}
 }
 
@@ -3380,24 +3509,22 @@ static void UNI_ActionReview (int dir)
 static const uni_row_t uni_gfx_rows[] =
 {
 	{"Screen Size",     &scr_viewsize,  30, 120, 10,   0, 0, NULL, NULL, "Size of the 3D view in the window. Impact: none."},
+	{"Hide HUD",        &hide_hud,         0,   1, 1,   0, 0, NULL, NULL, "Hide the combat overlay for clean screenshots. Impact: none."},
+	{"Show FPS",        &hud_fps,          0,   1, 1,   0, 0, NULL, NULL, "Small framerate readout, top-left corner. Impact: none."},
+	{"Max FPS",        &host_maxfps,   30,  60,  5,   0, 0, NULL, NULL, "Frame rate cap in steps of 5. Impact: none."},
 	{"UI Scale",        &scr_menuscale,    1, 2.5, 0.1,  0, 0, UNI_SetScale, UNI_ShowScale, "Size of menus and status text. Impact: none."},
 	{"Brightness",      &vid_gamma,   0.5,   1, 0.05,  1, 0, NULL, NULL, "Overall screen lightness. Impact: none."},
 #ifndef VITA
 	{"Contrast",        &vid_contrast,   1,   2, 0.1,  1, 0, NULL, NULL, "Difference between dark and bright. Impact: none."},
 #endif
 	{"Field of View",   &scr_fov,       75, 130, 5,    0, 0, NULL, NULL, "How wide your view is. Impact: none."},
+	{"View Bob",        &cl_cambob,      0, 0.4, 0.05, 1, 0, NULL, NULL, "Camera sway while walking. Zero keeps the view rock steady. Impact: none."},
+	{"Weapon Bob",      &cl_gunbob,      0, 0.5, 0.05, 1, 0, NULL, NULL, "Rhythm your gun carries with your steps. Impact: none."},
 	{"Water Opacity",   &r_wateralpha,   0,   1, 0.1,  1, 0, NULL, NULL, "How clear the water looks. Impact: low."},
 	{"Visor Warp",      &visor_warp,     0, 0.25, 0.01, 1, 0, NULL, NULL, "Curves the HUD onto the visor. Impact: none."},
 	{"Visor Zoom",      &visor_zoom,     0, 1, 0.05, 1, 0, NULL, NULL, "Pulls the warped HUD back into view. Impact: none."},
 	{"Texture Filter",  NULL,            0,   1, 1,    0, 1, UNI_SetTexMode, UNI_ShowTexMode, "Smooth vs crisp textures. Impact: low."},
 	{"Vertical Sync",   &vid_vsync,      0,   1, 1,    0, 0, NULL, NULL, "Match the display refresh, no tearing. Impact: none."},
-#ifdef VITA
-	{"Rumble",              &pstv_rumble, 0, 1, 1, 0, 0, NULL, NULL, "Controller vibration on fire and hits."},
-	{"Retro Touch",         &retrotouch,  0, 1, 1, 0, 0, NULL, NULL, "Old-style touchscreen aiming."},
-	{"Gyroscope Aim",       &motioncam,   0, 1, 1, 0, 0, NULL, NULL, "Look by tilting the system."},
-	{"Gyro Speed X",  &motion_horizontal_sensitivity, 0, 10, 1, 0, 0, NULL, NULL, "Tilt sensitivity left/right."},
-	{"Gyro Speed Y",  &motion_vertical_sensitivity,   0, 10, 1, 0, 0, NULL, NULL, "Tilt sensitivity up/down."},
-#endif
 };
 
 static const uni_row_t uni_ctrl_rows[] =
@@ -3407,6 +3534,13 @@ static const uni_row_t uni_ctrl_rows[] =
 	{"Mouse Look",     NULL,         0,  1, 1, 0, 1, UNI_SetMlook, UNI_ShowMlook, "Mouse turns the player (vs strafing)."},
 	{"Lookspring",     &lookspring,  0,  1, 1, 0, 0, NULL, NULL, "View drifts back to center after looking. Impact: none."},
 	{"LB Melee",       &lb_melee,    0,  1, 1, 0, 0, UNI_SetLbMelee, NULL, "With an enemy close, LB swings your weapon instead of throwing a grenade. Impact: none."},
+#ifdef VITA
+	{"Rumble",              &pstv_rumble, 0, 1, 1, 0, 0, NULL, NULL, "Controller vibration on fire and hits."},
+	{"Retro Touch",         &retrotouch,  0, 1, 1, 0, 0, NULL, NULL, "Old-style touchscreen aiming."},
+	{"Gyroscope Aim",       &motioncam,   0, 1, 1, 0, 0, NULL, NULL, "Look by tilting the system."},
+	{"Gyro Speed X",  &motion_horizontal_sensitivity, 0, 10, 1, 0, 0, NULL, NULL, "Tilt sensitivity left/right."},
+	{"Gyro Speed Y",  &motion_vertical_sensitivity,   0, 10, 1, 0, 0, NULL, NULL, "Tilt sensitivity up/down."},
+#endif
 	{"Key Bindings",   NULL,         0,  1, 1, 0, 1, UNI_ActionKeys, NULL, "Rebind buttons on the legacy keys page."},
 };
 
@@ -3419,7 +3553,7 @@ static const uni_row_t uni_snd_rows[] =
 static const uni_row_t uni_gen_rows[] =
 {
 	{"Goto Console",   NULL, 0, 1, 1, 0, 1, UNI_ActionConsole, NULL, "Open the developer console."},
-	{"Restore Defaults", NULL, 0, 1, 1, 0, 1, UNI_ActionDefaults, NULL, "Reset all controls and stored settings."},
+	{"Restore Defaults", NULL, 0, 1, 1, 0, 1, UNI_ActionDefaults, NULL, "Restore the default value of every menu setting."},
 };
 
 //r101 Editor tab (console: editmenu, or the review command): cheat toggles +
@@ -3810,9 +3944,26 @@ void M_Options_Key (int k)
 	UNI_ValidateTab ();	//r101
 	switch (k)
 	{
+	case K_YBUTTON: // triangle -- restore defaults (confirm modal, like the rules page "Defaults")
+		S_LocalSound ("misc/menu2.wav");
+		UNI_ActionDefaults (0);
+		return;	//stay on the page; X/O inside the modal, no persistence here
+
+	case K_XBUTTON: // square -- save the shown values as the Custom mix
+#ifndef VITA
+	case 'g':	// Mac alias for square (matchmaking submenu precedent)
+	case 'G':
+#endif
+		if (uni_tab == UNI_TAB_PERF)
+		{	// the custom mix covers only the Performance knobs; other tabs no-op
+			S_LocalSound ("misc/menu2.wav");
+			PERF_Custom_Store ();
+			Host_WriteConfiguration ();	// archive now; do not wait for Options to close
+		}
+		return;
+
 	case K_ESCAPE:
 	case K_BBUTTON: // circle
-	case K_YBUTTON: // triangle
 #ifdef VITA
 	case K_ENTER:	// Vita: enter closes, like the old standalone perf page
 #endif
@@ -4143,6 +4294,50 @@ const char *M_listPrintMap (size_t index) {
     return string;
 }
 
+/* r120 (user): map thumbnails used to decode+upload on the exact frame the
+ * cursor first landed on a row -- visible pop-in lag while browsing.
+ * menu_cachepics never evicts, so warming each shot once makes every later
+ * visit free; one image per frame keeps any hitch imperceptible (~24 shots
+ * + custom pack). Reset on browser entry so shots dropped in mid-session
+ * (fresh mapshots, new custom .bsp) are still picked up. */
+static int	mappic_warm = 0;	// levels[] idx, then custom placeholder, then custom maps, -1 done
+
+static void M_Maps_WarmOne (void)
+{
+	if (mappic_warm < 0)
+		return;
+	if (mappic_warm < (int)(sizeof(levels)/sizeof(levels[0])))
+	{
+		const level_t *lv = &levels[mappic_warm];
+		const char *mspath = va("gfx/maps/%s.png", lv->thumbnail);
+		if (COM_FileExists (mspath, NULL))
+			Draw_TryCachePic (mspath, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+		else
+			Draw_CachePic (va("gfx/maps/%s.%s", lv->thumbnail, lv->targaThumbnail ? "tga" : "lmp"));
+		mappic_warm++;
+		return;
+	}
+	if (mappic_warm == (int)(sizeof(levels)/sizeof(levels[0])))
+	{
+		if (COM_FileExists ("gfx/maps/custom.png", NULL))
+			Draw_TryCachePic ("gfx/maps/custom.png", TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+		mappic_warm++;
+		return;
+	}
+	{
+		int ci = mappic_warm - (int)(sizeof(levels)/sizeof(levels[0])) - 1;
+		if (custom_count >= 0 && ci < custom_count)
+		{
+			const char *cp = va("gfx/maps/custom/%s.png", custom_maps[ci].name);
+			if (COM_FileExists (cp, NULL))
+				Draw_TryCachePic (cp, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+			mappic_warm++;
+			return;
+		}
+		mappic_warm = -1;	// whole set resident
+	}
+}
+
 void M_Matchmaking_Map_f (void) {
     key_dest = key_menu;
     m_state = m_matchmaking_map;
@@ -4150,6 +4345,7 @@ void M_Matchmaking_Map_f (void) {
     cursorfocused = false;
     mlist_cursor = 0;
     mlist_first = 0;
+    mappic_warm = 0;	// r120: trickle-load every thumbnail in the background
     IN_UpdateGrabs();
 }
 
@@ -4214,6 +4410,7 @@ static void M_WrapText (const char *text, int x, int y, int maxpx, int maxlines)
 
 void M_Matchmaking_Map_Draw (void) {
 
+    M_Maps_WarmOne ();	// r120: one thumbnail per frame until the set is resident
     // set to matchmaking for recursive draw
     m_state = m_gameoptions;
     m_recursiveDraw = true;
@@ -4534,11 +4731,17 @@ void M_Lobby_ShuffleNames_f (void)
  * preview truth instead of a guess. */
 static const int ffa_bands[6] = {13, 12, 11, 6, 5, 4};   /* r97: 4 = safe red. r115c: was band 2 — the QC ladder rejects 2, so that row's color never matched */
 
+/* r118 (user): opening Matchmaking could instantly START a match -- the
+ * cursor is static (still on row 2 from last time) and the press that opens
+ * the page can deliver one more down event. Ignore confirms this long. */
+static double mm_opened_time = -1000.0;
+
 void M_Matchmaking_f (void)
 {
     key_dest = key_menu;
     m_state = m_gameoptions;
     m_entersound = true;
+    mm_opened_time = realtime;
     draw_grid_translucent = 0;   /* r101: opaque panels are the house style (user) */
     /* r117 (user): reopen where we left off. lobby_bots needs no work (it IS
      * the stored count); the mode lives in opts only, so pull it back from
@@ -4637,8 +4840,8 @@ static void M_Draw_HintY (int type, struct MenuCoords mc, int y) {
     // footer text hint -- each group is icon(s)+word. r76: measure the
     // whole group first, then draw it centered in the window; it used to
     // start pinned at the left cell padding (user 2026-11-12).
-    qpic_t *icons[10];
-    const char *words[10];
+    qpic_t *icons[14];
+    const char *words[14];
     int n = 0, i, total = 0, x;
     int lx = mc.grid[0][mc.rows].x;
     int rx = mc.grid[mc.cols - 1][mc.rows].x + mc.colw;
@@ -4701,6 +4904,12 @@ static void M_Draw_HintY (int type, struct MenuCoords mc, int y) {
         HINTI(b_bbutton); HINTW("Back");
         HINTI(b_left); HINTI(b_right); HINTW("Change");
         HINTI(b_up); HINTI(b_down); HINTW("Scroll");
+        HINTI(b_xbutton); HINTW("Defaults"); // triangle (b_xbutton holds fbtntriangle art)
+        if (m_state == m_performance || uni_tab == UNI_TAB_PERF)
+        {   // r102: braces -- without them only HINTW was guarded, so the
+            // word leaked onto every tab while the icon stayed perf-only
+            HINTI(b_ybutton); HINTW("Save Custom"); // square (b_ybutton holds fbnsquare art)
+        }
     }
 
     for (i = 0; i < n; i++)
@@ -4733,6 +4942,7 @@ void M_Draw_Hint (int type, struct MenuCoords mc)
 
 void M_Matchmaking_Draw (void)
 {
+    M_Maps_WarmOne ();	// r120: the chosen-map thumbnail should already be loaded here
     Draw_MenuBg();
     char format[10];
     if ((*M_Maps_ChosenDisplay ()).targaThumbnail) {
@@ -5074,6 +5284,8 @@ void M_Matchmaking_Key (int key)
         case K_KP_ENTER:
             /* Mac/PC port: Enter selects, like the Vita X button. */
 #endif
+            if (realtime - mm_opened_time < 0.35)
+                break;      /* r118: swallow the open press / pad repeat */
             S_LocalSound ("misc/menuenter.wav");
             if (matchmaking_cursor == 2)
             {
@@ -5212,6 +5424,7 @@ int		firefight_cursor;
 
 void M_Firefight_Draw (void)
 {
+    M_Maps_WarmOne ();	// r120
     Draw_MenuBg();
 
     /* r82: Firefight restyled to match the r79/r80 matchmaking window --
@@ -5804,6 +6017,7 @@ void M_Init (void)
 	Cmd_AddCommand ("lobby_shufflenames", M_Lobby_ShuffleNames_f);
 	// perf B7 - Performance menu: preset memory cvar + console shortcut
 	Cvar_RegisterVariable (&perf_preset);
+	Cvar_RegisterVariable (&perf_custom_backup);	// perf B9b
 	Cmd_AddCommand ("perfmenu", M_Menu_Performance_f);
 	Cmd_AddCommand ("editmenu", M_Menu_Editor_f);	//r101 Editor tab
 	Cmd_AddCommand ("menu_cmd", MQC_Command_f);

@@ -78,7 +78,7 @@ float		scr_con_current;
 float		scr_conlines;		// lines of console to display
 
 //johnfitz -- new cvars
-cvar_t		scr_menuscale = {"scr_menuscale", "1", CVAR_ARCHIVE};
+cvar_t		scr_menuscale = {"scr_menuscale", "1.4", CVAR_ARCHIVE};	// 140% is the house default (user)
 cvar_t		lb_scale = {"lb_scale",
 #ifdef VITA
 	"1.05",	/* Vita handheld: half-step bump (was 1.1, felt too big) */
@@ -96,7 +96,8 @@ cvar_t		scr_clock = {"scr_clock", "0", CVAR_NONE};
 //johnfitz
 
 cvar_t		scr_viewsize = {"viewsize","100", CVAR_ARCHIVE};
-cvar_t		scr_fov = {"fov","90",CVAR_NONE};	// 10 - 170
+cvar_t		scr_fov = {"fov","75",CVAR_NONE};	// 10 - 170
+cvar_t		r_zoom = {"r_zoom","0",CVAR_NONE};	// QC weapon zoom: magnification (0/1 = none, 2 = 2x, 6 = 6x). Never touches fov.
 cvar_t		scr_fov_adapt = {"fov_adapt","1",CVAR_ARCHIVE};
 cvar_t		scr_conspeed = {"scr_conspeed","500",CVAR_ARCHIVE};
 cvar_t		scr_centertime = {"scr_centertime","2",CVAR_NONE};
@@ -417,7 +418,20 @@ static void SCR_CalcRefdef (void)
 	r_refdef.vrect.y = (glheight - sb_lines - r_refdef.vrect.height)/2;
 	//johnfitz
 
-	r_refdef.fov_x = AdaptFovx(scr_fov.value, vid.width, vid.height);
+	// QC weapon zoom is a MAGNIFICATION, not a fov: fov_eff = 2*atan(tan(fov/2)/zoom).
+	// The player's fov cvar is never written, so reloads/weapon switches cannot
+	// clobber it and the zoom amount is optical (2x, 6x) rather than absolute.
+	{
+		float fovq = scr_fov.value;
+		if (r_zoom.value > 1.0f && fovq > 1.0f && fovq < 179.0f)
+		{
+			double half = tan (fovq * 0.5 * M_PI_DIV_180) / (double) r_zoom.value;
+			fovq = (float) (2.0 * atan (half) / M_PI_DIV_180);
+			if (fovq < 1.0f)
+				fovq = 1.0f;
+		}
+		r_refdef.fov_x = AdaptFovx (fovq, vid.width, vid.height);
+	}
 	r_refdef.fov_y = CalcFovy (r_refdef.fov_x, r_refdef.vrect.width, r_refdef.vrect.height);
 
 	scr_vrect = r_refdef.vrect;
@@ -504,9 +518,15 @@ void SCR_Init (void)
 	Cvar_RegisterVariable (&scr_clock);
 	//johnfitz
 	Cvar_SetCallback (&scr_fov, SCR_Callback_refdef);
+	/* r121: SCR_CalcRefdef only re-runs when vid.recalc_refdef is flagged,
+	 * and that flag comes from SCR_Callback_refdef. Without this callback a
+	 * mid-game r_zoom change (QC Set_Zoom) set the cvar but the projection
+	 * was never recomputed -- silent no-op (user 2026-11-18). */
+	Cvar_SetCallback (&r_zoom, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_fov_adapt, SCR_Callback_refdef);
 	Cvar_SetCallback (&scr_viewsize, SCR_Callback_refdef);
 	Cvar_RegisterVariable (&scr_fov);
+	Cvar_RegisterVariable (&r_zoom);	// QC zoom magnification (Set_Zoom)
 	Cvar_RegisterVariable (&scr_fov_adapt);
 	Cvar_RegisterVariable (&scr_viewsize);
 	Cvar_RegisterVariable (&scr_conspeed);
@@ -558,7 +578,7 @@ void SCR_DrawFPS (void)
 		oldframecount = r_framecount;
 	}
 
-	if (scr_showfps.value && !hud_mapshot.value)	/* r84 */
+	if (scr_showfps.value && !hud_mapshot.value && !hud_fps.value)	/* r84: the menu chip replaces the legacy counter */
 	{
 		char	st[16];
 		int	x, y;
@@ -1003,36 +1023,53 @@ qboolean	scr_drawdialog;
 
 void SCR_DrawNotifyString (void)
 {
+	// perf B9c: styled dialog rebuilt (user directive) to match the quit
+	// popup exactly: dark fill + Draw_WindowGrid header band + M_PrintWhite
+	// rows + Draw_Button X/O chips on the last row. Was: raw 8px conchars
+	// on a bare fade, then a hand-rolled navy TTF panel that fought the
+	// button icons.
 	const char	*start;
-	int		l;
-	int		j;
-	int		x, y;
+	char		line[8][48];
+	int			nl = 0, i, l, len, widest = 0, colpix, x;
 
-	GL_SetCanvas (CANVAS_MENU); //johnfitz
+	GL_SetCanvas (CANVAS_MENU_STRETCH);	// same space Draw_WindowGrid computes in
+										// (320*MENU_SCALE x 200*MENU_SCALE = 560x350).
+										// CANVAS_MENU (640x200) mis-mapped the whole
+										// window: off-center, clipped rows (user shot).
 
 	start = scr_notifystring;
-
-	y = 200 * 0.35; //johnfitz -- stretched overlays
-
-	do
+	while (nl < 8)
 	{
-	// scan the width of the line
-		for (l=0 ; l<40 ; l++)
-			if (start[l] == '\n' || !start[l])
-				break;
-		x = (320 - l*8)/2; //johnfitz -- stretched overlays
-		for (j=0 ; j<l ; j++, x+=8)
-			Draw_Character (x, y, start[j]);
-
-		y += 8;
-
+		for (l = 0; l < 47 && start[l] && start[l] != '\n'; l++)
+			line[nl][l] = start[l];
+		line[nl][l] = '\0';
+		nl++;
 		while (*start && *start != '\n')
 			start++;
-
 		if (!*start)
 			break;
 		start++;		// skip the \n
-	} while (1);
+	}
+
+	for (i = 0; i < nl; i++)
+	{
+		len = (int) strlen (line[i]);
+		if (len > widest)
+			widest = len;
+	}
+	colpix = (widest * 8 + 34) / 2;	// exact pixels (>1 so the base uses them raw);
+										// menu_width = 2*colpix+2 = widest*8+36
+	Draw_FillRGBA (0, 0, 1000, 1000, 0.02f, 0.02f, 0.025f, 0.7f);
+	struct MenuCoords coords = Draw_WindowGrid ("Confirm", nl + 1, MVS_P, 2, (float)colpix, 1.0, -1, false);
+	for (i = 0; i < nl; i++)
+	{
+		x = (320 * MENU_SCALE - (int) strlen (line[i]) * 8) / 2;	// centered in the window space
+		M_PrintWhite (x, coords.grid[0][i].yp, line[i]);
+	}
+	M_PrintWhite (coords.grid[0][nl].xp, coords.grid[0][nl].yp, "Yes");
+	Draw_Button (coords.grid[0][nl].xp + 4*CHARZ, coords.grid[0][nl].yp, b_abutton);
+	M_PrintWhite (coords.grid[1][nl].xp, coords.grid[1][nl].yp, "No");
+	Draw_Button (coords.grid[1][nl].xp + 3*CHARZ, coords.grid[1][nl].yp, b_bbutton);
 }
 
 /*
@@ -1066,6 +1103,9 @@ int SCR_ModalMessage (const char *text, float timeout) //johnfitz -- timeout
 	Key_BeginInputGrab ();
 	do
 	{
+		scr_drawdialog = true;	// perf B9c: repaint every frame so the menu page
+		SCR_UpdateScreen ();	// behind the dialog stays live (was: one static
+		scr_drawdialog = false;	// frame drawn before the grab -> frozen console)
 		Sys_SendKeyEvents ();
 		Key_GetGrabbedInput (&lastkey, &lastchar);
 		Sys_Sleep (16);
@@ -1237,7 +1277,10 @@ void SCR_UpdateScreen (void)
 
 	if (scr_drawdialog) //new game confirm
 	{
-		if (con_forcedup)
+		if (key_dest == key_menu)
+			M_Draw ();	// perf B9c: modal fired from Options -- keep the page the
+					// player was on under the fade instead of a console wall
+		else if (con_forcedup)
 			Draw_ConsoleBackground ();
 		Draw_FadeScreen ();
 		SCR_DrawNotifyString ();

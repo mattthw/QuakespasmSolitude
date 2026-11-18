@@ -1386,6 +1386,15 @@ void Key_Event (int key, qboolean down)
 		{
 			if (key_dest == key_game && !con_forcedup)
 				return; // ignore autorepeats in game mode
+			/* Menus keep repeat for navigation, but a HELD confirm button
+			 * must not fire twice: on Vita the pad (and a frame stall while
+			 * the map thumbnails load) can re-send the down that opened the
+			 * page, which then activates the row under the cursor -- e.g.
+			 * opening Matchmaking instantly STARTed a match (user 2026-11-18). */
+			if (key_dest == key_menu &&
+			    (key == K_ABUTTON || key == K_BBUTTON || key == K_ENTER ||
+			     key == K_KP_ENTER || key == K_YBUTTON || key == K_XBUTTON))
+				return;
 		}
 	}
 	else if (!keydown[key])

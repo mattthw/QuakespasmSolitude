@@ -59,7 +59,7 @@ byte		*host_colormap;
 float	host_netinterval;
 cvar_t	host_framerate = {"host_framerate","0",CVAR_NONE};	// set for slow motion
 cvar_t	host_speeds = {"host_speeds","0",CVAR_NONE};			// set for running times
-cvar_t	host_maxfps = {"host_maxfps", "72", CVAR_ARCHIVE}; //johnfitz
+cvar_t	host_maxfps = {"host_maxfps", "60", CVAR_ARCHIVE}; //johnfitz
 cvar_t	host_timescale = {"host_timescale", "0", CVAR_NONE}; //johnfitz
 cvar_t	max_edicts = {"max_edicts", "15000", CVAR_NONE}; //johnfitz //ericw -- changed from 2048 to 8192, removed CVAR_ARCHIVE
 cvar_t	cl_nocsqc = {"cl_nocsqc", "0", CVAR_NONE};	//spike -- blocks the loading of any csqc modules
@@ -382,6 +382,32 @@ static void Perf_BeginFrame (void)
 	perf_t0 = Sys_DoubleTime () * 1000000.0;
 }
 
+static void Perf_FpsUpdate (void)
+{
+	// FPS = frames actually rendered per WALL-CLOCK second. Never use
+	// realtime here: on Vita realtime/host_frametime are paced by the host
+	// frame limiter, so frames/realtime sits pinned at host_maxfps (60)
+	// while the renderer is really presenting ~20 -- the chip read 60 no
+	// matter what the chart's present-time line said (user 2026-11-18).
+	static double	oldtime = 0;
+	static int		oldcount = 0;
+	double			now = Sys_DoubleTime ();
+	double			elapsed = now - oldtime;
+	int				frames = r_framecount - oldcount;
+
+	if (elapsed >= 0.5 && frames >= 0)
+	{
+		perf_fps = (float) frames / (float) elapsed;
+		oldtime = now;
+		oldcount = r_framecount;
+	}
+	else if (elapsed < 0)	// clock went backwards (level restart)
+	{
+		oldtime = now;
+		oldcount = r_framecount;
+	}
+}
+
 static void Perf_EndFrame (void)
 {
 	double	now = Sys_DoubleTime () * 1000000.0;
@@ -389,7 +415,11 @@ static void Perf_EndFrame (void)
 	int		i;
 
 	if (!r_perfhud.value)
+	{
+		if (hud_fps.value)	// graphics-tab chip needs perf_fps with charts off
+			Perf_FpsUpdate ();
 		return;
+	}
 	if (total < 0 || total > 2000000.0)
 		total = 0;	// implausible (suspend/resume); report nothing this frame
 	perf_acc[PERF_TOTAL] = total;
@@ -463,26 +493,8 @@ static void Perf_EndFrame (void)
 		perf_samp_t0 = now;
 	}
 
-	// FPS = displayed frames, same measurement as SCR_DrawFPS; the host
-	// loop itself can run several times faster than the renderer.
-	{
-		static double	oldtime = 0;
-		static int		oldcount = 0;
-		double			elapsed = realtime - oldtime;
-		int				frames = r_framecount - oldcount;
-
-		if (elapsed >= 0.75 && frames >= 0)
-		{
-			perf_fps = (float) frames / (float) elapsed;
-			oldtime = realtime;
-			oldcount = r_framecount;
-		}
-		else if (elapsed < 0)
-		{
-			oldtime = realtime;
-			oldcount = r_framecount;
-		}
-	}
+	// FPS = displayed frames (shared with the graphics-tab chip).
+	Perf_FpsUpdate ();
 }
 
 /*

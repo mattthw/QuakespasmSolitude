@@ -193,7 +193,9 @@ self.think = SUB_Remove;
 self.nextthink = time + 0.01;
 };
 
-void() muzzleflash3 = {
+// r118 (user): sz = footprint multiplier via the engine 'scale' extfield.
+// Shottie passes 1 (stock), the SMG passes 0.5 (flash was too big).
+void(float sz, float lateral, float lift) muzzleflash3 = {
 local entity muzzle;
 muzzle = spawn();
 muzzle.owner = self;
@@ -204,7 +206,9 @@ muzzle.movetype = MOVETYPE_NONE;
 
 
 setmodel(muzzle,"sprites/muzzleflash.spr");
-setorigin(muzzle,self.origin + v_forward * 35 + v_right * 5+ '0 0 15');
+muzzle.scale = sz;
+setorigin(muzzle,self.origin + v_forward * 35 + v_right * lateral + '0 0 15');
+muzzle.origin_z = muzzle.origin_z + lift;
 muzzle.think = muzzleflash_think1;
 muzzle.nextthink = time + 0.01;
 };
@@ -554,11 +558,21 @@ void() Draw_Scope = {
 	}
 };
 
-void ( float famt ) Set_FOV =
+void ( float zamt ) Set_Zoom =
 {
-	stuffcmd( self, "fov " );
-	stuffcmd( self, ftos( famt ) );
-	stuffcmd( self, "\n" );
+	// r_zoom is a MAGNIFICATION (0/1 = none, 2 = 2x, 6 = 6x) applied to the
+	// projection -- the player's "fov" cvar (menu slider) is never written,
+	// so reloads and weapon switches can never clobber it.
+	/* r120 (user): ONE complete command string, exactly like cl_melee_range
+	 * and cl_scope. stuffcmd emits a separate svc_stufftext per call, so the
+	 * old "r_zoom " + value + "\n" split delivered three broken commands and
+	 * the cvar was never set -- the zoom sound played, nothing magnified. */
+	if (zamt >= 5.5)
+		stuffcmd (self, "r_zoom 6\n");
+	else if (zamt >= 1.5)
+		stuffcmd (self, "r_zoom 2\n");
+	else
+		stuffcmd (self, "r_zoom 0\n");
 	Draw_Scope();
 };
 
@@ -598,7 +612,10 @@ void () WeaponZoom =
 		tozoom = FOV_DEFAULT;
 
 	self.pfov = tozoom;	
-	Set_FOV( tozoom );
+	if (tozoom >= FOV_DEFAULT)
+		Set_Zoom( 0 );	// clear
+	else
+		Set_Zoom( FOV_DEFAULT / tozoom );	// 45 -> 2x, 15 -> 6x
 };
 	
 /*
@@ -1203,7 +1220,7 @@ void () W_FireShotgun =
 	local vector dir;
 
 	sound (self, CHAN_WEAPON, "weapons/shottie.wav", 1, ATTN_NORM);
-	muzzleflash3(); // shottie flash
+	muzzleflash3(1, 5, 0); // shottie flash
 	self.punchangle_x = CONTENT_EMPTY;
 	self.ammo_shells2 -= 1;
 	self.currentammo -= 1;
@@ -1246,13 +1263,17 @@ void() W_FireUzi =
 {
 	local vector dir;
 
-	muzzleflash3();
+	muzzleflash3(0.5, 11, 3);	// r118 (user): SMG flash half size; r118b: lateral 11 = on the uzi nozzle, lift 3 = midway (0 was low, 6 too high)
 	sound (self, CHAN_WEAPON, "weapons/uzi.wav", 1, ATTN_NORM);
 	self.ammo_hshells -= 1;
 	W_UpdateAmmoCounts(self);
 
 	self.punchangle_x = -2;
+	/* r118b (user): bias the uzi spray 10% right, 5% up — dir is unit length,
+	 * so these are fractions of trace distance (~5.7deg/~2.9deg at 2048u).
+	 * Cluster felt low-left of the reticle. retune numbers if too much. */
 	dir = aim (self, 100000);
+	dir = normalize (dir + v_right * 0.10 + v_up * 0.05);
 	FireBullets (1, dir, '0.06 0.06 0.02', MOD_SOLITUDE);
 
 };
@@ -1263,8 +1284,13 @@ void () W_FireNail2 =
 
 	//sound (self, CHAN_WEAPON, "weapons/shotgn2.wav", WEAPON_SHOTGUN, ATTN_NORM);
 	self.punchangle_x = CONTENT_EMPTY;
-	self.ammo_shells2 = (self.ammo_shells2 - WEAPON_SHOTGUN);
-	self.currentammo = (self.ammo_shells2 - WEAPON_SHOTGUN);
+	/* r119 (user bug): this is the vanilla super-nailgun remnant — the SMG
+	 * still reaches it via W_Attack's animation switch (player_nail2). It
+	 * used to decrement ammo_shells2 (the SHOTGUN's pool, WEAPON_SHOTGUN is
+	 * #define 1) every SMG click; the shotgun count dropped while firing
+	 * the uzi. SMG ammo bookkeeping lives entirely in W_FireUzi
+	 * (ammo_hshells). Its one extra silent 0.07-spread bullet stays — the
+	 * SMG's two-bullet damage profile is what shipped and feels right. */
 	dir = aim (self, 100000);
 	FireBullets (WEAPON_SHOTGUN, dir, '0.07 0.07 0', MOD_SOLITUDE);
 };
@@ -1667,7 +1693,7 @@ void() W_FireRocket =
 
 	self.ammo_rockets -= 1;
 	W_UpdateAmmoCounts(self);
-	muzzleflash3(); 
+	muzzleflash3(1, 5, 0); 
 	sound (self, CHAN_WEAPON, "weapons/sgun1.wav", 1, ATTN_NORM);
 
 	self.punchangle_x = -2;
@@ -2226,7 +2252,7 @@ void(float weap) W_WeaponSwitch =
 	W_UpdateAmmoCounts(self);
 	
 	self.pfov = FOV_DEFAULT;
-	Set_FOV ( FOV_DEFAULT );
+	Set_Zoom ( 0 );
 };
 
 float() W_BestWeapon =
@@ -2859,7 +2885,7 @@ void () reload =
 			}
 		}
 		self.pfov = FOV_DEFAULT;
-		Set_FOV (FOV_DEFAULT);
+		Set_Zoom ( 0 );
 		self.attack_finished = (time + 0.2);
 		player_reload1 ();		// now that we set the start frame, begin the reload
 	}
@@ -2952,7 +2978,7 @@ void() ImpulseCommands =
     //		if (time < self.attack_finished)
     //			return;
             self.pfov = FOV_DEFAULT;
-            Set_FOV ( FOV_DEFAULT );
+            Set_Zoom ( 0 );
             reload ();
             break;
         case 29: // melee
@@ -2961,7 +2987,7 @@ void() ImpulseCommands =
                 self.button0 = TRUE; // energy sword melee should just use the attack functions
             }
             self.pfov = FOV_DEFAULT;
-            Set_FOV ( FOV_DEFAULT );
+            Set_Zoom ( 0 );
             pre_player_melee ();
             break;
         }
@@ -3007,7 +3033,7 @@ void() ImpulseCommands =
             if (self.attack_finished > time)
                 return;
             self.pfov = FOV_DEFAULT;
-            Set_FOV ( FOV_DEFAULT );
+            Set_Zoom ( 0 );
 
             /* r112b: LB Melee (Options > Controls, cvar lb_melee, default on).
              * CheckMeleeRange() ran the W_Melee reach test this frame and

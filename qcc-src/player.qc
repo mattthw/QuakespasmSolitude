@@ -1586,7 +1586,7 @@ void() PlayerDie =
 	self.angles_x = 0;
 	self.angles_z = 0;
 
-	Set_FOV( FOV_DEFAULT );
+	Set_Zoom( 0 );
 	self.pfov = FOV_DEFAULT;
     // drop items on death
     ThrowWeapon(self.weapon, 1);

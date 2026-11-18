@@ -85,7 +85,7 @@ void() Setup_Gametype = {
                 rj = numberserverinfokey("rj");
                 self.needles = 0;
                 self.pfov = FOV_DEFAULT;
-                Set_FOV(self.pfov);
+                Set_Zoom( 0 );
                 //self.reset = 1.00;
                 self.weaponheat = 0;
                 stuffcmd(self, "chase_active 0\n");
@@ -140,7 +140,7 @@ void() Setup_Gametype = {
                 rj = numberserverinfokey("rj");
                 self.needles = 0;
                 self.pfov = FOV_DEFAULT;
-                Set_FOV(self.pfov);
+                Set_Zoom( 0 );
                 //self.reset = 1.00;
                 self.weaponheat = 0;
                 stuffcmd(self, "chase_active 0\n");
@@ -197,7 +197,7 @@ void() Setup_Gametype = {
                 rj = numberserverinfokey("rj");
                 self.needles = 0;
                 self.pfov = FOV_DEFAULT;
-                Set_FOV(self.pfov);
+                Set_Zoom( 0 );
                 //self.reset = 1.00;
                 self.weaponheat = 0;
                 stuffcmd(self, "chase_active 0\n");
