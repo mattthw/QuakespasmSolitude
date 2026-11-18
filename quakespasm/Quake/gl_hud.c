@@ -1975,7 +1975,7 @@ void HUD_DrawPerf (void) {
     int i, x, y, gy, gh, gw, j, k, n;
     double scale, st, tot;
 
-    if (hud_fps.value && !r_perfhud.value && !hud_mapshot.value)
+    if (hud_fps.value >= 2 && !r_perfhud.value && !hud_mapshot.value)  /* r122: 2 = new chip, 1 = native counter */
     {   /* graphics tab "Show FPS": just the number, no chart panel.
          * perf_fps itself is kept ticking by Perf_FpsUpdate (host.c).
          * Chip width is measured from the text so it hugs the number. */

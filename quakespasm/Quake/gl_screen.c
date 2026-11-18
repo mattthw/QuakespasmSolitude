@@ -578,7 +578,11 @@ void SCR_DrawFPS (void)
 		oldframecount = r_framecount;
 	}
 
-	if (scr_showfps.value && !hud_mapshot.value && !hud_fps.value)	/* r84: the menu chip replaces the legacy counter */
+	/* r122: Show FPS is Off/Native/New. Native (1) forces this counter on;
+	 * New (2) suppresses it in favour of the top-right chip; Off falls back
+	 * to the classic scr_showfps cvar. */
+	if ((hud_fps.value >= 1.0f ? hud_fps.value < 1.5f : scr_showfps.value)
+	    && !hud_mapshot.value)
 	{
 		char	st[16];
 		int	x, y;

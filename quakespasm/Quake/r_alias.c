@@ -94,6 +94,7 @@ typedef struct
 	GLuint useAlphaTestLoc;
 #ifdef VITA
 	GLuint fogDensityLoc;
+	GLuint fogColorLoc;
 #endif
 } aliasglsl_t;
 static aliasglsl_t r_alias_glsl[ALIAS_GLSL_MODES];
@@ -210,6 +211,7 @@ void GLAlias_CreateShaders (void)
 		"	float3 Pose2Normal,\n"
 		"#endif\n"
 		"	float2 out gl_TexCoord : TEXCOORD0,\n"
+		"	float out tc_fog : TEXCOORD1,\n"
 		"	float4 out gl_Position : POSITION,\n"
 		"	float4 out gl_FrontColor : COLOR\n"
 		") {\n"
@@ -236,6 +238,7 @@ void GLAlias_CreateShaders (void)
 		"	float dot1 = lerp(r_avertexnormal_dot(Pose1Normal), r_avertexnormal_dot(Pose2Normal), Blend);\n"
 		"#endif\n"
 		"	gl_Position = mul(gl_ModelViewProjectionMatrix, lerpedVert);\n"
+		"	tc_fog = gl_Position.w;\n"
 		"	gl_FrontColor = LightColor * float4(float3(dot1), 1.0);\n"
 		"#ifdef SKELETAL\n"
 		"	gl_FrontColor *= VertColours;\n"	//this is basically only useful for vertex alphas.
@@ -249,9 +252,10 @@ void GLAlias_CreateShaders (void)
 		"uniform int UseOverbright;\n"
 		"uniform int UseAlphaTest;\n"
 		"uniform float fog_density;\n"
+		"uniform float3 fog_color;\n"
 		"\n"
 		"float4 main(\n"
-		"	float4 coords : WPOS,\n"
+		"	float tc_fog : TEXCOORD1,\n"
 		"	float2 gl_TexCoord : TEXCOORD0,\n"
 		"	float4 gl_Color : COLOR\n"
 		") {\n"
@@ -264,10 +268,9 @@ void GLAlias_CreateShaders (void)
 		"	if (UseFullbrightTex)\n"
 		"		result += tex2D(FullbrightTex, gl_TexCoord);\n"
 		"	result = clamp(result, 0.0, 1.0);\n"
-		"	float FogFragCoord = coords.z / coords.w;\n"
-		"	float fog = exp(-fog_density * fog_density * FogFragCoord * FogFragCoord);\n"
+		"	float fog = exp(-fog_density * fog_density * tc_fog * tc_fog);\n"
 		"	fog = clamp(fog, 0.0, 1.0);\n"
-		"	result = lerp(float4(0.3, 0.3, 0.3, 1.0), result, fog);\n"
+		"	result = lerp(float4(fog_color, 1.0), result, fog);\n"
 		"	result.a = gl_Color.a;\n" // FIXME: This will make almost transparent things cut holes though heavy fog
 		"	return result;\n"
 		"}\n";
@@ -411,6 +414,7 @@ void GLAlias_CreateShaders (void)
 			glsl->useAlphaTestLoc = GL_GetUniformLocation (&glsl->program, "UseAlphaTest");
 #ifdef VITA
 			glsl->fogDensityLoc = GL_GetUniformLocation(&glsl->program, "fog_density");
+			glsl->fogColorLoc = GL_GetUniformLocation(&glsl->program, "fog_color");
 #endif
 		}
 	}
@@ -514,7 +518,11 @@ void GL_DrawAliasFrame_GLSL (aliasglsl_t *glsl, aliashdr_t *paliashdr, lerpdata_
 	GL_Uniform1fFunc (glsl->useOverbrightLoc, overbright ? 1 : 0);
 	GL_Uniform1iFunc (glsl->useAlphaTestLoc, (currententity->model->flags & MF_HOLEY) ? 1 : 0);
 #ifdef VITA
-	GL_Uniform1fFunc (glsl->fogDensityLoc, Fog_GetDensity() / 64.0f);
+	{
+		const float *fc = Fog_GetColor ();
+		GL_Uniform1fFunc (glsl->fogDensityLoc, Fog_GetDensity() / 64.0f);
+		GL_Uniform3fFunc (glsl->fogColorLoc, fc[0], fc[1], fc[2]);
+	}
 #endif
 
 // set textures

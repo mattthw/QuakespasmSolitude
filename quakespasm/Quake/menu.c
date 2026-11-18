@@ -3334,6 +3334,15 @@ static const char *UNI_ShowScale (char *buf, int size)
 	return buf;
 }
 
+/* r122 (user): Show FPS is three-way -- Off / Native (the engine's own
+ * bottom-right counter) / New (our top-right chip). */
+static const char *UNI_ShowFps (char *buf, int size)
+{
+	int v = (int)(hud_fps.value + 0.5f);
+	q_snprintf (buf, size, "%s", v <= 0 ? "Off" : (v == 1 ? "Native" : "New"));
+	return buf;
+}
+
 static const char *UNI_ShowSens (char *buf, int size)
 {
 	q_snprintf (buf, size, "%g", sensitivity.value);
@@ -3510,7 +3519,7 @@ static const uni_row_t uni_gfx_rows[] =
 {
 	{"Screen Size",     &scr_viewsize,  30, 120, 10,   0, 0, NULL, NULL, "Size of the 3D view in the window. Impact: none."},
 	{"Hide HUD",        &hide_hud,         0,   1, 1,   0, 0, NULL, NULL, "Hide the combat overlay for clean screenshots. Impact: none."},
-	{"Show FPS",        &hud_fps,          0,   1, 1,   0, 0, NULL, NULL, "Small framerate readout, top-left corner. Impact: none."},
+	{"Show FPS",        &hud_fps,          0,   2, 1,   0, 0, NULL, UNI_ShowFps, "Framerate readout: Off, Native (engine counter) or New (top-right chip). Impact: none."},
 	{"Max FPS",        &host_maxfps,   30,  60,  5,   0, 0, NULL, NULL, "Frame rate cap in steps of 5. Impact: none."},
 	{"UI Scale",        &scr_menuscale,    1, 2.5, 0.1,  0, 0, UNI_SetScale, UNI_ShowScale, "Size of menus and status text. Impact: none."},
 	{"Brightness",      &vid_gamma,   0.5,   1, 0.05,  1, 0, NULL, NULL, "Overall screen lightness. Impact: none."},

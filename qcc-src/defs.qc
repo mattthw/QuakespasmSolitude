@@ -849,6 +849,7 @@ BOOL(entity targ, entity inflictor) CanDamage;
 .float alpha;
 .float nade_lives;	// The number of Grenades a player has.
 .float melee_hint;	// r112b: 1 while an lb_melee target is inside W_Melee reach (CheckMeleeRange, weapons.qc)
+.float scale;	// r118: entity world-footprint multiplier (engine extfield, pr_edict.c; sprites read it in r_sprite.c as *16)
 .float plasma_lives;
 .float kill_time;
 .float kill_amount;		//For reseting kill medals
