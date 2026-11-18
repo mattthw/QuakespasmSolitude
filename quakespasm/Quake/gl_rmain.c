@@ -126,6 +126,7 @@ float	map_fallbackalpha;
 qboolean r_drawflat_cheatsafe, r_fullbright_cheatsafe, r_lightmap_cheatsafe, r_drawworld_cheatsafe; //johnfitz
 
 cvar_t	r_scale = {"r_scale", "1", CVAR_ARCHIVE};
+cvar_t	r_renderscale = {"r_renderscale", "1", CVAR_ARCHIVE};	// perf B9
 
 //==============================================================================
 //
@@ -492,6 +493,164 @@ float frustum_skew = 0.0; //used by r_stereo
 	glFrustum(-xmax + frustum_skew, xmax + frustum_skew, -ymax, ymax, NEARCLIP, gl_farclip.value);
 }*/
 
+//=============================================================================
+// perf B9 -- r_renderscale: render the whole 3D view into a smaller framebuffer
+// object, then stretch it back over the view rect.  GPU fill cost drops with the
+// area (a 50% render scale is a quarter of the fragments) while the 2D HUD and
+// menus keep drawing at native resolution on the front buffer afterwards.
+// vitaGL has real FBOs; desktop gets them via GL_EXT_framebuffer_object.
+// Unlike legacy r_scale this needs no glCopyTexSubImage2D readback (vitaGL has
+// none), which is why r_scale stayed #ifndef VITA.
+//=============================================================================
+qboolean	gl_fbo_able;
+QS_PFNGLGENFRAMEBUFFERSPROC GL_GenFramebuffersFunc;
+QS_PFNGLDELETEFRAMEBUFFERSPROC GL_DeleteFramebuffersFunc;
+QS_PFNGLBINDFRAMEBUFFERPROC GL_BindFramebufferFunc;
+QS_PFNGLCHECKFRAMEBUFFERSTATUSPROC GL_CheckFramebufferStatusFunc;
+QS_PFNGLFRAMEBUFFERTEXTURE2DPROC GL_FramebufferTexture2DFunc;
+QS_PFNGLGENRENDERBUFFERSPROC GL_GenRenderbuffersFunc;
+QS_PFNGLDELETERENDERBUFFERSPROC GL_DeleteRenderbuffersFunc;
+QS_PFNGLBINDRENDERBUFFERPROC GL_BindRenderbufferFunc;
+QS_PFNGLRENDERBUFFERSTORAGEPROC GL_RenderbufferStorageFunc;
+QS_PFNGLFRAMEBUFFERRENDERBUFFERPROC GL_FramebufferRenderbufferFunc;
+
+static GLuint	rs_fbo, rs_fbo_color, rs_fbo_depth;
+static int		rs_fbo_w, rs_fbo_h, rs_fbo_tw, rs_fbo_th;
+static int		rs_blit_x, rs_blit_y, rs_blit_w, rs_blit_h;
+qboolean		rs_fbo_active;	// set by R_SetupGL, consumed by R_RenderView
+static qboolean	rs_fbo_failed;	// creation failed once -- stay native this session
+
+/*
+=============
+R_ScaleFBO_Delete
+=============
+*/
+void R_ScaleFBO_Delete (void)
+{
+	if (GL_DeleteFramebuffersFunc && rs_fbo)
+		GL_DeleteFramebuffersFunc (1, &rs_fbo);
+	if (GL_DeleteRenderbuffersFunc && rs_fbo_depth)
+		GL_DeleteRenderbuffersFunc (1, &rs_fbo_depth);
+	if (rs_fbo_color)
+		glDeleteTextures (1, &rs_fbo_color);
+	rs_fbo = rs_fbo_color = rs_fbo_depth = 0;
+	rs_fbo_w = rs_fbo_h = rs_fbo_tw = rs_fbo_th = 0;
+}
+
+/*
+=============
+R_ScaleFBO_Resize -- bind the low-res target, or say "stay native"
+=============
+*/
+static qboolean R_ScaleFBO_Resize (void)
+{
+	float	eff;
+	int		iscale, w, h, tw, th;
+
+	// hud_mapshot forces a clean native render for map thumbnails
+	if (!gl_fbo_able || rs_fbo_failed || hud_mapshot.value)
+		return false;
+	eff = CLAMP (0.25f, r_renderscale.value, 1.0f);
+	if (eff >= 1.0f)
+		return false;
+
+	iscale = CLAMP (1, (int)r_scale.value, 4);	// legacy r_scale still applies on top
+	w = (int)(r_refdef.vrect.width / iscale * eff);
+	h = (int)(r_refdef.vrect.height / iscale * eff);
+	if (w < 16) w = 16;
+	if (h < 16) h = 16;
+
+	if (w != rs_fbo_w || h != rs_fbo_h)
+	{
+		tw = w;
+		th = h;
+		if (!gl_texture_NPOT)	// pad like R_ScaleView does, correct with smax/tmax
+		{
+			tw = TexMgr_Pad (tw);
+			th = TexMgr_Pad (th);
+		}
+		R_ScaleFBO_Delete ();
+		GL_GenFramebuffersFunc (1, &rs_fbo);
+		GL_BindFramebufferFunc (GL_FRAMEBUFFER, rs_fbo);
+
+		glGenTextures (1, &rs_fbo_color);
+		glBindTexture (GL_TEXTURE_2D, rs_fbo_color);
+		glTexImage2D (GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		GL_FramebufferTexture2DFunc (GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rs_fbo_color, 0);
+
+		GL_GenRenderbuffersFunc (1, &rs_fbo_depth);
+		GL_BindRenderbufferFunc (GL_RENDERBUFFER, rs_fbo_depth);
+		GL_RenderbufferStorageFunc (GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, tw, th);
+		GL_FramebufferRenderbufferFunc (GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rs_fbo_depth);
+
+		if (GL_CheckFramebufferStatusFunc (GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		{
+			GL_BindFramebufferFunc (GL_FRAMEBUFFER, 0);
+			R_ScaleFBO_Delete ();
+			rs_fbo_failed = true;
+			Con_Warning ("r_renderscale: FBO incomplete, staying at native resolution\n");
+			return false;
+		}
+		rs_fbo_w = w; rs_fbo_h = h; rs_fbo_tw = tw; rs_fbo_th = th;
+	}
+
+	// front-buffer rect the blit fills -- deliberately the same rect legacy
+	// R_SetupGL/R_ScaleView use for an r_scale pass, so the two compose
+	rs_blit_x = glx + r_refdef.vrect.x;
+	rs_blit_y = gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height;
+	rs_blit_w = r_refdef.vrect.width / iscale;
+	rs_blit_h = r_refdef.vrect.height / iscale;
+
+	GL_BindFramebufferFunc (GL_FRAMEBUFFER, rs_fbo);
+	return true;
+}
+
+/*
+=============
+R_ScaleFBO_BlitView -- stretch the low-res render back over the view rect
+=============
+*/
+static void R_ScaleFBO_BlitView (void)
+{
+	float smax, tmax;
+
+	GL_BindFramebufferFunc (GL_FRAMEBUFFER, 0);
+	glViewport (rs_blit_x, rs_blit_y, rs_blit_w, rs_blit_h);
+
+	GL_DisableMultitexture ();
+	glBindTexture (GL_TEXTURE_2D, rs_fbo_color);
+
+	glDisable (GL_ALPHA_TEST);
+	glDisable (GL_DEPTH_TEST);
+	glDisable (GL_CULL_FACE);
+	glDisable (GL_BLEND);
+	glColor4f (1, 1, 1, 1);
+
+	glMatrixMode (GL_PROJECTION);
+	glLoadIdentity ();
+	glMatrixMode (GL_MODELVIEW);
+	glLoadIdentity ();
+
+	smax = rs_fbo_w / (float)rs_fbo_tw;	// normally 1.0, < 1 when padded
+	tmax = rs_fbo_h / (float)rs_fbo_th;
+
+	glBegin (GL_QUADS);
+		glTexCoord2f (0, 0);
+		glVertex2f (-1, -1);
+		glTexCoord2f (smax, 0);
+		glVertex2f (1, -1);
+		glTexCoord2f (smax, tmax);
+		glVertex2f (1, 1);
+		glTexCoord2f (0, tmax);
+		glVertex2f (-1, 1);
+	glEnd ();
+
+	GL_ClearBindings ();
+	rs_fbo_active = false;
+}
+
 /*
 =============
 R_SetupGL
@@ -506,6 +665,11 @@ void R_SetupGL (void)
 		scale = 1;	//don't rescale. we can't handle rescaling transparent parts.
 	else
 		scale =  CLAMP(1, (int)r_scale.value, 4); // ericw -- see R_ScaleView
+	// perf B9 -- r_renderscale redirects every pass into a reduced FBO
+	rs_fbo_active = R_ScaleFBO_Resize ();
+	if (rs_fbo_active)
+		glViewport (0, 0, rs_fbo_w, rs_fbo_h);
+	else
 	glViewport (glx + r_refdef.vrect.x,
 				gly + glheight - r_refdef.vrect.y - r_refdef.vrect.height,
 				r_refdef.vrect.width / scale,
@@ -562,6 +726,14 @@ R_Clear -- johnfitz -- rewritten and gutted
 void R_Clear (void)
 {
 	unsigned int clearbits;
+
+	// perf B9 -- R_Clear is the frame's first GL call, so bind the
+	// r_renderscale target right here; otherwise the clear lands on the front
+	// buffer and the FBO accumulates forever (ghost trails + stale depth).
+	// R_SetupGL binds again per pass -- harmless, same target.
+	rs_fbo_active = R_ScaleFBO_Resize ();
+	if (rs_fbo_active)
+		glViewport (0, 0, rs_fbo_w, rs_fbo_h);
 
 	clearbits = GL_DEPTH_BUFFER_BIT;
 	// from mh -- if we get a stencil buffer, we should clear it, even though we don't use it
@@ -1322,6 +1494,10 @@ void R_RenderView (void)
 		skyroom_visible = R_SkyroomWasVisible();
 	skyroom_drawn = false;
 	//skyroom end
+
+	// perf B9 -- stretch the reduced-resolution render back over the view first
+	if (rs_fbo_active)
+		R_ScaleFBO_BlitView ();
 
 	R_ScaleView ();
 

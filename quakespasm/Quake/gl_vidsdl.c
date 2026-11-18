@@ -880,6 +880,7 @@ static void VID_Restart (void)
 	TexMgr_DeleteTextureObjects ();
 	GLSLGamma_DeleteTexture ();
 	R_ScaleView_DeleteTexture ();
+	R_ScaleFBO_Delete ();	// perf B9
 	R_DeleteShaders ();
 	GL_DeleteBModelVertexBuffer ();
 	GLMesh_DeleteVertexBuffers ();
@@ -1309,6 +1310,49 @@ static void GL_CheckExtensions (void)
 	{
 		Con_Warning ("OpenGL version < 2, GLSL not available\n");
 	}
+
+	// perf B9 -- framebuffer objects (vitaGL exports the core names; desktop
+	// GL 2.1 drivers expose the EXT-suffixed ones instead, so try both)
+	//
+	GL_GenFramebuffersFunc = (QS_PFNGLGENFRAMEBUFFERSPROC) vglGetProcAddress("glGenFramebuffers");
+	if (!GL_GenFramebuffersFunc)
+		GL_GenFramebuffersFunc = (QS_PFNGLGENFRAMEBUFFERSPROC) vglGetProcAddress("glGenFramebuffersEXT");
+	GL_DeleteFramebuffersFunc = (QS_PFNGLDELETEFRAMEBUFFERSPROC) vglGetProcAddress("glDeleteFramebuffers");
+	if (!GL_DeleteFramebuffersFunc)
+		GL_DeleteFramebuffersFunc = (QS_PFNGLDELETEFRAMEBUFFERSPROC) vglGetProcAddress("glDeleteFramebuffersEXT");
+	GL_BindFramebufferFunc = (QS_PFNGLBINDFRAMEBUFFERPROC) vglGetProcAddress("glBindFramebuffer");
+	if (!GL_BindFramebufferFunc)
+		GL_BindFramebufferFunc = (QS_PFNGLBINDFRAMEBUFFERPROC) vglGetProcAddress("glBindFramebufferEXT");
+	GL_CheckFramebufferStatusFunc = (QS_PFNGLCHECKFRAMEBUFFERSTATUSPROC) vglGetProcAddress("glCheckFramebufferStatus");
+	if (!GL_CheckFramebufferStatusFunc)
+		GL_CheckFramebufferStatusFunc = (QS_PFNGLCHECKFRAMEBUFFERSTATUSPROC) vglGetProcAddress("glCheckFramebufferStatusEXT");
+	GL_FramebufferTexture2DFunc = (QS_PFNGLFRAMEBUFFERTEXTURE2DPROC) vglGetProcAddress("glFramebufferTexture2D");
+	if (!GL_FramebufferTexture2DFunc)
+		GL_FramebufferTexture2DFunc = (QS_PFNGLFRAMEBUFFERTEXTURE2DPROC) vglGetProcAddress("glFramebufferTexture2DEXT");
+	GL_GenRenderbuffersFunc = (QS_PFNGLGENRENDERBUFFERSPROC) vglGetProcAddress("glGenRenderbuffers");
+	if (!GL_GenRenderbuffersFunc)
+		GL_GenRenderbuffersFunc = (QS_PFNGLGENRENDERBUFFERSPROC) vglGetProcAddress("glGenRenderbuffersEXT");
+	GL_DeleteRenderbuffersFunc = (QS_PFNGLDELETERENDERBUFFERSPROC) vglGetProcAddress("glDeleteRenderbuffers");
+	if (!GL_DeleteRenderbuffersFunc)
+		GL_DeleteRenderbuffersFunc = (QS_PFNGLDELETERENDERBUFFERSPROC) vglGetProcAddress("glDeleteRenderbuffersEXT");
+	GL_BindRenderbufferFunc = (QS_PFNGLBINDRENDERBUFFERPROC) vglGetProcAddress("glBindRenderbuffer");
+	if (!GL_BindRenderbufferFunc)
+		GL_BindRenderbufferFunc = (QS_PFNGLBINDRENDERBUFFERPROC) vglGetProcAddress("glBindRenderbufferEXT");
+	GL_RenderbufferStorageFunc = (QS_PFNGLRENDERBUFFERSTORAGEPROC) vglGetProcAddress("glRenderbufferStorage");
+	if (!GL_RenderbufferStorageFunc)
+		GL_RenderbufferStorageFunc = (QS_PFNGLRENDERBUFFERSTORAGEPROC) vglGetProcAddress("glRenderbufferStorageEXT");
+	GL_FramebufferRenderbufferFunc = (QS_PFNGLFRAMEBUFFERRENDERBUFFERPROC) vglGetProcAddress("glFramebufferRenderbuffer");
+	if (!GL_FramebufferRenderbufferFunc)
+		GL_FramebufferRenderbufferFunc = (QS_PFNGLFRAMEBUFFERRENDERBUFFERPROC) vglGetProcAddress("glFramebufferRenderbufferEXT");
+
+	gl_fbo_able = GL_GenFramebuffersFunc && GL_DeleteFramebuffersFunc && GL_BindFramebufferFunc
+		&& GL_CheckFramebufferStatusFunc && GL_FramebufferTexture2DFunc && GL_GenRenderbuffersFunc
+		&& GL_DeleteRenderbuffersFunc && GL_BindRenderbufferFunc && GL_RenderbufferStorageFunc
+		&& GL_FramebufferRenderbufferFunc;
+	if (gl_fbo_able)
+		Con_Printf("FOUND: framebuffers\n");
+	else
+		Con_Warning ("framebuffer objects not available, r_renderscale disabled\n");
 	
 	// GLSL gamma
 	//

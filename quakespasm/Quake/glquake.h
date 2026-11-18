@@ -171,6 +171,7 @@ extern	cvar_t	r_dynamic;
 extern	cvar_t	r_novis;
 extern	cvar_t	r_spritemuzzlescale;	// perf B10: muzzle sprite world-footprint factor
 extern	cvar_t	r_scale;
+extern	cvar_t	r_renderscale;	// perf B9
 
 extern	cvar_t	gl_clear;
 extern	cvar_t	gl_cull;
@@ -262,6 +263,43 @@ extern QS_PFNGLUNIFORM1FPROC GL_Uniform1fFunc;
 extern QS_PFNGLUNIFORM3FPROC GL_Uniform3fFunc;
 extern QS_PFNGLUNIFORM4FPROC GL_Uniform4fFunc;
 extern QS_PFNGLUNIFORM4FVPROC GL_Uniform4fvFunc;
+
+// perf B9 -- framebuffer objects, for r_renderscale.  vitaGL exports the core
+// names; desktop GL 2.1 drivers expose the EXT-suffixed ones, so the loader in
+// gl_vidsdl.c tries both.  Enums are guarded because Apple's <OpenGL/gl.h> (2.1)
+// has no FBO tokens at all.
+#ifndef GL_FRAMEBUFFER
+#define GL_FRAMEBUFFER							0x8D40
+#define GL_COLOR_ATTACHMENT0					0x8CE0
+#define GL_DEPTH_ATTACHMENT						0x8D00
+#define GL_RENDERBUFFER							0x8D41
+#define GL_FRAMEBUFFER_COMPLETE					0x8CD5
+#endif
+#ifndef GL_DEPTH_COMPONENT16
+#define GL_DEPTH_COMPONENT16					0x81A5
+#endif
+typedef void (APIENTRYP QS_PFNGLGENFRAMEBUFFERSPROC) (GLsizei n, GLuint *framebuffers);
+typedef void (APIENTRYP QS_PFNGLDELETEFRAMEBUFFERSPROC) (GLsizei n, const GLuint *framebuffers);
+typedef void (APIENTRYP QS_PFNGLBINDFRAMEBUFFERPROC) (GLenum target, GLuint framebuffer);
+typedef GLenum (APIENTRYP QS_PFNGLCHECKFRAMEBUFFERSTATUSPROC) (GLenum target);
+typedef void (APIENTRYP QS_PFNGLFRAMEBUFFERTEXTURE2DPROC) (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level);
+typedef void (APIENTRYP QS_PFNGLGENRENDERBUFFERSPROC) (GLsizei n, GLuint *renderbuffers);
+typedef void (APIENTRYP QS_PFNGLDELETERENDERBUFFERSPROC) (GLsizei n, const GLuint *renderbuffers);
+typedef void (APIENTRYP QS_PFNGLBINDRENDERBUFFERPROC) (GLenum target, GLuint renderbuffer);
+typedef void (APIENTRYP QS_PFNGLRENDERBUFFERSTORAGEPROC) (GLenum target, GLenum internalformat, GLsizei width, GLsizei height);
+typedef void (APIENTRYP QS_PFNGLFRAMEBUFFERRENDERBUFFERPROC) (GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer);
+extern QS_PFNGLGENFRAMEBUFFERSPROC GL_GenFramebuffersFunc;
+extern QS_PFNGLDELETEFRAMEBUFFERSPROC GL_DeleteFramebuffersFunc;
+extern QS_PFNGLBINDFRAMEBUFFERPROC GL_BindFramebufferFunc;
+extern QS_PFNGLCHECKFRAMEBUFFERSTATUSPROC GL_CheckFramebufferStatusFunc;
+extern QS_PFNGLFRAMEBUFFERTEXTURE2DPROC GL_FramebufferTexture2DFunc;
+extern QS_PFNGLGENRENDERBUFFERSPROC GL_GenRenderbuffersFunc;
+extern QS_PFNGLDELETERENDERBUFFERSPROC GL_DeleteRenderbuffersFunc;
+extern QS_PFNGLBINDRENDERBUFFERPROC GL_BindRenderbufferFunc;
+extern QS_PFNGLRENDERBUFFERSTORAGEPROC GL_RenderbufferStorageFunc;
+extern QS_PFNGLFRAMEBUFFERRENDERBUFFERPROC GL_FramebufferRenderbufferFunc;
+extern	qboolean	gl_fbo_able;
+extern	qboolean	rs_fbo_active;	// perf B9 -- set per pass by R_SetupGL
 extern	qboolean	gl_glsl_able;
 extern	qboolean	gl_glsl_gamma_able;
 extern	qboolean	gl_glsl_alias_able;
@@ -462,6 +500,7 @@ void GLSLGamma_DeleteTexture (void);
 void GLSLGamma_GammaCorrect (void);
 
 void R_ScaleView_DeleteTexture (void);
+void R_ScaleFBO_Delete (void);	// perf B9
 
 float GL_WaterAlphaForSurface (msurface_t *fa);
 

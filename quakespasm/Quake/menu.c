@@ -2952,7 +2952,7 @@ void M_Matchmaking_Gamerules_Key (int key) {
 enum
 {
 	PERF_PRESET_ROWS = 1,	// one cycling row: Preset [Custom/Quality/Balanced/Performance]
-	PERF_KNOB_ROWS   = 16,
+	PERF_KNOB_ROWS   = 17,
 	PERF_ROWS        = PERF_PRESET_ROWS + PERF_KNOB_ROWS
 };
 
@@ -2977,7 +2977,7 @@ typedef struct
 } perf_knob_t;
 
 // rows 0..11 are set by the presets (order matches perf_preset_vals below);
-// rows 12..15 are passthrough knobs the presets leave alone.
+// rows 12..16 are passthrough knobs the presets leave alone.
 static perf_knob_t	perf_knobs[PERF_KNOB_ROWS] =
 {
 	{"Perf HUD",         &r_perfhud,         0, 2,    1,    "",  0, 0, 0, "Charts frame times (1) or load vs fps (2). Impact: none."},
@@ -2996,6 +2996,7 @@ static perf_knob_t	perf_knobs[PERF_KNOB_ROWS] =
 	{"Simple Flashes",   &gl_flashblend,     0, 1,    1,    "",  0, 0, 0, "Flashes drawn as simple colored glows. Impact: med."},
 	{"Shadows",          &r_shadows,         0, 1,    1,    "",  0, 0, 0, "Shadow blobs under players and items. Impact: low."},
 	{"Smooth Anim",      &r_lerpmodels,      0, 1,    1,    "",  0, 0, 0, "Smooths character animation between frames. Impact: low."},
+	{"3D Resolution",    &r_renderscale,     0.25, 1, 0.25, "%", 1, 0, 0, "Draws the world smaller, then stretches it. Impact: high."},
 };
 
 static const char	*perf_preset_desc[4] =
@@ -3067,7 +3068,7 @@ static const char *M_Performance_Value (int i)
 {
 	const perf_knob_t	*k = &perf_knobs[i];
 	float	v = k->cvar->value;
-	if (k->maxval <= 1.0f)
+	if (k->maxval <= 1.0f && !k->scale100)	// percent knobs (scale100) must fall through
 		return v ? "On" : "Off";
 	if (k->zeroUnltd && v == 0)
 		return "Unlimited";
