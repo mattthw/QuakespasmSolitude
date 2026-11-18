@@ -33,6 +33,11 @@ int				sv_protocol = PROTOCOL_RMQ;//spike -- enough maps need this now that we c
 unsigned int	sv_protocol_pext1 = PEXT1_SUPPORTED_SERVER; //spike
 unsigned int	sv_protocol_pext2 = PEXT2_SUPPORTED_SERVER; //spike
 
+/* r124: server-browser name template. %mode% and %map% are substituted on
+ * every level spawn, so a rotating or manually changelevel'd server stops
+ * advertising the one name server.cfg set at boot. Empty = old behaviour. */
+cvar_t	sv_hostname_fmt = {"sv_hostname_fmt", "", CVAR_ARCHIVE};
+
 //============================================================================
 
 void SV_CalcStats(client_t *client, int *statsi, float *statsf, const char **statss)
@@ -1491,6 +1496,7 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&pr_checkextension);
 	Cvar_RegisterVariable (&sv_altnoclip); //johnfitz
 	Cvar_RegisterVariable (&sv_noclip_speed); //r101
+	Cvar_RegisterVariable (&sv_hostname_fmt); //r124
 
 	Cvar_RegisterVariable (&sv_sound_watersplash); //spike
 	Cvar_RegisterVariable (&sv_sound_land); //spike
@@ -3408,6 +3414,74 @@ qmodel_t *SV_ModelForIndex(int index)
 	return sv.models[index];
 }
 
+extern float		scr_centertime_off;
+
+/*
+================
+SV_UpdateHostname
+
+r124: server.cfg can only set `hostname` once, so every map change kept the
+name the server booted with. When sv_hostname_fmt is set ("%mode%: %map%")
+rebuild the browser name on each spawn instead; the NetQuake CCREP_SERVER_INFO
+reply and the DP infoResponse both read the live cvar, so browsers pick it up
+on their next query with no extra plumbing.
+================
+*/
+static void SV_UpdateHostname (void)
+{
+	const char	*fmt = sv_hostname_fmt.string;
+	const char	*mode;
+	char		buf[256];
+	int			i, out = 0;
+
+	if (!fmt || !fmt[0])
+		return;		/* no template: leave whatever server.cfg set */
+
+	if (deathmatch.value == 2)
+		mode = "Firefight";
+	else if (deathmatch.value == 3)
+		mode = "Swat";
+	else if (deathmatch.value >= 1)
+		mode = teamplay.value ? "Team Slayer" : "Slayer";
+	else
+		mode = "Co-op";
+
+	for (i = 0; fmt[i] && out < (int)sizeof(buf) - 1; )
+	{
+		const char	*rep = NULL;
+
+		if (fmt[i] == '%')
+		{
+			if (!q_strncasecmp (fmt + i, "%mode%", 6))
+			{
+				rep = mode;
+				i += 6;
+			}
+			else if (!q_strncasecmp (fmt + i, "%map%", 5))
+			{
+				rep = sv.name;
+				i += 5;
+			}
+		}
+
+		if (rep)
+		{
+			int		len = (int) strlen (rep);
+
+			if (out + len > (int)sizeof(buf) - 1)
+				len = (int)sizeof(buf) - 1 - out;
+			memcpy (buf + out, rep, len);
+			out += len;
+			continue;
+		}
+
+		buf[out++] = fmt[i++];
+	}
+	buf[out] = 0;
+
+	Cvar_Set ("hostname", buf);
+}
+
 /*
 ================
 SV_SpawnServer
@@ -3415,7 +3489,6 @@ SV_SpawnServer
 This is called at the start of each level
 ================
 */
-extern float		scr_centertime_off;
 void SV_SpawnServer (const char *server)
 {
 	static char	dummy[8] = { 0,0,0,0,0,0,0,0 };
@@ -3613,5 +3686,6 @@ void SV_SpawnServer (const char *server)
 	}
 
 	Con_DPrintf ("Server spawned.\n");
+	SV_UpdateHostname ();	// r124: %mode% / %map% in the browser name
 }
 

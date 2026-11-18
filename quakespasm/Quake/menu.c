@@ -5378,6 +5378,14 @@ void M_Matchmaking_Key (int key)
         }
         else
             Cbuf_AddText ( va ("map %s\n", levels[episodes[startepisode].firstLevel + chosen_level.level].name) );
+                // r123: dismiss the menu the moment Start is chosen (vanilla
+                // M_ChangeLevel pattern). Leaving key_dest == key_menu until the
+                // queued `map` executes meant any ESC/pause in that window hit
+                // M_ToggleMenu's "submenu -> main menu" branch.
+                m_entersound = false;
+                key_dest = key_game;
+                m_state = m_none;
+
                 return;
             } else if (matchmaking_cursor == 0) {
                 m_multiplayer_cursor = 1;
@@ -5626,7 +5634,9 @@ void M_Search_Draw (void)
 		return;
 	}
 
-    M_PrintWhite (mc.grid[0][1].xp, mc.grid[0][1].yp, "No Quake servers found");
+    M_PrintWhite (mc.grid[0][1].xp, mc.grid[0][1].yp,
+                  Cvar_VariableValue ("cl_slist_only_solitude") ?
+                  "No Solitude lobbies found" : "No Quake servers found");
 	if ((realtime - searchCompleteTime) < 3.0)
 		return;
 
@@ -5977,7 +5987,10 @@ void M_ToggleMenu (int mode)
 	}
 	else
 	{
-        if(sv.active)
+        /* r123: a client on a REMOTE server has sv.active == 0, so this used to
+         * send them to the main menu on every pause press. The in-game menu
+         * belongs to anyone actually connected to a server (hosted or joined). */
+        if (sv.active || (cls.state == ca_connected && !cls.demoplayback))
         {
             M_Menu_Pause_f ();
         } else {

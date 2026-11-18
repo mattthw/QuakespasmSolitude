@@ -290,6 +290,11 @@ typedef struct
 	float expectingpingtimes;
 	float printversionresponse;
 
+	/* r124: directional damage indicator, filled by `dmgdir <degrees>`
+	 * (stuffcmd from T_Damage) - see gl_hud.c HUD_DrawDamage. */
+	float dmg_bearing;
+	float dmg_time;
+
 	//spike -- moved this stuff here to deal with downloading content named by the server
 	qboolean sendprespawn;	//download+load content, send the prespawn command once done
 	int		model_count;

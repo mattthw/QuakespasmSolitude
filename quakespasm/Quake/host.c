@@ -368,6 +368,152 @@ void Perf_End (int bucket)
 		perf_acc[bucket] += t;
 }
 
+/*
+================
+perf B11 - per-model entity draw accounting (r124)
+
+`perfreport` could say how much ENT cost but not what it was made of. Every
+entity draw now records model->name plus its own submit time; the table is
+summed across the window and cleared by each report, so the numbers describe
+the session that just happened rather than the whole map. Buckets are keyed by
+MODEL, not by edict: eight bots all land on progs/player.mdl, which is the
+number you actually want when deciding what to optimise.
+
+Gated on r_perfhud like the other buckets - Perf_ModelT0 returns 0 when the
+overlay is off, so the call sites stay free.
+================
+*/
+#define	PERF_MODEL_SLOTS	128
+#define	PERF_MODEL_TOP		10
+
+typedef struct
+{
+	char		name[32];	/* copied, not a pointer: model->name is freed on a map change */
+	int			draws;
+	double		total;		/* microseconds */
+	double		maxt;
+} perf_model_t;
+
+static perf_model_t	perf_models[PERF_MODEL_SLOTS];
+static int			perf_nummodels;
+static int			perf_model_frames;		/* frames since the last report */
+static int			perf_model_draws;		/* entity draws since the last report */
+static int			perf_model_dropped;		/* draws whose model did not fit in the table */
+static double		perf_model_t0;			/* wall time of the last report */
+
+double Perf_ModelT0 (void)
+{
+	if (!r_perfhud.value)
+		return 0;
+	return Sys_DoubleTime () * 1000000.0;
+}
+
+void Perf_ModelDraw (const char *name, double t0)
+{
+	double	t;
+	int		i;
+
+	if (!r_perfhud.value || t0 <= 0 || !name)
+		return;
+	t = Sys_DoubleTime () * 1000000.0 - t0;
+	if (t < 0)
+		return;
+
+	perf_model_draws++;
+
+	for (i = 0; i < perf_nummodels; i++)
+		if (!strcmp (perf_models[i].name, name))
+			break;
+	if (i == perf_nummodels)
+	{
+		if (perf_nummodels >= PERF_MODEL_SLOTS)
+		{
+			perf_model_dropped++;	/* table full: count it, do not lose it silently */
+			return;
+		}
+		q_strlcpy (perf_models[i].name, name, sizeof(perf_models[i].name));
+		perf_models[i].draws = 0;
+		perf_models[i].total = 0;
+		perf_models[i].maxt = 0;
+		perf_nummodels++;
+	}
+	perf_models[i].draws++;
+	perf_models[i].total += t;
+	if (t > perf_models[i].maxt)
+		perf_models[i].maxt = t;
+}
+
+static void Perf_ModelReport (double ent_avg_ms)
+{
+	static int	order[PERF_MODEL_SLOTS];
+	int			i, j, n, tot_c, avg_c, max_c;
+	double		elapsed, tbl_ms, frames, per_frame, rest;
+	int			sec_c, p_c, r_c;
+
+	elapsed = Sys_DoubleTime () - perf_model_t0;
+	if (elapsed < 0)
+		elapsed = 0;
+	sec_c = (int) (elapsed * 100.0 + 0.5);		/* centiseconds */
+
+	if (!perf_nummodels)
+	{
+		Con_Printf ("  (no entity draws recorded this window)\n");
+		perf_model_t0 = Sys_DoubleTime ();
+		perf_model_frames = perf_model_draws = perf_model_dropped = 0;
+		return;
+	}
+
+	for (i = 0; i < perf_nummodels; i++)
+		order[i] = i;
+	for (i = 1; i < perf_nummodels; i++)		/* insertion sort, total desc */
+	{
+		int	cur = order[i];
+
+		for (j = i - 1; j >= 0 && perf_models[order[j]].total < perf_models[cur].total; j--)
+			order[j + 1] = order[j];
+		order[j + 1] = cur;
+	}
+
+	Con_Printf ("top entities since last report (model, not edict):\n");
+	Con_Printf ("  window %i frames, %i.%02i s, %i draws, %i models",
+		perf_model_frames, sec_c / 100, sec_c % 100, perf_model_draws, perf_nummodels);
+	if (perf_model_dropped)
+		Con_Printf (", %i draws not counted (table full)", perf_model_dropped);
+	Con_Printf ("\n");
+	Con_Printf ("  %-26s %5s %9s %9s %9s\n", "model", "draws", "total", "avg", "max");
+
+	n = (perf_nummodels < PERF_MODEL_TOP) ? perf_nummodels : PERF_MODEL_TOP;
+	for (i = 0; i < n; i++)
+	{
+		perf_model_t	*m = &perf_models[order[i]];
+
+		tot_c = (int) (m->total * 0.1 + 0.5);			/* centiseconds */
+		avg_c = m->draws ? (int) (m->total / m->draws * 0.1 + 0.5) : 0;
+		max_c = (int) (m->maxt * 0.1 + 0.5);
+		Con_Printf ("  %-26s %5i %5i.%02i %5i.%02i %5i.%02i\n", m->name, m->draws,
+			tot_c / 100, tot_c % 100, avg_c / 100, avg_c % 100,
+			max_c / 100, max_c % 100);
+	}
+
+	/* the rows above are only the visible tip: say how much of ENT they
+	 * explain, so a report that does not add up is obvious instead of
+	 * inviting guesses about what was left out. */
+	tbl_ms = 0;
+	for (i = 0; i < perf_nummodels; i++)
+		tbl_ms += perf_models[i].total / 1000.0;
+	frames = (perf_model_frames > 0) ? (double) perf_model_frames : 1.0;
+	per_frame = tbl_ms / frames;
+	rest = ent_avg_ms - per_frame;
+	p_c = (int) (per_frame * 100.0 + 0.5);
+	r_c = (int) (rest * 100.0 + (rest < 0 ? -0.5 : 0.5));
+	Con_Printf ("  %-26s %20i.%02i ms/frame\n", "all rows above", p_c / 100, p_c % 100);
+	Con_Printf ("  %-26s %20i.%02i ms/frame\n", "rest of ENT (setup, cull)", r_c / 100, r_c % 100);
+
+	perf_nummodels = 0;		/* fresh window for the next perfreport */
+	perf_model_frames = perf_model_draws = perf_model_dropped = 0;
+	perf_model_t0 = Sys_DoubleTime ();
+}
+
 static void Perf_BeginFrame (void)
 {
 	int	i;
@@ -420,6 +566,10 @@ static void Perf_EndFrame (void)
 			Perf_FpsUpdate ();
 		return;
 	}
+
+	perf_model_frames++;	/* perf B11: window length for the entity table */
+	if (perf_model_t0 <= 0)
+		perf_model_t0 = now * 0.000001;
 	if (total < 0 || total > 2000000.0)
 		total = 0;	// implausible (suspend/resume); report nothing this frame
 	perf_acc[PERF_TOTAL] = total;
@@ -577,6 +727,7 @@ static void Perf_Report_f (void)
 {
 	static double	samp[PERF_SAMPLES];
 	int	i, j, n;
+	double	ent_avg = 0;
 
 	if (!perf_ring_count)
 	{
@@ -585,7 +736,20 @@ static void Perf_Report_f (void)
 	}
 
 	Con_Printf ("perfreport: %i samples, 50ms each (max per window)\n", perf_ring_count);
-	Con_Printf ("edicts: %i of %i (allocated slots, high-water)\n", sv.qcvm.progs ? sv.qcvm.num_edicts : 0, (int)max_edicts.value);
+	{
+		/* a listen/dedicated host reports the server VM. A pure CLIENT has no
+		 * VM at all in this fork (no CSQC), which used to print a hard 0; fall
+		 * back to the number of entity slots the snapshot stream has used. */
+		int used = 0;
+
+		if (sv.qcvm.progs && sv.qcvm.num_edicts > 0)
+			used = sv.qcvm.num_edicts;
+		else if (cl.qcvm.progs && cl.qcvm.num_edicts > 0)
+			used = cl.qcvm.num_edicts;
+		else
+			used = cl.num_entities;
+		Con_Printf ("edicts: %i of %i (allocated slots, high-water)\n", used, (int)max_edicts.value);
+	}
 	Con_Printf ("        avg      max\n");
 	for (i = 0; i < PERF_N; i++)
 	{
@@ -601,6 +765,8 @@ static void Perf_Report_f (void)
 		}
 		if (!n)
 			continue;
+		if (i == PERF_ENT)
+			ent_avg = sum / n * 0.001;	/* samples are microseconds; the model report works in ms */
 		a2 = (int) (sum / n * 0.1 + 0.5);	// centiseconds, rounded
 		m2 = (int) (max * 0.1 + 0.5);
 		Con_Printf ("  %-6s %5i.%02i %5i.%02i ms\n", perf_names[i],
@@ -631,6 +797,8 @@ static void Perf_Report_f (void)
 				a2 / 100, a2 % 100, m2 / 100, m2 % 100);
 		}
 	}
+
+	Perf_ModelReport (ent_avg);	// perf B11: what ENT was actually made of
 }
 
 /*

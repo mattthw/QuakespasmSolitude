@@ -1276,6 +1276,9 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 		MSG_WriteByte(&net_message, net_activeconnections);
 		MSG_WriteByte(&net_message, svs.maxclients);
 		MSG_WriteByte(&net_message, NET_PROTOCOL_VERSION);
+		/* r123: advertise the game dir so clients can tell Solitude lobbies
+		 * from stock Quake servers. Old clients ignore the trailing string. */
+		MSG_WriteString(&net_message, COM_GetGameNames(false));
 		*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
 		dfunc.Write (acceptsock, net_message.data, net_message.cursize, clientaddr);
 		SZ_Clear(&net_message);
@@ -1931,6 +1934,11 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 			Q_strcpy(hostcache[n].name, "*");
 			Q_strcat(hostcache[n].name, hostcache[n].cname);
 		}
+		/* r123: trailing game-dir string, present from our servers only.
+		 * Anything still in the packet means the server is Solitude. */
+		hostcache[n].gamedir[0] = 0;
+		if (msg_readcount < net_message.cursize)
+			q_strlcpy(hostcache[n].gamedir, MSG_ReadString(), sizeof(hostcache[n].gamedir));
 		Q_memcpy(&hostcache[n].addr, &readaddr, sizeof(struct qsockaddr));
 		hostcache[n].driver = net_driverlevel;
 		hostcache[n].ldriver = net_landriverlevel;

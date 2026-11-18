@@ -169,7 +169,6 @@ extern	cvar_t	r_telealpha;
 extern	cvar_t	r_slimealpha;
 extern	cvar_t	r_dynamic;
 extern	cvar_t	r_novis;
-extern	cvar_t	r_spritemuzzlescale;	// perf B10: muzzle sprite world-footprint factor
 extern	cvar_t	r_scale;
 extern	cvar_t	r_renderscale;	// perf B9
 extern	cvar_t	r_renderscale_flip;	// perf B9: VITA blit v-flip

@@ -204,7 +204,6 @@ void R_Init (void)
 	Cvar_SetCallback (&r_wateralpha, R_SetWateralpha_f);
 	Cvar_RegisterVariable (&r_dynamic);
 	Cvar_RegisterVariable (&r_novis);
-	Cvar_RegisterVariable (&r_spritemuzzlescale);
 	Cvar_SetCallback (&r_novis, R_VisChanged);
 	Cvar_RegisterVariable (&r_speeds);
 	Cvar_RegisterVariable (&r_pos);

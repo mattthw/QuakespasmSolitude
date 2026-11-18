@@ -80,6 +80,10 @@ void Perf_End (int bucket);
 // copies up to 'want' recent 50ms samples (oldest->newest), returns n
 int  Perf_RingWindow (int bucket, double *out, int want);
 int  Perf_PresentWindow (double *out, int want);
+// perf B11: per-model entity draw accounting for `perfreport` (top-N table).
+// t0 = Perf_ModelT0() before the draw (0 when r_perfhud is off = no cost).
+double Perf_ModelT0 (void);
+void   Perf_ModelDraw (const char *name, double t0);
 // mode 2: per-50ms-window maxima of r_speeds counters (oldest->newest)
 #define PERF_C_WPOLY  0
 #define PERF_C_EPOLY  1

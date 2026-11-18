@@ -169,6 +169,7 @@ void(entity targ, entity inflictor, entity attacker, float damage, INTEGER mod) 
 	local   entity  oldself;
 	local   float   save;
 	local   float   take;
+	local   float   dd_bear;       // r124: damage-indicator bearing
 
 	if (!targ.takedamage)
 		return;
@@ -212,6 +213,27 @@ void(entity targ, entity inflictor, entity attacker, float damage, INTEGER mod) 
 	}
 
 	damage_inflictor = inflictor;        
+
+// r124: directional damage indicator. The client has no idea who shot it, so
+// work out the bearing relative to the victim's view here and ship it as a
+// dmgdir stringcmd (0 = attacker dead ahead, positive = to the right).
+	if (targ.ishuman && attacker != world && attacker != targ && take > 0)
+	{
+		dd_bear = vectoyaw(attacker.origin - targ.origin) - targ.v_angle_y;
+		while (dd_bear > 180)
+			dd_bear = dd_bear - 360;
+		while (dd_bear < -180)
+			dd_bear = dd_bear + 360;
+		// r124: three plain stuffcmds, no strcat. In this build `strcat` does
+		// not resolve to a real string builtin of the server VM, so the first
+		// version shipped a bare number with no prefix and no newline: the
+		// client printed `Unknown command "22.17...play"` and the indicator
+		// never fired. The client accumulates stuffcmd text until it sees the
+		// newline, so the three pieces arrive as one command line.
+		stuffcmd(targ, "dmgdir ");
+		stuffcmd(targ, ftos(dd_bear));
+		stuffcmd(targ, "\n");
+	}
 
 
 // figure momentum add

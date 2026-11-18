@@ -59,6 +59,11 @@ cvar_t cl_recordingdemo = {"cl_recordingdemo", "", CVAR_ROM};	//the name of the 
 
 client_static_t	cls;
 client_state_t	cl;
+
+/* r124: directional damage indicator state lives in cl (client.h) - filled by
+ * `dmgdir <degrees>`, drawn by HUD_DrawDamage. NetQuake never tells the client
+ * who shot it, so QuakeC computes the bearing relative to the view yaw. */
+
 // FIXME: put these on hunk?
 lightstyle_t	cl_lightstyle[MAX_LIGHTSTYLES];
 dlight_t		cl_dlights[MAX_DLIGHTS];
@@ -1567,6 +1572,19 @@ static void CL_LegacyColor_f(void)
 CL_Init
 =================
 */
+/* r124: `dmgdir <degrees>` - stuffcmd from T_Damage in QuakeC. 0 = the hit
+ * came from straight ahead, +90 = from the LEFT, -90 = from the right (yaw
+ * grows counter-clockwise, which is why the HUD negates it). The HUD fades an
+ * arc around the centre of the screen on that bearing. */
+static void CL_DamageDir_f (void)
+{
+	if (Cmd_Argc () < 2)
+		return;
+
+	cl.dmg_bearing = Q_atof (Cmd_Argv (1));
+	cl.dmg_time = realtime;
+}
+
 void CL_Init (void)
 {
 	SZ_Alloc (&cls.message, 1024);
@@ -1579,6 +1597,7 @@ void CL_Init (void)
 	Cvar_RegisterVariable (&cl_topcolor);
 	Cvar_RegisterVariable (&cl_bottomcolor);
 	Cmd_AddCommand ("_cl_color", CL_LegacyColor_f);	//for loading vanilla configs (we have separate qw-style topcolor/bottomcolor userinfo cvars instead)
+	Cmd_AddCommand_ServerCommand ("dmgdir", CL_DamageDir_f);	//r124: directional damage indicator (stuffcmd from T_Damage)
 	Cvar_RegisterVariable (&cl_upspeed);
 	Cvar_RegisterVariable (&cl_forwardspeed);
 	Cvar_RegisterVariable (&cl_backspeed);

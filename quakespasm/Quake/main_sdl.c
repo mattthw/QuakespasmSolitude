@@ -100,7 +100,9 @@ static quakeparms_t	parms;
 
 // On OS X we call SDL_main from the launcher, but SDL2 doesn't redefine main
 // as SDL_main on OS X anymore, so we do it ourselves.
-#if defined(USE_SDL2) && defined(__APPLE__)
+// SOLITUDE_CLI builds the dedicated server as a plain command-line program:
+// no Cocoa launcher, no NSApplicationMain, no dock tile or window.
+#if defined(USE_SDL2) && defined(__APPLE__) && !defined(SOLITUDE_CLI)
 #define main SDL_main
 #endif
 

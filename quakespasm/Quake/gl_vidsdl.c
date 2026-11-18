@@ -669,7 +669,9 @@ static qboolean VID_SetMode (int width, int height, int refreshrate, int bpp, qb
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, fsaa > 0 ? 1 : 0);
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, fsaa);
 #endif
-	q_snprintf(caption, sizeof(caption), "Solitude (QuakeSpasm " QUAKESPASM_VER_STRING QUAKESPASM_VER_SUFFIX ")");
+	/* r124 (user): the window is simply "Solitude". The engine it is built on
+	 * is an implementation detail; it still prints itself in the console. */
+	q_snprintf(caption, sizeof(caption), "Solitude");
 
 #if defined(USE_SDL2)
 #ifndef VITA

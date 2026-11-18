@@ -1755,6 +1755,49 @@ static void drawRadar (void)
     HUD_DrawCircle (rcx, rcy, R, 0.45f*0.45f, 0.75f*0.45f, 1.00f*0.45f);   /* r66e: border was too harsh */
 }
 
+/* r124: Halo-style directional damage indicator. T_Damage (QuakeC) knows who
+ * hit you; the client does not, so the bearing of the attacker relative to
+ * your view arrives as `dmgdir <degrees>` (0 = straight ahead, + = right).
+ * We fade a tapered arc of blocks on a ring around the crosshair. Cosmetic
+ * only - nothing reads it back, so it cannot affect gameplay or netcode. */
+static void HUD_DrawDamage (void)
+{
+    float age, a, r, cx, cy, scale;
+    int i, n = 21;
+
+    if (!cl.dmg_time)
+        return;
+
+    age = realtime - cl.dmg_time;
+    if (age < 0 || age > 1.4f)
+        return;
+
+    a = 1.0f - age / 1.4f;      /* fade out over 1.4s */
+    a *= a;                     /* snap away early, like Halo */
+
+    scale = HUD_SCALE ();
+    cx = glwidth * 0.5f;
+    cy = glheight * 0.5f;
+    r = 76.0f * scale;
+
+    for (i = 0; i < n; i++)
+    {
+        float t = (float)i / (float)(n - 1);            /* 0..1 along the arc */
+        /* Quake yaw grows COUNTER-clockwise (the mouse subtracts from it), so a
+         * positive bearing means the attacker was to the LEFT. Screen x grows
+         * to the right, hence the negation. */
+        float ang = (-cl.dmg_bearing + (t - 0.5f) * 56.0f) * M_PI_DIV_180;
+        float edge = 1.0f - fabs (t - 0.5f) * 2.0f;     /* taper both ends */
+        float b = 4.0f * scale * (0.45f + 0.55f * edge);
+        float x = cx + (float)sin (ang) * r;
+        float y = cy - (float)cos (ang) * r;
+
+        Draw_FillRGBA ((int)(x - b * 0.5f), (int)(y - b * 0.5f),
+                       (int)b + 1, (int)b + 1,
+                       0.95f, 0.25f, 0.18f, a * 0.9f);
+    }
+}
+
 void HUD_Draw (void) {
     int oldcanvas = currentcanvas;
     if (key_dest != key_game)   /* P2a: HUD hides for pause/menus/console */
@@ -1778,6 +1821,7 @@ void HUD_Draw (void) {
     drawGrenades();
     drawMedal();
     drawCrosshair();
+    HUD_DrawDamage();   /* r124: directional damage arc */
     drawNameplates();
     drawRadar();   /* r66 Tracker-0 */
     drawPickupWeapon();
@@ -1980,21 +2024,47 @@ void HUD_DrawPerf (void) {
          * perf_fps itself is kept ticking by Perf_FpsUpdate (host.c).
          * Chip width is measured from the text so it hugs the number. */
         const char *txt;
-        int tx, ty, bw, tw;
+        int tx, ty, bw, tw, th, ping = 0;
         s = HUD_SCALE();
         sz = 11.0f * s;
         GL_SetCanvas(CANVAS_DEFAULT);
+
+        /* r124: round-trip ping in ms, under the frame rate. Only meaningful
+         * while connected to a server; a local listen server stays at 0 until
+         * the first "Client ping times:" reply arrives. */
+        if (cls.state == ca_connected && cl.viewentity > 0)
+        {
+            ping = cl.scores[cl.viewentity - 1].ping;
+            if (ping < 0)
+                ping = 0;
+        }
+
         txt = va("FPS %3i.%01i", (int)perf_fps, ((int)(perf_fps * 10.0f)) % 10);
         tw = (int)Draw_TTFWidth(txt, sz);
+        if (ping > 0)
+        {
+            int pw = (int)Draw_TTFWidth(va("%i ms", ping), sz * 0.8f);
+            if (pw > tw)
+                tw = pw;
+        }
         bw = tw + (int)(12 * s);            /* 6px breathing room each side */
+        th = (int)(sz + 8 * s);
+        if (ping > 0)
+            th += (int)(sz * 0.8f + 3 * s);
         tx = glwidth - bw - (int)(3 * s);   /* top right (user 2026-11-18) */
         ty = (int)(4 * s);
-        Draw_FillRGBA(tx, ty, bw, (int)(sz + 8 * s),
+        Draw_FillRGBA(tx, ty, bw, th,
                       20 / 255.0f, 25 / 255.0f, 44 / 255.0f, 0.55f);
         /* y is the glyph baseline (TTF_AtlasDraw adds ch->yoff*sc), so sit
          * it on a line that centres the caps inside the band, not at ty. */
         Draw_TTFString(tx + (int)(6 * s), ty + (int)(0.75f * sz) + (int)(4 * s),
                        txt, 0.60f, 0.95f, 0.35f, 0.95f, sz);
+        if (ping > 0)
+            Draw_TTFString(tx + (int)(6 * s),
+                           ty + (int)(0.75f * sz) + (int)(4 * s)
+                              + (int)(sz * 0.8f + 3 * s),
+                           va("%i ms", ping), 0.75f, 0.82f, 0.92f, 0.85f,
+                           sz * 0.8f);
     }
 
     if (!r_perfhud.value || hud_mapshot.value) {

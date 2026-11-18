@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "net_sys.h"
 #include "quakedef.h"
 #include "net_defs.h"
+#include "cvar.h"
 
 qsocket_t	*net_activeSockets = NULL;
 qsocket_t	*net_freeSockets = NULL;
@@ -49,10 +50,67 @@ static double	slistStartTime;
 static double	slistActiveTime;
 static int		slistLastShown;
 
+/* r123: the server browser lists every Quake server it finds. This cvar keeps
+ * only servers that report the Solitude game dir, i.e. our own lobbies. */
+static cvar_t	*cl_slist_only_solitude;
+
 static void Slist_Send (void *);
 static void Slist_Poll (void *);
 static PollProcedure	slistSendProcedure = {NULL, 0.0, Slist_Send};
 static PollProcedure	slistPollProcedure = {NULL, 0.0, Slist_Poll};
+
+/* r123: server-browser filter. Servers advertise their game dir now (the
+ * NetQuake reply gained a trailing string; the DarkPlaces path already carried
+ * \modname\), so anything that does not say "solitude" is not one of ours and
+ * is dropped from the list. Turn the cvar off to see every Quake server. */
+/* r123: COM_GetGameNames() returns a semicolon-joined list (the live server
+ * advertises "Solitude;solitude") and the DarkPlaces \modname\ path uses the
+ * same string, so match any token instead of the whole value. */
+static qboolean SlistGamedirIsSolitude (const char *s)
+{
+	char	tok[16];
+	size_t	n;
+
+	for (;;)
+	{
+		while (*s == ';' || *s == ' ' || *s == '\t')
+			s++;
+		if (!*s)
+			return false;
+
+		n = 0;
+		while (*s && *s != ';' && *s != ' ' && *s != '\t' && n < sizeof(tok) - 1)
+			tok[n++] = *s++;
+		tok[n] = 0;
+
+		if (!q_strcasecmp (tok, "solitude"))
+			return true;
+	}
+}
+
+static qboolean SlistHostIsSolitude (int i)
+{
+	if (!cl_slist_only_solitude || cl_slist_only_solitude->value == 0)
+		return true;
+	if (!hostcache[i].gamedir[0])
+		return false;			/* old server: cannot prove it is ours */
+	return SlistGamedirIsSolitude (hostcache[i].gamedir);
+}
+
+void NET_SlistFilter_f (void)
+{
+	int	i, w;
+
+	for (i = w = 0; i < hostCacheCount; i++)
+	{
+		if (!SlistHostIsSolitude (i))
+			continue;
+		if (w != i)
+			hostcache[w] = hostcache[i];
+		w++;
+	}
+	hostCacheCount = w;
+}
 
 sizebuf_t	net_message;
 int		net_activeconnections		= 0;
@@ -426,6 +484,8 @@ static void Slist_Poll (void *unused)
 		SchedulePollProcedure(&slistPollProcedure, 0.1);
 		return;
 	}
+
+	NET_SlistFilter_f ();	/* r123: drop servers that are not Solitude lobbies */
 
 	if (! slistSilent)
 		PrintSlistTrailer();
@@ -832,6 +892,10 @@ void NET_Init (void)
 {
 	int			i;
 	qsocket_t	*s;
+
+	cl_slist_only_solitude = Cvar_Create ("cl_slist_only_solitude", "1");
+	if (cl_slist_only_solitude)
+		cl_slist_only_solitude->flags |= CVAR_ARCHIVE;
 
 	i = COM_CheckParm ("-port");
 	if (!i)

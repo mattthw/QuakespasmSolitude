@@ -2741,7 +2741,11 @@ qboolean COM_GameDirMatches(const char *tdirs)
 	}
 
 	//okay, now check it properly
-	if (!strcmp(odirs, tdirs))
+	/* r123: game dirs are case-insensitive on every filesystem this ships to
+	 * (APFS by default, FAT/exFAT on the Vita, NTFS on Windows), so "Solitude"
+	 * and "solitude" are the same game. A case-sensitive compare warned on
+	 * every connect to a server whose -game spelling differed. */
+	if (!q_strcasecmp(odirs, tdirs))
 		return true;
 	return false;
 }

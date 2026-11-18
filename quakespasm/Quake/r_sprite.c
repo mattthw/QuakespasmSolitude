@@ -150,13 +150,13 @@ void R_DrawSpriteModel (entity_t *e)
 	else
 		scale = 1;
 
-	// perf B10: live world-footprint knob for the regenerated 128px muzzle
-	// art. Read EVERY draw, so console changes apply mid-map; texels are
-	// untouched, so shrinking also raises apparent density. Name-gated:
-	// no other sprite in the game contains "muzzle". Default 1 = stock.
-	if (r_spritemuzzlescale.value != 1 && currententity->model
+	/* r123 (user): hardcoded, not a cvar. The regenerated 128px muzzle art
+	 * is oversized at stock scale and there is nothing worth tuning per
+	 * device, so one footprint applies everywhere. Name-gated -- no other
+	 * sprite in the game contains "muzzle". */
+	if (currententity->model
 		&& q_strcasestr (currententity->model->name, "muzzle"))
-		scale *= r_spritemuzzlescale.value;
+		scale *= 0.65f;
 
 	glColor3f (e->netstate.colormod[0]/32.0,e->netstate.colormod[0]/32.0,e->netstate.colormod[0]/32.0);
 

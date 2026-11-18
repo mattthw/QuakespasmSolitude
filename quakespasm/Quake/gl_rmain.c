@@ -72,9 +72,6 @@ cvar_t	r_wateralpha = {"r_wateralpha","1",CVAR_ARCHIVE};
 cvar_t	r_dynamic = {"r_dynamic","1",CVAR_ARCHIVE};
 cvar_t	r_novis = {"r_novis","0",CVAR_ARCHIVE};
 
-cvar_t	r_spritemuzzlescale = {"r_spritemuzzlescale","1",CVAR_ARCHIVE};	// perf B10: world footprint factor for muzzle*.spr so hi-res flash art
-	// (128px canvas) can keep its texel density at a small on-screen size
-
 cvar_t	gl_finish = {"gl_finish","0",CVAR_NONE};
 cvar_t	gl_clear = {"gl_clear","1",CVAR_NONE};
 cvar_t	gl_cull = {"gl_cull","1",CVAR_NONE};
@@ -955,20 +952,25 @@ void R_DrawEntitiesOnList (qboolean alphapass) //johnfitz -- added parameter
 		if (currententity->eflags & EFLAGS_EXTERIORMODEL)
 			continue;
 
-		switch (currententity->model->type)
 		{
-			case mod_alias:
-				R_DrawAliasModel (currententity);
-				break;
-			case mod_brush:
-				R_DrawBrushModel (currententity);
-				break;
-			case mod_sprite:
-				R_DrawSpriteModel (currententity);
-				break;
-			case mod_ext_invalid:
-				//nothing. could draw a blob instead.
-				break;
+			double	perf_t0 = Perf_ModelT0 ();	// perf B11: per-model ENT cost
+
+			switch (currententity->model->type)
+			{
+				case mod_alias:
+					R_DrawAliasModel (currententity);
+					break;
+				case mod_brush:
+					R_DrawBrushModel (currententity);
+					break;
+				case mod_sprite:
+					R_DrawSpriteModel (currententity);
+					break;
+				case mod_ext_invalid:
+					//nothing. could draw a blob instead.
+					break;
+			}
+			Perf_ModelDraw (currententity->model->name, perf_t0);
 		}
 	}
 }
@@ -997,7 +999,12 @@ void R_DrawViewModel (void)
 
 	// hack the depth range to prevent view model from poking into walls
 	glDepthRange (0, 0.3);
-	R_DrawAliasModel (currententity);
+	{
+		double	perf_t0 = Perf_ModelT0 ();	// perf B11
+
+		R_DrawAliasModel (currententity);
+		Perf_ModelDraw (currententity->model->name, perf_t0);
+	}
 	glDepthRange (0, 1);
 }
 
@@ -1290,7 +1297,12 @@ void R_RenderScene (void)
 	Perf_Begin (PERF_ENT);	//perf B1
 	R_DrawEntitiesOnList (true); //johnfitz -- true means this is the pass for alpha entities
 
-	R_RenderDlights (); //triangle fan dlights -- johnfitz -- moved after water
+	{
+		double	perf_t0 = Perf_ModelT0 ();	// perf B11: dlights are part of ENT too
+
+		R_RenderDlights (); //triangle fan dlights -- johnfitz -- moved after water
+		Perf_ModelDraw ("dlights (fan)", perf_t0);
+	}
 	Perf_End (PERF_ENT);	//perf B1
 
 	Perf_Begin (PERF_PRT);	//perf B1

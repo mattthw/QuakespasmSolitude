@@ -845,6 +845,18 @@ void Sbar_Draw (void)
 	if (scr_con_current == vid.height)
 		return;		// console is full screen
 
+	/* r124: ping is needed for the HUD readouts now (the FPS chip and the
+	 * leaderboard), not only while the scoreboard is open - the old request
+	 * lived at the bottom of Sbar_DeathmatchOverlay, so the value froze the
+	 * moment you closed it. The server answers with "Client ping times:". */
+	if (cls.state == ca_connected && !cls.demoplayback && !cls.message.cursize
+	    && cl.expectingpingtimes < realtime)
+	{
+		cl.expectingpingtimes = realtime + 2;
+		MSG_WriteByte (&cls.message, clc_stringcmd);
+		MSG_WriteString(&cls.message, "ping");
+	}
+
 	if (cl.qcvm.extfuncs.CSQC_DrawHud && !qcvm)
 	{
 		qboolean deathmatchoverlay = false;
@@ -1158,6 +1170,21 @@ void Sbar_DeathmatchOverlay (void)
 	if (teamplay.value && Sbar_LBTeams (l))   /* r68: grouped columns */
 		goto teamcols;
 
+    /* r123: there was no way to see your own ping. The server answers the
+     * client's periodic "ping" stringcmd (see the tail of this function),
+     * cl_parse.c fills cl.scores[].ping from "Client ping times:". Drawn above
+     * the header strip so it appears in both the flat and team layouts. */
+    if (cl.viewentity > 0)
+    {
+        int ping = cl.scores[cl.viewentity-1].ping;
+        if (ping > 0)
+        {
+            char pingbuf[24];
+            sprintf (pingbuf, "%i ms", ping);
+            Draw_TTFString (x+12, 16, pingbuf, 1, 1, 1, 0.7f, 11.0f);
+        }
+    }
+
     /* P2a round 4: navy header strip (was a palette-0 slab at 0.9 — user:
      * "leaderboard should also use our blue, not black"), grid-header style,
      * with the title in the ExtraBold header font (baseline = old 27+8). */
@@ -1228,13 +1255,6 @@ void Sbar_DeathmatchOverlay (void)
 
 teamcols:
 	GL_SetCanvas (CANVAS_SBAR); //johnfitz
-
-	if (!cls.message.cursize && cl.expectingpingtimes < realtime)
-	{
-		cl.expectingpingtimes = realtime + 5;
-		MSG_WriteByte (&cls.message, clc_stringcmd);
-		MSG_WriteString(&cls.message, "ping");
-	}
 }
 
 /*
