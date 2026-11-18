@@ -4452,6 +4452,7 @@ int matchmaking_cursor = NUM_GAMEOPTIONS - 1; // perf B7: open on START MATCHMAK
  * (bot_nameK cvars); QC reads the same cvars at BotConnect, so lobby and
  * in-game names match. */
 static cvar_t	*lobby_bots;
+static cvar_t	*lobby_gametype;	/* r117: remembered mode (0 slayer, 1 tdm, 2 swat) */
 
 void M_Lobby_AddBot_f (void)
 {
@@ -4527,6 +4528,20 @@ void M_Matchmaking_f (void)
     m_state = m_gameoptions;
     m_entersound = true;
     draw_grid_translucent = 0;   /* r101: opaque panels are the house style (user) */
+    /* r117 (user): reopen where we left off. lobby_bots needs no work (it IS
+     * the stored count); the mode lives in opts only, so pull it back from
+     * the archived cvar. Clamp guards a stale/hand-edited config value. */
+    if (lobby_gametype)
+    {
+        int gt = (int) lobby_gametype->value;
+        if (gt < 0 || gt > 2)
+            gt = TEAM_SLAYER;
+        if ((int) opts.gametype != gt)
+        {
+            opts.gametype = (enum gametype_t) gt;
+            opts.fraglimit = (gt == 1) ? 20 : 10;
+        }
+    }
     if (!lobby_profile_saved)
     {
         lobby_profile_saved = true;
@@ -4947,7 +4962,10 @@ void M_Matchmaking_Submenu_Key (int dir)
             if (opts.gametype < 0 && dir < 0)
                 opts.gametype = 2;
             opts.fraglimit = (opts.gametype == 1) ? 20 : 10;   /* r77: per-mode score defaults */
-            Cvar_SetValue ("lobby_bots", opts.gametype == 1 ? 5 : 3);   /* r94: TDM lobby defaults to 6 total, slayer/swat to 4 */
+            /* r94 used to reset the player count here (TDM 5 / others 3); r117
+             * (user): switching modes KEEPS the chosen count, and the picked
+             * mode is archived so relaunches reopen the lobby where you left. */
+            Cvar_SetValue ("lobby_gametype", (float)opts.gametype);
             break;
         case 2: //score limit
             opts.fraglimit += dir*5;
@@ -5752,6 +5770,14 @@ void M_Init (void)
 
 	// P2a lobby roster: bot count cvar + menu commands (see M_Matchmaking_Draw)
 	lobby_bots = Cvar_Create ("lobby_bots", "5");   /* r94: TDM default = 6 players total (you + 5) */
+	/* r117 (user): the lobby remembers mode + player count across matches and
+	 * launches. Both cvars are the single source of truth already used by the
+	 * roster/QC; archiving makes Host_WriteConfiguration persist them. */
+	if (lobby_bots)
+	    lobby_bots->flags |= CVAR_ARCHIVE;
+	lobby_gametype = Cvar_Create ("lobby_gametype", "1");   /* default: Team Slayer, matches opts */
+	if (lobby_gametype)
+	    lobby_gametype->flags |= CVAR_ARCHIVE;
 	/* r115b: lobby-owned bot color cvars (QC BotConnect ladder reads them by
 	 * slot; 0 = never pinned). r115's version put this very call INSIDE the
 	 * block comment (opened before it, closed after) — -O2 deleted the empty
