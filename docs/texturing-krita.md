@@ -1,6 +1,6 @@
 # Texturing (Krita → game)
 
-Verified: 2026-11-17 against mainline tip `1a1d74c4`; engine behavior checked
+Verified: 2026-11-17 against mainline tip `ac83c967`; engine behavior checked
 Mac + Vita. Prefix/sidecar rules transcribed from the repo README
 ("Texture Effects") which was itself verified against `gl_model.c` /
 `r_brush.c`.
@@ -14,6 +14,24 @@ Mac + Vita. Prefix/sidecar rules transcribed from the repo README
 | Needs qbsp | yes — face names resolve from `wad` keys | no recompile for art changes |
 | qbsp/TB still needs a stub | — | yes: keep a same-named lump (proxy) in a wad |
 | Glow | compile-time `_surface` light entities | `<name>_glow.png` / `_luma.png` sibling, additive |
+
+## Which rules apply where (read this first)
+
+The Quake palette is a **WAD-lane-only** concept. External sidecars never touch
+it — full 24-bit color, no palette, no palette-index rules. Concretely:
+
+| Rule | WAD (`assets/textures/wads/*.wad`) | External sidecar (`solitude/textures/`) |
+|---|---|---|
+| Quake 256-color palette | **applies** — pixels are palette indexes | does **not** apply — real RGB stored |
+| Index **255** = transparent | **applies** (the only alpha a wad has) | irrelevant — use a real **alpha channel** instead |
+| Fullbright = bottom 32 palette rows | **applies** (wad + MDL skins) | does **not** apply — use a `<name>_glow.png` sibling instead |
+| Dithering to fake soft edges | needed (binary alpha only) | **not needed** — smooth alpha gradients are free |
+| Name prefix (`{`, `*`, `+`) | applies | applies — the prefix is on the *face*, the sidecar just replaces its art |
+| RGBA alpha honored | n/a | **only on `{` and `*` faces** — plain faces treat the PNG as opaque |
+
+So: working purely on sidecars (PNG/TGA overrides), you can ignore palette
+imports entirely — paint freely, add an alpha layer, export RGBA. The palette
+only matters again when a converter quantizes your art into a wad.
 
 `gl_load24bit` defaults to **1** (archive cvar, `gl_model.c`) — sidecar
 loading is on out of the box. The palette at `solitude/gfx/PALETTE.LMP`
@@ -48,22 +66,60 @@ becomes hash). Both `textures/<mapname>/` then `textures/` resolve, across the
 engine searchpath. RGBA alpha respected on `{` and `*` faces only — a plain
 sidecar PNG is treated opaque.
 
-## Working in Krita (workflow notes)
+## Working in Krita from scratch (first-run path)
 
-Canvas at the wad texel size — **64×64** is the house unit (everything in our
-wads; TB grid aligns at 16). *Unverified against a specific Krita version:*
-Krita's indexed/gamma workflow changes between releases, so treat this as
-policy, not clicks:
+No prior Krita needed. Krita is a free raster editor (krita.org; installed on
+this Mac as `/Applications/krita.app`). For Quake work you touch about five
+features total:
 
-1. Work RGB, snap colors toward the Quake palette by eye (or sample from
-   existing wad exports — `bsputil -export` dumps miptex PNGs of any bsp).
-2. Reserve one swatch = palette entry 255 for transparency; when exporting
-   indexed, "background/transparent" index must land on **255** — many
-   converters default it to 255 automatically (check yours).
-3. Keep non-fullbright art out of the bottom 32 palette rows — in MDL skins
-   those are the glowing band (see [../model-src/README.md](../model-src/README.md)).
-4. Export PNG → convert via [wad-conversion.md](wad-conversion.md), or ship
-   as a sidecar with proxy lumps in a wad.
+1. **New document** — `File > New`. Set **Width/Height to 64, 128, or 256 px**
+   (always power-of-two; 64 is the house unit). Set color model **RGB, 8
+   bits/channel integer**. Leave DPI irrelevant, background **transparent**.
+2. **Zoom to pixels** — `View > Zoom > 800%` (or ⌘+/⌘-); turn on
+   `Settings > Krita Settings > Preferences > General > Pixel Snap` if you
+   draw rectangles/hard shapes, and the pixel grid under `Settings > Dockers >
+   …` is optional. Work one screen-zoomed tile at a time.
+3. **Layers** — right panel. One `PaintLayer` per material detail is fine;
+   erase with `E` (eraser) on a transparent background. For a cutout, just
+   delete pixels — the checker pattern IS the alpha you export.
+4. **Seamless tiling check** — `View > Wrap-Around Mode` (shortcut **W**)
+   paints edges opposite-side live so seams are visible while you work. Turn
+   it off with W again before export.
+5. **Reference swatches** — for wad-lane art, drop the Quake palette on screen:
+   open `assets/quake_palette/quake1palette.png` as a second document
+   (`File > Open as New Image` is fine) and Alt-click to sample, OR load the
+   real palette: `Settings > Dockers > Palettes` docker → hamburger menu →
+   `Load Global Palette…` accepts **`.ase`, `.pal`, `.act`** — all three ship
+   in `assets/quake_palette/` (`quake1palette.ase` / `.pal` / `.act`). Pick any
+   — same 256 colors. Sidecar-only artists can skip this entirely (see "Which
+   rules apply where").
+
+## Import — what Krita reads
+
+| Input | Format | How |
+|---|---|---|
+| Existing game texture as PNG | any | `bsputil -export <map>.bsp` dumps every miptex (see [mapping-tb.md](mapping-tb.md)); or grab the sidecar `.tga`/`.png` straight from `solitude/textures/` |
+| Quake palette | `.ase` / `.pal` / `.act` | Palettes docker → Load Global Palette (files under `assets/quake_palette/`) |
+| Photo / concept reference | PNG/JPG/TGA | File > Open; desaturate + grade toward palette by eye for wad work |
+
+Krita cannot open `.wad` directly — nothing to import from wads; always go
+through the exported PNGs above.
+
+## Export — the settings that matter
+
+Krita never writes `.wad`; you produce **PNG (or TGA)** and either ship it as
+a sidecar or run it through [wad-conversion.md](wad-conversion.md).
+
+| Decision | Value | Why |
+|---|---|---|
+| Format | **PNG** default; **TGA (32-bit uncompressed)** for large wall art | PNG = pak-friendly; uncompressed TGA skips the Vita's zlib decode at map load (budget section below) |
+| Bit depth | **8 bits/channel**, RGBA (alpha on if `{`/`*` lane) | engine ignores 16-bit; 8-bit RGBA is exactly the upload format |
+| Interlace | **off** | progressive PNGs decode slower and gain nothing here |
+| Compression level | anything | only affects file size/decode ms marginally — never quality |
+| Flatten | yes (single layer) | `Image > Flatten Image` before `File > Export` |
+| Dimensions | **64/128/256 max**, power-of-two | non-square or non-POT sidecars get resampled/padded by the engine at load (wasted CPU) |
+| Alpha content | `{`/`*` lanes: real gradient alpha is fine; everything else: fully opaque | RGBA alpha is only honored on `{` and `*` faces |
+| Export path | straight into `solitude/textures/<mapname>/` (or `/textures/` to override on EVERY map — intentional only), named exactly the face name (`{`/`+N` prefixes included; `*tex` → `#tex.png`) | case-sensitive resolution; a misnamed sidecar silently does nothing |
 
 ## External sidecar budget (size discipline)
 
