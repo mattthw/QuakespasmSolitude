@@ -2980,7 +2980,7 @@ typedef struct
 // rows 12..15 are passthrough knobs the presets leave alone.
 static perf_knob_t	perf_knobs[PERF_KNOB_ROWS] =
 {
-	{"Perf HUD",         &r_perfhud,         0, 1,    1,    "",  0, 0, 0, "Framerate info on screen. Impact: none."},
+	{"Perf HUD",         &r_perfhud,         0, 2,    1,    "",  0, 0, 0, "Charts frame times (1) or load vs fps (2). Impact: none."},
 	{"Cull Lights",      &r_dlight_cull,     0, 1,    1,    "",  0, 0, 0, "Ignores light flashes hidden by walls. Impact: high."},
 	{"Max Lights",       &r_max_dlights,     0, 32,   4,    "",  0, 0, 1, "How many lights from gunfire and blasts. Impact: med."},
 	{"Light Cache",      &r_light_cache,     0, 4,    1,    "",  0, 1, 0, "Lighting redraws every few frames. Impact: med."},

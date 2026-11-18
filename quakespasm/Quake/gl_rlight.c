@@ -342,6 +342,8 @@ void R_SelectDlights (void)
 		idx = cand[i].idx;
 		r_dlight_active[idx >> 5] |= 1U << (idx & 31);
 	}
+	if (r_refdef.drawworld)	//perf B7: main eye only -- the skyroom pass runs
+		rs_dlights = count;	//  with a different origin and would zero this
 }
 
 /*

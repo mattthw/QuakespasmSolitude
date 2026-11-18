@@ -75,4 +75,13 @@ void Perf_End (int bucket);
 // copies up to 'want' recent 50ms samples (oldest->newest), returns n
 int  Perf_RingWindow (int bucket, double *out, int want);
 int  Perf_PresentWindow (double *out, int want);
+// mode 2: per-50ms-window maxima of r_speeds counters (oldest->newest)
+#define PERF_C_WPOLY  0
+#define PERF_C_EPOLY  1
+#define PERF_C_ELIGHT 2	// live dlights processed (mode-independent: post-cull count)
+#define PERF_C_PARTS  3
+#define PERF_C_PASS   4	// draw batches (rs_brushpasses + rs_aliaspasses)
+#define PERF_C_EENTS  5	// server-visible entities (cl_numvisedicts)
+#define PERF_C_N      6
+int  Perf_PolyWindow (int which, int *out, int want);
 void HUD_DrawPerf (void);

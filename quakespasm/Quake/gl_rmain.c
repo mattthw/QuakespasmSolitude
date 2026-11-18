@@ -37,6 +37,7 @@ mplane_t	frustum[4];
 //johnfitz -- rendering statistics
 int rs_brushpolys, rs_aliaspolys, rs_skypolys, rs_particles, rs_fogpolys;
 int rs_dynamiclightmaps, rs_brushpasses, rs_aliaspasses, rs_skypasses;
+int rs_dlights;	//perf B7 -- live dlights processed this frame (r_perfhud 2)
 float rs_megatexels;
 
 //
@@ -1221,14 +1222,17 @@ void R_RenderView (void)
 		Sys_Error ("R_RenderView: NULL worldmodel");
 
 	time1 = 0; /* avoid compiler warning */
-	if (r_speeds.value)
+	if (r_speeds.value || r_perfhud.value >= 2)	// perf mode 2 reuses these counters
 	{
-		glFinish ();
-		time1 = Sys_DoubleTime ();
+		if (r_speeds.value)	// the ms line needs glFinish to be honest, but that
+		{			// sync also stalls Vita's pipelined renderer
+			glFinish ();	// (60->20fps); the perf HUD counts CPU-side
+			time1 = Sys_DoubleTime ();	// tallies only, so it never pays for it
+		}
 
 		//johnfitz -- rendering statistics
 		rs_brushpolys = rs_aliaspolys = rs_skypolys = rs_particles = rs_fogpolys = rs_megatexels =
-		rs_dynamiclightmaps = rs_aliaspasses = rs_skypasses = rs_brushpasses = 0;
+		rs_dynamiclightmaps = rs_aliaspasses = rs_skypasses = rs_brushpasses = rs_dlights = 0;
 	}
 	else if (gl_finish.value)
 		glFinish ();

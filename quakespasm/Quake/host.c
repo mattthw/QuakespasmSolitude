@@ -326,6 +326,12 @@ static int		perf_ring_count;
 static double	perf_sampmax[PERF_N];
 static double	perf_samp_t0;
 static double	perf_t0;
+static int		perf_ring_poly[PERF_C_N][PERF_SAMPLES];	// perf mode 2: per-window max of
+static int		perf_sampmax_poly[PERF_C_N];			//   wpoly/epoly/dlights/parts/pass/eents
+extern int		rs_brushpolys, rs_aliaspolys;		// gl_rmain.c
+extern int		rs_dynamiclightmaps, rs_particles;
+extern int		rs_dlights;
+extern int		rs_brushpasses, rs_aliaspasses;
 
 /*
 ================
@@ -393,12 +399,45 @@ static void Perf_EndFrame (void)
 		if (perf_acc[i] > perf_sampmax[i])
 			perf_sampmax[i] = perf_acc[i];
 
+	// mode 2 folds the r_speeds counters the same way. Pure CPU tallies:
+	// no glFinish here, which is what makes plain r_speeds 1 cost
+	// Vita ~40fps (the sync stalls the deferred vitaGL pipeline).
+	if (r_perfhud.value >= 2)
+	{
+		int cnt[PERF_C_N];
+		cnt[PERF_C_WPOLY] = rs_brushpolys;
+		cnt[PERF_C_EPOLY] = rs_aliaspolys;
+		cnt[PERF_C_ELIGHT] = rs_dlights;	// live lights: works in flashblend too
+		cnt[PERF_C_PARTS] = rs_particles;
+		cnt[PERF_C_PASS] = rs_brushpasses + rs_aliaspasses;	// draw batches
+		cnt[PERF_C_EENTS] = cl_numvisedicts;				// server-visible ents
+		for (i = 0; i < PERF_C_N; i++)
+			if (cnt[i] > perf_sampmax_poly[i])
+				perf_sampmax_poly[i] = cnt[i];
+	}
+	else
+		for (i = 0; i < PERF_C_N; i++)
+			perf_sampmax_poly[i] = 0;
+
 	if (now - perf_samp_t0 >= PERF_SAMPLE_US || now < perf_samp_t0)
 	{
 		for (i = 0; i < PERF_N; i++)
 		{
 			perf_ring[perf_ring_idx][i] = perf_sampmax[i];
 			perf_sampmax[i] = perf_acc[i];	// next window starts with this frame
+		}
+		for (i = 0; i < PERF_C_N; i++)
+		{
+			perf_ring_poly[i][perf_ring_idx] = perf_sampmax_poly[i];
+			if (r_perfhud.value >= 2)	// next window starts with this frame
+				perf_sampmax_poly[i] = (i == PERF_C_WPOLY) ? rs_brushpolys :
+					(i == PERF_C_EPOLY) ? rs_aliaspolys :
+					(i == PERF_C_ELIGHT) ? rs_dlights :
+					(i == PERF_C_PARTS) ? rs_particles :
+					(i == PERF_C_PASS) ? rs_brushpasses + rs_aliaspasses :
+					cl_numvisedicts;
+			else
+				perf_sampmax_poly[i] = 0;
 		}
 		if (perf_ring_count)	// displayed frame time (skip the seed push)
 		{
@@ -487,6 +526,30 @@ int Perf_PresentWindow (double *out, int want)
 	start = (perf_ring_idx - n + PERF_SAMPLES) % PERF_SAMPLES;
 	for (i = 0; i < n; i++)
 		out[i] = perf_ring_pres[(start + i) % PERF_SAMPLES];
+	return n;
+}
+
+/*
+================
+Perf_PolyWindow -- perf mode 2: counter maxima per 50ms window
+================
+*/
+int Perf_PolyWindow (int which, int *out, int want)
+{
+	int	n, i, start;
+
+	if (which < 0 || which >= PERF_C_N)
+		return 0;
+	n = perf_ring_count;
+	if (want > PERF_SAMPLES)
+		want = PERF_SAMPLES;
+	if (n > want)
+		n = want;
+	if (n <= 0)
+		return 0;
+	start = (perf_ring_idx - n + PERF_SAMPLES) % PERF_SAMPLES;
+	for (i = 0; i < n; i++)
+		out[i] = perf_ring_poly[which][(start + i) % PERF_SAMPLES];
 	return n;
 }
 

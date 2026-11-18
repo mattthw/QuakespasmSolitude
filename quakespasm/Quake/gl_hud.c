@@ -1754,6 +1754,163 @@ void HUD_Draw (void) {
     GL_SetCanvas(oldcanvas);
 }
 
+extern cvar_t	host_maxfps;	// host.c (mode 2 fps ceiling; not in quakedef.h)
+
+// perf B7 mode 2 - r_perfhud 2: scene load vs fps over the same 3s window.
+// Columns stack wpoly (blue) + epoly (orange) per 50ms sample; overlay lines:
+// purple = live dlights processed (post-cull; counts in classic AND flashblend
+// modes), teal = particles drawn (each line scaled to its own 3s max - shape
+// only), lime = fps implied by the displayed frame time against host_maxfps. Explains a dip without turning on r_speeds, whose
+// per-frame glFinish alone costs Vita ~40fps. Integer text only (Vita printf).
+static void HUD_DrawPerfPolys (void) {
+    static double pres[60];
+    static int wp[60], ep[60], el[60], pa[60], bx[60], ev[60];
+    int oldcanvas = currentcanvas;
+    float s, sz, fpsmax;
+    int i, x, y, gy, gh, gw, j, n, cur, winmax, scale;
+
+    s = HUD_SCALE();
+    sz = 11.0f * s;
+    x = (int)(6 * s);
+    y = (int)(14 * s);
+
+    GL_SetCanvas(CANVAS_DEFAULT);
+
+    n = Perf_PolyWindow(PERF_C_WPOLY, wp, 60);
+    Perf_PolyWindow(PERF_C_EPOLY, ep, 60);
+    Perf_PolyWindow(PERF_C_ELIGHT, el, 60);
+    Perf_PolyWindow(PERF_C_PARTS, pa, 60);
+    Perf_PolyWindow(PERF_C_PASS, bx, 60);
+    Perf_PolyWindow(PERF_C_EENTS, ev, 60);
+    Perf_PresentWindow(pres, 60);
+
+    Draw_FillRGBA(x - (int)(4 * s), y - (int)(13 * s), (int)(340 * s),
+                  (int)(7 * (sz + 3 * s) + 81 * s),
+                  20 / 255.0f, 25 / 255.0f, 44 / 255.0f, 0.85f);
+
+    Draw_FillRGBA(x, y - (int)(9 * s), (int)(10 * s), (int)(10 * s),
+                  0.60f, 0.95f, 0.35f, 0.95f);       /* lime chip = fps line */
+    Draw_TTFString(x + (int)(14 * s), y, va("FPS %3i.%01i", (int)perf_fps, ((int)(perf_fps * 10.0f)) % 10),
+                   1.0f, 1.0f, 1.0f, 0.9f, sz);
+    Draw_TTFString(x + (int)(168 * s), y, "frames per second", 0.62f, 0.66f, 0.72f, 0.8f, 8.0f * s);
+    y += (int)(sz + 3 * s);
+
+    for (i = 0; i < 6; i++) {         /* WPOLY EPOLY ELIGHT PARTS PASS EENTS rows */
+        static const float rcol[6][3] = {
+            {0.35f, 0.61f, 1.00f}, {1.00f, 0.71f, 0.30f},
+            {0.78f, 0.49f, 1.00f}, {0.21f, 0.82f, 0.63f},
+            {0.85f, 0.88f, 0.92f}, {0.55f, 0.60f, 0.70f}
+        };
+        static const char *const rname[6] = {
+            "WPOLY", "EPOLY", "ELIGHT", "PARTS", "PASS", "EENTS"
+        };
+        static const char *const rdef[6] = {
+            "world polygons", "entity polygons",
+            "lights in view", "particles drawn",
+            "draw batches", "visible entities"
+        };
+        const int *buf = (i == 0) ? wp : (i == 1) ? ep :
+            (i == 2) ? el : (i == 3) ? pa : (i == 4) ? bx : ev;
+        cur = 0;
+        winmax = 0;
+        for (j = 0; j < n; j++)
+            if (buf[j] > winmax) winmax = buf[j];
+        for (j = (n > 5) ? n - 5 : 0; j < n; j++)   /* last ~250ms */
+            if (buf[j] > cur) cur = buf[j];
+        Draw_FillRGBA(x, y - (int)(9 * s), (int)(10 * s), (int)(10 * s),
+                      rcol[i][0], rcol[i][1], rcol[i][2], 0.95f);
+        Draw_TTFString(x + (int)(14 * s), y, rname[i],
+                       rcol[i][0], rcol[i][1], rcol[i][2], 0.9f, sz);
+        Draw_TTFString(x + (int)(76 * s), y, va("%6i / %6i", cur, winmax),
+                       0.9f, 0.92f, 0.95f, 0.9f, sz);
+        Draw_TTFString(x + (int)(168 * s), y, rdef[i], 0.62f, 0.66f, 0.72f, 0.8f, 8.0f * s);
+        y += (int)(sz + 3 * s);
+    }
+
+    gy = y + (int)(2 * s);
+    gh = (int)(44 * s);
+    gw = (int)(330 * s);
+
+    scale = 1000;                                     /* 1k polys floor */
+    for (j = 0; j < n; j++)
+        if (wp[j] + ep[j] > scale)
+            scale = wp[j] + ep[j];
+    scale += scale / 10;                              /* 10% headroom */
+
+    for (j = 0; j < n; j++) {                         /* stacked poly columns */
+        int px = x + (int)((double)j * gw / 60.0);
+        int bw = (int)((double)gw / 60.0) - (int)(1 * s);
+        int h1 = (int)((double)wp[j] * gh / scale + 0.5);
+        int h2 = (int)((double)(wp[j] + ep[j]) * gh / scale + 0.5);
+        if (bw < 1) bw = 1;
+        if (h1 > gh) h1 = gh;
+        if (h2 > gh) h2 = gh;
+        if (h2 > h1)
+            Draw_FillRGBA(px, gy + gh - h2, bw, h2 - h1, 1.00f, 0.71f, 0.30f, 0.9f);
+        if (h1)
+            Draw_FillRGBA(px, gy + gh - h1, bw, h1, 0.35f, 0.61f, 1.00f, 0.9f);
+    }
+
+    /* live-dlight (purple) + particle (teal) + draw-batch (white) overlays,
+     * each on its own 0..3s-max axis - cross-series height compare is
+     * meaningless; rows above carry the exact numbers. Drawn under the
+     * fps line. EENTS is deliberately row-only: a count, not a cost. */
+    for (i = 0; i < 3; i++) {
+        static const float lcol[3][3] = {
+            {0.78f, 0.49f, 1.00f}, {0.21f, 0.82f, 0.63f}, {0.85f, 0.88f, 0.92f}
+        };
+        const int *buf = (i == 0) ? el : (i == 1) ? pa : bx;
+        int lmax = (i == 0) ? 8 : (i == 1) ? 256 : 128, fa, fb, ax, bx2, ay, by;
+        for (j = 0; j < n; j++)
+            if (buf[j] > lmax) lmax = buf[j];
+        lmax += lmax / 10;
+        for (j = 1; j < n; j++) {
+            fa = buf[j - 1];
+            fb = buf[j];
+            ax = x + (int)((double)(j - 1) * gw / 60.0);
+            bx2 = x + (int)((double)j * gw / 60.0);
+            ay = gy + gh - (int)((double)fa * gh / lmax + 0.5);
+            by = gy + gh - (int)((double)fb * gh / lmax + 0.5);
+            if (ay < by)
+                Draw_FillRGBA(ax, ay, bx2 - ax + 1, by - ay + (int)(1 * s) + 1,
+                              lcol[i][0], lcol[i][1], lcol[i][2], 0.8f);
+            else
+                Draw_FillRGBA(ax, by, bx2 - ax + 1, ay - by + (int)(1 * s) + 1,
+                              lcol[i][0], lcol[i][1], lcol[i][2], 0.8f);
+        }
+    }
+
+    fpsmax = host_maxfps.value;                       /* fps line: 0..ceiling */
+    if (fpsmax < 30.0f)
+        fpsmax = 30.0f;
+    for (j = 1; j < n; j++) {
+        double fa = (pres[j - 1] > 0.0) ? 1000000.0 / pres[j - 1] : 0.0;
+        double fb = (pres[j] > 0.0) ? 1000000.0 / pres[j] : 0.0;
+        int ax, bx2, ay, by;
+        if (!fa || !fb)
+            continue;
+        if (fa > fpsmax) fa = fpsmax;
+        if (fb > fpsmax) fb = fpsmax;
+        ax = x + (int)((double)(j - 1) * gw / 60.0);
+        bx2 = x + (int)((double)j * gw / 60.0);
+        ay = gy + gh - (int)(fa * gh / (double)fpsmax + 0.5);
+        by = gy + gh - (int)(fb * gh / (double)fpsmax + 0.5);
+        if (ay < by)
+            Draw_FillRGBA(ax, ay, bx2 - ax + 1, by - ay + (int)(1 * s) + 1,
+                          0.60f, 0.95f, 0.35f, 0.9f);
+        else
+            Draw_FillRGBA(ax, by, bx2 - ax + 1, ay - by + (int)(1 * s) + 1,
+                          0.60f, 0.95f, 0.35f, 0.9f);
+    }
+
+    Draw_FillRGBA(x, gy + gh, gw, 1, 0.8f, 0.85f, 0.9f, 0.5f);   /* baseline */
+    Draw_TTFString(x + gw - (int)(70 * s), gy - (int)(2 * s), va("%3i fps top", (int)fpsmax),
+                   0.60f, 0.95f, 0.35f, 0.9f, 8.0f * s);
+    Draw_TTFString(x + (int)(2 * s), gy + gh + (int)(10 * s),
+                   "rows: recent / 3s max  lines: shape vs own max",
+                   0.62f, 0.66f, 0.72f, 0.8f, 8.0f * s);
+}
+
 // perf B1 - r_perfhud overlay. Drawn from SCR_UpdateScreen (not HUD_Draw) so
 // it stays visible while dead / on scores - it is a dev tool. Hidden for
 // hud_mapshot (clean thumbnails). Text rows: recent = max of last ~250ms,
@@ -1772,6 +1929,12 @@ void HUD_DrawPerf (void) {
     double scale, st, tot;
 
     if (!r_perfhud.value || hud_mapshot.value) {
+        GL_SetCanvas(oldcanvas);
+        return;
+    }
+
+    if (r_perfhud.value >= 2) {           /* mode 2: polys vs fps over time */
+        HUD_DrawPerfPolys ();
         GL_SetCanvas(oldcanvas);
         return;
     }
