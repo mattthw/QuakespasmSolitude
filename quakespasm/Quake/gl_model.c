@@ -2848,6 +2848,7 @@ Mod_LoadAllSkins
 */
 void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype)
 {
+	extern cvar_t r_modelholey;	// r215
 	int			i, j, k, size, groupskins;
 	char			name[MAX_QPATH];
 	byte			*skin, *texels;
@@ -2866,6 +2867,30 @@ void *Mod_LoadAllSkins (int numskins, daliasskintype_t *pskintype)
 
 	if (loadmodel->flags & MF_HOLEY)
 		texflags |= TEXPREF_ALPHA;
+
+	// r215: this mod's art uses index 255 as "transparent" all over its skins,
+	// but the MDL headers mostly do not carry MF_HOLEY, so the 255 texels were
+	// being painted (this palette maps 255 to a salmon pink). Force the alpha
+	// texture on any skin that actually contains 255. r_modelholey 0 disables.
+	if (!(texflags & TEXPREF_ALPHA) && r_modelholey.value)
+	{
+		int k;
+		byte *firstskin = (byte *)(pskintype + 1);
+		for (k = 0; k < size; k++)
+		{
+			if (firstskin[k] == 255)
+			{
+				texflags |= TEXPREF_ALPHA;
+				loadmodel->flags |= MF_HOLEY;
+				Con_Printf ("r215: holey skin forced: %s\n", loadmodel->name);
+				break;
+			}
+		}
+	}
+	else if (texflags & TEXPREF_ALPHA)
+	{
+		Con_DPrintf ("holey skin (header flag): %s\n", loadmodel->name);
+	}
 
 	for (i=0 ; i<numskins ; i++)
 	{
