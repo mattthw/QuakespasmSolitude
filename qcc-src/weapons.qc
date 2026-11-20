@@ -32,6 +32,7 @@ void() W_Precache =
 	precache_sound ("weapons/shottie.wav"); 		// shottie
 	precache_sound ("weapons/needler.wav"); 		// needler 
 	precache_sound ("weapons/ar1.wav"); 		//Sound effects for asault rifle
+	precache_sound ("weapons/br_fire.wav");		// r212: Battle Rifle
 	//precache_model ("GFX/s_fblood.spr");		//Flood blood	
 	precache_model ("progs/PL_BULL.spr");
 	precache_model ("sprites/s_smoke2.spr");
@@ -58,6 +59,7 @@ void() W_Precache =
 	precache_model ("progs/v_plrifle.mdl");
 	precache_model ("progs/v_nail.mdl");
 	precache_model ("progs/v_skull.mdl");
+	precache_model ("progs/v_br.mdl");	// r212: Battle Rifle viewmodel
 	
 	// Weapons sounds
 	//Reload
@@ -353,6 +355,10 @@ void(entity ent) W_UpdateAmmoCounts =
 			ent.currentammo = ent.bat_pr * 100;
 			ent.armorvalue = ent.heat_pr * 100;
 			break;
+		case WEAPON_BR:
+			ent.currentammo = ent.ammo_br;
+			ent.armorvalue = ent.exbr;
+			break;
 		default:
 			ent.currentammo = 12;
 			break;
@@ -368,7 +374,7 @@ float (float t_wep) W_BulletDamage =
             {
                 return 200; //headshot
             }
-		return 70;
+		return 80; // r213: Halo 3 body damage (was 70)
 			break;
 		case WEAPON_PISTOL:
             if (trace_endpos_z > trace_ent.origin_z + 20)
@@ -378,16 +384,19 @@ float (float t_wep) W_BulletDamage =
 		return 15;
 			break;
 		case WEAPON_UZI:
-			return 1.5;
+			// r213 (Halo 3): the SMG fires TWO bullets per trigger (W_FireUzi +
+			// the silent W_FireNail2 slug, r119-approved feel), so 2.5 each =
+			// 5.0 per trigger, which is the Halo 3 SMG number.
+			return 2.5;
 			break;
 		case WEAPON_AR:
-			return 6.5;
+			return 7.5; // r213: Halo 3 Assault Rifle (was 6.5)
 			break;
         case WEAPON_BR:
-            return 18; //6*3
+            return 6; // r212: Halo 3 BR is 6 per round; the 3-round burst is 18
             break;
 		case WEAPON_SHOT:
-			return 15;
+			return 11; // r213: Halo 3 shotgun -> 10 pellets = 110 per shell (2-shot on 130hp)
 			break;
 //        case WEAPON_PPISTOL:
 //            // Please see Plasma_Diffuse()
@@ -492,6 +501,118 @@ float (float wep, float cliptype) W_GetMaxClip =
 	return 1;
 };
 
+/*
+====================
+r213: Halo 3 bloom (cone growth + recovery)
+
+The five automatic weapons widen their cone with every shot and recover it
+over time; every other weapon keeps its fixed spread. Values are Halo 3
+degrees converted to FireBullets spread units (tan of the per-axis angle):
+  0.10deg 0.0017 | 0.15deg 0.0026 | 0.50deg 0.0087
+  1.25deg 0.0218 | 2.75deg 0.0480 | 3.00deg 0.0524
+
+sv_bloom 0 restores the pre-r213 fixed cone -- each call site still passes its
+old literal, so the two modes can be A/B'd live without a recompile.
+====================
+*/
+float (float w) W_BloomWeapon =
+{
+	if (w == WEAPON_AR || w == WEAPON_UZI || w == WEAPON_BR
+	    || w == WEAPON_PRIFLE || w == WEAPON_NEEDLER)
+		return 1;
+	return 0;
+};
+
+float (float w) W_BloomMin =
+{
+	switch (w)
+	{
+	case WEAPON_AR:      return 0.0017;	// 0.10 deg
+	case WEAPON_UZI:     return 0.0218;	// 1.25 deg
+	case WEAPON_BR:      return 0.0026;	// 0.15 deg
+	case WEAPON_PRIFLE:  return 0.0087;	// 0.50 deg
+	case WEAPON_NEEDLER: return 0.0;	// 0 deg
+	}
+	return 0;
+};
+
+float (float w) W_BloomMax =
+{
+	switch (w)
+	{
+	case WEAPON_AR:      return 0.0524;	// 3.00 deg
+	case WEAPON_UZI:     return 0.0480;	// 2.75 deg
+	case WEAPON_BR:      return 0.0087;	// 0.50 deg
+	case WEAPON_PRIFLE:  return 0.0218;	// 1.25 deg
+	case WEAPON_NEEDLER: return 0.0524;	// 3.00 deg
+	}
+	return 0;
+};
+
+// added per shot (per bullet for the SMG's twin slug)
+float (float w) W_BloomStep =
+{
+	switch (w)
+	{
+	case WEAPON_AR:      return 0.01014;	// full cone in ~0.5s of fire
+	case WEAPON_UZI:     return 0.00349;
+	case WEAPON_BR:      return 0.00082;
+	case WEAPON_PRIFLE:  return 0.00349;
+	case WEAPON_NEEDLER: return 0.03280;	// full cone in ~0.2s
+	}
+	return 0;
+};
+
+// recovered per second (the guide's bloom-recovery seconds)
+float (float w) W_BloomRecover =
+{
+	switch (w)
+	{
+	case WEAPON_AR:      return 0.1014;	// 0.5s
+	case WEAPON_UZI:     return 0.0525;	// 0.5s
+	case WEAPON_BR:      return 0.0122;	// 0.5s
+	case WEAPON_PRIFLE:  return 0.0262;	// 0.5s
+	case WEAPON_NEEDLER: return 0.5240;	// 0.1s
+	}
+	return 0;
+};
+
+void (float w) W_BloomAdd =
+{
+	if (!W_BloomWeapon(w))
+		return;
+	if (cvar("sv_bloom") <= 0)
+		return;
+	// start the ramp at the weapon's minimum cone, whatever state .bloom is in
+	if (self.bloom < W_BloomMin(w))
+		self.bloom = W_BloomMin(w);
+	self.bloom = self.bloom + W_BloomStep(w);
+	if (self.bloom > W_BloomMax(w))
+		self.bloom = W_BloomMax(w);
+};
+
+// cone to hand to FireBullets; `legacy` is the old fixed spread
+vector (float w, vector legacy) W_Spread =
+{
+	local vector sp;
+	local float s;
+
+	if (!W_BloomWeapon(w))
+		return legacy;
+	if (cvar("sv_bloom") <= 0)
+		return legacy;
+
+	s = self.bloom;
+	if (s < W_BloomMin(w))
+		s = W_BloomMin(w);
+	if (s > W_BloomMax(w))
+		s = W_BloomMax(w);
+	sp_x = s;
+	sp_y = s;
+	sp_z = 0;
+	return sp;
+};
+
 float (entity ent) W_CanFire =
 {
 	switch (ent.weapon)
@@ -544,6 +665,10 @@ float (entity ent) W_CanFire =
 		case WEAPON_PRIFLE:
 			// r205: battery-gated, same as the pistol
 			return TRUE;
+			break;
+		case WEAPON_BR:
+			if (ent.ammo_br <= 0)
+				return FALSE;
 			break;
 		default:
 			return TRUE;
@@ -647,13 +772,13 @@ void(float lunge) W_FireSword =
 	{
 		SpawnBlood (org, 20);
 		/* r116 (user: "an attack from it should be fatal... I have to hit
-		 * them like three times"): both sword hits now execute a fully
-		 * shielded Spartan (100 health + ~100 shields). Lunge keeps the
-		 * bigger number for the blood spray feel / future tuning. */
+		 * them like three times"): the sword must execute. r213: Halo 3's 150
+		 * still one-shots the 130hp spawn, so the r116 intent is preserved
+		 * while the number matches Halo. */
 		if (lunge) {
-            T_Damage(trace_ent, self, self, 250, MOD_AXE);
+            T_Damage(trace_ent, self, self, 150, MOD_AXE);
         } else {
-            T_Damage(trace_ent, self, self, 250, MOD_AXE);
+            T_Damage(trace_ent, self, self, 150, MOD_AXE);
         }
 	}
 	else
@@ -857,7 +982,12 @@ Rocket Launcher Explosion
 */
 void() Rocket_Explode0 =
 {
-		
+	// r213 (Halo 3): the missile now has a real direct hit (240) separate from
+	// the splash (80 up to 180u). `other` is the entity the missile touched --
+	// the engine sets it for touch handlers, so this stays a void() function.
+	local entity hit;
+	hit = other;
+
 	self.velocity = '0 0 0';
 
 	if (pointcontents(self.origin) == CONTENT_SKY)
@@ -865,7 +995,12 @@ void() Rocket_Explode0 =
 		remove(self);
 		return;
 	}
-	T_RadiusDamage (self, self.owner, 180, 180, world, MOD_ROCKET);
+
+	if (hit != world && hit != self.owner && hit.takedamage)
+		T_Damage (hit, self, self.owner, 240, MOD_ROCKET);
+
+	// splash skips the direct target so a hit body cannot take both
+	T_RadiusDamage (self, self.owner, 80, 180, hit, MOD_ROCKET);
 
 	self.origin = self.origin - 15*normalize(self.velocity);
 
@@ -1257,7 +1392,8 @@ void() W_FirePPCharge =
 void () W_FirePlasmaRifle = {
     local entity plasma;
     local vector spread, dir, jitter;
-    spread = '0.02 0.02 0';
+    spread = W_Spread(WEAPON_PRIFLE, '0.02 0.02 0');	// r213: bloom
+    W_BloomAdd(WEAPON_PRIFLE);
 
     self.prifle_heat += 1;
     sound (self, CHAN_WEAPON, "weapons/PR_fire.wav", 1, ATTN_NORM);
@@ -1323,7 +1459,7 @@ void () W_FireShotgun =
 	self.currentammo -= 1;
 	W_UpdateAmmoCounts(self);
 	dir = aim (self, 100000);
-	FireBullets (10, dir, '0.2 0.2 0', MOD_SOLITUDE);
+	FireBullets (10, dir, '0.13 0.13 0', MOD_SOLITUDE);	// r213: 7.4deg cone (Halo 7.5), was 0.2 = 11.3
 	pistolsmoke (self.origin + (v_forward * 13) + '0 0 14');
 };
 
@@ -1345,8 +1481,31 @@ void () W_FireAR =
 	self.punchangle_x = -2;
 	muzzleflash2(); //ar flash
 	dir = aim (self, 100000);
-	FireBullets (1, dir, '0.05 0.05 0.02', MOD_SOLITUDE);
+	FireBullets (1, dir, W_Spread(WEAPON_AR, '0.05 0.05 0.02'), MOD_SOLITUDE);
+	W_BloomAdd(WEAPON_AR);
 
+};
+
+/*
+====================================
+Fire the Battle Rifle (r212)
+One hitscan per round; the 3-round burst and its timing live in W_Attack.
+====================================
+*/
+void () W_FireBR =
+{
+	local vector dir;
+
+	self.ammo_br -= 1;
+	W_UpdateAmmoCounts(self);
+	sound (self, CHAN_WEAPON, "weapons/br_fire.wav", 1, ATTN_NORM);
+
+	self.punchangle_x = -2;
+	muzzleflash2(); // same flash as the AR
+	dir = aim (self, 100000);
+	// Halo 3 cone is 0.15..0.50 deg; 0.008 is ~0.46 deg per axis.
+	FireBullets (1, dir, W_Spread(WEAPON_BR, '0.008 0.008 0'), MOD_SOLITUDE);
+	W_BloomAdd(WEAPON_BR);
 };
 
 
@@ -1371,7 +1530,8 @@ void() W_FireUzi =
 	 * Cluster felt low-left of the reticle. retune numbers if too much. */
 	dir = aim (self, 100000);
 	dir = normalize (dir + v_right * 0.10 + v_up * 0.05);
-	FireBullets (1, dir, '0.06 0.06 0.02', MOD_SOLITUDE);
+	FireBullets (1, dir, W_Spread(WEAPON_UZI, '0.06 0.06 0.02'), MOD_SOLITUDE);
+	W_BloomAdd(WEAPON_UZI);
 
 };
 
@@ -1389,7 +1549,8 @@ void () W_FireNail2 =
 	 * (ammo_hshells). Its one extra silent 0.07-spread bullet stays — the
 	 * SMG's two-bullet damage profile is what shipped and feels right. */
 	dir = aim (self, 100000);
-	FireBullets (WEAPON_SHOTGUN, dir, '0.07 0.07 0', MOD_SOLITUDE);
+	FireBullets (WEAPON_SHOTGUN, dir, W_Spread(WEAPON_UZI, '0.07 0.07 0'), MOD_SOLITUDE);
+	W_BloomAdd(WEAPON_UZI);	// r213: the twin slug blooms the SMG too
 };
 
 /*
@@ -1475,7 +1636,7 @@ void ( entity f_plyr, entity t_plyr, float at_height ) Add_Needle =
 		
 	t_plyr.needles += 1;
 		
-	if (t_plyr.needles >= 12) {
+	if (t_plyr.needles >= 8) {	// r213: Halo 3 supercombine at 8 needles (was 12); damage deliberately unchanged at 150
 		t_plyr.needles -= 7;
 		sound (self, CHAN_WEAPON, "weapons/crystal.wav", 1, ATTN_NORM);
 		if (NeedleFxAllowed(f_plyr))	// r103: FX gate, never a firing gate
@@ -1683,7 +1844,8 @@ void() W_FireNeedler =
 	muzzleflash6();
 	sound (self, CHAN_WEAPON, "weapons/needler.wav", 1, ATTN_NORM); 
 
-	spread = '0.04 0.04 0';
+	spread = W_Spread(WEAPON_NEEDLER, '0.04 0.04 0');	// r213: bloom
+	W_BloomAdd(WEAPON_NEEDLER);
 	
 	VK_smallkick(self);
 	
@@ -2279,7 +2441,7 @@ void() W_UpdateWeapon =
 		self.ammo_type = AT_SHELLS;
 		break;
     case WEAPON_BR:
-        self.weaponmodel = "progs/v_sword.mdl"; //makes it more obvious we entered a bad state (BR not supported yet)
+        self.weaponmodel = "progs/v_br.mdl";
         self.items = self.items | IT_NAILS;
         self.ammo_type = AT_NAILS;
         break;
@@ -2356,6 +2518,9 @@ void(float weap) W_WeaponSwitch =
 
 	// always update ammo count
 	W_UpdateAmmoCounts(self);
+
+	self.br_burst = 0;	// r212: never carry a half-finished burst across a switch
+	self.bloom = 0;		// r213: fresh cone on a fresh weapon
 	
 	self.pfov = FOV_DEFAULT;
 	Set_Zoom ( 0 );
@@ -2459,6 +2624,7 @@ void() W_Attack =
 
 	if (!W_CanFire (self)) {
 		if (self.currentammo == 0) {
+			self.br_burst = 0;	// r212: dry gun ends the burst
 			if (self.reload_time > time)
 				return;
 			reload ();
@@ -2511,10 +2677,21 @@ void() W_Attack =
 		break;		
 		*/
 	case IT_GRENADE_LAUNCHER:
+		// r212: this is WEAPON_SNIPER, and W_FireSniper already calls
+		// muzzleflashsniper(). Falling through to the rocket case added a
+		// SECOND, differently positioned flash sprite on every sniper shot.
+		self.weaponframe = 1;
+		break;
 	case IT_ROCKET_LAUNCHER:
 		self.weaponframe = 1;
 		muzzleflash();
 		//player_rocket1();
+		break;
+	case WEAPON_BR:
+		muzzleflash2();
+		self.weaponframe = 1;
+		self.wepanim = 1;
+		self.weaponframe_time = time + 0.1;
 		break;
 	case WEAPON_PPISTOL:
 		// r200: semi-auto battery weapon.
@@ -2669,7 +2846,7 @@ void() W_Attack =
 	{
 	case WEAPON_PISTOL:
 		W_FirePistol ();
-		r = 0.3;	
+		r = 0.40;	// r213: Halo 3 Magnum = 2.5 rps (was 0.3 = 3.33)
 		break;
 	case WEAPON_SKULL:
 		W_FireSkull ();
@@ -2677,23 +2854,36 @@ void() W_Attack =
 		break;
 	case WEAPON_SHOT:
 		W_FireShotgun ();
-		r = 1.0;
+		r = 0.75;	// r213: Halo 3 = 1.33 rps (was 1.0)
 		break;
 	case WEAPON_AR:
 		W_FireAR();
-		r = 0.11;
+		r = 0.10;	// r213: Halo 3 = 10 rps (was 0.11 = 9.09)
+		break;
+	case WEAPON_BR:
+		// r212: 3-round burst. Begin a burst on a fresh pull, then space the
+		// rounds 0.0667s apart (15 rounds/s, Halo 3); the last round of the
+		// burst sets 0.2799s so bursts start every ~0.4133s (2.42/s).
+		if (self.br_burst <= 0)
+			self.br_burst = 3;
+		W_FireBR();
+		self.br_burst = self.br_burst - 1;
+		if (self.br_burst > 0)
+			r = 0.0667;
+		else
+			r = 0.2799;
 		break;
 	case WEAPON_RL:
 		W_FireRocket();
-		r = 1.6;
+		r = 0.8;	// r213: Halo 3 = 1.25 rps (was 1.6)
 		break;
 	case WEAPON_UZI:
 		W_FireUzi();
-		r = 0.06;
+		r = 0.0667;	// r213: Halo 3 = 15 rps (was 0.06 = 16.7)
 		break;
 	case WEAPON_SNIPER:
 		W_FireSniper();
-		r = 0.8;
+		r = 0.7;	// r213: Halo 3 = 1.43 rps (was 0.8)
 		break;
 	case WEAPON_PPISTOL:
 		//W_FirePPistol();
@@ -2864,9 +3054,9 @@ void() CycleWeaponCommand =
                 w = WEAPON_AR;
                 break;
             case WEAPON_AR:
-    //			w = WEAPON_BR; todo: fix me. commenting this out prevents bad BR state. weapon not supported yet.
-    //			break;
-    //        case WEAPON_BR:
+                w = WEAPON_BR;
+                break;
+            case WEAPON_BR:
                 w = WEAPON_UZI;
                 break;
             case WEAPON_UZI:
@@ -2894,7 +3084,16 @@ void() CycleWeaponCommand =
                 bprint("ERROR: Weapon not found!\n");
 		}
 	
-		if ( (self.items & w) /*&& W_HasAmmo(w)*/ )
+		// r212: BR ownership lives in .has_br, not in the .items bitmask
+		if (w == WEAPON_BR)
+		{
+			if (self.has_br)
+			{
+				W_WeaponSwitch (w);
+				return;
+			}
+		}
+		else if ( (self.items & w) /*&& W_HasAmmo(w)*/ )
 		{
 			W_WeaponSwitch (w);
 			return;
@@ -3072,6 +3271,32 @@ void() ImpulseCommands =
         case 11:
             WeaponZoom ();
             break;
+        case 12:
+        {
+            // r212: dev/test hook -- give the Battle Rifle and switch to it.
+            // Console: impulse 12 (the old cheat text claimed 14..26 exist).
+            self.has_br = 1;
+            self.items = self.items | IT_NAILS;
+            self.ammo_br = W_GetMaxClip(WEAPON_BR, 1);
+            self.exbr = W_GetMaxClip(WEAPON_BR, 0);
+            W_WeaponSwitch(WEAPON_BR);
+            stuffcmd (self, "cl_br 1\n");
+            break;
+        }
+        case 14:
+        {
+            // r213: dev/test hook -- give the plasma pistol and switch to it.
+            // Console: impulse 14. No map places a weapon_plasmapistol pickup,
+            // so this is the only way to hold one without editing a map.
+            self.items = self.items | WEAPON_PPISTOL;
+            self.bat_pp = 1;		// battery: 1..0, never refilled
+            self.heat_pp = 0;
+            self.over_pp = 0;		// vent lock
+            self.charge_pp = 0;
+            self.pp_held = 0;
+            W_WeaponSwitch(WEAPON_PPISTOL);
+            break;
+        }
         case 13:
             W_UpdateAmmoCounts(self);
             if (self.pickup_time > time) {
@@ -3269,6 +3494,16 @@ void() W_HandlePlayerFrame =
 		if (self.weaponframe > 3)
 			self.weaponframe = 0;
 		break;
+	case WEAPON_BR:
+		// r212: same 0..3 fire cycle as the AR (v_br.mdl has 12 frames, the
+		// reload count in player_br_reload walks past 3 and is left alone here)
+		if (self.weaponframe > 3)
+			return;
+		self.weaponframe = self.weaponframe + 1;
+		self.weaponframe_time = time + 0.1;
+		if (self.weaponframe > 3)
+			self.weaponframe = 0;
+		break;
 		
 	case WEAPON_UZI:
 		// cycle until fire button is released
@@ -3421,12 +3656,23 @@ Called every frame so impulse events can be handled as well as possible
 void() W_WeaponFrame =
 {
 	local INTEGER scount;
+	local float burst_fired;
+	local float bmin;
 
 	W_HandlePlayerFrame();
 	Plasma_Tick();
 	W_UpdateAmmoCounts(self);	// r201: battery/heat live on the HUD even when
 								// the gun is not firing (spawn, switch, cooling)
 	CheckMeleeRange ();	// r112b: lb-melee swap/prompt state, fresh before ImpulseCommands
+
+	// r213: Halo bloom recovery -- every frame, firing or not
+	bmin = W_BloomMin(self.weapon);
+	if (self.bloom > bmin)
+	{
+		self.bloom = self.bloom - W_BloomRecover(self.weapon) * frametime;
+		if (self.bloom < bmin)
+			self.bloom = bmin;
+	}
 
 	if ((self.health < self.ohealth))
 	{
@@ -3464,18 +3710,31 @@ void() W_WeaponFrame =
 	}
 	else
 	{
+		burst_fired = 0;
 		// r204: only the plasma pistol has a release-to-fire step; without
 		// this gate a stale charge turned every weapon into a machine gun.
 		if (self.weapon == WEAPON_PPISTOL
 		    && (self.pp_held || self.charge_pp > 0)) {
 			W_Attack();
 		}
+		// r212: a Battle Rifle burst finishes even if the trigger is released.
+		// The gate at the top of this function already enforced the inter-round
+		// spacing, so the attack_finished reset below must not run on a round
+		// we just fired (it would turn the burst into a frame-rate machine gun).
+		else if (self.weapon == WEAPON_BR && self.br_burst > 0)
+		{
+			W_Attack();
+			burst_fired = 1;
+		}
 		if (self.needler_heat > 0)
 			self.needler_heat = 0;
 		if (self.prifle_heat > 0)
 			self.prifle_heat = 0;
-		self.attack_finished = time;
-		self.weaponstate = WS_IDLE;
+		if (!burst_fired)
+		{
+			self.attack_finished = time;
+			self.weaponstate = WS_IDLE;
+		}
 	}
 };
 

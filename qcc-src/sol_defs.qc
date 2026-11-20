@@ -99,7 +99,15 @@ float           teamlimit; // used to determine when to end team based games
 .float death_type;
 
 .float ammo_br;
-float   IT_BR                           = 90248441;         // solitude
+// r212: Battle Rifle ownership is NOT an .items bit -- the free bit space is
+// exhausted (every power of two up to 2^27 already means a weapon, ammo type,
+// key, armor or powerup), and .items is a 32-bit float, so a bit at 2^28 would
+// round low bits away the moment it is OR'd into a mask. has_br is the flag;
+// IT_BR stays a pure weapon ID for self.weapon comparisons.
+.float has_br;
+.float br_burst;		// rounds left in the current 3-round burst (r212)
+.float bloom;			// r213: current cone, FireBullets spread units (tan of the per-axis angle)
+float   IT_BR                           = 268435456;        // solitude: BR weapon ID, 2^28 (exact in float32, never an .items bit)
 
 
 #define MOD_SOLITUDE		666			// undefined mode of death

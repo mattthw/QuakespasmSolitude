@@ -33,8 +33,8 @@ float (float pweapons) GetPlayerWeapons =
 		i++;
 	if (pweapons & WEAPON_PRIFLE)
 		i++;
-    if (pweapons & WEAPON_BR)
-        i++;
+    // r212: the Battle Rifle is not an .items bit (no free bit left in the
+    // 32-bit float mask); callers add other.has_br themselves.
 /*
 	if (pweapons & WEAPON_PISTOL)
 		i++;
@@ -408,7 +408,7 @@ void () weapon_activate =
 void () weapon_touch =
 {
 	local entity oself;
-	local float addweapon, newweapon;
+	local float addweapon, newweapon, alreadyhave;
 	
 	oself = self;
 	//
@@ -422,7 +422,17 @@ void () weapon_touch =
 		
 	self.mdl = self.model;
 		
-	if ( (other.items & self.weapon) ) {
+	// r212: BR ownership lives in .has_br; every other weapon is an .items bit
+	alreadyhave = FALSE;
+	if (self.weapon == WEAPON_BR)
+	{
+		if (other.has_br)
+			alreadyhave = TRUE;
+	}
+	else if ( (other.items & self.weapon) )
+		alreadyhave = TRUE;
+		
+	if (alreadyhave) {
 		if (self.weapon & WEAPON_PPISTOL || self.weapon & WEAPON_PRIFLE)				// weapons that don't have an extended clip
 			if ( W_GetMaxClip(self.weapon, 1) <= GetAmmoCount(other, self.weapon, 1) )
 				return;
@@ -446,7 +456,7 @@ void () weapon_touch =
 	}
 	
 	if (other.canpickup_time > time) {
-		if (other.weapon == self.weapon || GetPlayerWeapons(other.items) >= 2 ) {
+		if (other.weapon == self.weapon || GetPlayerWeapons(other.items) + other.has_br >= 2 ) {
 			if (other.ishuman != #TRUE && !bot_want_swap(self, other))
 				return;		// perf B12: bots swap only for a real upgrade
 			addweapon = 2;		// drop current weapon and replace it
@@ -535,13 +545,22 @@ void () weapon_touch =
 	{
 		other.attack_finished = time + .1;	// so the player doesnt reload when picking up a new weapon
 		if (addweapon == 1) {
-			other.items = other.items | self.weapon;
+			if (self.weapon == WEAPON_BR)
+				other.has_br = 1;
+			else
+				other.items = other.items | self.weapon;
 			sprint(other,"New weapon added to your inv\n");
 		}
 		else if (addweapon == 2) {			// replace current weapon
 			newweapon = self.weapon;
-			other.items = other.items - other.weapon;
-			other.items = other.items | self.weapon;
+			if (other.weapon == WEAPON_BR)
+				other.has_br = 0;
+			else
+				other.items = other.items - other.weapon;
+			if (self.weapon == WEAPON_BR)
+				other.has_br = 1;
+			else
+				other.items = other.items | self.weapon;
 			self = other;
 			ThrowWeapon(self.weapon, 1);
 			W_WeaponSwitch(newweapon);
@@ -553,6 +572,11 @@ void () weapon_touch =
 		}
 		CopyAmmo( self, other, self.weapon, 0 );
 		W_UpdateAmmoCounts( other );
+		// r212: keep the HUD's secondary line in sync with .has_br
+		if (other.has_br)
+			stuffcmd (other, "cl_br 1\n");
+		else
+			stuffcmd (other, "cl_br 0\n");
 		self.touch = SUB_Null;
 		setmodel( self, string_null );
 		self.nextthink = time + 30;

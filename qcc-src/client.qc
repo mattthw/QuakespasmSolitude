@@ -102,6 +102,9 @@ void() DecodeLevelParms = {
     }
 
     self.items = 0; //parm1; Set in Start_Weapon()!
+    self.has_br = 0;	// r212: Battle Rifle ownership is not an .items bit
+    self.br_burst = 0;
+    self.bloom = 0;	// r213: cone growth state
     self.health = parm2;
     self.armorvalue = parm3;
     self.ammo_shells_real = parm4;

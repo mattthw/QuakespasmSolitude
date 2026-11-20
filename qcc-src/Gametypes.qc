@@ -244,18 +244,38 @@ void() Start_Weapon = {
                     primary_weapon = WEAPON_AR;
                     secondary_weapon = WEAPON_PISTOL;
                 }
-                // set weapon(s) and ammo to player items
-                if (secondary_weapon == WEAPON_NONE) {
-                    bprint("NO SECONDARY!=============\n");
-                    self.items = primary_weapon;
-                    SetWeaponAmmo(self, primary_weapon);
-                } else {
-                    self.items = primary_weapon + secondary_weapon;
-                    SetWeaponAmmo(self, primary_weapon);
-                    SetWeaponAmmo(self, secondary_weapon);
+                // r212: the Battle Rifle has no .items bit (see sol_defs.qc), so
+                // it is pulled out of the mask and tracked in .has_br instead.
+                self.has_br = 0;
+                if (primary_weapon == WEAPON_BR) {
+                    self.has_br = 1;
+                    primary_weapon = 0;
                 }
+                if (secondary_weapon == WEAPON_BR) {
+                    self.has_br = 1;
+                    secondary_weapon = 0;
+                } else if (secondary_weapon == WEAPON_NONE || secondary_weapon == IT_NONE) {
+                    // r213: WEAPON_NONE is the "unset cvar" sentinel; IT_NONE
+                    // (134217728) is what the menu's "None" row sends. Neither
+                    // is a real item bit, so neither may reach the mask.
+                    secondary_weapon = 0;
+                }
+                // r213: same weapon in both slots -- keep the primary only
+                if (secondary_weapon != 0 && secondary_weapon == primary_weapon)
+                    secondary_weapon = 0;
+                // set weapon(s) and ammo to player items
+                self.items = primary_weapon + secondary_weapon;
+                if (primary_weapon)
+                    SetWeaponAmmo(self, primary_weapon);
+                if (secondary_weapon)
+                    SetWeaponAmmo(self, secondary_weapon);
+                if (self.has_br)
+                    SetWeaponAmmo(self, WEAPON_BR);
                 // set held weapon
-                self.weapon = primary_weapon;
+                if (!primary_weapon && self.has_br)
+                    self.weapon = WEAPON_BR;
+                else
+                    self.weapon = primary_weapon;
                 W_UpdateWeapon();
                 W_UpdateAmmoCounts(self);
                 // sword has messed up default frame. Call after UpdateWeapon since it sets to 0
@@ -295,4 +315,11 @@ void() Start_Weapon = {
             }
             break;
         }
+        // r212: the HUD's "other weapon you carry" line reads the .items mask,
+        // which cannot hold the Battle Rifle (see sol_defs.qc). Mirror the flag
+        // into a client cvar so the secondary line can name it.
+        if (self.has_br)
+            stuffcmd (self, "cl_br 1\n");
+        else
+            stuffcmd (self, "cl_br 0\n");
 };
