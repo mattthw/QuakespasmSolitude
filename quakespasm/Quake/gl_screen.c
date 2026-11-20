@@ -1017,7 +1017,40 @@ SCR_EndLoadingPlaque
 void SCR_EndLoadingPlaque (void)
 {
 	scr_disabled_for_loading = false;
+	scr_drawloading = false;	/* r164: also end the connect loading art */
 	Con_ClearNotify ();
+}
+
+/*
+===============
+SCR_ShowLoadingScreen
+
+r164: draw the loading art now and keep it on subsequent SCR_UpdateScreen
+calls, but do NOT set scr_disabled_for_loading. The network connect blocks in
+a poll loop (up to several seconds); it pumps SCR_UpdateScreen itself, and if
+the connect fails the caller has to give the screen back to the menu instead
+of waiting out the 60 second "load failed" guard.
+===============
+*/
+void SCR_ShowLoadingScreen (void)
+{
+	Con_ClearNotify ();
+	scr_centertime_off = 0;
+	scr_con_current = 0;
+	scr_drawloading = true;
+	Sbar_Changed ();
+	SCR_UpdateScreen ();
+}
+
+/*
+===============
+SCR_HideLoadingScreen
+===============
+*/
+void SCR_HideLoadingScreen (void)
+{
+	scr_drawloading = false;
+	SCR_EndLoadingPlaque ();
 }
 
 //=============================================================================

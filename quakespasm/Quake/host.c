@@ -1500,6 +1500,7 @@ void _Host_Frame (double time)
 		time2 = Sys_DoubleTime ();
 
 // update audio
+	CL_AnnounceTick ();	/* r181: fire the match-start announcer once the level has settled */
 	BGM_Update();	// adds music raw samples and/or advances midi driver
 	if (cl.listener_defined)
 	{

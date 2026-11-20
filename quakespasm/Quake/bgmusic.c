@@ -346,6 +346,14 @@ void BGM_Stop (void)
 	}
 }
 
+/* r178: the menu used to track its own "theme_started" flag, which only one
+ * disconnect path cleared. This is the real state: an open stream means the
+ * track is running. */
+qboolean BGM_IsPlaying (void)
+{
+	return (bgmstream != NULL);
+}
+
 void BGM_Pause (void)
 {
 	if (bgmstream)

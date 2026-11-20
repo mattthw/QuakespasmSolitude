@@ -33,6 +33,7 @@ void BGM_Shutdown (void);
 
 void BGM_Play (const char *filename);
 void BGM_Stop (void);
+qboolean BGM_IsPlaying (void);	/* r178: is a music stream actually open? */
 void BGM_Update (void);
 void BGM_Pause (void);
 void BGM_Resume (void);

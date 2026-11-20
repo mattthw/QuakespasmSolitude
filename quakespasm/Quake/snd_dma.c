@@ -107,7 +107,7 @@ static	cvar_t	ambient_level = {"ambient_level", "0.3", CVAR_NONE};
 static	cvar_t	ambient_fade = {"ambient_fade", "100", CVAR_NONE};
 static	cvar_t	snd_noextraupdate = {"snd_noextraupdate", "0", CVAR_NONE};
 static	cvar_t	snd_show = {"snd_show", "0", CVAR_NONE};
-static	cvar_t	_snd_mixahead = {"_snd_mixahead", "0.1", CVAR_ARCHIVE};
+static	cvar_t	_snd_mixahead = {"_snd_mixahead", "0.2", CVAR_ARCHIVE};
 
 
 static void S_SoundInfo_f (void)

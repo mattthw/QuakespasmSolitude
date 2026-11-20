@@ -133,6 +133,14 @@ typedef struct
 
 // connection information
 	int		signon;			// 0 to SIGNONS
+
+// r181: deferred one-shot local sound (match-start announcer). The server
+// stuffcmds "announce <file>"; the main loop holds it until the level has
+// stopped stalling, because a multi-hundred-ms texture upload at match start
+// empties the audio ring buffer and tears the voice line apart.
+	char	announce_sound[MAX_QPATH];
+	double	announce_at;
+	double	announce_lastframe;
 	struct qsocket_s	*netcon;
 	sizebuf_t	message;		// writing buffer to send to server
 
@@ -463,6 +471,17 @@ void V_SetContentsColor (int contents);
 void CL_InitTEnts (void);
 void CL_SignonReply (void);
 float CL_TraceLine (vec3_t start, vec3_t end, vec3_t impact, vec3_t normal, int *ent);
+/* r134: teamplay/deathmatch as the SERVER sees them (from cl.serverinfo), with
+ * the local cvar as fallback for LAN listen servers and old servers. */
+float CL_ServerTeamplay (void);
+float CL_ServerDeathmatch (void);
+/* r182: limits as the SERVER published them, not the client's own cvars. */
+float CL_ServerFraglimit (void);
+float CL_ServerTimelimit (void);
+float CL_ServerTeamlimit (void);
+/* r181: deferred match-start announcer */
+void CL_Announce_f (void);
+void CL_AnnounceTick (void);
 
 //
 // chase

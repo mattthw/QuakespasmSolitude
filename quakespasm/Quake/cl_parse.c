@@ -2261,6 +2261,35 @@ static void CL_ParseStuffText(const char *msg)
 static qboolean CL_ParseSpecialPrints(const char *printtext)
 {
 	const char *e = printtext+strlen(printtext);
+
+	/* r184: compact ping table from this fork's server -- "#ping 0=12 3=-1".
+	 * Indexed by SCOREBOARD SLOT, so there is no name matching and no
+	 * cl.expectingpingtimes window: whatever arrives is authoritative, and a
+	 * bot is simply -1. Anything that is not our server answers in the old
+	 * "Client ping times" text form, handled further down. */
+	if (!strncmp (printtext, "#ping ", 6))
+	{
+		const char *t = printtext + 6;
+		char *n;
+
+		while (*t)
+		{
+			int slot, ping;
+
+			slot = (int) strtol (t, &n, 10);
+			if (t == n || *n != '=')
+				break;
+			ping = (int) strtol (n+1, &n, 10);
+			if (slot >= 0 && slot < MAX_SCOREBOARD)
+				cl.scores[slot].ping = ping;
+			t = n;
+			while (*t == ' ')
+				t++;
+		}
+		cl.printtype = PRINT_NONE;
+		return true;		/* never reaches the console */
+	}
+
 	if (cl.printtype == PRINT_PINGS)
 	{
 		//players are expected to be listed in slot order.
@@ -2538,11 +2567,22 @@ void CL_ParseServerMessage (void)
 			S_StopSound(i>>3, i&7);
 			break;
 
+		/* r128 (user 2026-11-18): these three used to be fatal. The bound is
+		 * cl.maxclients (from svc_serverdata), not MAX_SCOREBOARD, so a server
+		 * that sends an update for a slot this client never allocated -- which
+		 * is what a roster that grows past maxplayers produces -- dropped the
+		 * whole client out of the game with a misleading message. Consume the
+		 * message and ignore the slot instead; the stream stays in sync and the
+		 * scoreboard just does not show it. */
 		case svc_updatename:
 			Sbar_Changed ();
 			i = MSG_ReadByte ();
 			if (i >= cl.maxclients)
-				Host_Error ("CL_ParseServerMessage: svc_updatename > MAX_SCOREBOARD");
+			{
+				Con_DWarning ("svc_updatename for slot %i (maxclients %i), ignored\n", i, cl.maxclients);
+				MSG_ReadString ();
+				break;
+			}
 			q_strlcpy (cl.scores[i].name, MSG_ReadString(), MAX_SCOREBOARDNAME);
 			break;
 
@@ -2550,7 +2590,11 @@ void CL_ParseServerMessage (void)
 			Sbar_Changed ();
 			i = MSG_ReadByte ();
 			if (i >= cl.maxclients)
-				Host_Error ("CL_ParseServerMessage: svc_updatefrags > MAX_SCOREBOARD");
+			{
+				Con_DWarning ("svc_updatefrags for slot %i (maxclients %i), ignored\n", i, cl.maxclients);
+				MSG_ReadShort ();
+				break;
+			}
 			cl.scores[i].frags = MSG_ReadShort ();
 			break;
 
@@ -2558,7 +2602,11 @@ void CL_ParseServerMessage (void)
 			Sbar_Changed ();
 			i = MSG_ReadByte ();
 			if (i >= cl.maxclients)
-				Host_Error ("CL_ParseServerMessage: svc_updatecolors > MAX_SCOREBOARD");
+			{
+				Con_DWarning ("svc_updatecolors for slot %i (maxclients %i), ignored\n", i, cl.maxclients);
+				MSG_ReadByte ();
+				break;
+			}
 			cl.scores[i].colors = MSG_ReadByte ();
 			CL_NewTranslation (i);
 			break;

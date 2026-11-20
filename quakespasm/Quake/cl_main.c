@@ -167,6 +167,8 @@ void CL_Disconnect (void)
 	if (key_dest == key_message)
 		Key_EndChat ();	// don't get stuck in chat mode
 
+	cls.announce_sound[0] = 0;	/* r181: never play a deferred line after leaving */
+
 // stop sounds (especially looping!)
 	S_StopAllSounds (true);
 	BGM_Stop();
@@ -203,6 +205,10 @@ void CL_Disconnect (void)
 	cl.intermission = 0;
 	cl.worldmodel = NULL;
 	cl.sendprespawn = false;
+	/* r170 (user: quitting in the death cam left the next game in third
+	 * person): chase_active is a runtime cvar with no archive flag, so
+	 * nothing else ever cleared it between sessions. */
+	Cvar_SetValueQuick (&chase_active, 0);
 }
 
 void CL_Disconnect_f (void)
@@ -212,16 +218,76 @@ void CL_Disconnect_f (void)
 		Host_ShutdownServer (false);
 }
 
+/*
+=================
+CL_Announce_f
+
+r181 (user: the match-start announcer -- "Slayer", "Firefight" -- comes out
+chopped when joining). That line used to be a normal network sound, so it was
+mixed in the very frame that uploads the map's textures and models. On this
+hardware that upload stalls the main loop for longer than the audio ring
+buffer holds (~371 ms at 44.1 kHz), the callback then reads memory that was
+never painted, and the voice tears.
+
+Fix is to take the sound local (it was ATTN_NONE, i.e. already player-only)
+and defer it until the level stops hitching. CL_AnnounceTick below re-arms the
+deadline every time a frame runs long, so it fires only after things settle.
+=================
+*/
+void CL_Announce_f (void)
+{
+	const char	*name;
+
+	if (Cmd_Argc () < 2 || !*(name = Cmd_Argv (1)))
+		return;
+
+	/* accept both "slayer.wav" (QC style) and "sound/slayer.wav" */
+	if (strstr (name, "/") == NULL)
+		q_snprintf (cls.announce_sound, sizeof(cls.announce_sound), "sound/%s", name);
+	else
+		q_strlcpy (cls.announce_sound, name, sizeof(cls.announce_sound));
+
+	cls.announce_at = realtime + 0.45;
+	cls.announce_lastframe = realtime;
+}
+
+/*
+=================
+CL_AnnounceTick
+
+Called once per frame from Host_Frame, alongside the audio update.
+=================
+*/
+void CL_AnnounceTick (void)
+{
+	if (!cls.announce_sound[0])
+		return;
+
+	/* the frame we just came out of was a hitch -- start the wait again */
+	if (realtime - cls.announce_lastframe > 0.20)
+		cls.announce_at = realtime + 0.45;
+
+	cls.announce_lastframe = realtime;
+
+	if (realtime < cls.announce_at)
+		return;
+
+	S_LocalSound (cls.announce_sound);
+	cls.announce_sound[0] = 0;
+}
+
 void CL_Disconnect_Multi_f (void)
 {
     CL_Disconnect_f();
-    M_Matchmaking_f();
+    /* r164: not always the Custom Games screen -- return to the menu this
+     * match was launched from (Find Match lobby, Custom Games, Firefight). */
+    M_ReturnToMatchMenu ();
 }
 
 void CL_Disconnect_Firefight_f (void)
 {
     CL_Disconnect_f();
-    M_Menu_Firefight_f();
+    M_ReturnToMatchMenu ();
 }
 
 /*
@@ -1409,6 +1475,56 @@ void CL_Viewpos_f (void)
 #endif
 }
 
+/* r134: the game mode is a SERVER property. On a dedicated host a client's own
+ * teamplay/deathmatch cvars are just its local config (0/1), which is why the
+ * leaderboard fell back to a flat list and the radar dropped teammate blips in
+ * online matches. Prefer the keys the server publishes in serverinfo; fall back
+ * to the local cvars for LAN listen servers and servers that do not send them. */
+static float CL_ServerInfoFloat (const char *key, float fallback)
+{
+	char buf[16];
+
+	if (cl.serverinfo[0])
+	{
+		buf[0] = 0;
+		Info_GetKey (cl.serverinfo, key, buf, sizeof (buf));
+		if (buf[0])
+			return (float) atof (buf);
+	}
+	return fallback;
+}
+
+/* r182: the match limits belong to the SERVER too. fraglimit/timelimit are
+ * CVAR_SERVERINFO on the host (host.c:77-79), so they already ride in the
+ * serverinfo string every client receives -- but the mini scoreboard read the
+ * client's OWN cvars, which are just its config values (usually 0). That is
+ * why it never showed a target and the clock only counted down when the
+ * client happened to have the same timelimit saved locally. */
+float CL_ServerFraglimit (void)
+{
+	return CL_ServerInfoFloat ("fraglimit", fraglimit.value);
+}
+
+float CL_ServerTimelimit (void)
+{
+	return CL_ServerInfoFloat ("timelimit", timelimit.value);
+}
+
+float CL_ServerTeamlimit (void)
+{
+	return CL_ServerInfoFloat ("teamlimit", teamlimit.value);
+}
+
+float CL_ServerTeamplay (void)
+{
+	return CL_ServerInfoFloat ("teamplay", teamplay.value);
+}
+
+float CL_ServerDeathmatch (void)
+{
+	return CL_ServerInfoFloat ("deathmatch", deathmatch.value);
+}
+
 static void CL_ServerExtension_FullServerinfo_f(void)
 {
 	const char *newserverinfo = Cmd_Argv(1);
@@ -1468,6 +1584,25 @@ static void SV_DecodeUserInfo(client_t *client)
 	bot = atoi(tmp)&15;
 	if (bot > 13)
 		bot = 13;
+	/* r192: while teamplay is on, the team decides the colour -- not whatever
+	 * topcolor/bottomcolor the player's own config happens to hold. Solitude's
+	 * QuakeC assigns .team (5 = red, 14 = blue) and this decoder used to derive
+	 * .team FROM the colour, so a player whose userinfo arrived after QC's
+	 * `color` stuffcmd kept his profile colour while .team already said blue:
+	 * the scoreboard showed him as a third team, alone and green. Forcing the
+	 * colour here (and writing it back into the userinfo, so the broadcast
+	 * carries the forced value) makes colour a pure function of team. */
+	if (teamplay.value && ((int)client->edict->v.team == 5 || (int)client->edict->v.team == 14))
+	{
+		char num[8];
+		bot = (int)client->edict->v.team - 1;	// 5 -> 4 (red), 14 -> 13 (blue)
+		top = bot;
+		snprintf (num, sizeof (num), "%i", top);
+		Info_SetKey (client->userinfo, sizeof (client->userinfo), "topcolor", num);
+		snprintf (num, sizeof (num), "%i", bot);
+		Info_SetKey (client->userinfo, sizeof (client->userinfo), "bottomcolor", num);
+	}
+
 	//update their entity
 	client->edict->v.team = bot+1;
 	client->colors = (top<<4) | bot;
@@ -1627,6 +1762,7 @@ void CL_Init (void)
 
 	Cmd_AddCommand ("entities", CL_PrintEntities_f);
 	Cmd_AddCommand ("disconnect", CL_Disconnect_f);
+	Cmd_AddCommand ("announce", CL_Announce_f);	/* r181: deferred announcer */
     Cmd_AddCommand ("disconnect_m", CL_Disconnect_Multi_f);
     Cmd_AddCommand ("disconnect_f", CL_Disconnect_Firefight_f);
 	Cmd_AddCommand ("record", CL_Record_f);

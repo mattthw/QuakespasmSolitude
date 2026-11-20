@@ -38,6 +38,11 @@ void SCR_CenterPrint (const char *str);
 
 void SCR_BeginLoadingPlaque (void);
 void SCR_EndLoadingPlaque (void);
+/* r164: loading art for blocking wait loops (network connect) that keep
+ * pumping SCR_UpdateScreen -- unlike BeginLoadingPlaque this does NOT disable
+ * screen updates, so a failed connect can hand the screen back to the menu. */
+void SCR_ShowLoadingScreen (void);
+void SCR_HideLoadingScreen (void);
 
 int SCR_ModalMessage (const char *text, float timeout); //johnfitz -- added timeout
 
