@@ -21,6 +21,17 @@ void () NeedlerHome;
 #define GRENADE_STICKY		1
 
 .float weaponheat;
+// r200: Halo 3 plasma state machine (user spec 2026-11-19).
+// Battery is a 0..1 pool: 400 shots at 0.0025 each, never replenished.
+// Heat is a separate 0..1 pool that cools every frame; at 1.0 the gun
+// vents and refuses to fire until it is back to 0.0.
+.float bat_pp, bat_pr;
+.float heat_pp, heat_pr;
+.float over_pp, over_pr;
+.float charge_pp;
+.float pp_held;
+	// r205: plasma-pistol trigger edge latch (fires on press)
+.float pheat_time;
 
 .entity pp_cooldown;
 

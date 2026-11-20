@@ -88,6 +88,11 @@ void() Setup_Gametype = {
                 Set_Zoom( 0 );
                 //self.reset = 1.00;
                 self.weaponheat = 0;
+                self.bat_pp = 1; self.bat_pr = 1;
+                self.heat_pp = 0; self.heat_pr = 0;
+                self.over_pp = 0; self.over_pr = 0;
+                self.charge_pp = 0; self.pheat_time = 0;
+                self.pp_held = 0;
                 stuffcmd(self, "chase_active 0\n");
                 NadeCounter(self);
             }
@@ -143,6 +148,11 @@ void() Setup_Gametype = {
                 Set_Zoom( 0 );
                 //self.reset = 1.00;
                 self.weaponheat = 0;
+                self.bat_pp = 1; self.bat_pr = 1;
+                self.heat_pp = 0; self.heat_pr = 0;
+                self.over_pp = 0; self.over_pr = 0;
+                self.charge_pp = 0; self.pheat_time = 0;
+                self.pp_held = 0;
                 stuffcmd(self, "chase_active 0\n");
                 NadeCounter(self);
             }
@@ -200,6 +210,11 @@ void() Setup_Gametype = {
                 Set_Zoom( 0 );
                 //self.reset = 1.00;
                 self.weaponheat = 0;
+                self.bat_pp = 1; self.bat_pr = 1;
+                self.heat_pp = 0; self.heat_pr = 0;
+                self.over_pp = 0; self.over_pr = 0;
+                self.charge_pp = 0; self.pheat_time = 0;
+                self.pp_held = 0;
                 stuffcmd(self, "chase_active 0\n");
                 self.nade_lives = 0;
                 self.plasma_lives = 0;

@@ -213,7 +213,10 @@ muzzle.think = muzzleflash_think1;
 muzzle.nextthink = time + 0.01;
 };
 void() muzzleflash_think2 = {
-self.frame = self.frame + 1;
+/* r128: pistolmuzzleflash.spr has a single frame, so the old
+ * `self.frame = self.frame + 1` asked the renderer for frame 1 of a
+ * one-frame sprite -- it logged "no such frame" and drew frame 0 anyway.
+ * The bump was doing nothing; just expire the flash. */
 self.think = SUB_Remove;
 self.nextthink = time + 0.02;
 };
@@ -334,8 +337,9 @@ void(entity ent) W_UpdateAmmoCounts =
 			ent.armorvalue = ent.exsniper;
 			break;
 		case WEAPON_PPISTOL:
-			ent.currentammo = ent.ammo_ppistol;
-			ent.armorvalue = ent.exppistol;
+			// r200: no magazine. STAT_AMMO carries battery %, STAT_ARMOR heat %.
+			ent.currentammo = ent.bat_pp * 100;
+			ent.armorvalue = ent.heat_pp * 100;
 			break;
 		case WEAPON_SWORD:
 			ent.currentammo = ent.ammo_sword;
@@ -346,8 +350,8 @@ void(entity ent) W_UpdateAmmoCounts =
 			ent.armorvalue = ent.exneedler;
 			break;
 		case WEAPON_PRIFLE:
-			ent.currentammo = ent.ammo_prifle;
-			ent.armorvalue = ent.exprifle;
+			ent.currentammo = ent.bat_pr * 100;
+			ent.armorvalue = ent.heat_pr * 100;
 			break;
 		default:
 			ent.currentammo = 12;
@@ -524,8 +528,10 @@ float (entity ent) W_CanFire =
 				return FALSE;
 			break;
 		case WEAPON_PPISTOL:
-			if (ent.ammo_ppistol <= 0)
-				return FALSE;
+			// r205: the battery is the ammo. ammo_ppistol is a leftover clip
+			// counter that nothing refills any more, so a single stale zero
+			// used to make the gun silent forever.
+			return TRUE;
 			break;
 		case WEAPON_SWORD:
 			if (ent.ammo_sword <= 0)
@@ -536,8 +542,8 @@ float (entity ent) W_CanFire =
 				return FALSE;
 			break;
 		case WEAPON_PRIFLE:
-			if (ent.ammo_prifle <= 0)
-				return FALSE;
+			// r205: battery-gated, same as the pistol
+			return TRUE;
 			break;
 		default:
 			return TRUE;
@@ -982,6 +988,66 @@ void() W_FireSkull =
 	FireBullets (1, dir, '0 0 0', MOD_SOLITUDE);
 };
 
+// r200: plasma state machine, one call per frame BEFORE the attack_finished
+// early-out, because heat has to keep cooling while the weapon is idle.
+void() Plasma_Tick =
+{
+	local float dt;
+
+	if (self.health <= 0)
+		return;
+	if (self.pheat_time == 0)
+	{
+		self.pheat_time = time;
+		self.bat_pp = 1; self.bat_pr = 1;
+		self.heat_pp = 0; self.heat_pr = 0;
+		self.over_pp = 0; self.over_pr = 0;
+		self.charge_pp = 0;
+		return;
+	}
+	dt = time - self.pheat_time;
+	self.pheat_time = time;
+	if (dt < 0) dt = 0;
+	if (dt > 0.1) dt = 0.1;
+
+	// cooling only while that gun is not being fired, or while it vents
+	if (self.over_pp || self.weapon != WEAPON_PPISTOL || !self.button0)
+		self.heat_pp = self.heat_pp - 0.45 * dt;
+	if (self.over_pr || self.weapon != WEAPON_PRIFLE || !self.button0)
+		self.heat_pr = self.heat_pr - 0.40 * dt;
+	if (self.heat_pp < 0) self.heat_pp = 0;
+	if (self.heat_pr < 0) self.heat_pr = 0;
+	if (self.over_pp && self.heat_pp <= 0)
+	{
+		self.over_pp = 0;
+		self.weaponframe = 0;   // r207: vent pose is over, back to idle
+		self.wepanim = 0;
+	}
+	if (self.over_pr && self.heat_pr <= 0) self.over_pr = 0;
+
+	// r204: switching away while the trigger is held used to leave charge_pp
+	// stuck above zero, and the release path in W_WeaponFrame then called
+	// W_Attack() on EVERY frame -- the new gun fired hundreds of times a
+	// second. The charge belongs to the pistol only; drop it otherwise.
+	if (self.weapon != WEAPON_PPISTOL)
+	{
+		self.charge_pp = 0;
+		self.pp_held = 0;
+	}
+
+	// plasma pistol charge: one second to full, then it burns battery
+	if (self.weapon == WEAPON_PPISTOL && self.button0 && !self.over_pp)
+	{
+		self.charge_pp = self.charge_pp + dt;
+		if (self.charge_pp > 1.0)
+		{
+			self.charge_pp = 1.0;
+			self.bat_pp = self.bat_pp - 0.03 * dt;
+			if (self.bat_pp < 0) self.bat_pp = 0;
+		}
+	}
+};
+
 void () Cooldown_Think =
 {
 	local entity oself;
@@ -991,18 +1057,7 @@ void () Cooldown_Think =
 		remove(self);
 		return;
 	}
-	if (self.owner.items & WEAPON_PPISTOL) {
-		if (self.owner.exppistol > 0) {
-			self.owner.exppistol -= 1;
-			W_UpdateAmmoCounts(self.owner);
-		}
-	}
-	if (self.owner.items & WEAPON_PRIFLE) {
-		if (self.owner.exprifle > 0) {
-			self.owner.exprifle -= 1;
-			W_UpdateAmmoCounts(self.owner);
-		}
-	}
+	// r200: battery weapons do not regenerate; cooling lives in Plasma_Tick
 	
 	self.nextthink = time + .05;
 };
@@ -1100,7 +1155,6 @@ void( float w_heat ) W_FirePPistol =
 {
 	local entity plasma;
 	local float ptake;
-	local vector dir;
 	muzzleflash4();
 	sound (self, CHAN_WEAPON, "weapons/ppist.wav", 1, ATTN_NORM); 
 
@@ -1117,13 +1171,15 @@ void( float w_heat ) W_FirePPistol =
 	else
 		ptake = 6;
 		
-	self.ammo_ppistol -= ptake;
-	if (self.ammo_ppistol < 0)
-		self.ammo_ppistol = 0;
+	// r200: 0.25% of the battery and a fixed slug of heat per bolt
+	self.bat_pp = self.bat_pp - 0.0025;
+	if (self.bat_pp < 0) self.bat_pp = 0;
+	self.heat_pp = self.heat_pp + 0.05;
+	if (self.heat_pp >= 1.0) { self.heat_pp = 1.0; self.over_pp = 1; }
 	W_UpdateAmmoCounts(self);
 
 	plasma = spawn ();
-	plasma.health = ptake;
+	plasma.health = 0.7;		// r200: 7.0 damage per bolt
 	plasma.owner = self;
 	plasma.movetype = 9;
 	plasma.solid = 2;
@@ -1150,14 +1206,53 @@ void( float w_heat ) W_FirePPistol =
 	
 	setsize (plasma, '0 0 0', '0 0 0');
 	setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));  //setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));
-	FireBullets(1, dir, '0.01 0.01 0', MOD_SOLITUDE);
+	// r205: this was a zero-vector hitscan left over from a copy-paste --
+	// it fired a phantom bullet along '0 0 0' on every plasma bolt.
 	if (ptake > 5)
 		ptake = 10;
 	
-	W_AddHeat ( self.weapon, ptake * 10);
+	// r200: heat accounted for above
 	
 };
 
+
+
+// r200: released overcharge - 10% battery, gun goes straight to a vent lock.
+// 40 * 10 in Plasma_Diffuse = 400 damage, which one-shots a 130 hp player.
+void() W_FirePPCharge =
+{
+	local entity plasma;
+
+	sound (self, CHAN_WEAPON, "weapons/ppist.wav", 1, ATTN_NORM);
+	VK_smallkick(self);
+
+	self.bat_pp = self.bat_pp - 0.10;
+	if (self.bat_pp < 0) self.bat_pp = 0;
+	self.heat_pp = 1.0;
+	self.over_pp = 1;
+	W_UpdateAmmoCounts(self);
+
+	plasma = spawn ();
+	plasma.health = 40;
+	plasma.owner = self;
+	plasma.movetype = 9;
+	plasma.solid = 2;
+	plasma.effects = EF_FLAG4;
+	plasma.classname = "missile";
+	makevectors (self.v_angle);
+	if (self.classname != "player")
+		plasma.velocity = normalize(self.enemy.origin - self.origin) * 2000;
+	else
+		plasma.velocity = v_forward * 3000;
+	plasma.angles = vectoangles(plasma.velocity);
+	plasma.touch = Plasma_Diffuse;
+	plasma.nextthink = (time + 5);
+	plasma.think = Plasma_Diffuse;
+	setmodel (plasma, "progs/plasma.mdl");
+	setsize (plasma, '0 0 0', '0 0 0');
+	setorigin (plasma, ((self.origin + (v_forward * 8)) + '0 0 16'));
+	W_FireGlow();
+};
 
 void () W_FirePlasmaRifle = {
     local entity plasma;
@@ -1170,9 +1265,11 @@ void () W_FirePlasmaRifle = {
 
     VK_smallkick(self);
 
-    self.ammo_prifle -= 1;
-    //if (self.ammo_prifle < 0)
-    //self.ammo_prifle = 0;
+    // r200: 0.25% battery and a fixed slug of heat per bolt
+    self.bat_pr = self.bat_pr - 0.0025;
+    if (self.bat_pr < 0) self.bat_pr = 0;
+    self.heat_pr = self.heat_pr + 0.045;
+    if (self.heat_pr >= 1.0) { self.heat_pr = 1.0; self.over_pr = 1; }
     W_UpdateAmmoCounts(self);
 
     plasma = spawn ();
@@ -1181,7 +1278,7 @@ void () W_FirePlasmaRifle = {
      * Gets multiplied *10 = 14.5 in Plasma_Diffuse(). If player has under 50 health it does
      * x*10*0.25 = 3.5
      */
-    plasma.health = 1.45;
+    plasma.health = 1.0;	// r200: 10.0 damage per bolt
     plasma.owner = self;
     plasma.movetype = 9;
     plasma.solid = 2;
@@ -1206,7 +1303,7 @@ void () W_FirePlasmaRifle = {
 
     //W_StickyNadeLauncher();
 
-    W_AddHeat ( self.weapon, 8);
+    // r200: heat accounted for above
             //self.weaponheat++;
 };
 
@@ -1707,8 +1804,12 @@ void() W_FireRocket =
 // set missile speed	
 
 	makevectors (self.v_angle);
-	missile.velocity = aim(self, 1000);
-	missile.velocity = missile.velocity * 1000;
+	/* r172 (user: "the rocket ignores my aiming"): aim() is the engine's
+	 * auto-aim. It snaps to any entity inside the sv_aim cone and then
+	 * flattens the pitch onto the target's raw z delta, so a 15-degree
+	 * downward shot flies level at a distant bot. Projectiles fire exactly
+	 * where the player looks; hitscan keeps the assist. */
+	missile.velocity = v_forward * 1000;
 	missile.angles = vectoangles(missile.velocity);
 	
 	missile.touch = Rocket_Explode0;
@@ -2082,10 +2183,13 @@ void(float ox) W_FireSpikes =
 	}
 
 	VK_smallkick(self);
+	/* r172: same as the rocket -- exact aim for projectiles. v_forward is
+	 * set here because this function may not be preceded by makevectors. */
+	makevectors (self.v_angle);
 	PRJ_FireProjectile(self,
 		"progs/spike.mdl",
 		self.origin + '0 0 16' + v_right*ox,
-		aim(self, 1000) * 1000,
+		v_forward * 1000,
 		PE_SPIKE,
 		9,
 		MOD_SPIKE,
@@ -2109,10 +2213,12 @@ void() W_FireSuperSpikes22 =
 	}
 
 	VK_smallkick(self);
+	/* r172: exact aim, see the rocket comment. */
+	makevectors (self.v_angle);
 	PRJ_FireProjectile(self,
 		"progs/s_spike.mdl",
 		self.origin + '0 0 16',
-		aim(self, 1000) * 1000,
+		v_forward * 1000,
 		PE_SUPERSPIKE,
 		18,
 		MOD_SUPERSPIKE,
@@ -2411,49 +2517,51 @@ void() W_Attack =
 		//player_rocket1();
 		break;
 	case WEAPON_PPISTOL:
-		heat_multi = 1;
-
-		i = 0;
-		while (i < 8) {
-			i++;
-			if (self.weaponheat < i*heat_multi) {
-				self.weaponframe = 4 + i;
-				break;
-			}
+		// r200: semi-auto battery weapon.
+		// r206: Halo trigger model. Holding the trigger does NOT fire -- it
+		// charges. The shot comes on the RELEASE: a short hold snaps off one
+		// bolt, a hold past a second fires the overcharge and vents the gun.
+		// pp_held is the "the trigger was actually down" latch, so an idle
+		// frame with a leftover charge can never fire by itself.
+		r = 0.15;
+		if (self.over_pp || self.bat_pp <= 0.0)
+		{
+			self.charge_pp = 0;
+			self.pp_held = 0;
+			self.weaponframe = 0;
+			self.wepanim = 0;
+			break;
 		}
-		
-		self.weaponheat++;
-		if (i >= 8) {
+		if (self.button0)
+		{
+			self.pp_held = 1;
+			// r207: the gun itself shows the charge. v_plpist.mdl frames
+			// 5..13 are the emitter glow ramp (that is what the pre-r200
+			// weaponheat ramp drove); 4 + 1..8 lands on exactly those.
+			self.weaponframe = 5 + floor (self.charge_pp * 8);
 			if (self.weaponframe > 13)
-				self.weaponframe = 12;
-			else
-				self.weaponframe++;
-		}
-
-		if (self.weaponheat > 14)
-			self.weaponheat = 15;
-		if (!self.button0 || self.weaponheat > 15) {
-			muzzleflash();
-			W_FirePPistol ( self.weaponheat );
-			self.weaponheat = 0;
-			self.weaponframe_time = time + 0.1;
-
-			if (self.exppistol >= 100) {
-				self.wepanim = 0;
-				self.exppistol = 99;
-				W_UpdateAmmoCounts(self);
-				self.weaponframe = 16;
-				player_reload1();
-                sound (self, CHAN_AUTO, "weapons/reload/overheat.wav", 1, ATTN_NORM);
-			}
-			else {
-				self.weaponframe = 1;
-				self.wepanim = 1;
-			}
-		}
-		else
+				self.weaponframe = 13;
 			self.weaponframe_time = time + 0.2;
-			
+		}
+		else if (self.pp_held)
+		{
+			self.pp_held = 0;
+			if (self.charge_pp >= 1.0)
+			{
+				W_FirePPCharge();
+				self.weaponframe = 16;  // r207: vent pose, cleared when over_pp ends
+				r = 0.6;
+			}
+			else
+			{
+				W_FirePPistol(1);
+				self.weaponframe = 1;   // 0..3 is the firing animation
+			}
+			self.wepanim = 1;
+			muzzleflash();
+			self.charge_pp = 0;
+			self.weaponframe_time = time + 0.1;
+		}
 		break;
 	case WEAPON_SWORD:
 		// See if we should perform a lunge
@@ -2606,16 +2714,15 @@ void() W_Attack =
 			r = 0.17;
 		break;
 	case WEAPON_PRIFLE:
+		// r200: 6.0 -> 9.0 rounds per second as the gun heats up
+		if (self.over_pr || self.bat_pr <= 0.0)
+		{
+			self.weaponframe = 0;
+			self.wepanim = 0;
+			break;
+		}
 		W_FirePlasmaRifle();
-        /*
-         * Who coded this? This is not how PR works lol. Settings all to 0.17 -mattthw
-         */
-		if (self.prifle_heat > 8)
-			r = 0.17; //0.4
-		else if (self.prifle_heat > 3)
-			r = 0.17;//0.25
-		else
-			r = 0.17;//0.2
+		r = 1.0 / (6.0 + 3.0 * self.heat_pr);
 		break;
 	}
 
@@ -3316,6 +3423,9 @@ void() W_WeaponFrame =
 	local INTEGER scount;
 
 	W_HandlePlayerFrame();
+	Plasma_Tick();
+	W_UpdateAmmoCounts(self);	// r201: battery/heat live on the HUD even when
+								// the gun is not firing (spawn, switch, cooling)
 	CheckMeleeRange ();	// r112b: lb-melee swap/prompt state, fresh before ImpulseCommands
 
 	if ((self.health < self.ohealth))
@@ -3354,7 +3464,10 @@ void() W_WeaponFrame =
 	}
 	else
 	{
-		if (self.weaponheat > 0) {
+		// r204: only the plasma pistol has a release-to-fire step; without
+		// this gate a stale charge turned every weapon into a machine gun.
+		if (self.weapon == WEAPON_PPISTOL
+		    && (self.pp_held || self.charge_pp > 0)) {
 			W_Attack();
 		}
 		if (self.needler_heat > 0)

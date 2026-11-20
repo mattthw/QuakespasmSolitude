@@ -550,11 +550,11 @@ void () player_reload1 = [ 0, player_reload1 ]
 			player_sniper_reload ();
 			break;
 		case WEAPON_PPISTOL:
-			player_ppistol_reload ();
+		case WEAPON_PRIFLE:
+			// r200: battery weapons have nothing to reload
+			player_run ();
+			return;
 			break;
-        case WEAPON_PRIFLE:
-            player_prifle_reload ();
-            break;
 		case WEAPON_NEEDLER:
 			player_needler_reload ();
 			break;
