@@ -140,6 +140,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 //#define STAT_MATCHSTARTTIME 18
 //#define STAT_VIEW2		20
 #define STAT_VIEWZOOM		21 // DP
+#define STAT_CHARGE			22 // r202: plasma pistol charge 0..1 (was STAT_UNUSED3)
 //#define STAT_UNUSED3		22 
 //#define STAT_UNUSED2		23 
 //#define STAT_UNUSED1		24

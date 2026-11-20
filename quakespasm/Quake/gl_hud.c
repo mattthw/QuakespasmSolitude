@@ -269,6 +269,7 @@ cvar_t hud_crosshair = {"hud_crosshair", "1"};	//r63 issue #39: dynamic Halo tic
 cvar_t cl_overlay = {"cl_overlay", "0"};
 cvar_t hide_hud = {"hide_hud", "0", CVAR_ARCHIVE};	// graphics tab: hides the HUD overlay
 cvar_t hud_fps = {"hud_fps", "0", CVAR_ARCHIVE};	// graphics tab: minimal fps chip, no chart panel
+cvar_t hud_modecard = {"hud_modecard", "1", CVAR_ARCHIVE};	//r185: match-start gamemode/objective card
 //
 ////Weapon Icons
 //qpic_t		*AR;
@@ -401,6 +402,7 @@ void HUD_Init (void) {
     Cvar_RegisterVariable (&cl_overlay);
     Cvar_RegisterVariable (&hide_hud);
     Cvar_RegisterVariable (&hud_fps);
+    Cvar_RegisterVariable (&hud_modecard);	//r185
     Cvar_RegisterVariable (&visor_warp);	//visor: HUD barrel warp (issue #40)
     Cvar_RegisterVariable (&visor_zoom);	//visor: corner counter-zoom
     Cvar_RegisterVariable (&lb_melee);		//r112: LB melee swap + hint
@@ -641,7 +643,7 @@ static void HUD_ScanTargets (void)
         hud_plate[hud_plate_n].sy = fy;
         hud_plate[hud_plate_n].factor = (glwidth * 0.5f) / (fwdamt * tanx);
         hud_plate[hud_plate_n].dist = fwdamt;
-        hud_plate[hud_plate_n].teammate = (teamplay.value != 0 && (int)sc->colors == me_colors);
+        hud_plate[hud_plate_n].teammate = (CL_ServerTeamplay () != 0 && (int)sc->colors == me_colors);
         hud_plate[hud_plate_n].occluded = false;
         hud_plate[hud_plate_n].name = sc->name;
         hud_plate_n++;
@@ -830,26 +832,208 @@ void drawPickupWeapon(void) {
     Draw_TTFString((int)textx, glheight*0.33 - 8*s, prompt, 127/255.0, 191/255.0, 255/255.0, 0.7f, 18.4f*s);
 }
 
+/* r185 (user): show the other weapon you are carrying under the primary name,
+ * the way the grenade widget already shows its alternate. There is no stat
+ * for "the secondary" -- STAT_ACTIVEWEAPON is whichever one is held -- so walk
+ * a priority list of owned bits and skip the active one. */
+static int HUD_SecondaryWeapon (void)
+{
+    static const int prio[] = {
+        IT_ROCKET_LAUNCHER, IT_GRENADE_LAUNCHER, IT_SUPER_LIGHTNING,
+        IT_LIGHTNING, IT_SUPER_SHOTGUN, IT_SUPER_NAILGUN,
+        IT_EXTRA_WEAPON2, IT_NAILGUN, IT_SHOTGUN
+    };
+    int items = (int)cl.stats[STAT_ITEMS];
+    int active = (int)cl.stats[STAT_ACTIVEWEAPON];
+    int i;
+
+    for (i = 0; i < (int)(sizeof(prio)/sizeof(prio[0])); i++)
+        if ((items & prio[i]) && prio[i] != active)
+            return prio[i];
+    return 0;
+}
+
+/* r198 (user): the weapon module, laid out like the Halo original --
+ *
+ *   [reserve][ | ][primary weapon]
+ *   [rounds in the gun, as pips / plasma draws an energy bar]
+ *   [secondary weapon, faded]
+ *
+ * The client never receives the clip size, only the live round count, so the
+ * magazine is mirrored from W_GetMaxClip(w, 1) in weapons.qc. */
+static int HUD_WeaponClip (int w)
+{
+    switch (w)
+    {
+        case IT_SHOTGUN:          return 12;   /* Pistol         */
+        case IT_SUPER_SHOTGUN:    return 6;    /* Shotgun        */
+        case IT_NAILGUN:          return 32;   /* Assault Rifle  */
+        case IT_SUPER_NAILGUN:    return 60;   /* SMG            */
+        case IT_LIGHTNING:        return 100;  /* Plasma Pistol  */
+        case IT_EXTRA_WEAPON2:    return 100;  /* Plasma Rifle   */
+        case IT_ROCKET_LAUNCHER:  return 2;    /* Rocket Launcher*/
+        case IT_GRENADE_LAUNCHER: return 4;    /* Sniper         */
+        case IT_SUPER_LIGHTNING:  return 20;   /* Needler        */
+        default:                  return 0;    /* sword / fists  */
+    }
+}
+
+/* Energy weapons read as a draining bar, not as a row of bullets. */
+static qboolean HUD_WeaponPlasma (int w)
+{
+    return (w == IT_LIGHTNING || w == IT_EXTRA_WEAPON2);
+}
+
 void drawWeapon(void) {
     char primary[30];
-    char rounds[10];
-    char ammo[10];
+    char num[10];
     float s = HUD_SCALE();
-    float edgeR, tw;
-    HUD_itoa((int)cl.stats[STAT_AMMO], rounds);
-    HUD_itoa((int)cl.stats[STAT_ARMOR], ammo);
-    strcpy(primary, getWeaponName((int)cl.stats[STAT_ACTIVEWEAPON]));
+    float edgeR, tw, nw, y0, y1, chg;
+    float pitch, pipw, piph, rowp;   /* r209: magazine pip grid */
+    int active, rounds, reserve, clip, rows, perrow, k, i;
+
+    active  = (int)cl.stats[STAT_ACTIVEWEAPON];
+    rounds  = (int)cl.stats[STAT_AMMO];   /* rounds left in the gun       */
+    reserve = (int)cl.stats[STAT_ARMOR];  /* reserve pool (armorvalue is
+                                           * repurposed as spare ammo)    */
+    chg     = cl.stats[STAT_CHARGE] * 0.01f; /* r208: server sends 0..100
+                                              * (cl.stats is integral) */
+    strcpy(primary, getWeaponName(active));
+
     /* r19: nudged right (0.70/0.77 -> 0.72/0.79) per user 2026-11-12;
      * r104: whole block closer to the right edge (0.804 -> 0.85) and the
      * ammo rows lowered 0.19 -> 0.165 toward the weapon name (user 2026-11-16)
      * r111 (user): title is RIGHT-justified on the same edge as the
      * rightmost ammo count (reserve at 0.899 + its measured width). */
-    edgeR = glwidth*0.899 + Draw_TTFWidth (ammo, 12.75f*s);
+    /* r200: the battery guns have no reserve -- STAT_AMMO is the battery
+     * percentage and STAT_ARMOR the heat load, so show the battery up top. */
+    if (HUD_WeaponPlasma (active))
+        HUD_itoa (rounds, num);
+    else
+        HUD_itoa (reserve, num);
+    edgeR = glwidth*0.899 + Draw_TTFWidth (num, 18.7f*s);
+    y0 = glheight*0.10;
+    y1 = y0 + 10.0f*s;   /* r203: the user confirmed the gap was between the
+                         * NAME ROW and the AMMO READOUT. The name's ink bottom
+                         * lands ~12px below y0 at 720p, so 10*s leaves only a
+                         * few px of clearance instead of a blank band. */
+
+    /* row 1: reserve count, then the weapon name -- number on the LEFT,
+     * both right-aligned so the name always ends on the module edge.
+     * r199: the two are the same size and the same y, so there is nothing
+     * to misalign -- a smaller number offset from a bigger name read as a
+     * step between them. */
     tw = Draw_TTFWidth (primary, 18.7f*s);
-    Draw_TTFString(edgeR - tw, glheight*0.10, primary, 127/255.0, 191/255.0, 255/255.0,1, 18.7f*s);
-    if (strcmp(primary, "Energy Sword") != 0 /* 0 means equal*/) { // dont draw ammo for energy sword
-        Draw_TTFString(glwidth*0.85, glheight*0.165 - 8*HUD_SCALE(), rounds, 171/255.0, 231/255.0, 255/255.0,1, 16.15f*HUD_SCALE());
-        Draw_TTFString(glwidth*0.899, glheight*0.165 - 8*HUD_SCALE(), ammo, 171/255.0, 231/255.0, 255/255.0,1, 12.75f*HUD_SCALE());
+    nw = Draw_TTFWidth (num, 18.7f*s);
+    Draw_TTFString (edgeR - tw, y0, primary, 127/255.0, 191/255.0, 255/255.0,1, 18.7f*s);
+    Draw_TTFString (edgeR - tw - 3.0f*s - nw, y0, num, 171/255.0, 231/255.0, 255/255.0, 1, 18.7f*s);
+
+    /* row 2: rounds in the gun */
+    clip = HUD_WeaponClip (active);
+    if (clip > 0)
+    {
+        if (HUD_WeaponPlasma (active))
+        {
+            float bw = 96.0f*s, bh = 7.0f*s, frac;   /* r201: matches the width of a
+                                                      * 16-pip row (16*6*s) instead of
+                                                      * running far past the text */
+
+            frac = (float)rounds / (float)clip;
+            if (frac < 0.0f) frac = 0.0f;
+            else if (frac > 1.0f) frac = 1.0f;
+            HUD_WarpFill (edgeR - bw, y1, bw, bh, 0.22f, 0.30f, 0.44f, 0.45f);
+            HUD_WarpFill (edgeR - bw, y1, bw*frac, bh, 0.42f, 0.75f, 1.00f, 0.85f);
+            /* r210: ONE meter. Charging and venting are mutually exclusive
+             * states, so a heat strip and a separate charge strip were two
+             * bars fighting for the same slot. Whichever is larger owns it:
+             * white while the gun winds up, red once it is hot enough to vent. */
+            {
+                float hf = (float)reserve / 100.0f;
+                float cf = chg;
+                float my = y1 + bh + 1.5f*s;
+
+                if (hf < 0.0f) hf = 0.0f;
+                else if (hf > 1.0f) hf = 1.0f;
+                if (cf < 0.0f) cf = 0.0f;
+                else if (cf > 1.0f) cf = 1.0f;
+
+                HUD_WarpFill (edgeR - bw, my, bw, 3.0f*s, 0.20f, 0.26f, 0.36f, 0.45f);
+                if (active == IT_LIGHTNING && cf > hf)
+                {
+                    HUD_WarpFill (edgeR - bw, my, bw*cf, 3.0f*s,
+                                  0.95f, 1.00f, 1.00f, 0.95f);
+                }
+                else if (hf > 0.0f)
+                {
+                    HUD_WarpFill (edgeR - bw, my, bw*hf, 3.0f*s,
+                                  1.00f, 0.55f - 0.40f*hf, 0.12f, 0.90f);
+                }
+            }
+            y1 += bh + 6.0f*s;
+        }
+        else
+        {
+            /* r209: ALWAYS show the true magazine. One row up to 16, two up
+             * to 32, three beyond that (the SMG's 60), with the pip pitch and
+             * height shrinking so a 60-round drum still fits the module
+             * instead of being silently truncated at 32. */
+            if (clip <= 16)      { rows = 1; perrow = clip; }
+            else if (clip <= 32) { rows = 2; perrow = (clip + 1) / 2; }
+            else                 { rows = 3; perrow = (clip + 2) / 3; }
+
+            pitch = 96.0f*s / (float)perrow;    /* never wider than the battery bar */
+            if (pitch > 6.0f*s) pitch = 6.0f*s;
+            pipw = pitch * 0.55f;
+            piph = (rows > 2) ? 6.0f*s : 8.0f*s;
+            rowp = piph + 3.0f*s;
+
+            for (k = 0; k < rows; k++)
+            {
+                int first = k * perrow;
+                int n = clip - first;
+                float total;
+
+                if (n <= 0) break;
+                if (n > perrow) n = perrow;
+                total = n*pitch - (pitch - pipw);
+                for (i = 0; i < n; i++)
+                {
+                    float px = edgeR - total + i*pitch;
+                    if (first + i < rounds)
+                    {
+                        HUD_WarpFill (px, y1 + piph*0.2f, pipw, piph, 0.72f, 0.85f, 1.00f, 0.95f);
+                        HUD_WarpFill (px + pipw*0.25f, y1, pipw*0.5f, piph*0.2f, 0.72f, 0.85f, 1.00f, 0.95f);
+                    }
+                    else
+                    {
+                        /* r211 (user): spent rounds are not drawn -- an empty
+                         * slot reads as "fired" well enough, and a grid of
+                         * faint ghosts made the module look busy. The pip
+                         * positions still advance, so the row does not
+                         * reflow as the magazine empties. Kept here in case
+                         * we want the ghost pips back.
+                        HUD_WarpFill (px, y1 + piph*0.2f, pipw, piph, 0.30f, 0.38f, 0.50f, 0.30f);
+                        HUD_WarpFill (px + pipw*0.25f, y1, pipw*0.5f, piph*0.2f, 0.30f, 0.38f, 0.50f, 0.30f);
+                        */
+                    }
+                }
+                y1 += rowp;
+            }
+        }
+    }
+
+    /* row 3: the weapon you would switch to. r204: Draw_TTFString puts the
+     * glyph tops ~0.37*size ABOVE its y, so the old 2*s started the text
+     * inside the last pip row -- the secondary name overlapped the bullets. */
+    {
+        int sec = HUD_SecondaryWeapon ();
+        if (sec)
+        {
+            const char *sn = getWeaponName (sec);
+            float sw = Draw_TTFWidth (sn, 12.0f*s);
+            Draw_TTFString (edgeR - sw, y1 + (clip > 0 ? 7.0f*s : 10.0f*s), sn,
+                            94/255.0, 127/255.0, 140/255.0, 1, 12.0f*s);
+        }
     }
 }
 
@@ -1331,6 +1515,60 @@ extern unsigned int d_8to24table[256];
 void Draw_FillRGBA (int x, int y, int w, int h, float r, float g, float b, float alpha);
 
 
+/* r135 (user): the mini-scorebar bar. A 1px light-blue outline around the box
+ * instead of a tint of the team colour -- drawn as four 1px fills because the
+ * backing is translucent, so one filled border rect would wash the whole box
+ * light blue -- plus a 1px blue marker where the progress fill ends, so the
+ * score reads exactly instead of trailing off into a soft edge. */
+static void HUD_ScoreBox (float x, float y, float w, float h, float frac,
+                          float tr, float tg, float tb,
+                          float fr, float fg, float fb)
+{
+    /* r185 (user): a bevelled edge instead of a uniform frame. The light
+     * comes from the top left, so top and left are the row colour lifted
+     * toward white, and bottom and right are the same colour pulled down
+     * toward black. Uniform 20% alpha read as "jaggy"; a lit/shadowed pair
+     * reads as depth instead of as an outline. */
+    float hr, hg, hb, sr, sg, sb;
+
+    if (frac < 0.0f)
+        frac = 0.0f;
+    else if (frac > 1.0f)
+        frac = 1.0f;
+
+    hr = fr + (1.0f - fr) * 0.55f;
+    hg = fg + (1.0f - fg) * 0.55f;
+    hb = fb + (1.0f - fb) * 0.55f;
+    sr = fr * 0.30f;
+    sg = fg * 0.30f;
+    sb = fb * 0.30f;
+
+    HUD_WarpFill (x - 1, y - 1, w + 2, 1, hr, hg, hb, 0.80f);       /* top    */
+    HUD_WarpFill (x - 1, y + h, w + 2, 1, sr, sg, sb, 0.80f);       /* bottom */
+    HUD_WarpFill (x - 1, y - 1, 1, h + 2, hr, hg, hb, 0.80f);       /* left   */
+    HUD_WarpFill (x + w, y - 1, 1, h + 2, sr, sg, sb, 0.80f);       /* right  */
+
+    HUD_WarpFill (x, y, w, h, tr*0.55f, tg*0.55f, tb*0.55f, 0.55f); /* backing */
+    HUD_WarpFill (x, y, w*frac, h, fr, fg, fb, 0.65f);              /* progress fill */
+    /* r198 (user): the progress marker is the same lit edge as the top and
+     * left borders, not a separate light-blue accent -- a blue tick read as a
+     * third colour in a two-colour bar. */
+    HUD_WarpFill (x + w*frac, y, 1, h, hr, hg, hb, 0.80f);          /* progress marker */
+}
+
+/* r183 (user: "12/25 ... not pretty. just the current count is fine"): the
+ * bar still fills against the SERVER's published limit, but the label is the
+ * bare score again -- one number inside the box reads as a HUD, two read as
+ * a spreadsheet. */
+static void HUD_ScoreText (float x, float y, int score, int limit, float s)
+{
+    char num[16];
+
+    (void) limit;
+    HUD_itoa (score, num);
+    Draw_TTFString ((int) x, (int) y, num, 1, 1, 1, 1, 15.0f*s);
+}
+
 void MiniDeathmatchOverlay (void)
 {
     int				i, k, l;
@@ -1370,32 +1608,59 @@ void MiniDeathmatchOverlay (void)
     }
     // time
     char	str[80];
-    int		minutes, seconds, tens, units, timex;
+    int		minutes, seconds, tens, units, timex, mt, tt, gap;
     {
-        float total = (timelimit.value > 0) ? timelimit.value*60 - cl.time : cl.time;
+        float tl_min = CL_ServerTimelimit ();
+        float total = (tl_min > 0) ? tl_min*60 - cl.time : cl.time;
+        /* r127: the clock runs past the limit while a round is still going, so
+         * it used to go negative. Hold at 0:00 -- the rotation ends the round. */
+        if (total < 0)
+            total = 0;
         minutes = total / 60;
         seconds = total - 60*minutes;
         tens = seconds / 10;
         units = seconds - 10*tens;
         sprintf (str,"%3i:%i%i", minutes, tens, units);
-        timex = SX + (int)(boxw - Draw_TTFWidth(str, 12.0f*HUD_SCALE()));   /* right-aligned, above the rows */
-        Draw_TTFString(timex, glheight*(0.775), str, 171/255.0, 231/255.0, 255/255.0, 1, 16.0f*HUD_SCALE());
+        /* r131: drawn after the mode label, on the SAME line -- see below. */
     }
     // draw game type
     char gametype[20];
-    if (deathmatch.value == DM_SLAYER && teamplay.value == 0) {
+    /* r131: the mode belongs to the SERVER. A client's own deathmatch/teamplay
+     * cvars are just its local config, so a client on a dedicated host drew
+     * "Slayer" over a Team Slayer match; the server publishes the real values
+     * in serverinfo (qcc-src/world.qc StartFrame) and we prefer them here. */
+    int hud_teamplay = (int)CL_ServerTeamplay ();
+    int hud_deathmatch = (int)CL_ServerDeathmatch ();
+    /* r182: the limits as the SERVER set them. The client's own cvars are its
+     * config, so fraglimit/timelimit there are 0 unless saved locally. */
+    int hud_fraglimit = (int)CL_ServerFraglimit ();
+    int hud_teamlimit = (int)CL_ServerTeamlimit ();
+    if (hud_deathmatch == DM_SLAYER && hud_teamplay == 0) {
         strcpy(gametype, "Slayer");
-    } else if (deathmatch.value == DM_SLAYER && teamplay.value == 1) {
+    } else if (hud_deathmatch == DM_SLAYER && hud_teamplay == 1) {
         strcpy(gametype, "Team Slayer");
-    } else if (deathmatch.value == DM_SWAT && teamplay.value == 0) {
+    } else if (hud_deathmatch == DM_SWAT && hud_teamplay == 0) {
         strcpy(gametype, "Swat");
     } else {
         strcpy(gametype, "You Broke My Code");
     }
     Draw_TTFString(SX, glheight*(0.775), gametype, 127/255.0, 191/255.0, 255/255.0, 1, 16.0f*HUD_SCALE());
 
+    /* r131: the clock shares the line with the mode again (r127 had pushed it a
+     * line above, which read as a stray label). Right-align it in the bar width
+     * when it fits beside the mode; otherwise sit it right after the mode, so a
+     * wide mode ("Team Slayer") can never overprint it again. */
+    mt = (int)Draw_TTFWidth(gametype, 16.0f*HUD_SCALE());
+    tt = (int)Draw_TTFWidth(str, 16.0f*HUD_SCALE());
+    gap = (int)(6.0f*HUD_SCALE());
+    if (mt + gap + tt > boxw)
+        timex = SX + mt + gap;
+    else
+        timex = SX + (int)(boxw - tt);
+    Draw_TTFString(timex, glheight*(0.775), str, 171/255.0, 231/255.0, 255/255.0, 1, 16.0f*HUD_SCALE());
+
     // begin draw scores
-    if (teamplay.value) {
+    if (hud_teamplay) {
         TeamSort();
         struct teaminfo teamA;
         struct teaminfo teamB;
@@ -1428,6 +1693,7 @@ void MiniDeathmatchOverlay (void)
         // draw scores. only show two lines
         for (i=0; i < 2 && teamB.color >= 0; i++)
         {
+            int tl = (hud_teamlimit > 0) ? hud_teamlimit : hud_fraglimit;
             // draw background
             bottom = (teamscores[i].color & 15) <<4;
             bottom = ColorForMap (bottom);
@@ -1438,10 +1704,9 @@ void MiniDeathmatchOverlay (void)
                 byte *pc = (byte *)&d_8to24table[bottom];
                 float tr = pc[0]/255.0f, tg = pc[1]/255.0f, tb = pc[2]/255.0f;
                 float fr = tr*0.85f, fg = tg*0.85f, fb = tb*0.85f;   /* r59e: bright fill (user: mini-overlay "bad colors and no alpha") */
-                HUD_WarpFill (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, tr*0.18f, tg*0.18f, tb*0.18f, 0.18f);   /* r61: match LB border */
-                HUD_WarpFill (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), tr*0.55f, tg*0.55f, tb*0.55f, 0.55f);   /* r61: match LB backing */
-                // draw foreground
-                HUD_WarpFill (SX, glheight*(0.8+y), boxw*CLAMP (new_max (teamscores[i].scoreTotal/(teamlimit.value > 0 ? teamlimit.value : (fraglimit.value > 0 ? fraglimit.value : new_max(teamscores[0].scoreTotal, 1.0f))), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), fr, fg, fb, 0.65f);
+                HUD_ScoreBox (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(),
+                              CLAMP (new_max ((float)teamscores[i].scoreTotal/(tl > 0 ? (float)tl : new_max(teamscores[0].scoreTotal, 1.0f)), 0), 0.0f, 1.0f),
+                              tr, tg, tb, fr, fg, fb);
             }
             // draw score
             /* r71: blue caret marks my team's bar (#43 addendum; user ask). */
@@ -1451,8 +1716,8 @@ void MiniDeathmatchOverlay (void)
                                   7.0f*HUD_SCALE(), 10.0f*HUD_SCALE(),
                                   0.45f*0.95f, 0.75f*0.95f, 1.00f*0.95f, 0.95f);
             f = teamscores[i].scoreTotal;
-            HUD_itoa(f, num);
-            Draw_TTFString(SX + 4*HUD_SCALE(), glheight*(0.8+y) + 13.0f*HUD_SCALE(), num, 1, 1, 1, 1, 15.0f*HUD_SCALE());
+            HUD_ScoreText (SX + 4*HUD_SCALE(), glheight*(0.8+y) + 13.0f*HUD_SCALE(),
+                           f, tl, HUD_SCALE());
             y += (22.0f*HUD_SCALE())/glheight;   /* box height + 2px gap in design px */
         }
         /* r67: client-side teamlimit hack removed -- team scores now live
@@ -1495,10 +1760,9 @@ void MiniDeathmatchOverlay (void)
                 byte *pc = (byte *)&d_8to24table[bottom];
                 float tr = pc[0]/255.0f, tg = pc[1]/255.0f, tb = pc[2]/255.0f;
                 float fr = tr*0.85f, fg = tg*0.85f, fb = tb*0.85f;   /* r59e: bright fill (user: mini-overlay "bad colors and no alpha") */
-                HUD_WarpFill (SX-1, glheight*(0.8+y)-1, boxw+2, 2.0*CHARZ*HUD_SCALE()+2, tr*0.18f, tg*0.18f, tb*0.18f, 0.18f);   /* r61: match LB border */
-                HUD_WarpFill (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(), tr*0.55f, tg*0.55f, tb*0.55f, 0.55f);   /* r61: match LB backing */
-                // draw foreground
-                HUD_WarpFill (SX, glheight*(0.8+y), boxw*CLAMP (new_max (f/(fraglimit.value > 0 ? fraglimit.value : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f), 2.0*CHARZ*HUD_SCALE(), fr, fg, fb, 0.65f);
+                HUD_ScoreBox (SX, glheight*(0.8+y), boxw, 2.0*CHARZ*HUD_SCALE(),
+                              CLAMP (new_max ((float)f/(hud_fraglimit > 0 ? (float)hud_fraglimit : new_max(cl.scores[fragsort[0]].frags, 1.0f)), 0), 0.0f, 1.0f),
+                              tr, tg, tb, fr, fg, fb);
             }
             /* r75: blue caret marks MY row in deathmatch too (user). */
             if (k == cl.viewentity - 1)
@@ -1506,7 +1770,8 @@ void MiniDeathmatchOverlay (void)
                                   7.0f*HUD_SCALE(), 10.0f*HUD_SCALE(),
                                   0.45f*0.95f, 0.75f*0.95f, 1.00f*0.95f, 0.95f);
             // draw score
-            Draw_TTFString(SX + 4*HUD_SCALE(), glheight*(0.8+y) + 13.0f*HUD_SCALE(), num, 1, 1, 1, 1, 15.0f*HUD_SCALE());
+            HUD_ScoreText (SX + 4*HUD_SCALE(), glheight*(0.8+y) + 13.0f*HUD_SCALE(),
+                           f, hud_fraglimit, HUD_SCALE());
             y += (22.0f*HUD_SCALE())/glheight;   /* box height + 2px gap in design px */
         }
     }
@@ -1682,7 +1947,7 @@ static void drawRadar (void)
             }
             /* r66d: teammates are always visible via the live pass below -
              * skip them here so they don't double up as fading ping blips */
-            if (teamplay.value != 0 && (int)sc->colors == me_colors)
+            if (CL_ServerTeamplay () != 0 && (int)sc->colors == me_colors)
                 continue;
             radar_blips[n].px = rcx + ox;
             radar_blips[n].py = rcy + oy;
@@ -1711,7 +1976,7 @@ static void drawRadar (void)
     }
 
     /* r66d: allies always visible - live blips every frame, no ping gating */
-    if (teamplay.value != 0)
+    if (CL_ServerTeamplay () != 0)
     {
         for (i = 1; i <= cl.maxclients && i < cl.num_entities; i++)
         {
@@ -1750,8 +2015,11 @@ static void drawRadar (void)
 
     /* r66c: self marker = yellow dot inside blue dot (the axis), always on
      * regardless of blips - replaces the own-player triangle (user) */
-    HUD_FillCircle (rcx, rcy, 6.0f * s, 0.45f*0.55f, 0.75f*0.55f, 1.00f*0.55f, 0.85f);
-    HUD_FillCircle (rcx, rcy, 2.6f * s, 0.95f, 0.85f, 0.20f, 1.0f);
+    HUD_FillCircle (rcx, rcy, 4.2f * s, 0.45f*0.55f, 0.75f*0.55f, 1.00f*0.55f, 0.85f);
+    /* r185 (user: the self marker covered enemies standing next to you): the
+     * pip was 2.6 units of radius -- wider than an enemy blip -- so a contact
+     * right beside you disappeared under it. Half that still marks the spot. */
+    HUD_FillCircle (rcx, rcy, 1.4f * s, 0.95f, 0.85f, 0.20f, 1.0f);
     glColor3f (1,1,1);
 
     /* rim last so it frames the content */
@@ -1801,6 +2069,152 @@ static void HUD_DrawDamage (void)
     }
 }
 
+/* r186 (user): card stays up much longer so it can actually be read. */
+#define MODE_CARD_END 5.0f
+
+/* r185 (user): Halo-style match-start card -- the mode name and its objective,
+ * the two lines Halo puts on screen when a round begins. Shown over the first
+ * seconds of a map, faded in and out; hud_modecard 0 disables it.
+ *
+ * r189: the timer is wall clock anchored to the moment this client first sees
+ * the map, not cl.time. cl.time is server map time, so joining a round that had
+ * already been running meant the card never appeared at all (user report). */
+static void HUD_ModeCard (void)
+{
+    static char card_map[MAX_QPATH];
+    static double card_at;
+    char name[32], obj[80];
+    float s = HUD_SCALE ();
+    float t;
+    float fade, pw, ph, x, y, bw, ty, tsz, dsz, tadv, padx;
+    int dm, tp, limit;
+
+    if (!hud_modecard.value)
+        return;
+
+    if (!cl.worldmodel)
+    {   /* left the server: arm the card for the next map */
+        card_map[0] = 0;
+        card_at = 0.0;
+        return;
+    }
+    if (strcmp (card_map, cl.worldmodel->name))
+    {   /* new map for this client -- start the clock now */
+        strncpy (card_map, cl.worldmodel->name, sizeof (card_map) - 1);
+        card_map[sizeof (card_map) - 1] = 0;
+        card_at = realtime;
+    }
+    if (card_at <= 0.0)
+        return;
+
+    t = (float)(realtime - card_at);
+    if (t < 0.0f || t > MODE_CARD_END)
+        return;
+
+    /* r192: no fade in, and a quick fade out -- the card is information, not a
+     * transition. It pops on with the level and is gone in half a second. */
+    if (t > MODE_CARD_END - 0.4f)
+        fade = (MODE_CARD_END - t) / 0.4f;
+    else
+        fade = 1.0f;
+    if (fade < 0.0f) fade = 0.0f;
+    if (fade > 1.0f) fade = 1.0f;
+
+    dm    = (int) CL_ServerDeathmatch ();
+    tp    = (int) CL_ServerTeamplay ();
+    limit = (int) CL_ServerFraglimit ();
+
+    if (dm == DM_SWAT)
+    {
+        strcpy (name, tp ? "Team Swat" : "Swat");
+        if (limit > 0) sprintf (obj, "First to %i frags, no shields", limit);
+        else           strcpy (obj, "Most frags, no shields");
+    }
+    else if (tp)
+    {
+        strcpy (name, "Team Slayer");
+        strcpy (obj, "Kill the enemy team");
+    }
+    else
+    {
+        strcpy (name, "Slayer");
+        if (limit > 0) sprintf (obj, "First to %i frags", limit);
+        else           strcpy (obj, "Most frags when time runs out");
+    }
+
+    /* r196: fixed 3.2:1 banner. r194/r195 fitted the box to the words, which
+     * made a short objective a near-square block (user). The box is now a
+     * rectangle first and the words sit in it.
+     *
+     * r197: the type is back to its design size and the box is derived from
+     * THAT. r196 sized the type off the box instead (tsz = ph * 0.475), which
+     * laid 64px type into a 136px plate -- a 1.7x jump over the size the user
+     * had already accepted, hence "WHY IS IT SO BIG". The text is the constant;
+     * the rectangle is what stretches around it.
+     *
+     * 0.41 / 1.12 / 0.37 / 0.33 are the measured cap height, line advance and
+     * glyph offsets of TTF_AtlasDraw at a given request size (size is scaled by
+     * size/GLFONT_BAKEPX, so it is not 1:1 px). */
+    {
+        float tw, ow, wmax, avail, adv, ink;
+
+        tsz = 22.0f * s;                /* title size -- the same type as r194 */
+        dsz = 20.0f * s;                /* description size */
+
+        padx = 16.0f * s;
+
+        adv = tsz * 1.12f;              /* title y -> description y */
+        ink = adv + dsz * 0.33f + tsz * 0.37f;
+
+        ph = ink / 0.74f;               /* r202: ink gets 74% -- 78% left the
+                                         * title crowding the top bevel (user) */
+        pw = ph * 3.2f;                 /* the banner ratio */
+
+        /* a long objective widens the plate, keeping the ratio */
+        avail = pw - padx * 2.0f;
+        tw    = Draw_TTFWidth (name, tsz);
+        ow    = Draw_TTFWidth (obj, dsz);
+        wmax  = (tw > ow ? tw : ow);
+        if (wmax > avail)
+        {
+            pw = wmax + padx * 2.0f;
+            ph = pw / 3.2f;
+        }
+
+        x  = glwidth * 0.5f - pw * 0.5f;
+        y  = glheight * 0.70f - ph * 0.5f;  /* r186: sits 30% up from the bottom */
+
+        /* centre the INK box: cancel the 0.37*size upward offset */
+        ty   = y + (ph - ink) * 0.5f + tsz * 0.37f + 1.5f * s;  /* r202: bias
+                                                                 * the block down */
+        tadv = adv;
+    }
+
+    /* r189: warp with the rest of the HUD. Draw_FillRGBA is flat, but the text
+     * above it goes through TTF_AtlasDraw -> HUD_WarpQuad, so a flat plate
+     * behind warped glyphs is exactly what made the card look detached and the
+     * text look off-centre (user). */
+    HUD_WarpFill (x, y, pw, ph, 0.13f, 0.22f, 0.48f, 0.55f*fade);
+
+    /* r186: same bevel as the score bars -- light on the top/left, dark on the
+     * bottom/right, so the card reads as a raised plate like the rest of the HUD. */
+    bw = 1.0f * s;
+    if (bw < 1.0f) bw = 1.0f;
+    HUD_WarpFill (x, y, pw, bw, 0.59f, 0.60f, 0.66f, 0.80f*fade);
+    HUD_WarpFill (x, y, bw, ph, 0.59f, 0.60f, 0.66f, 0.80f*fade);
+    HUD_WarpFill (x, y + ph - bw, pw, bw, 0.03f, 0.03f, 0.07f, 0.80f*fade);
+    HUD_WarpFill (x + pw - bw, y, bw, ph, 0.03f, 0.03f, 0.07f, 0.80f*fade);
+
+    /* r194: neutral accent. The light blue read as a second colour against the
+     * white type, not as part of the plate (user). */
+    HUD_WarpFill (x, y, 3*s, ph,
+                  1.00f, 1.00f, 1.00f, 0.60f*fade);
+    Draw_TTFString ((int)(x + padx), (int)ty, name,
+                    1.0f, 1.0f, 1.0f, fade, tsz);
+    Draw_TTFString ((int)(x + padx), (int)(ty + tadv), obj,
+                    0.76f, 0.78f, 0.82f, fade, dsz);
+}
+
 void HUD_Draw (void) {
     int oldcanvas = currentcanvas;
     if (key_dest != key_game)   /* P2a: HUD hides for pause/menus/console */
@@ -1828,6 +2242,7 @@ void HUD_Draw (void) {
     drawNameplates();
     drawRadar();   /* r66 Tracker-0 */
     drawPickupWeapon();
+    HUD_ModeCard();   /* r185: match-start gamemode/objective card */
     HUD_WarpLeave (warp_was);
 //    if (!*cl.scores[1].name) {
 //        Draw_ColoredStringScale(0, glheight-(8*0.8f*HUD_SCALE()), "Its too quiet, Chief! Add bots to get started.", 1,1,1,1,0.8f*HUD_SCALE());

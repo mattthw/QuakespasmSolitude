@@ -73,6 +73,13 @@ void SV_CalcStats(client_t *client, int *statsi, float *statsf, const char **sta
 	statsf[STAT_NAILS] = ent->v.ammo_nails;
 	statsf[STAT_ROCKETS] = ent->v.ammo_rockets;
 	statsf[STAT_CELLS] = ent->v.ammo_cells;
+	/* r202: plasma pistol charge level so the HUD can show the wind-up */
+	if ((val = GetEdictFieldValue(ent, qcvm->extfields.charge_pp)))
+		/* r208: cl.stats[] is an INT array on the client, so sending 0..1
+		 * truncated every charge to 0 and the HUD strip never moved while
+		 * the weapon model charged normally. Publish 0..100 like battery
+		 * and heat, which have always been scaled. */
+		statsf[STAT_CHARGE] = val->_float * 100.0f;
 	statsf[STAT_ACTIVEWEAPON] = ent->v.weapon;	//sent in a way that does NOT depend upon the current mod...
 //	statsf[STAT_TOTALSECRETS] = pr_global_struct->total_secrets;	//don't bother with these, the qc sends extra updates and we don't want to end up with a race condition.
 //	statsf[STAT_TOTALMONSTERS] = pr_global_struct->total_monsters;
