@@ -1,0 +1,11 @@
+# Build context for the dedicated-server image. Only the engine sources and the
+# docker/ files are needed: game data is mounted at runtime, and the Mac/Vita
+# build trees leave object files and a Mach-O binary in quakespasm/Quake that
+# must never be linked into a Linux image (ld: "file in wrong format").
+*
+!quakespasm/
+!docker/
+**/*.o
+**/*.obj
+**/*.a
+quakespasm/Quake/quakespasm

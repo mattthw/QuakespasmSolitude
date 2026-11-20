@@ -20,7 +20,10 @@ COPY quakespasm /src/quakespasm
 WORKDIR /src/quakespasm/Quake
 # Codecs and zlib are client concerns (music, pk3); a dedicated host needs
 # neither, which keeps the runtime image free of libmad/libvorbis/libz.
-RUN make -f Makefile USE_SDL2=1 USE_ZLIB=0 \
+# The rm guards against a .dockerignore-less context bringing in Mach-O or
+# Vita objects from the other build trees ("ld: file in wrong format").
+RUN rm -f *.o quakespasm \
+    && make -f Makefile USE_SDL2=1 USE_ZLIB=0 \
       USE_CODEC_WAVE=0 USE_CODEC_MP3=0 USE_CODEC_VORBIS=0 USE_CODEC_OPUS=0 \
       -j"$(nproc)" \
     && test -x quakespasm
