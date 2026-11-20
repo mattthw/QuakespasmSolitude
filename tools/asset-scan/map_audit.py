@@ -14,7 +14,8 @@ import struct
 import sys
 from collections import Counter
 
-REPO = "/Users/matt_1/workspace/projects-vita/solitude/repo"
+# <repo>/tools/asset-scan/map_audit.py -> <repo>
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MAPDIR = os.path.join(REPO, "solitude", "maps")
 OUTDIR = os.path.dirname(os.path.abspath(__file__))
 

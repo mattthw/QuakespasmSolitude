@@ -109,7 +109,9 @@ static void GLFont_Bake (glfont_atlas_t *f)
 		if (f->dbgdump)
 		{	/* P2a bring-up: dump the raw 8-bit atlas so the cells are
 		     * human-inspectable: white letters on black = healthy. */
-			FILE *fp = fopen ("/Users/matt_1/workspace/projects-vita/toolchain/fork-engine-mac/glfont_atlas.pgm", "wb");
+			/* path is relative to the working directory on purpose: the old one
+			 * baked a developer's home directory into the shipped source. */
+			FILE *fp = fopen ("glfont_atlas.pgm", "wb");
 			if (fp)
 			{
 				fprintf (fp, "P5\n%d %d\n255\n", GLFONT_W, GLFONT_H);
