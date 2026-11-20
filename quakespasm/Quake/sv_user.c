@@ -756,7 +756,15 @@ qboolean SV_ReadClientMessage (void)
 
 		case clc_stringcmd:
 			s = MSG_ReadString ();
-			if (q_strncasecmp(s, "spawn", 5) && q_strncasecmp(s, "begin", 5) && q_strncasecmp(s, "prespawn", 8) && qcvm->extfuncs.SV_ParseClientCommand)
+			/* r180: "ping" has to reach the engine. Our progs export
+			 * SV_ParseClientCommand, and the branch below hands EVERY
+			 * stringcmd to QuakeC, so Host_Ping_f (which answers with
+			 * "Client ping times:") was never invoked on a real server --
+			 * the client asked every 2 s and got nothing back, which left
+			 * the leaderboard ping column and the robot glyphs empty. */
+			if (!q_strcasecmp (s, "ping"))
+				Cmd_ExecuteString (s, src_client);
+			else if (q_strncasecmp(s, "spawn", 5) && q_strncasecmp(s, "begin", 5) && q_strncasecmp(s, "prespawn", 8) && qcvm->extfuncs.SV_ParseClientCommand)
 			{	//the spawn/begin/prespawn are because of numerous mods that disobey the rules.
 				//at a minimum, we must be able to join the server, so that we can see any sprints/bprints (because dprint sucks, yes there's proper ways to deal with this, but moders don't always know them).
 				client_t *ohc = host_client;

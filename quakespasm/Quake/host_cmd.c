@@ -878,16 +878,42 @@ void Host_Ping_f (void)
 		return;
 	}
 
-	SV_ClientPrintf ("Client ping times:\n");
-	for (i = 0, client = svs.clients; i < svs.maxclients; i++, client++)
+	/* r184 (user: "ping is missing 90% of the time. robots have no indicator").
+	 * The old reply was a header plus one "name" line per player, matched back
+	 * to a scoreboard slot BY NAME (cl_parse.c) and only accepted while a
+	 * 2-second cl.expectingpingtimes window was open. Any name drift, any
+	 * interleaved print, or a late reply silently dropped the whole table --
+	 * and the bots added in r178 made the name list longer and the matching
+	 * pickier. Send one compact line of SLOT indices instead: no names, no
+	 * timing window, nothing to mismatch. -1 still means "bot". */
 	{
-		if (!client->spawned || !client->netconnection)
-			continue;
-		total = 0;
-		for (j = 0; j < NUM_PING_TIMES; j++)
-			total+=client->ping_times[j];
-		total /= NUM_PING_TIMES;
-		SV_ClientPrintf ("%4i %s\n", (int)(total*1000), client->name);
+		char	line[1024];
+		int		len;
+
+		len = sprintf (line, "#ping");
+		for (i = 0, client = svs.clients; i < svs.maxclients; i++, client++)
+		{
+			int ping;
+
+			if (!client->spawned)
+				continue;
+
+			if (!client->netconnection)
+				ping = -1;		/* botclient (DP_SV_BOTCLIENT) */
+			else
+			{
+				total = 0;
+				for (j = 0; j < NUM_PING_TIMES; j++)
+					total += client->ping_times[j];
+				total /= NUM_PING_TIMES;
+				ping = (int)(total*1000);
+			}
+			len += sprintf (line+len, " %i=%i", i, ping);
+			if (len > (int)sizeof(line) - 32)
+				break;
+		}
+		sprintf (line+len, "\n");
+		SV_ClientPrintf ("%s", line);
 	}
 }
 
@@ -898,6 +924,59 @@ SERVER TRANSITIONS
 
 ===============================================================================
 */
+
+
+/*
+======================
+Host_PushServerQCVM / Host_PopServerQCVM
+
+r127: a command that arrives over rcon is executed from inside the network
+datagram handler, i.e. from inside SV_Frame with the server VM already active.
+PR_SwitchQCVM asserts on any nested switch, so `map`, `changelevel`, `restart`,
+`save` and `load` used to abort the server with
+
+    QUAKE ERROR: PR_SwitchQCVM: A qcvm was already active
+
+whenever an admin issued them remotely (or from a QC think). Switch only when
+we actually have to, and restore exactly what we did -- PR_LoadProgs and
+PR_ClearProgs both work fine with their own VM already selected.
+======================
+*/
+static qboolean Host_PushServerQCVM (void)
+{
+	if (qcvm == &sv.qcvm)
+		return false;
+
+	PR_SwitchQCVM (&sv.qcvm);
+	return true;
+}
+
+static void Host_PopServerQCVM (qboolean pushed)
+{
+	if (pushed)
+		PR_SwitchQCVM (NULL);
+}
+
+/*
+======================
+Host_DeferSpawn
+
+r127: rcon runs its command from inside the network handler, i.e. inside
+Host_ServerFrame with the server VM selected. Spawning a server there tears
+down the sockets the net loop is still walking -- `changelevel` over rcon
+segfaulted in NET_GetServerMessage even once the VM assert was gone. Queue the
+command instead: Cbuf_Execute runs it at the top of the next frame, outside the
+server frame, which is the same path QC's changelevel builtin already uses.
+======================
+*/
+static qboolean Host_DeferSpawn (const char *cmd)
+{
+	if (qcvm != &sv.qcvm)
+		return false;
+
+	Cbuf_AddText (va ("%s\n", cmd));
+	return true;
+}
 
 
 /*
@@ -937,6 +1016,9 @@ void Host_Map_f (void)
 	if (cmd_source != src_command)
 		return;
 
+	if (Host_DeferSpawn (va ("map %s", Cmd_Argv(1))))	// r127: rcon
+		return;
+
 	cls.demonum = -1;		// stop demo loop in case this fails
 
 	CL_Disconnect ();
@@ -953,9 +1035,12 @@ void Host_Map_f (void)
 	p = strstr(name, ".bsp");
 	if (p && p[4] == '\0')
 		*p = '\0';
-	PR_SwitchQCVM(&sv.qcvm);
-	SV_SpawnServer (name);
-	PR_SwitchQCVM(NULL);
+	{
+		qboolean	vm_pushed = Host_PushServerQCVM ();
+
+		SV_SpawnServer (name);
+		Host_PopServerQCVM (vm_pushed);
+	}
 	if (!sv.active)
 		return;
 
@@ -1037,15 +1122,21 @@ void Host_Changelevel_f (void)
 		Host_Error ("cannot find map %s", level);
 	//johnfitz
 
+	if (Host_DeferSpawn (va ("changelevel %s", Cmd_Argv(1))))	// r127: rcon
+		return;
+
 	key_dest = key_game;	// remove console or menu
 	if (cls.state != ca_dedicated)
 		IN_UpdateGrabs();	// -- S.A.
 
-	PR_SwitchQCVM(&sv.qcvm);
-	SV_SaveSpawnparms ();
-	q_strlcpy (level, Cmd_Argv(1), sizeof(level));
-	SV_SpawnServer (level);
-	PR_SwitchQCVM(NULL);
+	{
+		qboolean	vm_pushed = Host_PushServerQCVM ();
+
+		SV_SaveSpawnparms ();
+		q_strlcpy (level, Cmd_Argv(1), sizeof(level));
+		SV_SpawnServer (level);
+		Host_PopServerQCVM (vm_pushed);
+	}
 	// also issue an error if spawn failed -- O.S.
 	if (!sv.active)
 		Host_Error ("cannot run map %s", level);
@@ -1072,10 +1163,15 @@ void Host_Restart_f (void)
 			Cmd_ExecuteString(va("map \"%s\"\n", sv.name), src_command);
 		return;
 	}
+	if (Host_DeferSpawn ("restart"))	// r127: rcon
+		return;
 	q_strlcpy (mapname, sv.name, sizeof(mapname));	// mapname gets cleared in spawnserver
-	PR_SwitchQCVM(&sv.qcvm);
-	SV_SpawnServer (mapname);
-	PR_SwitchQCVM(NULL);
+	{
+		qboolean	vm_pushed = Host_PushServerQCVM ();
+
+		SV_SpawnServer (mapname);
+		Host_PopServerQCVM (vm_pushed);
+	}
 	if (!sv.active)
 		Host_Error ("cannot restart map %s", mapname);
 }
@@ -1315,7 +1411,7 @@ void Host_Savegame_f (void)
 		return;
 	}
 
-	PR_SwitchQCVM(&sv.qcvm);
+	qboolean	vm_pushed = Host_PushServerQCVM ();
 
 	fprintf (f, "%i\n", SAVEGAME_VERSION);
 	Host_SavegameComment (comment);
@@ -1382,7 +1478,7 @@ void Host_Savegame_f (void)
 
 	fclose (f);
 	Con_Printf ("done.\n");
-	PR_SwitchQCVM(NULL);
+	Host_PopServerQCVM (vm_pushed);
 }
 
 
@@ -1404,8 +1500,12 @@ void Host_Loadgame_f (void)
 	int	entnum;
 	int	version;
 	float	spawn_parms[NUM_TOTAL_SPAWN_PARMS];
+	qboolean	vm_pushed;
 
 	if (cmd_source != src_command)
+		return;
+
+	if (Host_DeferSpawn (va ("load %s", Cmd_Argv(1))))	// r127: rcon
 		return;
 
 	if (Cmd_Argc() != 2)
@@ -1467,12 +1567,12 @@ void Host_Loadgame_f (void)
 
 	CL_Disconnect_f ();
 
-	PR_SwitchQCVM(&sv.qcvm);
+	vm_pushed = Host_PushServerQCVM ();	// r127: nested rcon safe
 	SV_SpawnServer (mapname);
 
 	if (!sv.active)
 	{
-		PR_SwitchQCVM(NULL);
+		Host_PopServerQCVM (vm_pushed);
 		free (start);
 		start = NULL;
 		Con_Printf ("Couldn't load map\n");
@@ -1614,7 +1714,7 @@ void Host_Loadgame_f (void)
 	for (i = 0; i < NUM_TOTAL_SPAWN_PARMS; i++)
 		svs.clients->spawn_parms[i] = spawn_parms[i];
 
-	PR_SwitchQCVM(NULL);
+	Host_PopServerQCVM (vm_pushed);
 
 	if (cls.state != ca_dedicated)
 	{
