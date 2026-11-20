@@ -248,6 +248,18 @@ typedef struct
 	char	map[16];
 	char	gamedir[16];
 	char	cname[NET_NAMELEN];
+	/* r175: browse metadata, sent by our servers as a trailing key/value
+	 * block in the CCREP_SERVER_INFO reply. Empty on stock/older servers. */
+	char	title[64];
+	char	desc[96];
+	char	game[24];
+	int		bots;
+	int		rule;
+	/* r176: round shape the server is actually running -- timelimit in
+	 * minutes (0 = none) and fraglimit (0 = unlimited). Sent as \time\ and
+	 * \limit\, so the browser can say how a match ends. */
+	int		timelimit;
+	int		fraglimit;
 	int		users;
 	int		maxusers;
 	int		driver;

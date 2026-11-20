@@ -441,9 +441,20 @@ qsocket_t *Datagram_GetAnyMessage(void)
 	qsocket_t *s;
 	struct qsockaddr addr;
 	int length;
+
 	for (net_landriverlevel = 0; net_landriverlevel < net_numlandrivers; net_landriverlevel++)
 	{
 		sys_socket_t sock;
+		/* r127: net_landriverlevel is a GLOBAL (dfunc expands to
+		 * net_landrivers[net_landriverlevel]) and this loop keeps READing with
+		 * it. Anything the packet handler runs -- Cmd_ExecuteString for rcon,
+		 * and whatever that command calls, NET_ListAddresses and friends --
+		 * can leave the global at net_numlandrivers, after which dfunc.Read
+		 * below is an out-of-bounds function pointer. That was the
+		 * SIGSEGV-at-0x0 that killed the dedicated host on every rcon command.
+		 * Keep our own index and re-assert it before every read. */
+		int li = net_landriverlevel;
+
 		if (!dfunc.initialized)
 			continue;
 		sock = dfunc.listeningSock;
@@ -452,6 +463,8 @@ qsocket_t *Datagram_GetAnyMessage(void)
 
 		while(1)
 		{
+			net_landriverlevel = li;
+
 			length = dfunc.Read(sock, (byte *)&packetBuffer, NET_DATAGRAMSIZE, &addr);
 			if (length == -1 || !length)
 			{
@@ -1142,6 +1155,21 @@ void Datagram_Rcon_Flush(const char *text)
 {
 	sizebuf_t msg;
 	byte buffer[8192];
+	/* r127: the landriver index is captured when the request arrives and used
+	 * again when the reply is flushed. If it is stale/out of range the table
+	 * lookup below is a call through a garbage function pointer, which killed
+	 * the dedicated host on every rcon command (SIGSEGV at 0x0). Never send
+	 * blind: no reply is better than no server. */
+	int landriver = (int) rcon_response_landriver;
+
+	if (landriver < 0 || landriver >= net_numlandrivers ||
+		!net_landrivers[landriver].Write)
+	{
+		fprintf (stderr, "rcon: no landriver %i to reply on, dropping response\n", landriver);
+		fflush (NULL);
+		return;
+	}
+
 	msg.data = buffer;
 	msg.maxsize = sizeof(buffer);
 	msg.allowoverflow = true;
@@ -1153,7 +1181,7 @@ void Datagram_Rcon_Flush(const char *text)
 	if (msg.overflowed)
 		return;
 	*((int *)msg.data) = BigLong(NETFLAG_CTL | (msg.cursize & NETFLAG_LENGTH_MASK));
-	net_landrivers[rcon_response_landriver].Write (rcon_response_socket, msg.data, msg.cursize, &rcon_response_address);
+	net_landrivers[landriver].Write (rcon_response_socket, msg.data, msg.cursize, &rcon_response_address);
 }
 
 static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsockaddr *clientaddr, byte *data, unsigned int length)
@@ -1279,6 +1307,49 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 		/* r123: advertise the game dir so clients can tell Solitude lobbies
 		 * from stock Quake servers. Old clients ignore the trailing string. */
 		MSG_WriteString(&net_message, COM_GetGameNames(false));
+		/* r175: browse metadata for the lobby list -- title, description,
+		 * game mode, live bot count and the bot-fill rule. Sent as one more
+		 * trailing string of \key\value pairs so older clients (and stock
+		 * Quake engines) simply never read it.
+		 * r176: plus the round shape the server is really running, so the
+		 * browser can print how a match ends instead of guessing. */
+		{
+			char		info[512];
+			const char	*mode;
+			const char	*title;
+			const char	*desc;
+			int			bots = 0, bi;
+			float		dm = Cvar_VariableValue ("deathmatch");
+			float		tp = Cvar_VariableValue ("teamplay");
+
+			for (bi = 0; bi < svs.maxclients; bi++)
+				if (svs.clients[bi].active && !svs.clients[bi].netconnection)
+					bots++;
+
+			if (dm == 2)
+				mode = "Firefight";
+			else if (dm == 3)
+				mode = "Swat";
+			else if (dm >= 1)
+				mode = tp ? "Team Slayer" : "Slayer";
+			else
+				mode = "Co-op";
+
+			title = Cvar_VariableString ("sv_title");
+			if (!title || !title[0])
+				title = hostname.string;
+			desc = Cvar_VariableString ("sv_desc");
+			if (!desc)
+				desc = "";
+
+			q_snprintf (info, sizeof (info),
+				    "\\title\\%s\\desc\\%s\\game\\%s\\bots\\%i\\rule\\%i\\time\\%i\\limit\\%i",
+				    title, desc, mode, bots,
+				    (int) Cvar_VariableValue ("lobby_bots"),
+				    (int) Cvar_VariableValue ("timelimit"),
+				    (int) Cvar_VariableValue ("fraglimit"));
+			MSG_WriteString (&net_message, info);
+		}
 		*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
 		dfunc.Write (acceptsock, net_message.data, net_message.cursize, clientaddr);
 		SZ_Clear(&net_message);
@@ -1716,10 +1787,14 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 		MSG_WriteString(&net_message, "QUAKE");
 		MSG_WriteByte(&net_message, NET_PROTOCOL_VERSION);
 		*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
-		dfunc.Broadcast(dfunc.controlSock, net_message.data, net_message.cursize);
+		/* r137: the lobby menu offers NETWORK Local / Online / Both. A LAN
+		 * broadcast always shows local servers, so "Online" has to suppress it
+		 * and ask the masters only. */
+		if (slistScope != SLIST_ONLINE)
+			dfunc.Broadcast(dfunc.controlSock, net_message.data, net_message.cursize);
 		SZ_Clear(&net_message);
 
-		if (slistScope == SLIST_INTERNET)
+		if (slistScope == SLIST_INTERNET || slistScope == SLIST_ONLINE)
 		{
 			struct qsockaddr masteraddr;
 			char *str;
@@ -1939,6 +2014,33 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 		hostcache[n].gamedir[0] = 0;
 		if (msg_readcount < net_message.cursize)
 			q_strlcpy(hostcache[n].gamedir, MSG_ReadString(), sizeof(hostcache[n].gamedir));
+		/* r175: optional browse metadata (\title\...\desc\...\game\...). */
+		hostcache[n].title[0] = hostcache[n].desc[0] = hostcache[n].game[0] = 0;
+		hostcache[n].bots = hostcache[n].rule = 0;
+		hostcache[n].timelimit = hostcache[n].fraglimit = 0;
+		if (msg_readcount < net_message.cursize)
+		{
+			char	buf[512];
+			char	val[96];
+
+			q_strlcpy (buf, MSG_ReadString (), sizeof (buf));
+			Info_GetKey (buf, "title", hostcache[n].title, sizeof (hostcache[n].title));
+			Info_GetKey (buf, "desc", hostcache[n].desc, sizeof (hostcache[n].desc));
+			Info_GetKey (buf, "game", hostcache[n].game, sizeof (hostcache[n].game));
+			val[0] = 0;
+			Info_GetKey (buf, "bots", val, sizeof (val));
+			hostcache[n].bots = atoi (val);
+			val[0] = 0;
+			Info_GetKey (buf, "rule", val, sizeof (val));
+			hostcache[n].rule = atoi (val);
+			/* r176: round shape; absent = 0 = "not advertised". */
+			val[0] = 0;
+			Info_GetKey (buf, "time", val, sizeof (val));
+			hostcache[n].timelimit = atoi (val);
+			val[0] = 0;
+			Info_GetKey (buf, "limit", val, sizeof (val));
+			hostcache[n].fraglimit = atoi (val);
+		}
 		Q_memcpy(&hostcache[n].addr, &readaddr, sizeof(struct qsockaddr));
 		hostcache[n].driver = net_driverlevel;
 		hostcache[n].ldriver = net_landriverlevel;
@@ -2011,6 +2113,7 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 	int			ret;
 	int			reps;
 	double		start_time;
+	double		last_draw_time;
 	int			control;
 	const char		*reason;
 
@@ -2031,9 +2134,15 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 	sock->proquake_angle_hack = true;
 
 	// send the connection request
+	/* r164 (user: "connecting to a match freezes"): the wait below blocks the
+	 * main loop for up to 2.5 s per try and used to redraw only between tries,
+	 * so the menu looked frozen. Put the loading art up before the first send
+	 * and keep pumping it while we poll for the server's answer. */
+	SCR_ShowLoadingScreen ();
 	Con_SafePrintf("trying...\n");
 	SCR_UpdateScreen ();
 	start_time = net_time;
+	last_draw_time = start_time;
 
 	for (reps = 0; reps < 3; reps++)
 	{
@@ -2063,6 +2172,15 @@ static qsocket_t *_Datagram_Connect (struct qsockaddr *serveraddr)
 
 		do
 		{
+			/* r164: keep the loading art alive while spinning on the
+			 * socket -- ~10 Hz is enough to look responsive and costs
+			 * little next to the poll itself. */
+			if ((SetNetTime() - last_draw_time) > 0.1)
+			{
+				SCR_UpdateScreen ();
+				last_draw_time = SetNetTime();
+			}
+
 			ret = dfunc.Read (newsock, net_message.data, net_message.maxsize, &readaddr);
 			// if we got something, validate it
 			if (ret > 0)
@@ -2249,6 +2367,9 @@ ErrorReturn:
 	NET_FreeQSocket(sock);
 ErrorReturn2:
 	dfunc.Close_Socket(newsock);
+	/* r164: the connect failed -- drop the loading art and hand the screen
+	 * back, otherwise the menu we return to stays frozen behind it. */
+	SCR_HideLoadingScreen ();
 	if (m_return_onerror)
 	{
 		key_dest = key_menu;

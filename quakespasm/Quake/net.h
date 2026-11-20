@@ -111,7 +111,8 @@ extern	enum slistScope_e
 {
 	SLIST_LOOP,
 	SLIST_LAN,
-	SLIST_INTERNET
+	SLIST_INTERNET,
+	SLIST_ONLINE		/* r137: masters only, no LAN broadcast */
 } slistScope;
 
 extern	size_t		hostCacheCount;
@@ -120,6 +121,8 @@ void	NET_Slist_f (void);
 void	NET_SlistSort (void);
 const char *NET_SlistPrintServer (size_t n);
 const char *NET_SlistPrintServerName (size_t n);
+void	NET_SlistServerInfo (size_t n, const char **name, const char **map, int *users, int *maxusers);
+void	NET_SlistServerMeta (size_t n, const char **title, const char **desc, const char **game, int *bots, int *rule, int *timelimit, int *fraglimit);	/* r175/r176 */
 
 
 /* FIXME: driver related, but public:

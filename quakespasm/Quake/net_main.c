@@ -306,6 +306,15 @@ static void MaxPlayers_f (void)
 		Cbuf_AddText ("listen 1\n");
 
 	svs.maxclients = n;
+	/* r166: FrikBot's ClientNextAvailable() picks bot client slots from
+	 * cvar("maxclients") and falls back to 8 when it reads 0. "maxclients" is
+	 * not a cvar in this engine (the slot count lives in svs.maxclients, a
+	 * server_t field), so on any server started with maxplayers < 8 the bots
+	 * were handed client numbers past the reserved client edicts
+	 * (SV_SpawnServer reserves 1..svs.maxclients) and silently landed on map
+	 * edicts - no playerinfo, no model, no bots in game. Publish the real
+	 * count so the QC slot math matches the edicts. */
+	Cvar_SetValueQuick (Cvar_Create ("maxclients", "8"), (float)n);
 	if (n == 1)
 		Cvar_Set ("deathmatch", "0");
 	else
@@ -392,6 +401,13 @@ void NET_Slist_f (void)
 	SchedulePollProcedure(&slistPollProcedure, 0.1);
 
 	hostCacheCount = 0;
+	/* r180: master replies accumulate in net_dgrm's hostlist and were never
+	 * cleared, so every rescan re-queried the whole pile: 4 addresses per
+	 * poll, each one resetting the "server is still active" timer. A few
+	 * refreshes were enough to make a scan last minutes and the lobby menu
+	 * sit on "Searching..." forever. A scan is self-contained -- start from
+	 * an empty list. */
+	{ extern size_t hostlist_count; hostlist_count = 0; }
 }
 
 
@@ -440,11 +456,56 @@ const char *NET_SlistPrintServer (size_t idx)
 }
 
 
+/* r137: structured access to a browser row, so the menu does not have to
+ * parse the fixed-width text of NET_SlistPrintServer. Missing row = empty. */
+void NET_SlistServerInfo (size_t n, const char **name, const char **map,
+			  int *users, int *maxusers)
+{
+	if (n >= hostCacheCount)
+	{
+		if (name) *name = "";
+		if (map) *map = "";
+		if (users) *users = 0;
+		if (maxusers) *maxusers = 0;
+		return;
+	}
+	if (name) *name = hostcache[n].name;
+	if (map) *map = hostcache[n].map;
+	if (users) *users = hostcache[n].users;
+	if (maxusers) *maxusers = hostcache[n].maxusers;
+}
+
 const char *NET_SlistPrintServerName (size_t idx)
 {
 	if (idx >= hostCacheCount)
 		return "";
 	return hostcache[idx].cname;
+}
+
+/* r175: browse metadata (title/description/game/bots) advertised by our own
+ * servers; empty on stock servers so callers fall back to hostname/map. */
+void NET_SlistServerMeta (size_t n, const char **title, const char **desc,
+			  const char **game, int *bots, int *rule,
+			  int *timelimit, int *fraglimit)
+{
+	if (n >= hostCacheCount)
+	{
+		if (title) *title = "";
+		if (desc) *desc = "";
+		if (game) *game = "";
+		if (bots) *bots = 0;
+		if (rule) *rule = 0;
+		if (timelimit) *timelimit = 0;
+		if (fraglimit) *fraglimit = 0;
+		return;
+	}
+	if (title) *title = hostcache[n].title;
+	if (desc) *desc = hostcache[n].desc;
+	if (game) *game = hostcache[n].game;
+	if (bots) *bots = hostcache[n].bots;
+	if (rule) *rule = hostcache[n].rule;
+	if (timelimit) *timelimit = hostcache[n].timelimit;
+	if (fraglimit) *fraglimit = hostcache[n].fraglimit;
 }
 
 
@@ -479,7 +540,16 @@ static void Slist_Poll (void *unused)
 	if (! slistSilent)
 		PrintSlist();
 
-	if ((Sys_DoubleTime() - slistActiveTime) < 1.5)
+	/* r140: filter on every poll, not only at the end, so a live browser
+	 * never shows other games' servers during the 1.5 s scan window. */
+	NET_SlistFilter_f ();
+
+	/* r180: hard ceiling. The end condition below only fires once nothing has
+	 * been *sent* for 1.5 s, so any host that keeps being re-queried keeps the
+	 * scan alive indefinitely -- the menu then shows "Searching..." with no
+	 * way out. A browser scan has no value past a couple of seconds anyway. */
+	if ((Sys_DoubleTime() - slistStartTime) < 4.0 &&
+	    (Sys_DoubleTime() - slistActiveTime) < 1.5)
 	{
 		SchedulePollProcedure(&slistPollProcedure, 0.1);
 		return;
@@ -701,6 +771,8 @@ qsocket_t *NET_GetServerMessage(void)
 	for (net_driverlevel = 0; net_driverlevel < net_numdrivers; net_driverlevel++)
 	{
 		if (!net_drivers[net_driverlevel].initialized)
+			continue;
+		if (!net_drivers[net_driverlevel].QGetAnyMessage)
 			continue;
 		s = net_drivers[net_driverlevel].QGetAnyMessage();
 		if (s)

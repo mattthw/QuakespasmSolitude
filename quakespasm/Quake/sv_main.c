@@ -38,6 +38,12 @@ unsigned int	sv_protocol_pext2 = PEXT2_SUPPORTED_SERVER; //spike
  * advertising the one name server.cfg set at boot. Empty = old behaviour. */
 cvar_t	sv_hostname_fmt = {"sv_hostname_fmt", "", CVAR_ARCHIVE};
 
+/* r175: lobby-browser metadata. Publishes a human title and a description
+ * separately from the hostname (which still carries the mode so old clients
+ * stay readable). Sent in the server-info reply; see net_dgrm.c. */
+cvar_t	sv_title = {"sv_title", "", CVAR_ARCHIVE};
+cvar_t	sv_desc = {"sv_desc", "", CVAR_ARCHIVE};
+
 //============================================================================
 
 void SV_CalcStats(client_t *client, int *statsi, float *statsf, const char **statss)
@@ -1497,6 +1503,8 @@ void SV_Init (void)
 	Cvar_RegisterVariable (&sv_altnoclip); //johnfitz
 	Cvar_RegisterVariable (&sv_noclip_speed); //r101
 	Cvar_RegisterVariable (&sv_hostname_fmt); //r124
+	Cvar_RegisterVariable (&sv_title); //r175
+	Cvar_RegisterVariable (&sv_desc); //r175
 
 	Cvar_RegisterVariable (&sv_sound_watersplash); //spike
 	Cvar_RegisterVariable (&sv_sound_land); //spike
