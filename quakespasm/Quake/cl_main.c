@@ -700,6 +700,7 @@ void CL_RelinkEntities (void)
 	float		frac, d;
 	float		bobjrotate;
 	vec3_t		oldorg;
+	vec3_t		dlofs;	// r214: coloured-dlight distance gate (do not reuse oldorg, trails need it)
 	dlight_t	*dl;
 	float		frametime;
 	int			modelflags;
@@ -826,6 +827,32 @@ void CL_RelinkEntities (void)
 			VectorCopy (ent->origin,  dl->origin);
 			dl->radius = 200;	//perf B3: stable (was +rand()&31 per frame)
 			dl->die = cl.time + 0.001;
+		}
+		// r214: the mod's own entity flags (qcc-src/defs.qc EF_FLAG3/EF_FLAG4).
+		// They are the old QuakeWorld EF_BLUE(64)/EF_RED(128) slots, which
+		// protocol.h leaves commented out, so QuakeC's "pink light" (needles)
+		// and "green light" (plasma) never lit anything. Give them real
+		// coloured dlights: pink for the needler, blue for plasma bolts.
+		// Distance-gated so a 20-needle volley cannot eat every dlight slot.
+		if ((ent->effects & 64) || (ent->effects & 128))
+		{
+			VectorSubtract (ent->origin, cl.entities[cl.viewentity].origin, dlofs);
+			if (DotProduct (dlofs, dlofs) < 512.0f*512.0f)
+			{
+				dl = CL_AllocDlight (i);
+				VectorCopy (ent->origin,  dl->origin);
+				dl->die = cl.time + 0.001;
+				if (ent->effects & 128)		// plasma
+				{
+					dl->radius = 140;
+					dl->color[0] = 0.35f; dl->color[1] = 0.65f; dl->color[2] = 1.00f;
+				}
+				else						// needles
+				{
+					dl->radius = 120;
+					dl->color[0] = 1.00f; dl->color[1] = 0.30f; dl->color[2] = 0.70f;
+				}
+			}
 		}
 
 #ifdef PSET_SCRIPT

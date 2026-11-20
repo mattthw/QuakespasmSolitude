@@ -118,18 +118,28 @@ void R_RenderDlight (dlight_t *light)
 	float	a;
 	vec3_t	v;
 	float	rad;
+	qboolean colored;
+
+	colored = (light->color[0] < 0.999f || light->color[1] < 0.999f || light->color[2] < 0.999f);
 
 	rad = light->radius * 0.35;
 
 	VectorSubtract (light->origin, r_origin, v);
 	if (VectorLength (v) < rad)
 	{	// view is inside the dlight
-		AddLightBlend (1, 0.5, 0, light->radius * 0.0003);
+		// r214: keep the classic orange flash blend for white lights
+		if (colored)
+			AddLightBlend (light->color[0], light->color[1], light->color[2], light->radius * 0.0003);
+		else
+			AddLightBlend (1, 0.5, 0, light->radius * 0.0003);
 		return;
 	}
 
 	glBegin (GL_TRIANGLE_FAN);
-	glColor3f (0.2,0.1,0.0);
+	if (colored)	// r214: plasma/needle lights draw in their own colour
+		glColor3f (light->color[0]*0.25f, light->color[1]*0.25f, light->color[2]*0.25f);
+	else
+		glColor3f (0.2,0.1,0.0);
 	for (i=0 ; i<3 ; i++)
 		v[i] = light->origin[i] - vpn[i]*rad;
 	glVertex3fv (v);
