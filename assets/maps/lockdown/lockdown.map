@@ -13,7 +13,7 @@
 "MaxRange" "4096"
 "mapversion" "220"
 "wad" "documents and settings/alexander patterson/my documents/my dropbox/solitude_new/artsource/textures/texture wads/solitude128.wad;documents and settings/alexander patterson/my documents/my dropbox/solitude_new/artsource/textures/texture wads/solitude256.wad;documents and settings/alexander patterson/my documents/my dropbox/solitude_new/artsource/textures/texture wads/solitude-128.wad;documents and settings/alexander patterson/my documents/my dropbox/solitude_new/artsource/textures/texture wads/solitudedev.wad;assets/textures/wads/solitude128quake.wad;assets/textures/wads/solitude256quake.wad;assets/textures/wads/kurok.wad;assets/textures/wads/lockfx.wad"
-"_tb_def" "external:/Users/matt_1/workspace/projects-vita/solitude/repo/assets/models/QuakespasmSolitude.fgd"
+"_tb_def" "external:assets/models/QuakespasmSolitude.fgd"
 "_tb_mod" "solitude"
 "_sunlight_penumbra" "2"
 "sky" "snowmoon_"

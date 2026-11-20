@@ -7,7 +7,7 @@
 "classname" "worldspawn"
 "skyname" "ringbl512"
 "message" "Cestra by Sam (ported to Quake engine by Matt - sorry, HLBSP support isn't happening)"
-"_tb_def" "external:/Users/matt_1/workspace/projects-vita/solitude/repo/assets/models/QuakespasmSolitude.fgd"
+"_tb_def" "external:assets/models/QuakespasmSolitude.fgd"
 "_minlight" "100"
 "_sun_mangle" "120 -50 45"
 "_sunlight" "300"
