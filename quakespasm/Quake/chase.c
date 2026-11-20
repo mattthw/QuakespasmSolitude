@@ -105,6 +105,20 @@ void Chase_UpdateForDrawing (void)
 	// place camera
 	VectorCopy (ideal, r_refdef.vieworg);
 
+	/* r170 death cam (QC PlayerDie sends chase_active 2): aim at the corpse
+	 * instead of at a point 4096 units PAST it. The old crosshair trace made
+	 * a mouse move sweep the world while the body sat off-centre, which read
+	 * as the body spinning. */
+	if (chase_active.value >= 2)
+	{
+		crosshair[0] = cl.viewent.origin[0];
+		crosshair[1] = cl.viewent.origin[1];
+		crosshair[2] = cl.viewent.origin[2] + 16;
+		VectorSubtract (crosshair, r_refdef.vieworg, temp);
+		VectorAngles (temp, NULL, r_refdef.viewangles);
+		return;
+	}
+
 	// find the spot the player is looking at
 	VectorMA (cl.viewent.origin, 4096, forward, temp);
 	TraceLine (cl.viewent.origin, temp, crosshair);

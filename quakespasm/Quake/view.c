@@ -958,8 +958,17 @@ void V_CalcRefdef (void)
 
 // transform the view offset by the model's matrix to get the offset from
 // model origin for the view
+/* r177 (user: "the dead body still rotates with the camera"): snap the player
+ * model to the view dir only while ALIVE. QC PlayerDie turns on chase_active 2
+ * and the death cam draws this same entity, so the unconditional snap spun the
+ * corpse's yaw/pitch with the mouse. SV_ClientThink bails out at health <= 0,
+ * so the server keeps the death angles frozen -- skipping the snap here is
+ * enough to leave the body lying still. */
+if (cl.stats[STAT_HEALTH] > 0)
+{
 	ent->angles[YAW] = cl.viewangles[YAW];	// the model should face the view dir
 	ent->angles[PITCH] = -cl.viewangles[PITCH];	// the model should face the view dir
+}
 
 	if (cl_bobstyle.value >= 1)
 	{	//Halo-style: `bob` becomes the camera's (small) share, gun handled below
