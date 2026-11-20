@@ -849,7 +849,13 @@ void Sbar_Draw (void)
 	 * leaderboard), not only while the scoreboard is open - the old request
 	 * lived at the bottom of Sbar_DeathmatchOverlay, so the value froze the
 	 * moment you closed it. The server answers with "Client ping times:". */
-	if (cls.state == ca_connected && !cls.demoplayback && !cls.message.cursize
+	/* r128 (user 2026-11-18): the old condition also required
+	 * !cls.message.cursize, i.e. it only fired on a frame where the outgoing
+	 * command buffer happened to be empty exactly here. On the Vita that never
+	 * landed, so no ping was ever requested and the HUD chip stayed at 0 ms.
+	 * Appending a clc_stringcmd to cls.message is legal at any point --
+	 * CL_SendCmd concatenates the move and the stuff into one packet. */
+	if (cls.state == ca_connected && !cls.demoplayback
 	    && cl.expectingpingtimes < realtime)
 	{
 		cl.expectingpingtimes = realtime + 2;
@@ -972,8 +978,14 @@ void Sbar_Draw (void)
 //			Sbar_MiniDeathmatchOverlay ();
     int oldcanvas = currentcanvas;
     GL_SetCanvas(CANVAS_DEFAULT);
-    if (deathmatch.value == DM_SLAYER || deathmatch.value == DM_SWAT)
-        MiniDeathmatchOverlay ();
+    {
+        /* r170 (user: "your mini scorebar is gone" after joining from a
+         * network game): gate on the SERVER's mode. The local deathmatch
+         * cvar is 0 on any client that never hosted a match itself. */
+        int dm = (int)CL_ServerDeathmatch ();
+        if (dm == DM_SLAYER || dm == DM_SWAT)
+            MiniDeathmatchOverlay ();
+    }
     GL_SetCanvas(oldcanvas);
 
 	// P2a lobby roster: the colored name list moved to the matchmaking
@@ -1016,6 +1028,40 @@ void Sbar_IntermissionNumber (int x, int y, int num, int digits, int color)
 
 /*
 ==================
+Sbar_DrawBotIcon
+r178: little robot mark for the leaderboard's status cell. There is no
+robot art in the pak, so it is built from alpha fills (head shell, two
+eyes, a mouth grill and an antenna) and scales to any cell height.
+==================
+*/
+static void Sbar_DrawBotIcon (int x, int y, int h, float a)
+{
+	int u = h / 10;		/* one grid unit of the 10x10 glyph */
+
+	if (u < 1)
+		u = 1;
+
+	/* antenna: bulb above a short stem */
+	Draw_FillRGBA (x + 5*u - (u>1?u/2:1), y, (u>1?u:1), 2*u, 1, 1, 1, a * 0.55f);
+	Draw_FillRGBA (x + 4*u, y + 2*u, 2*u, u, 1, 1, 1, a * 0.55f);
+
+	/* head shell, then the face carved out of it */
+	Draw_FillRGBA (x + u, y + 3*u, 8*u, 6*u, 1, 1, 1, a * 0.28f);
+	Draw_FillRGBA (x + 1*u, y + 3*u, u, 6*u, 1, 1, 1, a * 0.55f);	/* left ear */
+	Draw_FillRGBA (x + 8*u, y + 3*u, u, 6*u, 1, 1, 1, a * 0.55f);	/* right ear */
+
+	/* eyes */
+	Draw_FillRGBA (x + 2*u, y + 5*u, 2*u, 2*u, 1, 1, 1, a * 0.95f);
+	Draw_FillRGBA (x + 6*u, y + 5*u, 2*u, 2*u, 1, 1, 1, a * 0.95f);
+
+	/* mouth grill */
+	Draw_FillRGBA (x + 3*u, y + 8*u, u, u, 1, 1, 1, a * 0.55f);
+	Draw_FillRGBA (x + 5*u, y + 8*u, u, u, 1, 1, 1, a * 0.55f);
+	Draw_FillRGBA (x + 7*u, y + 8*u, u, u, 1, 1, 1, a * 0.55f);
+}
+
+/*
+==================
 Sbar_LBTeams
 r68: team-grouped leaderboard (Halo 3 style: one column per team).
 Buckets the frag-sorted roster by team nibble (client-side team
@@ -1048,8 +1094,15 @@ static qboolean Sbar_LBTeams (int l)
 		s = &cl.scores[k];
 		if (!s->name[0])
 			continue;
-		if ((s->colors & 15) != me_nib && en_nib < 0)
-			en_nib = s->colors & 15;
+		nib = s->colors & 15;
+		if (nib == me_nib)
+			continue;
+		if (en_nib < 0)
+			en_nib = nib;
+		else if (nib != en_nib)
+			return false;	// r192: a THIRD colour group -- this board only has
+							// two sections, so grouping would drop one team into
+							// the other. Flat list is the honest fallback.
 	}
 	if (en_nib < 0)
 		return false;
@@ -1113,8 +1166,11 @@ static qboolean Sbar_LBTeams (int l)
 				Draw_Fill (x - (int)(36.0f*U), y + (int)(8.0f*U), (int)(522.0f*U), (int)(22.0f*U), ((k+1)==cl.viewentity)?75:73, 1);
 			Draw_FillRGBA (x + (int)(2.0f*U), y, (int)(111.0f*U), (int)(38.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
 			Draw_FillRGBA (x + (int)(3.0f*U), y + (int)(2.0f*U), (int)(109.0f*U), (int)(34.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.55);
-			Draw_FillRGBA (x + (int)(124.0f*U), y, (int)(326.0f*U), (int)(38.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
-			Draw_FillRGBA (x + (int)(126.0f*U), y + (int)(2.0f*U), (int)(322.0f*U), (int)(34.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.45);
+			Draw_FillRGBA (x + (int)(124.0f*U), y, (int)(286.0f*U), (int)(38.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
+			Draw_FillRGBA (x + (int)(126.0f*U), y + (int)(2.0f*U), (int)(282.0f*U), (int)(34.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.45);
+			/* r178: status cell -- robot for bots, round-trip for humans */
+			Draw_FillRGBA (x + (int)(412.0f*U), y, (int)(38.0f*U), (int)(38.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
+			Draw_FillRGBA (x + (int)(414.0f*U), y + (int)(2.0f*U), (int)(34.0f*U), (int)(34.0f*U), pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.45);
 
 			f = s->frags;
 			sprintf (num, "%i", f);
@@ -1126,6 +1182,21 @@ static qboolean Sbar_LBTeams (int l)
 
 			Draw_TTFString (x + (int)(144.0f*U), y + (int)(29.0f*U), s->name, 0, 0, 0, 0.8f, 32.0f*U);   /* drop shadow */
 			Draw_TTFString (x + (int)(143.0f*U), y + (int)(28.0f*U), s->name, 1, 1, 1, 1.0f, 32.0f*U);
+
+			/* r178: status cell. s->ping is -1 for botclients (the server
+			 * reports them as -1 in "Client ping times" -- see Host_Ping_f),
+			 * >0 for humans, and 0 until the first reply lands. */
+			if (s->ping < 0)
+				Sbar_DrawBotIcon (x + (int)(421.0f*U), y + (int)(9.0f*U), (int)(20.0f*U), 0.9f);
+			else if (s->ping > 0)
+			{
+				char	pb[16];
+				float	pw;
+				sprintf (pb, "%i ms", s->ping);
+				pw = Draw_TTFWidth (pb, 20.0f*U);
+				Draw_TTFString (x + (int)(431.0f*U) - (int)(pw*0.5f) + 1, y + (int)(27.0f*U) + 1, pb, 0, 0, 0, 0.8f, 20.0f*U);
+				Draw_TTFString (x + (int)(431.0f*U) - (int)(pw*0.5f), y + (int)(27.0f*U), pb, 1, 1, 1, 1.0f, 20.0f*U);
+			}
 
 			y += (int)(40.0f * U);
 		}
@@ -1162,12 +1233,16 @@ void Sbar_DeathmatchOverlay (void)
 // draw the text
 	l = scoreboardlines;
 
-	x = 80; //johnfitz -- simplified becuase some positioning is handled elsewhere
+	x = 62; /* r184 (user: "leaderboard no longer centerd"): x=80 was tuned
+	         * for the 136-wide board, whose span 91..228 centred on virtual
+	         * 160 (dead screen centre in CANVAS_LB). r178 added the 34px status
+	         * column and pushed the right edge out 23px, dragging the whole
+	         * board off centre. Base shifted left by half the added width. */
 	y = 40;   /* r61b: REVERTED the hand-scaled x1.2 constants (moved every
 	           * element by a slightly different amount and broke alignment
 	           * + header, user 2026-11-12). Original geometry restored;
 	           * uniform scaling must come from the canvas, not constants. */
-	if (teamplay.value && Sbar_LBTeams (l))   /* r68: grouped columns */
+	if (CL_ServerTeamplay () && Sbar_LBTeams (l))   /* r68/r134: grouped columns */
 		goto teamcols;
 
     /* r123: there was no way to see your own ping. The server answers the
@@ -1188,7 +1263,7 @@ void Sbar_DeathmatchOverlay (void)
     /* P2a round 4: navy header strip (was a palette-0 slab at 0.9 — user:
      * "leaderboard should also use our blue, not black"), grid-header style,
      * with the title in the ExtraBold header font (baseline = old 27+8). */
-    Draw_FillRGBA (x+12, 23, 136, 16, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
+    Draw_FillRGBA (x+12, 23, 174, 16, 20/255.0f, 25/255.0f, 44/255.0f, 0.85f);
     Draw_TTFStringHeader (x+20, 35, "LEADERBOARD", 1,1,1,0.9f, 14.0f);
 
 	for (i = 0; i < l; i++)
@@ -1214,6 +1289,12 @@ void Sbar_DeathmatchOverlay (void)
             Draw_FillRGBA (x+12, y, 32, 12, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.55);
             Draw_FillRGBA (x+49, y-1, 100, 14, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
             Draw_FillRGBA (x+50, y, 98, 12, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.45);
+            /* r178: status cell -- robot for bots, round-trip for humans.
+             * r184 (user: "the leaderboard ping section too big"): 42px was
+             * wider than the 34px frags cell for four characters of text.
+             * 34px still fits "999 ms" at 11px. */
+            Draw_FillRGBA (x+152, y-1, 34, 14, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.18);
+            Draw_FillRGBA (x+153, y, 32, 12, pc[0]/255.0, pc[1]/255.0, pc[2]/255.0, 0.45);
         }
 
         // draw number (P2a: TTF, right-aligned in the strip, no padding spaces)
@@ -1249,6 +1330,24 @@ void Sbar_DeathmatchOverlay (void)
         // draw name
         Draw_TTFString (x+55, y + 10, s->name, 0, 0, 0, 0.8f, 14.0f);   /* r60b drop shadow */
         M_PrintWhite (x+54, y + 1, s->name);
+
+        /* r178: status cell. s->ping is -1 for botclients (server-side
+         * Host_Ping_f reports them that way), >0 for humans, 0 while the
+         * first "Client ping times" reply is still in flight.
+         * r180: the content sat at x+249, 97 px right of its own cell
+         * (x+152..x+194) and past the end of the strip, so the column looked
+         * empty. Centre both marks on the cell's middle, x+173. */
+        if (s->ping < 0)
+            Sbar_DrawBotIcon (x+165, y+1, 9, 0.9f);
+        else if (s->ping > 0)
+        {
+            char pb[16];
+            float pw;
+            sprintf (pb, "%i ms", s->ping);
+            pw = Draw_TTFWidth (pb, 11.0f);
+            Draw_TTFString (x+170 - (int)(pw*0.5f), y + 10, pb, 0, 0, 0, 0.75f, 11.0f);
+            Draw_TTFString (x+169 - (int)(pw*0.5f), y + 9, pb, 1, 1, 1, 0.95f, 11.0f);
+        }
 
 		y += 16;
 	}
