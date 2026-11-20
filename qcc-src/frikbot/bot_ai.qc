@@ -765,7 +765,8 @@ void(float scope) bot_look_for_crap =
 		if (thatp)
 			if (!scope)
 				if (!sisible(foe))
-					thatp = 0;
+					if (foe.classname == "player")
+						thatp = 0; // r188: no wallhack on humans
 		if (thatp > bestp)
 		{
 			bestp = thatp;
@@ -783,6 +784,14 @@ void(float scope) bot_look_for_crap =
 		{
 			bot_get_path(best, FALSE);
 			self.b_aiflags = self.b_aiflags | AI_WAIT;
+		}
+		else if (!sisible(best) || !bot_floorclear(self.origin, best.origin))
+		{
+			// r188: an item we can want but cannot see -- walk the waypoint
+			// graph to it instead of shouldering straight through the wall.
+			// r192: same for an item we CAN see but cannot walk to across a
+			// hole -- the straight beeline is what dropped bots into the well.
+			bot_get_path(best, TRUE);
 		}
 	}
 };

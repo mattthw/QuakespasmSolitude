@@ -150,6 +150,8 @@ for all variable in the bot...
 .vector	b_angle/*, b_dest*/, mouse_emu, obs_dir;
 .vector	movevect, b_dir;
 .vector dyn_dest;
+.vector b_stuck_org;	// r188: origin sampled for stuck detection
+.float	b_stuck_time;	// r188: when the next stuck test is due (0 = idle)
 
 // --------defines-----
 float SVC_UPDATENAME	= 13;
@@ -274,6 +276,7 @@ float(entity targ)		fov;
 float(float y1, float y2)	angcomp;
 float(entity targ1, entity targ2)		wisible;
 float(entity targ)		sisible;
+float(vector from, vector to)	bot_floorclear;
 float(entity targ)		fisible;
 vector(entity ent)		realorigin;
 void(entity ent)			target_drop;
@@ -1378,6 +1381,41 @@ void() BotFrame =
 				CL_KeyMove();
 				SV_ClientThink();
 				SV_Physics_Client();
+
+				// r188: stuck recovery -- a bot holding movement keys that has
+				// not actually moved for 1.5s is walking into something (a well,
+				// a lip, a corner). Drop whatever it was chasing and re-seed at
+				// the nearest waypoint, which is the way out of a beeline that
+				// has been pinned against geometry.
+				if (self.keys & 63) // any of up/down/left/right/forward/back
+				{
+					if (!self.b_stuck_time)
+					{
+						self.b_stuck_org = self.origin;
+						self.b_stuck_time = time + 1.5;
+					}
+					else if (time >= self.b_stuck_time)
+					{
+						if (vlen(self.origin - self.b_stuck_org) < 24)
+						{
+							if (self.target1 != world)
+								bot_lost(self.target1, FALSE);
+							else
+							{
+								self.last_way = FindWayPoint(world);
+								ClearMyRoute();
+							}
+							self.b_stuck_time = 0;
+						}
+						else
+						{
+							self.b_stuck_org = self.origin;
+							self.b_stuck_time = time + 1.5;
+						}
+					}
+				}
+				else
+					self.b_stuck_time = 0;
 			}
 		}
 		self = nextent(self);

@@ -411,12 +411,12 @@ void() DynamicWaypoint =
 					{
 						if (!self.dyn_flags)
 						{
-							if (wisible(t, self.current_way))
+							if ((wisible(t, self.current_way) && (!self.current_way || bot_floorclear(t.origin, self.current_way.origin))))
 								LinkWays(t, self.current_way);
 						}
 						if (self.dyn_flags == 2)
 							TeleLinkWays(self.current_way, t);
-						else if (wisible(t, self.current_way))
+						else if ((wisible(t, self.current_way) && (!self.current_way || bot_floorclear(t.origin, self.current_way.origin))))
 							LinkWays(self.current_way, t);
 					}
 					if (editor)
@@ -461,12 +461,12 @@ void() DynamicWaypoint =
 
 	if (!self.dyn_flags)
 	{
-		if (wisible(t, self.current_way))
+		if ((wisible(t, self.current_way) && (!self.current_way || bot_floorclear(t.origin, self.current_way.origin))))
 			LinkWays(t, self.current_way);
 	}
 	if (self.dyn_flags == 2)
 		TeleLinkWays(self.current_way, t);
-	else if (wisible(t, self.current_way))
+	else if ((wisible(t, self.current_way) && (!self.current_way || bot_floorclear(t.origin, self.current_way.origin))))
 		LinkWays(self.current_way, t);
 
 	if (editor)

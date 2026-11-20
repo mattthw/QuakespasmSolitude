@@ -713,6 +713,56 @@ float (entity targ) sisible =
 		return TRUE;
 	else if (trace_fraction == 1)
 		return TRUE;
+	// r187: this was `return TRUE', which made every sight test pass -- bots
+	// beelined at items and enemies through walls (and around-the-well routes
+	// were ignored because the item behind the wall scored as visible).
+	return FALSE;
+};
+
+/*
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+bot_floorclear
+
+r192: the missing half of every "can I get there" test. wisible and sisible
+cast zero-width rays at floor height, so a HOLE in the floor -- a well, a pit,
+a lift shaft -- never blocks anything: the ray passes straight over the void
+and the link looks fine. Bots then obediently walk the shorter link and fall
+in. This samples the floor under the line on foot and reports whether there is
+actually something to walk on.
+
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+*/
+
+float(vector from, vector to) bot_floorclear =
+{
+	local vector dir, p;
+	local float len, step, prev, i;
+
+	dir = to - from;
+	dir_z = 0;
+	len = vlen(dir);
+
+	if (len < 24)
+		return TRUE;			// adjacent: the waypoint itself is on the floor
+
+	dir = normalize(dir);
+	prev = from_z;
+	step = 32;
+
+	for (i = step; i < len; i = i + step)
+	{
+		p = from + dir * i;
+		traceline (p + '0 0 24', p - '0 0 72', TRUE, world);
+		if (trace_fraction == 1)
+			return FALSE;		// nothing underneath: a hole, not a path
+		if (trace_endpos_z > prev + 24)
+			return FALSE;		// step taller than STEPSIZE: not walkable
+		if (trace_endpos_z < prev - 72)
+			return FALSE;		// sheer drop in the middle of a "link"
+		prev = trace_endpos_z;
+	}
+
 	return TRUE;
 };
 /*

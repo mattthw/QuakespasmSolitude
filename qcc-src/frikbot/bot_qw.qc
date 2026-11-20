@@ -274,6 +274,7 @@ float(entity targ)		fov;
 float(float y1, float y2)	angcomp;
 float(entity targ1, entity targ2)		wisible;
 float(entity targ)		sisible;
+float(vector from, vector to)	bot_floorclear;
 float(entity targ)		fisible;
 vector(entity ent)		realorigin;
 void(entity ent)			target_drop;
