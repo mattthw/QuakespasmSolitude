@@ -2574,7 +2574,7 @@ struct opts_t opts = {
         .gametype = TEAM_SLAYER,
         /* CUSTOM GAME OPTIONS */
         .custom_primary = 0,
-        .custom_secondary = 1,
+        .custom_secondary = 2,   /* r213: Pistol (index 1 was Battle Rifle) */
         .map_weapons_disable = 0,
         .max_nades = 2,	/* perf B7 */
         .infinite_ammo = 0,
@@ -2586,7 +2586,7 @@ struct opts_t opts = {
 
 void resetGameRules() {
     opts.custom_primary = 0;
-    opts.custom_secondary = 1;
+    opts.custom_secondary = 2;   /* r213: Pistol */
     opts.map_weapons_disable = 0;
     opts.infinite_ammo = 0;
     opts.fraglimit = (opts.gametype == TEAM_SLAYER) ? 20 : 10;   /* r77 per-mode defaults */
@@ -2605,6 +2605,7 @@ typedef struct custom_weapon_t {
 } custom_weapon_t;
 struct custom_weapon_t gamerule_weapons[] = {
         {WEAPON_AR, "Assault Rifle"},
+        {WEAPON_BR, "Battle Rifle"},
         {WEAPON_PISTOL, "Pistol"},
         {WEAPON_SWORD, "Energy Sword"},
         {WEAPON_SHOT, "Shotgun"},
@@ -2617,6 +2618,7 @@ struct custom_weapon_t gamerule_weapons[] = {
 };
 struct custom_weapon_t gamerule_weapons_secondary[] = {
         {WEAPON_AR, "Assault Rifle"},
+        {WEAPON_BR, "Battle Rifle"},
         {WEAPON_PISTOL, "Pistol"},
         {WEAPON_SWORD, "Energy Sword"},
         {WEAPON_SHOT, "Shotgun"},
@@ -2799,11 +2801,25 @@ void M_Matchmaking_Gamerules_Submenu_Key (int dir) {
                 opts.custom_primary = sizeof(gamerule_weapons)/sizeof(gamerule_weapons[0])-1;
             break;
         case 3: //custom secondary
-//            opts.custom_secondary += dir; todo: fix custom secondary QuakeC code
-            if (opts.custom_secondary >= sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0]))
+            // r213: the QC side is fixed (Start_Weapon handles any secondary,
+            // including BR via .has_br and the menu's "None" row), so this row
+            // scrolls again.
+            opts.custom_secondary += dir;
+            if (opts.custom_secondary >= (int)(sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0])))
                 opts.custom_secondary = 0;
             if (opts.custom_secondary < 0 && dir < 0)
-                opts.custom_secondary = sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0])-1;
+                opts.custom_secondary = (int)(sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0]))-1;
+            // never land on the weapon already chosen as primary -- the QC
+            // drops a duplicate, which would silently leave a dead second slot
+            if (gamerule_weapons_secondary[opts.custom_secondary].weapon ==
+                gamerule_weapons[opts.custom_primary].weapon)
+            {
+                opts.custom_secondary += dir;
+                if (opts.custom_secondary >= (int)(sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0])))
+                    opts.custom_secondary = 0;
+                if (opts.custom_secondary < 0)
+                    opts.custom_secondary = sizeof(gamerule_weapons_secondary)/sizeof(gamerule_weapons_secondary[0])-1;
+            }
             break;
         case 4: //ground weapons
             opts.map_weapons_disable += dir;
@@ -2876,18 +2892,9 @@ void M_Matchmaking_Gamerules_Key (int key) {
         case K_BBUTTON: // circle
         case 'n':
         case 'N':
-            if (opts.custom_primary == opts.custom_secondary) {
-                // do not allow two of the same weapons
-                if (opts.custom_secondary == sizeof(gamerule_weapons)/sizeof(gamerule_weapons[0])-1) {
-                    opts.custom_secondary = 0;
-                } else {
-                    opts.custom_secondary++;
-                }
-            } else {
-                m_state = m_gameoptions;
-                m_entersound = true;
-                cursorfocused = true;
-            }
+            m_state = m_gameoptions;
+            m_entersound = true;
+            cursorfocused = true;
             break;
         case K_ABUTTON: // x
         case 'y':

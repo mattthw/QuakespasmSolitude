@@ -414,6 +414,7 @@ typedef enum InpType {
 #define IT_GHOST                    33554432    // Solitude
 #define IT_FLAG                     67108864    // solitude
 #define IT_NONE                     134217728   // solitude
+#define IT_BR                       268435456   // solitude: Battle Rifle weapon ID (2^28) -- NOT an items bit, see sol_defs.qc
 // weapons
 #define WEAPON_SWORD		IT_AXE
 #define WEAPON_PISTOL		IT_SHOTGUN

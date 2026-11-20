@@ -244,6 +244,7 @@ cvar_t cl_plasmanade = {"cl_plasmanade", "2"};
 cvar_t cl_melee_range = {"cl_melee_range", "0"};	// r112b: QC stuffcmd — 1 while a lb_melee target is in W_Melee range
 cvar_t cl_nadenum = {"cl_nadenum", "0"};	// r111: was "4" — stale default showed on spawn before QC sync
 cvar_t cl_nadenum2 = {"cl_nadenum2", "0"};	// r110: alt-type pool count (QC NadeCounter)
+cvar_t cl_br = {"cl_br", "0"};	// r212: 1 = player owns the Battle Rifle (QC has_br; not an items bit)
 cvar_t cl_round = {"cl_round", "0"};
 cvar_t cl_life = {"cl_life", "1"};
 cvar_t cl_slowmo = {"cl_slowmo", "5"};
@@ -372,6 +373,7 @@ void HUD_Init (void) {
     Cvar_RegisterVariable (&cl_melee_range); //r112b: LB-melee in-range prompt
     Cvar_RegisterVariable (&cl_nadenum);	//A counter for your grenades.
     Cvar_RegisterVariable (&cl_nadenum2);	//r110: the other type's counter
+    Cvar_RegisterVariable (&cl_br);		//r212: player owns the Battle Rifle
     Cvar_RegisterVariable (&cl_ww);	//World weapons
     Cvar_RegisterVariable (&cl_round);
     Cvar_RegisterVariable (&cl_life);
@@ -500,15 +502,19 @@ char *getWeaponName(int w) {
         case IT_ROCKET_LAUNCHER:
             return "Rocket Launcher";
         case IT_SHOTGUN:
-            return "Pistol";
+            return "Magnum";
         case IT_SUPER_NAILGUN:
             return "SMG";
         case IT_GRENADE_LAUNCHER:
-            return "Sniper";
+            return "Sniper Rifle";
         case IT_AXE:
             return "Energy Sword";
+        case IT_SKULL:
+            return "Oddball";
         case IT_EXTRA_WEAPON2:
             return "Plasma Rifle";
+        case IT_BR:
+            return "Battle Rifle";
         default:
             return "Unknown";
     }
@@ -527,11 +533,11 @@ char *getPickupWeaponString (int value) {
         case 5:
             return "Rocket Launcher";
         case 6:
-            return "Pistol";
+            return "Magnum";
         case 7:
             return "SMG";
         case 8:
-            return "Sniper";
+            return "Sniper Rifle";
         case 9:
             return "Battle Rifle";
         case 10:
@@ -766,6 +772,10 @@ void drawCrosshair(void) {
     case IT_GRENADE_LAUNCHER: /* Sniper - r65f: smaller than pistol (user) */
         HUD_DrawCircle (cx, cy, q_max (2.0f, (float)(gap + len) * 0.12f), cr, cg, cb);
         return;
+    case IT_BR:               /* Battle Rifle - r212: precision ring, a touch
+                               * wider than the sniper's dot */
+        HUD_DrawCircle (cx, cy, q_max (3.0f, (float)(gap + len) * 0.25f), cr, cg, cb);
+        return;
     default:
         break;
     }
@@ -839,13 +849,18 @@ void drawPickupWeapon(void) {
 static int HUD_SecondaryWeapon (void)
 {
     static const int prio[] = {
-        IT_ROCKET_LAUNCHER, IT_GRENADE_LAUNCHER, IT_SUPER_LIGHTNING,
+        IT_ROCKET_LAUNCHER, IT_GRENADE_LAUNCHER, IT_BR, IT_SUPER_LIGHTNING,
         IT_LIGHTNING, IT_SUPER_SHOTGUN, IT_SUPER_NAILGUN,
         IT_EXTRA_WEAPON2, IT_NAILGUN, IT_SHOTGUN
     };
     int items = (int)cl.stats[STAT_ITEMS];
     int active = (int)cl.stats[STAT_ACTIVEWEAPON];
     int i;
+
+    /* r212: the Battle Rifle has no .items bit -- QC mirrors ownership into
+     * cl_br, so fold it into the mask the walker below understands. */
+    if (cl_br.value)
+        items |= IT_BR;
 
     for (i = 0; i < (int)(sizeof(prio)/sizeof(prio[0])); i++)
         if ((items & prio[i]) && prio[i] != active)
@@ -874,6 +889,7 @@ static int HUD_WeaponClip (int w)
         case IT_ROCKET_LAUNCHER:  return 2;    /* Rocket Launcher*/
         case IT_GRENADE_LAUNCHER: return 4;    /* Sniper         */
         case IT_SUPER_LIGHTNING:  return 20;   /* Needler        */
+        case IT_BR:               return 36;   /* Battle Rifle   */
         default:                  return 0;    /* sword / fists  */
     }
 }
