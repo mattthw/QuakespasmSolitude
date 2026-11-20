@@ -56,8 +56,10 @@ static cvar_t	*cl_slist_only_solitude;
 
 static void Slist_Send (void *);
 static void Slist_Poll (void *);
+static void Slist_PingPoll (void *);
 static PollProcedure	slistSendProcedure = {NULL, 0.0, Slist_Send};
 static PollProcedure	slistPollProcedure = {NULL, 0.0, Slist_Poll};
+static PollProcedure	slistPingProcedure = {NULL, 0.0, Slist_PingPoll};
 
 /* r123: server-browser filter. Servers advertise their game dir now (the
  * NetQuake reply gained a trailing string; the DarkPlaces path already carried
@@ -399,6 +401,7 @@ void NET_Slist_f (void)
 
 	SchedulePollProcedure(&slistSendProcedure, 0.0);
 	SchedulePollProcedure(&slistPollProcedure, 0.1);
+	SchedulePollProcedure(&slistPingProcedure, 0.0);	/* r182: reply reader */
 
 	hostCacheCount = 0;
 	/* r180: master replies accumulate in net_dgrm's hostlist and were never
@@ -509,6 +512,12 @@ void NET_SlistServerMeta (size_t n, const char **title, const char **desc,
 }
 
 
+/* r181: browse latency for the lobby list, in ms. -1 when unmeasured. */
+int NET_SlistServerPing (size_t n)
+{
+	return (n < hostCacheCount) ? hostcache[n].ping : -1;
+}
+
 static void Slist_Send (void *unused)
 {
 	for (net_driverlevel = 0; net_driverlevel < net_numdrivers; net_driverlevel++)
@@ -524,6 +533,32 @@ static void Slist_Send (void *unused)
 		SchedulePollProcedure(&slistSendProcedure, 0.75);
 }
 
+
+/* r182 (user: "both my local server and the oracle server show ~100ms ping"):
+ * replies were only read by the 0.1 s UI poll, so every measurement carried a
+ * whole tick of latency -- a LAN server with a 0.2 ms RTT read as 100 ms. Read
+ * the sockets on a fast cadence and keep draining for a couple of ms after the
+ * queries go out, so a nearby reply is caught inside the same frame. The menu
+ * still refreshes at 0.1 s; this procedure only talks to the network. */
+static void Slist_PingPoll (void *unused)
+{
+	double	until = Sys_DoubleTime () + 0.002;
+
+	do
+	{
+		for (net_driverlevel = 0; net_driverlevel < net_numdrivers; net_driverlevel++)
+		{
+			if (slistScope != SLIST_LOOP && IS_LOOP_DRIVER(net_driverlevel))
+				continue;
+			if (net_drivers[net_driverlevel].initialized == false)
+				continue;
+			dfunc.SearchForHosts (false);
+		}
+	} while (Sys_DoubleTime () < until);
+
+	if (slistInProgress && (Sys_DoubleTime () - slistStartTime) < 4.0)
+		SchedulePollProcedure(&slistPingProcedure, 0.005);
+}
 
 static void Slist_Poll (void *unused)
 {

@@ -106,6 +106,7 @@ float           teamlimit; // used to determine when to end team based games
 // IT_BR stays a pure weapon ID for self.weapon comparisons.
 .float has_br;
 .float br_burst;		// rounds left in the current 3-round burst (r212)
+.float br_held;			// trigger still down since the last burst (r213, semi-auto gate)
 .float bloom;			// r213: current cone, FireBullets spread units (tan of the per-axis angle)
 float   IT_BR                           = 268435456;        // solitude: BR weapon ID, 2^28 (exact in float32, never an .items bit)
 

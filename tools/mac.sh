@@ -249,6 +249,10 @@ vita() {
 case "${1:-launch}" in
   launch)    shift; if [ $# -gt 0 ]; then m="$1"; shift; else m="highground"; fi; launch "$m" "$@" ;;
   mapshot)   shift; mapshot "$@" ;;
+  waypoint)  shift
+             if [ $# -gt 0 ]; then m="$1"; shift; else m="highground"; fi
+             launch -editor -waypoint +map "$m" +lobby_bots 0 "$@"
+             echo "waypoint editor armed for $m (impulse 104 fires on spawn; add +lobby_bots 2 for test bots)";;
   server)    shift; server "${1:-highground}" "${2:-26000}" ;;
   status)    shift; status "${1:-26000}" "${2:-127.0.0.1}" ;;
   stop)      stop ;;
@@ -258,5 +262,5 @@ case "${1:-launch}" in
   all)       shift; build; vita; launch "${1:-highground}" ;;
   stock)     shift; pkill -x QuakeSpasm 2>/dev/null || true
              open "$STOCK" --args -basedir "$REPO" -game solitude +map "${1:-highground}" -window +exec config-mac.cfg ;;
-  *) echo "usage: $0 [launch|build|vita|all|stock|server|status|stop] [map|port]"; exit 1 ;;
+  *) echo "usage: $0 [launch|waypoint|build|vita|all|stock|server|status|stop] [map|port]"; exit 1 ;;
 esac

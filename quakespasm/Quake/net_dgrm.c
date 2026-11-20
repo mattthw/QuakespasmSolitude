@@ -1184,6 +1184,49 @@ void Datagram_Rcon_Flush(const char *text)
 	net_landrivers[landriver].Write (rcon_response_socket, msg.data, msg.cursize, &rcon_response_address);
 }
 
+/* r177: one builder for the lobby metadata, shared by BOTH browse paths.
+ * It used to exist only on the NetQuake control-socket reply, so a browser
+ * that found the server through dpmaster (infoResponse/getstatus) saw the
+ * same server with the title, bot count, fill rule and round limits simply
+ * missing -- the internet listing and the LAN broadcast disagreed about the
+ * very same host. */
+static void NET_LobbyMeta (char *buf, size_t size)
+{
+	const char	*mode;
+	const char	*title;
+	const char	*desc;
+	int			bots = 0, i;
+	float		dm = Cvar_VariableValue ("deathmatch");
+	float		tp = Cvar_VariableValue ("teamplay");
+
+	for (i = 0; i < svs.maxclients; i++)
+		if (svs.clients[i].active && !svs.clients[i].netconnection)
+			bots++;
+
+	if (dm == 2)
+		mode = "Firefight";
+	else if (dm == 3)
+		mode = "Swat";
+	else if (dm >= 1)
+		mode = tp ? "Team Slayer" : "Slayer";
+	else
+		mode = "Co-op";
+
+	title = Cvar_VariableString ("sv_title");
+	if (!title || !title[0])
+		title = hostname.string;
+	desc = Cvar_VariableString ("sv_desc");
+	if (!desc)
+		desc = "";
+
+	q_snprintf (buf, size,
+		    "\\title\\%s\\desc\\%s\\game\\%s\\bots\\%i\\rule\\%i\\time\\%i\\limit\\%i",
+		    title, desc, mode, bots,
+		    (int) Cvar_VariableValue ("lobby_bots"),
+		    (int) Cvar_VariableValue ("timelimit"),
+		    (int) Cvar_VariableValue ("fraglimit"));
+}
+
 static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsockaddr *clientaddr, byte *data, unsigned int length)
 {
 	struct qsockaddr newaddr;
@@ -1248,6 +1291,16 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 			if (numbots)
 				{MSG_WriteString(&net_message, va("\\bots\\%u", numbots));net_message.cursize--;}
 			MSG_WriteString(&net_message, va("\\sv_maxclients\\%i", svs.maxclients));net_message.cursize--;
+			/* r177: the lobby metadata must be identical on both browse
+			 * paths, or the master listing and the LAN broadcast describe
+			 * the same server differently (title/desc/game/bots/fill/time
+			 * went missing exactly here). */
+			{
+				char	meta[512];
+
+				NET_LobbyMeta (meta, sizeof (meta));
+				MSG_WriteString(&net_message, meta);net_message.cursize--;
+			}
 			if (*cookie)
 				{MSG_WriteString(&net_message, va("\\challenge\\%s", cookie));net_message.cursize--;}
 
@@ -1308,46 +1361,14 @@ static void _Datagram_ServerControlPacket (sys_socket_t acceptsock, struct qsock
 		 * from stock Quake servers. Old clients ignore the trailing string. */
 		MSG_WriteString(&net_message, COM_GetGameNames(false));
 		/* r175: browse metadata for the lobby list -- title, description,
-		 * game mode, live bot count and the bot-fill rule. Sent as one more
-		 * trailing string of \key\value pairs so older clients (and stock
-		 * Quake engines) simply never read it.
-		 * r176: plus the round shape the server is really running, so the
-		 * browser can print how a match ends instead of guessing. */
+		 * game mode, live bot count and the bot-fill rule.
+		 * r176: plus the round shape the server is really running.
+		 * r177: built by NET_LobbyMeta so the dpmaster path carries the
+		 * identical set (the two used to disagree). */
 		{
-			char		info[512];
-			const char	*mode;
-			const char	*title;
-			const char	*desc;
-			int			bots = 0, bi;
-			float		dm = Cvar_VariableValue ("deathmatch");
-			float		tp = Cvar_VariableValue ("teamplay");
+			char	info[512];
 
-			for (bi = 0; bi < svs.maxclients; bi++)
-				if (svs.clients[bi].active && !svs.clients[bi].netconnection)
-					bots++;
-
-			if (dm == 2)
-				mode = "Firefight";
-			else if (dm == 3)
-				mode = "Swat";
-			else if (dm >= 1)
-				mode = tp ? "Team Slayer" : "Slayer";
-			else
-				mode = "Co-op";
-
-			title = Cvar_VariableString ("sv_title");
-			if (!title || !title[0])
-				title = hostname.string;
-			desc = Cvar_VariableString ("sv_desc");
-			if (!desc)
-				desc = "";
-
-			q_snprintf (info, sizeof (info),
-				    "\\title\\%s\\desc\\%s\\game\\%s\\bots\\%i\\rule\\%i\\time\\%i\\limit\\%i",
-				    title, desc, mode, bots,
-				    (int) Cvar_VariableValue ("lobby_bots"),
-				    (int) Cvar_VariableValue ("timelimit"),
-				    (int) Cvar_VariableValue ("fraglimit"));
+			NET_LobbyMeta (info, sizeof (info));
 			MSG_WriteString (&net_message, info);
 		}
 		*((int *)net_message.data) = BigLong(NETFLAG_CTL | (net_message.cursize & NETFLAG_LENGTH_MASK));
@@ -1697,10 +1718,14 @@ static struct
 	int driver;
 	qboolean requery;
 	qboolean master;
+	double sent;	/* r181: when the browse query went out, for the ping */
 	struct qsockaddr addr;
 } *hostlist;
 size_t hostlist_count;
 size_t hostlist_max;
+/* r181: LAN replies come back to a broadcast, so there is no per-host send
+ * time -- the broadcast itself is the clock for those. */
+static double	lan_query_sent;
 static void _Datagram_AddPossibleHost(struct qsockaddr *addr, qboolean master)
 {
 	size_t u;
@@ -1764,8 +1789,33 @@ static void Info_ReadKey(const char *info, const char *key, char *out, size_t ou
 }
 
 
-static qboolean _Datagram_SearchForHosts (qboolean xmit)
+/* r181: browse latency. Every discovered host already gets a query from this
+ * code path; the reply is the measurement, so the ping costs nothing extra on
+ * the wire. Returns ms, or -1 when we never sent that host anything. */
+static int _Datagram_ReplyPing (struct qsockaddr *from)
 {
+	double	now = Sys_DoubleTime ();
+	size_t	u;
+
+	for (u = 0; u < hostlist_count; u++)
+	{
+		if (hostlist[u].driver != net_landriverlevel || hostlist[u].sent <= 0)
+			continue;
+		if (dfunc.AddrCompare (from, &hostlist[u].addr) == 0)
+		{
+			int	ms = (int) ((now - hostlist[u].sent) * 1000.0 + 0.5);
+
+			hostlist[u].sent = 0;	/* one measurement per query */
+			return ms < 0 ? 0 : ms;
+		}
+	}
+	if (lan_query_sent > 0 && now - lan_query_sent < 2.0)
+		return (int) ((now - lan_query_sent) * 1000.0 + 0.5);
+	return -1;
+}
+
+static qboolean _Datagram_SearchForHosts (qboolean xmit){
+
 	int		ret;
 	size_t	n;
 	size_t	i;
@@ -1791,7 +1841,10 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 		 * broadcast always shows local servers, so "Online" has to suppress it
 		 * and ask the masters only. */
 		if (slistScope != SLIST_ONLINE)
+		{
 			dfunc.Broadcast(dfunc.controlSock, net_message.data, net_message.cursize);
+			lan_query_sent = Sys_DoubleTime ();
+		}
 		SZ_Clear(&net_message);
 
 		if (slistScope == SLIST_INTERNET || slistScope == SLIST_ONLINE)
@@ -1920,6 +1973,28 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 				hostcache[n].users = atoi(tmp);
 				Info_ReadKey(info, "sv_maxclients", tmp, sizeof(tmp));
 				hostcache[n].maxusers = atoi(tmp);
+				/* r177: the lobby metadata is on this path too now. Before,
+				 * a host found through dpmaster showed no title, no bot
+				 * count, no fill rule and no round limits -- the internet
+				 * row and the LAN row described different servers. */
+				hostcache[n].title[0] = hostcache[n].desc[0] = hostcache[n].game[0] = 0;
+				hostcache[n].bots = hostcache[n].rule = 0;
+				hostcache[n].timelimit = hostcache[n].fraglimit = 0;
+				Info_ReadKey(info, "title", hostcache[n].title, sizeof(hostcache[n].title));
+				Info_ReadKey(info, "desc", hostcache[n].desc, sizeof(hostcache[n].desc));
+				Info_ReadKey(info, "game", hostcache[n].game, sizeof(hostcache[n].game));
+				tmp[0] = 0;
+				Info_ReadKey(info, "bots", tmp, sizeof(tmp));
+				hostcache[n].bots = atoi(tmp);
+				tmp[0] = 0;
+				Info_ReadKey(info, "rule", tmp, sizeof(tmp));
+				hostcache[n].rule = atoi(tmp);
+				tmp[0] = 0;
+				Info_ReadKey(info, "time", tmp, sizeof(tmp));
+				hostcache[n].timelimit = atoi(tmp);
+				tmp[0] = 0;
+				Info_ReadKey(info, "limit", tmp, sizeof(tmp));
+				hostcache[n].fraglimit = atoi(tmp);
 				Info_ReadKey(info, "protocol", tmp, sizeof(tmp));
 				if (atoi(tmp) != NET_PROTOCOL_VERSION)
 				{
@@ -1928,6 +2003,7 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 					Q_strcat(hostcache[n].name, hostcache[n].cname);
 				}
 				Q_memcpy(&hostcache[n].addr, &readaddr, sizeof(struct qsockaddr));
+				hostcache[n].ping = _Datagram_ReplyPing (&readaddr);	/* r181 */
 				hostcache[n].driver = net_driverlevel;
 				hostcache[n].ldriver = net_landriverlevel;
 				q_strlcpy(hostcache[n].cname, dfunc.AddrToString(&readaddr, false), sizeof(hostcache[n].cname));
@@ -2042,6 +2118,7 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 			hostcache[n].fraglimit = atoi (val);
 		}
 		Q_memcpy(&hostcache[n].addr, &readaddr, sizeof(struct qsockaddr));
+		hostcache[n].ping = _Datagram_ReplyPing (&readaddr);	/* r181 */
 		hostcache[n].driver = net_driverlevel;
 		hostcache[n].ldriver = net_landriverlevel;
 		q_strlcpy(hostcache[n].cname, dfunc.AddrToString(&readaddr, false), sizeof(hostcache[n].cname));
@@ -2080,6 +2157,7 @@ static qboolean _Datagram_SearchForHosts (qboolean xmit)
 			if (hostlist[i].requery && hostlist[i].driver == net_landriverlevel)
 			{
 				hostlist[i].requery = false;
+				hostlist[i].sent = Sys_DoubleTime ();	/* r181: ping clock */
 				_Datagram_SendServerQuery(&hostlist[i].addr, hostlist[i].master);
 				sentsomething = true;
 				n--;

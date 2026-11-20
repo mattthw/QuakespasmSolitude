@@ -1330,9 +1330,61 @@ The input line scrolls horizontally if typing goes beyond the right edge
 */
 extern	qpic_t *pic_ovr, *pic_ins; //johnfitz -- new cursor handling
 
+/* r218 (user: "background just darkgrey ... and add a nice white/lightgrey/blue
+ * terminal font"): the console is a terminal now, not the 8x8 conchars grid.
+ * Rows are CON_ROWH tall so a real fixed-pitch face fits; the face is IBM Plex
+ * Mono (gfx/fonts/ibm-plex-mono-regular.ttf, OFL) baked into glfont_mono. */
+#define	CON_ROWH		17		/* drawn row height in console px */
+#define	CON_FONTSIZE	17.0f	/* em height; advance comes out ~7.9px */
+#define	CON_MARGINX		8
+#define	CON_MAXLINE		1024
+#define	CON_WHITE		0.92f, 0.94f, 0.95f, 1.0f	/* body text */
+#define	CON_BLUE		0.35f, 0.63f, 0.86f, 1.0f	/* prompt, talk text */
+#define	CON_GREY		0.55f, 0.57f, 0.62f, 1.0f	/* version, scrollback */
+
+/*
+================
+Con_DrawConsoleLine -- r218 -- one buffer line through the mono face.
+The con buffer keeps bit 7 for talk/^m text; draw those runs in blue instead of
+dropping them (conchars used to draw a coloured glyph for them).
+================
+*/
+static void Con_DrawConsoleLine (const char *text, int y)
+{
+	char	buf[CON_MAXLINE+1];
+	int		n, i, runstart, runmask;
+	float	x = CON_MARGINX;
+
+	n = con_linewidth;
+	if (n > CON_MAXLINE)
+		n = CON_MAXLINE;
+	while (n > 0 && text[n-1] == ' ')
+		n--;
+
+	i = 0;
+	while (i < n)
+	{
+		runmask = (text[i] & 0x80) ? 1 : 0;
+		runstart = i;
+		while (i < n && ((text[i] & 0x80) ? 1 : 0) == runmask)
+		{
+			buf[i - runstart] = text[i] & 0x7f;
+			i++;
+		}
+		buf[i - runstart] = 0;
+
+		if (runmask)
+			x += Draw_TTFMonoString ((int)x, y, buf, CON_BLUE, CON_FONTSIZE);
+		else
+			x += Draw_TTFMonoString ((int)x, y, buf, CON_WHITE, CON_FONTSIZE);
+	}
+}
+
 void Con_DrawInput (void)
 {
 	int	i, ofs;
+	const char	*line;
+	float	x, y, adv;
 
 	if (key_dest != key_console && !con_forcedup)
 		return;		// don't draw anything
@@ -1343,15 +1395,29 @@ void Con_DrawInput (void)
 	else
 		ofs = 0;
 
-// draw input string
-	for (i = 0; key_lines[edit_line][i+ofs] && i < con_linewidth; i++)
-		Draw_Character ((i+1)<<3, vid.conheight - 16, key_lines[edit_line][i+ofs]);
+	y = vid.conheight - 2*CON_ROWH;
+	adv = Draw_TTFMonoWidth ("M", CON_FONTSIZE);
+	x = CON_MARGINX;
 
-// johnfitz -- new cursor handling
+// r218: the buffer's leading ']' is the prompt -- blue, then the typed text
+	line = key_lines[edit_line] + ofs;
+	if (*line == ']')
+	{
+		x += Draw_TTFMonoString ((int)x, (int)y, "]", CON_BLUE, CON_FONTSIZE);
+		line++;
+	}
+	Draw_TTFMonoString ((int)x, (int)y, line, CON_WHITE, CON_FONTSIZE);
+
+// r218: blue caret instead of the 8x8 pic -- thin bar (insert) / block (over)
 	if (!((int)((realtime-key_blinktime)*con_cursorspeed) & 1))
 	{
 		i = key_linepos - ofs;
-		Draw_Pic ((i+1)<<3, vid.conheight - 16, key_insert ? pic_ins : pic_ovr);
+		if (key_insert)
+			Draw_FillRGBA ((int)(CON_MARGINX + i*adv), (int)y + 4, 2, CON_ROWH - 6,
+				0.35f, 0.63f, 0.86f, 1.0f);
+		else
+			Draw_FillRGBA ((int)(CON_MARGINX + i*adv), (int)y + 2, (int)adv + 1, CON_ROWH - 4,
+				0.35f, 0.63f, 0.86f, 0.35f);
 	}
 }
 
@@ -1365,7 +1431,7 @@ The typing input line at the bottom should only be drawn if typing is allowed
 */
 void Con_DrawConsole (int lines, qboolean drawinput)
 {
-	int	i, x, y, j, sb, rows;
+	int	i, x, y, j, sb, rows, bodyrows;
 	const char	*text;
 	const char	*ver = ENGINE_NAME_AND_VER;
 
@@ -1378,30 +1444,38 @@ void Con_DrawConsole (int lines, qboolean drawinput)
 // draw the background
 	Draw_ConsoleBackground ();
 
-// draw the buffer text
-	rows = (con_vislines +7)/8;
-	y = vid.conheight - rows*8;
-	rows -= 2; //for input and version lines
+// draw the buffer text (r218: CON_ROWH rows; the last 3 hold the scrollback
+// arrows, the input line and the version stamp)
+	rows = con_vislines / CON_ROWH;
+	if (rows < 4)
+		rows = 4;
+	y = vid.conheight - rows*CON_ROWH;
+	bodyrows = rows - 3;
 	sb = (con_backscroll) ? 2 : 0;
 
-	for (i = con_current - rows + 1; i <= con_current - sb; i++, y += 8)
+	for (i = con_current - bodyrows + 1; i <= con_current - sb; i++, y += CON_ROWH)
 	{
 		j = i - con_backscroll;
 		if (j < 0)
 			j = 0;
 		text = con_text + (j % con_totallines)*con_linewidth;
-
-		for (x = 0; x < con_linewidth; x++)
-			Draw_Character ( (x + 1)<<3, y, text[x]);
+		Con_DrawConsoleLine (text, y);
 	}
 
 // draw scrollback arrows
 	if (con_backscroll)
 	{
-		y += 8; // blank line
-		for (x = 0; x < con_linewidth; x += 4)
-			Draw_Character ((x + 1)<<3, y, '^');
-		y += 8;
+		char	arrows[CON_MAXLINE+1];
+		int		a;
+
+		a = 0;
+		while (a < con_linewidth && a < CON_MAXLINE)
+		{
+			arrows[a] = (a % 4 == 0) ? '^' : ' ';
+			a++;
+		}
+		arrows[a] = 0;
+		Draw_TTFMonoString (CON_MARGINX, y, arrows, CON_GREY, CON_FONTSIZE);
 	}
 
 // draw the input prompt, user text, and cursor
@@ -1409,9 +1483,11 @@ void Con_DrawConsole (int lines, qboolean drawinput)
 		Con_DrawInput ();
 
 //draw version number in bottom right
-	y += 8;
-	for (x = 0; x < (int)strlen(ver); x++)
-		Draw_Character ((con_linewidth - strlen(ver) + x + 2)<<3, y, ver[x] /*+ 128*/);
+	{
+		float	vw = Draw_TTFMonoWidth (ver, CON_FONTSIZE - 3.0f);
+		Draw_TTFMonoString ((int)(vid.conwidth - 8 - vw), vid.conheight - CON_ROWH,
+			ver, 0.55f, 0.57f, 0.62f, 1.0f, CON_FONTSIZE - 3.0f);
+	}
 }
 
 

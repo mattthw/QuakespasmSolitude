@@ -23,17 +23,22 @@
 
 #define GLFONT_FILE			"gfx/fonts/archivo-narrow-semibold.ttf"
 #define GLFONT_FILE_HEADER	"gfx/fonts/archivo-narrow-extrabold.ttf"
+#define GLFONT_FILE_MONO	"gfx/fonts/ibm-plex-mono-regular.ttf"	/* r218: console terminal face */
 #define GLFONT_BAKEPX		40					/* bake height in px == size 1.0   */
 #define GLFONT_FIRST		32
 #define GLFONT_LAST			126
 #define GLFONT_W			512
 #define GLFONT_H			256
+#define GLFONT_MONO_W		1024	/* a fixed-pitch face needs ~3x the width */
+#define GLFONT_MONO_H		256
 
 typedef struct
 {
 	const char		*file;
 	const char		*label;	/* TexMgr name */
 	qboolean		 dbgdump;	/* P2a bring-up: write the 8-bit atlas PGM (body only) */
+	int				 w, h;		/* atlas size (per face: mono is wider) */
+	float			 bakepx;	/* em height the atlas was baked at */
 	stbtt_bakedchar	cdata[GLFONT_LAST - GLFONT_FIRST + 1];
 	gltexture_t		*texture;	/* engine-managed atlas via TexMgr, bound with GL_Bind */
 	qboolean		 ready;
@@ -41,12 +46,20 @@ typedef struct
 
 static glfont_atlas_t glfont_body =
 {
-	GLFONT_FILE, "glfont_atlas", true
+	GLFONT_FILE, "glfont_atlas", true, GLFONT_W, GLFONT_H, (float)GLFONT_BAKEPX
 };
 
 static glfont_atlas_t glfont_header =
 {
-	GLFONT_FILE_HEADER, "glfont_header_atlas", false
+	GLFONT_FILE_HEADER, "glfont_header_atlas", false, GLFONT_W, GLFONT_H, (float)GLFONT_BAKEPX
+};
+
+/* r218 (user: "add a nice white/lightgrey/blue terminal font"): fixed-pitch
+ * face for the console. 1024 wide because a monospace advance at a 40 px bake
+ * is ~18.5 px (95 glyphs = ~1.8k px), which does not fit the 512 px body atlas. */
+static glfont_atlas_t glfont_mono =
+{
+	GLFONT_FILE_MONO, "glfont_mono_atlas", false, GLFONT_MONO_W, GLFONT_MONO_H, (float)GLFONT_BAKEPX
 };
 
 /*
@@ -69,7 +82,7 @@ static void GLFont_Bake (glfont_atlas_t *f)
 		return;
 	}
 
-	pixels = (unsigned char *) malloc (GLFONT_W * GLFONT_H * 4);
+	pixels = (unsigned char *) malloc (f->w * f->h * 4);
 	if (!pixels)
 	{
 		free (data);
@@ -83,7 +96,7 @@ static void GLFont_Bake (glfont_atlas_t *f)
 	 * coverage in alpha, which TexMgr_PREMULTIPLY + our
 	 * GL_ONE/ONE_MINUS_SRC_ALPHA blend consume correctly. */
 	{
-		unsigned char *raster = (unsigned char *) malloc (GLFONT_W * GLFONT_H);
+		unsigned char *raster = (unsigned char *) malloc (f->w * f->h);
 		int px;
 
 		if (!raster)
@@ -93,12 +106,12 @@ static void GLFont_Bake (glfont_atlas_t *f)
 			return;
 		}
 
-		used_h = stbtt_BakeFontBitmap (data, 0, (float)GLFONT_BAKEPX, raster,
-		                               GLFONT_W, GLFONT_H,
+		used_h = stbtt_BakeFontBitmap (data, 0, f->bakepx, raster,
+		                               f->w, f->h,
 		                               GLFONT_FIRST, GLFONT_LAST - GLFONT_FIRST + 1, f->cdata);
 		free (data);
 
-		for (px = 0; px < GLFONT_W * GLFONT_H; px++)
+		for (px = 0; px < f->w * f->h; px++)
 		{
 			pixels[px*4 + 0] = 255;
 			pixels[px*4 + 1] = 255;
@@ -114,8 +127,8 @@ static void GLFont_Bake (glfont_atlas_t *f)
 			FILE *fp = fopen ("glfont_atlas.pgm", "wb");
 			if (fp)
 			{
-				fprintf (fp, "P5\n%d %d\n255\n", GLFONT_W, GLFONT_H);
-				fwrite (raster, 1, GLFONT_W * GLFONT_H, fp);
+				fprintf (fp, "P5\n%d %d\n255\n", f->w, f->h);
+				fwrite (raster, 1, f->w * f->h, fp);
 				fclose (fp);
 				Con_Printf ("GLFont: atlas dumped (8-bit raster, used rows=%d)\n", used_h);
 			}
@@ -136,7 +149,7 @@ static void GLFont_Bake (glfont_atlas_t *f)
 	 * - a raw glGenTextures bypassing GL_Bind's state cache sampled whatever
 	 *   texture the last GL_Bind left bound -> "rainbow dots" on the HUD
 	 * - PERSIST so level loads / tex_reloads never purge the atlas */
-	f->texture = TexMgr_LoadImage (NULL, f->label, GLFONT_W, GLFONT_H,
+	f->texture = TexMgr_LoadImage (NULL, f->label, f->w, f->h,
 		SRC_RGBA, pixels, "", (src_offset_t) pixels,
 		TEXPREF_ALPHA | TEXPREF_LINEAR | TEXPREF_NOPICMIP
 		| TEXPREF_PERSIST | TEXPREF_PREMULTIPLY);
@@ -159,6 +172,7 @@ void GLFont_Init (void)
 {
 	GLFont_Bake (&glfont_body);
 	GLFont_Bake (&glfont_header);
+	GLFont_Bake (&glfont_mono);
 }
 
 /*
@@ -171,9 +185,9 @@ static float TTF_AtlasWidth (glfont_atlas_t *f, const char *str, float size)
 	float sc, w = 0;
 
 	if (!f->ready)
-		return strlen (str) * 8.0f * (size / (float)GLFONT_BAKEPX);
+		return strlen (str) * 8.0f * (size / f->bakepx);
 
-	sc = size / (float)GLFONT_BAKEPX;
+	sc = size / f->bakepx;
 	for (; *str; str++)
 	{
 		if (*str < GLFONT_FIRST || *str > GLFONT_LAST)
@@ -208,7 +222,7 @@ static float TTF_AtlasDraw (glfont_atlas_t *f, int x, int y, const char *str, fl
 	glDisable (GL_ALPHA_TEST);
 	glColor4f (r, g, b, a);
 
-	sc = size / (float)GLFONT_BAKEPX;
+	sc = size / f->bakepx;
 	glBegin (GL_QUADS);
 	for (; *str; str++)
 	{
@@ -226,7 +240,7 @@ static float TTF_AtlasDraw (glfont_atlas_t *f, int x, int y, const char *str, fl
 			 * with the dome (gl_hud.c); the identity path emits the
 			 * original four verts, byte-for-byte the old batch. */
 			{
-				float uv[4] = { u0/GLFONT_W, v0/GLFONT_H, u1/GLFONT_W, v1/GLFONT_H };
+				float uv[4] = { u0/f->w, v0/f->h, u1/f->w, v1/f->h };
 				HUD_WarpQuad (x0, y0, x1 - x0, y1 - y0, uv, 2);
 			}
 			x += ch->xadvance * sc;
@@ -275,4 +289,17 @@ float Draw_TTFHeaderWidth (const char *str, float size)
 float Draw_TTFStringHeader (int x, int y, const char *str, float r, float g, float b, float a, float size)
 {
 	return TTF_AtlasDraw (&glfont_header, x, y, str, r, g, b, a, size);
+}
+
+/* r218: fixed-pitch face (IBM Plex Mono) for the console. Same coord model as
+ * the body face; the mono face is the only one whose advance is uniform, so a
+ * caller may position column n at x0 + n * Draw_TTFMonoWidth("M", size). */
+float Draw_TTFMonoWidth (const char *str, float size)
+{
+	return TTF_AtlasWidth (&glfont_mono, str, size);
+}
+
+float Draw_TTFMonoString (int x, int y, const char *str, float r, float g, float b, float a, float size)
+{
+	return TTF_AtlasDraw (&glfont_mono, x, y, str, r, g, b, a, size);
 }

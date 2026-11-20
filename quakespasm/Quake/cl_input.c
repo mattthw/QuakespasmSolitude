@@ -68,6 +68,7 @@ kbutton_t	in_strafe, in_speed, in_jump, in_attack, in_button3, in_button4, in_bu
 kbutton_t	in_up, in_down;
 
 int			in_impulse;
+static int	cl_waypoint_state;	/* r222: -waypoint auto-entry, 0 unknown, 1 pending, 2 sent, 3 not asked */
 
 
 void KeyDown (kbutton_t *b)
@@ -377,6 +378,23 @@ void CL_BaseMove (usercmd_t *cmd)
 void CL_FinishMove(usercmd_t *cmd)
 {
 	unsigned int bits;
+
+	/* r222 (user): `mac.sh waypoint <map>` launches with -waypoint. Console
+	 * `impulse 104` cannot be queued from a cfg: it is consumed here into the
+	 * very next move and zeroed (below), and cfgs run before the client is
+	 * connected, so the impulse died in a move that was never sent. Fire it
+	 * here instead, once, on the first move after the player is spawned.
+	 * FrikBot's waypoint editor listens for 104 in BotImpulses (bot.qc). */
+	if (cl_waypoint_state == 0)
+		cl_waypoint_state = COM_CheckParm ("-waypoint") ? 1 : 3;
+	if (cl_waypoint_state == 1 && cls.state == ca_connected &&
+		cls.signon == SIGNONS && cl.time > 3.0f &&
+		(cl.stats[STAT_HEALTH] > 0 || cl.time > 10.0f))
+	{
+		cl_waypoint_state = 2;
+		in_impulse = 104;	/* FrikBot waypoint editor (BotImpulses, bot.qc) */
+	}
+
 	//
 	// send button bits
 	//

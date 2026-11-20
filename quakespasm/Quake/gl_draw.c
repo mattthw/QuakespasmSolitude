@@ -1266,46 +1266,19 @@ Draw_ConsoleBackground -- johnfitz -- rewritten
 */
 void Draw_ConsoleBackground (void)
 {
-	qpic_t *pic;
 	float alpha;
-
-	pic = Draw_CachePic ("gfx/conback.lmp");
-	pic->width = vid.conwidth;
-	pic->height = vid.conheight;
 
 	alpha = (con_forcedup) ? 1.0f : scr_conalpha.value;
 
 	GL_SetCanvas (CANVAS_CONSOLE); //in case this is called from weird places
 
-	if (alpha > 0.0f)
-	{
-		if (alpha < 1.0f)
-		{
-			if (premul_hud)
-				glColor4f (alpha,alpha,alpha,alpha);
-			else
-			{
-				glEnable (GL_BLEND);
-				glDisable (GL_ALPHA_TEST);
-				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	if (alpha <= 0.0f)
+		return;
 
-				glColor4f (1,1,1,alpha);
-			}
-		}
-
-		Draw_Pic (0, 0, pic);
-
-		if (alpha < 1.0f)
-		{
-			if (!premul_hud)
-			{
-				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-				glEnable (GL_ALPHA_TEST);
-				glDisable (GL_BLEND);
-			}
-			glColor4f (1,1,1,1);
-		}
-	}
+	/* r218 (user: "background just darkgrey (no console bg)") -- the conback
+	 * mural is gone. Flat charcoal, faded by scr_conalpha exactly like the old
+	 * picture was. */
+	Draw_FillRGBA (0, 0, vid.conwidth, vid.conheight, 0.105f, 0.110f, 0.118f, alpha);
 }
 
 

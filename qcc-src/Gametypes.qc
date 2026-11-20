@@ -247,6 +247,8 @@ void() Start_Weapon = {
                 // r212: the Battle Rifle has no .items bit (see sol_defs.qc), so
                 // it is pulled out of the mask and tracked in .has_br instead.
                 self.has_br = 0;
+                self.br_burst = 0;		// r213: fresh pull state on every spawn
+                self.br_held = 0;
                 if (primary_weapon == WEAPON_BR) {
                     self.has_br = 1;
                     primary_weapon = 0;

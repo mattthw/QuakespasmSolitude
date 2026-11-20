@@ -262,6 +262,9 @@ typedef struct
 	int		fraglimit;
 	int		users;
 	int		maxusers;
+	/* r181: browse latency in ms, timed from the query we already send to
+	 * every discovered host. -1 = not measured (no query went out to it). */
+	int		ping;
 	int		driver;
 	int		ldriver;
 	struct qsockaddr addr;

@@ -1438,7 +1438,10 @@ void() BSPDumpWaypoints =
 
 
 // FrikaC's file access tutorial...
-string(string s1, string s2) strcat = #82;
+// r225: strcat was declared as #82, which is multicast in this engine -- every
+// strcat() call in the waypoint editor was sending a multicast packet instead
+// of joining strings (that is why saving crashed with a stale-string error).
+string(string s1, string s2) strcat = #115;
 float(string filename, float mode) fopen = #110;
 string(string s) strzone = #118;
 void(string s) strunzone = #119;

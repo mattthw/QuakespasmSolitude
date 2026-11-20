@@ -365,11 +365,11 @@ int mvs(double cursorpos)
 //=============================================================================
 /* MAIN MENU */
 
-int	m_main_cursor;
+int	m_main_cursor = 1;	/* r214: default row = Matchmaking; kept while
+						 * moving between menus instead of resetting */
 #define	MAIN_ITEMS	5
 #define MAIN_MULTI_ITEMS 2
 
-int	m_main_cursor;
 int m_main_multi_cursor;
 bool main_multi = false;
 float main_percentwidth = 0.3;
@@ -422,7 +422,9 @@ void M_Menu_Main_f (void)
 	m_state = m_main;
 	m_entersound = true;
     main_multi = false;
-    m_main_cursor = 1;      /* r139 (user): open on Matchmaking */
+    /* r214: no cursor reset here -- M_Menu_Main_f runs on every return from a
+     * submenu, and resetting it made the main menu forget where you were.
+     * m_main_cursor starts on Matchmaking (initializer) and stays put. */
     PlayMenuTheme(false);
 
 	IN_UpdateGrabs();
@@ -514,6 +516,7 @@ void M_Main_Key (int key)
                 break;
 
             case 2:
+                mm_rentry = false;       /* r220: fresh entrance re-rolls the map */
                 M_Matchmaking_f ();      /* r138: local custom game */
                 break;
 
@@ -911,7 +914,15 @@ void M_Setup_Key (int k)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
-		M_Menu_Main_f();
+		/* r221b (user): the Spartan page is reachable from Options > General,
+		 * and Options is reachable from the pause menu, so Back returns to
+		 * Options on the General tab instead of dumping to the main menu.
+		 * uni_return_state is deliberately untouched: it still holds m_pause
+		 * or m_main from when Options was opened, so leaving Options from here
+		 * still lands in the right place. Console `menu_setup` lands here too. */
+		M_Options_SetTab (UNI_TAB_GEN);
+		m_state = m_options;
+		m_entersound = true;
 		break;
 
 	case K_UPARROW:
@@ -3510,6 +3521,27 @@ static void UNI_ActionReview (int dir)
 	Cbuf_AddText ("review\n");
 }
 
+// r221 (user): the FrikBot waypoint editor has no entry point of its own --
+// it is console `impulse 104` (bot.qc BotImpulses -> bot_ed.qc bot_way_edit),
+// which toggles in and out. Same command here, with the menu dropped first so
+// the waypoint sprites and the editor bprints are visible. Needs a running map
+// (the impulse rides a usercmd) and -condebug for the editor's own output.
+static void UNI_ActionWaypoints (int dir)
+{
+	(void)dir;
+	m_state = m_none;
+	key_dest = key_game;
+	Cbuf_AddText ("impulse 104\n");
+}
+
+// r221 (user): General tab shortcut to the Spartan page (same page as the
+// console `menu_setup` command). Back returns to Options on this tab.
+static void UNI_ActionSpartan (int dir)
+{
+	(void)dir;
+	M_Menu_Setup_f ();
+}
+
 static const uni_row_t uni_gfx_rows[] =
 {
 	{"Screen Size",     &scr_viewsize,  30, 120, 10,   0, 0, NULL, NULL, "Size of the 3D view in the window. Impact: none."},
@@ -3556,6 +3588,7 @@ static const uni_row_t uni_snd_rows[] =
 
 static const uni_row_t uni_gen_rows[] =
 {
+	{"Spartan Customization", NULL, 0, 1, 1, 0, 1, UNI_ActionSpartan, NULL, "Player name, colors and the Spartan preview."},
 	{"Goto Console",   NULL, 0, 1, 1, 0, 1, UNI_ActionConsole, NULL, "Open the developer console."},
 	{"Restore Defaults", NULL, 0, 1, 1, 0, 1, UNI_ActionDefaults, NULL, "Restore the default value of every menu setting."},
 };
@@ -3565,6 +3598,7 @@ static const uni_row_t uni_gen_rows[] =
 static const uni_row_t uni_edit_rows[] =
 {
 	{"Editor Mode",   &editor_mode,  0, 1, 1, 0, 0, NULL, NULL, "Unlocks cheats and debug draws outside -editor. Session-only, never saved."},
+	{"Waypoint Editor", NULL,        0, 1, 1, 0, 1, UNI_ActionWaypoints, NULL, "Toggle the FrikBot waypoint editor for this map (console: impulse 104). Needs a running map."},
 	{"God Mode",      NULL,          0, 1, 1, 0, 1, UNI_SetGod, UNI_ShowGod, "Cannot be hurt. Toggles."},
 	{"Notarget",      NULL,          0, 1, 1, 0, 1, UNI_SetNotarget, UNI_ShowNotarget, "Enemies ignore you. Toggles."},
 	{"Fly",           NULL,          0, 1, 1, 0, 1, UNI_SetFly, UNI_ShowFly, "Free flight. Toggles."},
@@ -4793,12 +4827,16 @@ void M_Matchmaking_f (void)
         maxplayers = svs.maxclients;
     if (maxplayers < 2)
         maxplayers = svs.maxclientslimit;
-    startepisode = 0;
+    /* r220 (user: "custom games shouldnt change map between matches"): only a
+     * fresh entrance picks a map. M_ReturnToMatchMenu sets mm_rentry when the
+     * finished match drops you back here, so the selection is kept -- episode
+     * too, or a custom-pack pick would snap back to episode 0. */
     if (!mm_rentry) {
+        startepisode = 0;
         startlevel = rand() % episodes[startepisode].levels;
+        chosen_level.episode = startepisode;
+        chosen_level.level = startlevel;
     }
-    chosen_level.episode = startepisode;
-    chosen_level.level = startlevel;
     mm_rentry = false;
     cursorfocused = true;
     PlayMenuTheme(false);
@@ -5699,7 +5737,7 @@ static const char *M_Lobby_NetworkName (void)
 	{
 	case 1:		return "Local";
 	case 2:		return "Online";
-	default:	return "Both";
+	default:	return "Any";	/* r227 (user): "Both" -> "Any" */
 	}
 }
 
@@ -5710,7 +5748,7 @@ static const char *M_Lobby_PlaylistName (void)
 	case 1:		return "Slayer";
 	case 2:		return "Team Slayer";
 	case 3:		return "Swat";
-	default:	return "All";
+	default:	return "Any";	/* r227 (user): "All" -> "Any" */
 	}
 }
 
@@ -5778,8 +5816,12 @@ static const char *M_Lobby_Desc (int i)
 	return desc;
 }
 
-static int M_Lobby_Bots (int i)
+static int M_Lobby_Ping (int i)
 {
+	return NET_SlistServerPing ((size_t) i);
+}
+
+static int M_Lobby_Bots (int i){
 	int	bots = 0;
 
 	NET_SlistServerMeta ((size_t)i, NULL, NULL, NULL, &bots, NULL, NULL, NULL);
@@ -6067,6 +6109,7 @@ void M_ReturnToMatchMenu (void)
 		break;
 	case m_gameoptions:
 	default:
+		mm_rentry = true;	/* r220: keep the chosen map between matches */
 		M_Matchmaking_f ();
 		break;
 	}
@@ -6097,33 +6140,48 @@ static int M_Lobby_Focus (void)
  * long)"): one column of titles. The console font is fixed-width and the menu
  * layer has no scissor, so the scroll is a plain character window -- cheap and
  * clip-free. A three-cell blank gap marks where the title wraps. */
-static void M_Lobby_DrawTitle (int x, int y, const char *title, int maxchars, int row)
+static void M_Lobby_DrawTitle (int x, int y, const char *title, int availpx, int row)
 {
 	char	line[96];
 	int	len = (int)strlen (title);
-	int	i, off;
+	int	i, off, n;
 
-	if (maxchars < 4)
-		maxchars = 4;
-	if (maxchars > (int)sizeof (line) - 1)
-		maxchars = (int)sizeof (line) - 1;
+	/* r183 (user: "the name probably has more horizontal space than you are
+	 * giving it"): budget in real pixels, not in fixed-width console cells.
+	 * The row font is the 14 px TTF funnel, whose average glyph is nowhere
+	 * near the old 8 px/char assumption, so measuring is the only way to use
+	 * the width the column actually has. */
+	if (availpx < 24)
+		availpx = 24;
 
-	if (len <= maxchars)
+	if (Draw_TTFWidth (title, 14.0f) <= (float)availpx)
 	{
 		M_PrintWhite (x, y, title);
 		return;
 	}
 
-	/* per-row phase so neighbouring marquees do not tick in lockstep;
-	 * 24 px/s = 3 cells/s, the usual terminal-marquee pace */
-	off = ((int)(realtime * 24.0) + row * 5) % (len + 3);
-	for (i = 0; i < maxchars; i++)
-	{
-		int	p = (off + i) % (len + 3);
+	if (len > (int)sizeof (line) - 4)
+		len = (int)sizeof (line) - 4;
 
-		line[i] = (p < len) ? title[p] : ' ';
+	/* per-row phase so neighbouring marquees do not tick in lockstep.
+	 * r183 (user: "can the marquee be slower lmao"): 8 px/s, a third of the
+	 * old 24 px/s -- fast enough to reveal the whole name, slow enough to
+	 * read while you are picking a row. */
+	off = ((int)(realtime * 8.0) + row * 5) % (len + 3);
+	n = 0;
+	while (n < len + 3 && n < (int)sizeof (line) - 1)
+	{
+		int	p = (off + n) % (len + 3);
+
+		line[n] = (p < len) ? title[p] : ' ';
+		line[n + 1] = 0;
+		if (n > 0 && Draw_TTFWidth (line, 14.0f) > (float)availpx)
+		{
+			line[n] = 0;
+			break;
+		}
+		n++;
 	}
-	line[maxchars] = 0;
 	M_PrintWhite (x, y, line);
 }
 
@@ -6157,7 +6215,22 @@ void M_Lobbies_Draw (void)
 		M_Lobby_Scan ();
 	}
 	hidx = M_Lobby_Focus ();
-	mappic = M_Lobby_MapPic (hidx);
+	/* r183 (user: "during the server refresh at the start, it fastly cycles
+	 * through so many maps. maybe just put the random image there until
+	 * search finishes?"): the host cache fills one entry at a time while the
+	 * scan runs, so the detail panel repainted every map that landed. Hold
+	 * the "random" card until the list settles. */
+	if (slistInProgress)
+	{	/* r226 (user): the refresh card is the newer custom-maps artwork, with a
+		 * globe in place of the question mark. PNG first, legacy lmp fallback. */
+		if (COM_FileExists ("gfx/maps/random.png", NULL))
+			mappic = Draw_TryCachePic ("gfx/maps/random.png",
+				TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+		else
+			mappic = Draw_CachePic ("gfx/maps/random.lmp");
+	}
+	else
+		mappic = M_Lobby_MapPic (hidx);
 
 	if (lobby_cursor >= rows)
 		lobby_cursor = rows - 1;
@@ -6366,7 +6439,7 @@ void M_Lobbies_Draw (void)
 		 * it reads as a segmented control instead of a box glued to the
 		 * edge. */
 		{
-			static const char *plabels[4] = {"All", "Slayer", "Team Slayer", "Swat"};
+			static const char *plabels[4] = {"Any", "Slayer", "Team Slayer", "Swat"};
 			static const char *slabels[4] = {"Players", "Bots", "Title", "Mode"};
 			int	htop = (int)bc.grid[0][0].y - bc.headerh;
 			int	wf = M_Lobby_ChipsWidth (plabels, 4);
@@ -6397,17 +6470,34 @@ void M_Lobbies_Draw (void)
 			/* r176 (user: "the list can go back to just the title
 			 * (marquee when too long)"): Game and Players moved into the
 			 * sidebar, so a row is the title at the full column width. */
-			int	tmax = ((int)bc.colw - 15 - 6) / 8;	/* console font is 8 px */
+			int	px0 = (int)bc.grid[0][0].xp;
+			int	pright = px0 + (int)bc.colw - 15 - 6;
 
-			if (tmax < 8)
-				tmax = 8;
 			for (i = 0; i < shown; i++)
 			{
+				int	pms, tw = 0;
+				char	pbuf[16];
+
 				n = M_Lobby_IndexAt (lobby_browsefirst + i);
 				if (n < 0)
 					break;
-				M_Lobby_DrawTitle (bc.grid[0][0].xp, bc.grid[0][i].yp,
-						   M_Lobby_Title (n), tmax, i);
+
+				/* r181 (user: "can servers in the list have a ping?"): the
+				 * latency readout is right-aligned at the end of the row and
+				 * r183 gives the title everything to the left of it -- the
+				 * old fixed 6-cell reservation is gone. */
+				pms = M_Lobby_Ping (n);
+				if (pms >= 0)
+				{
+					if (pms > 999)
+						pms = 999;
+					q_snprintf (pbuf, sizeof (pbuf), "%i ms", pms);
+					tw = (int)Draw_TTFWidth (pbuf, 14.0f);
+					M_PrintWhite (pright - tw, bc.grid[0][i].yp, pbuf);
+				}
+
+				M_Lobby_DrawTitle (px0, bc.grid[0][i].yp, M_Lobby_Title (n),
+						   pright - px0 - (tw ? tw + 8 : 0), i);
 			}
 		}
 		if (!shown)
@@ -6490,10 +6580,23 @@ void M_Lobbies_Draw (void)
 				if (*ds)
 					Draw_TTFString (ax, texty + 38, ds,
 							0.68f, 0.75f, 0.86f, 0.9f, 13.0f);
-				Draw_TTFString (ax, texty + 58,
-						va ("%i/%i players    %i bots (fill %i)",
-						    M_Lobby_Users (n), M_Lobby_Max (n), bt, ru),
-						0.75f, 0.82f, 0.92f, 0.9f, 13.0f);
+				{
+					char	pl[128];
+					int		pms = M_Lobby_Ping (n);
+
+					/* r181: latency shares the player line -- it is the
+					 * same "is this server worth joining" question. */
+					if (pms >= 0)
+						q_snprintf (pl, sizeof (pl),
+							    "%i/%i players    %i bots (fill %i)    %i ms",
+							    M_Lobby_Users (n), M_Lobby_Max (n), bt, ru, pms);
+					else
+						q_snprintf (pl, sizeof (pl),
+							    "%i/%i players    %i bots (fill %i)",
+							    M_Lobby_Users (n), M_Lobby_Max (n), bt, ru);
+					Draw_TTFString (ax, texty + 58, pl,
+							0.75f, 0.82f, 0.92f, 0.9f, 13.0f);
+				}
 				if (rl[0])
 					Draw_TTFString (ax, texty + 76, rl,
 							0.75f, 0.82f, 0.92f, 0.9f, 13.0f);

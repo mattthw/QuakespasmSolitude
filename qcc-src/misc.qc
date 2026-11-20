@@ -201,7 +201,12 @@ void() barrel_explode =
 	self.classname = "explo_box";
 	// did say self.owner, self.enemy should be set by Killed function
 	T_RadiusDamage (self, self.enemy, 160, 200, self, MOD_EXPLOBOX);
-	TE_explosion(self.origin + '0 0 32');
+	// r219 (user: "I like fire bc its a yellow coil not blue"): keep the fire
+	// look, but TE_explosion also asked the client for the stock 1024-particle
+	// fireball (5 s lifetime) + a 350-radius dlight on top of the sprite. Call
+	// the sprite and sound directly: same explosion, no wall of particles, and
+	// chain-reacting coils stay readable (and cheap on Vita).
+	CreateExplosion (self.origin + '0 0 32');
 	remove (self);
 };
 

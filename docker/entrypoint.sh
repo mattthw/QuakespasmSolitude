@@ -17,6 +17,13 @@
 #       GAME  extra game dir to add      (default none)
 #       RCON_PASSWORD  set rcon_password  (default: rcon disabled)
 #       SV_PUBLIC      1 = dpmaster heartbeat (default 0, LAN only)
+#       SV_HOSTFMT     browser-name template, e.g. "24 %mode%!" or "[NAS] %mode%"
+#       DEATHMATCH     game mode 0..3     (server.cfg default: 1)
+#       TEAMPLAY       1 = red vs blue    (server.cfg default: 1)
+#       MAXCLIENTS     player slots       (server.cfg default: 8)
+#       LOBBY_BOTS     bot fill target    (server.cfg default: 5)
+#       TIMELIMIT      minutes per round  (server.cfg default: 15)
+#       FRAGLIMIT      frag cap, 0 = none (server.cfg default: 0)
 #       EXTRA_ARGS     any extra args, e.g. "+set timelimit 20"
 #
 # No -condebug on purpose: it writes qconsole.log into the basedir, which is
@@ -68,7 +75,7 @@ case "$MAP" in
     ;;
 esac
 
-set -- /opt/solitude/quakespasm \
+set -- /usr/local/bin/quakespasm \
   -dedicated \
   -basedir /data \
   -port "$PORT" \
@@ -90,6 +97,41 @@ fi
 if [ -n "${SV_PUBLIC:-}" ]; then
   set -- "$@" +set sv_public "$SV_PUBLIC"
 fi
+
+# ---- per-instance identity and rules -----------------------------------
+# A dedicated server rebuilds its browser name from sv_hostname_fmt on every
+# level spawn (SV_UpdateHostname), so a fixed name has to be installed as the
+# template; `+set hostname` alone is overwritten at the first map. The value is
+# quoted because Cmd_StuffCmds re-parses the argument list as one string.
+#
+# Naming convention across our boxes: a 24/7 host prefixes its uptime
+# ("24 Team Slayer!"), the NAS box prefixes where it runs ("[NAS] ...").
+if [ -n "${SV_HOSTFMT:-}" ]; then
+  set -- "$@" +set sv_hostname_fmt "\"$SV_HOSTFMT\""
+fi
+
+# One-line blurb shown under the server name in the launcher (NET_LobbyMeta
+# reads sv_desc). Same quoting rule as SV_HOSTFMT.
+if [ -n "${SV_DESC:-}" ]; then
+  set -- "$@" +set sv_desc "\"$SV_DESC\""
+fi
+
+# Numeric overrides so one data dir can back several distinct servers.
+# MAXCLIENTS is applied with the `+maxplayers` *command*, not `+set`: the slot
+# count lives in svs.maxclients, and `set maxplayers <n>` crashes the engine at
+# boot (SIGSEGV inside Cvar_Set_f -> Cvar_Create, Host_Init) because the name
+# collides with the registered command. `maxplayers <n>` is the supported path
+# and must run before the first map, which it does (server.cfg runs at
+# Host_Init, +commands follow it).
+for _v in DEATHMATCH TEAMPLAY MAXCLIENTS LOBBY_BOTS TIMELIMIT FRAGLIMIT; do
+  eval "_val=\${$_v:-}"
+  [ -n "$_val" ] || continue
+  case "$_v" in
+    LOBBY_BOTS) set -- "$@" +set lobby_bots "$_val" ;;
+    MAXCLIENTS) set -- "$@" +maxplayers "$_val" ;;
+    *)          set -- "$@" +set "$(echo "$_v" | tr 'A-Z' 'a-z')" "$_val" ;;
+  esac
+done
 
 # Escape hatch for any other cvar, e.g. EXTRA_ARGS="+set timelimit 20".
 # Word splitting is intended here, globbing is not.

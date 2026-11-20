@@ -2906,6 +2906,10 @@ static void PF_fopen(void)
 	if (!file)
 		return;
 
+	// r184: waypoint editor saves were silent about where the file landed.
+	if (fmode && strstr (name, ".way"))
+		Con_Printf ("waypoints written to %s\n", name);
+
 	for (i = 0; ; i++)
 	{
 		if (i == qcfiles_max)

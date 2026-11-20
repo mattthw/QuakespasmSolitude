@@ -689,6 +689,51 @@ static qboolean CL_AttachEntity(entity_t *ent, float frac)
 }
 
 /*
+=================
+CL_AnchorMuzzleFlash
+
+r217: muzzle flashes are world entities that QuakeC spawns at
+self.origin + v_forward*N + v_right*M + '0 0 z'. The server evaluates that
+against its own copy of the player origin, but the client draws the camera
+from cl.time, which trails cl.mtime[0] by roughly one lerp interval (0.1 s).
+Strafing at 320 u/s that is ~32 units, so the flash visibly hangs off the
+side of the gun -- and a flash entity only lives for a frame or two, so it is
+never lerped with the player either.
+
+Recover the gun-space offset against the player origin from the *same*
+snapshot the flash arrived in, then re-add it to the lerped (drawn) origin.
+Called at the end of CL_RelinkEntities, once every entity has its new origin.
+=================
+*/
+static void CL_AnchorMuzzleFlash (void)
+{
+	entity_t	*pl = &cl.entities[cl.viewentity];
+	entity_t	*ent;
+	vec3_t		ofs;
+	int			i;
+
+	if (!pl->model)
+		return;
+
+	for (i = 1, ent = cl.entities + 1; i < cl.num_entities; i++, ent++)
+	{
+		if (!ent->model || ent->model->type != mod_sprite)
+			continue;
+		if (!q_strcasestr (ent->model->name, "muzzle"))
+			continue;
+
+		/* Only the local player's own flash. A bot's flash sits the same
+		   few dozen units from *its* origin, so gate on being near us. */
+		VectorSubtract (ent->origin, pl->origin, ofs);
+		if (DotProduct (ofs, ofs) > 80.0f * 80.0f)
+			continue;
+
+		VectorSubtract (ent->origin, pl->msg_origins[0], ofs);
+		VectorAdd (pl->origin, ofs, ent->origin);
+	}
+}
+
+/*
 ===============
 CL_RelinkEntities
 ===============
@@ -979,6 +1024,8 @@ void CL_RelinkEntities (void)
 			cl_numvisedicts++;
 		}
 	}
+
+	CL_AnchorMuzzleFlash ();
 }
 
 #ifdef PSET_SCRIPT

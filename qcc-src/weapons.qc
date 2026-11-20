@@ -135,6 +135,14 @@ void() W_Precache =
 	precache_sound ("weapons/equip/sniper.wav");
 	precache_sound ("weapons/equip/ppist.wav");
 	precache_sound ("weapons/equip/smg.wav");
+
+	// r216: these are all fired by QC but were never cached, so they were
+	// silent in game (fteqcc F210 "used but not directly precached").
+	precache_sound ("weapons/equip/br.wav");	// player_br fire frame
+	precache_sound ("weapons/oddball.wav");		// W_FireSkull
+	precache_sound ("items/protect3.wav");		// invincibility chime (T_Damage)
+	precache_sound ("player/gib.wav");		// GibPlayer
+	precache_sound ("player/udeath.wav");		// GibPlayer
 	
 	//New Solitude caches
 	precache_sound ("weapons/PR_fire.wav");
@@ -1453,13 +1461,20 @@ void () W_FireShotgun =
 	local vector dir;
 
 	sound (self, CHAN_WEAPON, "weapons/shottie.wav", 1, ATTN_NORM);
-	muzzleflash3(1, 5, 0); // shottie flash
+	// r217 (user: "shotgun muzzle flash is too big and too low"): 0.6 of the
+	// generic flash art, and lifted 5 units (z 20 vs the 22 eye line) so it
+	// sits on the barrel instead of under the gun. sz 1 / lift 0 was stock.
+	muzzleflash3(0.6, 5, 5); // shottie flash
 	self.punchangle_x = CONTENT_EMPTY;
 	self.ammo_shells2 -= 1;
 	self.currentammo -= 1;
 	W_UpdateAmmoCounts(self);
 	dir = aim (self, 100000);
-	FireBullets (10, dir, '0.13 0.13 0', MOD_SOLITUDE);	// r213: 7.4deg cone (Halo 7.5), was 0.2 = 11.3
+	// r216 (user: "I cant get kills with the shotgun"): 10 pellets x 11 = 110
+	// could not one-shot a 130hp spawn, so a perfect point-blank blast still
+	// needed two shells. Halo 3's M90 is a 12-pellet gun: 12 x 11 = 132, which
+	// one-shots at true point blank and falls to 2-3 shells as the cone spreads.
+	FireBullets (12, dir, '0.13 0.13 0', MOD_SOLITUDE);	// r213: 7.4deg cone (Halo 7.5), was 0.2 = 11.3
 	pistolsmoke (self.origin + (v_forward * 13) + '0 0 14');
 };
 
@@ -2520,6 +2535,7 @@ void(float weap) W_WeaponSwitch =
 	W_UpdateAmmoCounts(self);
 
 	self.br_burst = 0;	// r212: never carry a half-finished burst across a switch
+	self.br_held = 0;	// r213: same for the semi-auto pull state
 	self.bloom = 0;		// r213: fresh cone on a fresh weapon
 	
 	self.pfov = FOV_DEFAULT;
@@ -2636,6 +2652,15 @@ void() W_Attack =
 		return;
 	}
 	
+	// r213: the Battle Rifle is semi-automatic -- one burst per trigger pull.
+	// Without this, holding the button let the catch-up loop chain bursts
+	// forever (2.42/s) instead of one burst per pull.
+	if (self.weapon == WEAPON_BR && self.br_burst <= 0 && self.br_held)
+	{
+		self.attack_finished = time + 0.05;	// no spin: the loop re-enters
+		return;
+	}
+
 	makevectors (self.v_angle);                 // calculate forward angle for velocity
 	self.show_hostile = time + 1;   // wake monsters up
 
@@ -2866,6 +2891,7 @@ void() W_Attack =
 		// burst sets 0.2799s so bursts start every ~0.4133s (2.42/s).
 		if (self.br_burst <= 0)
 			self.br_burst = 3;
+		self.br_held = 1;	// r213: semi-auto gate, cleared when the trigger lifts
 		W_FireBR();
 		self.br_burst = self.br_burst - 1;
 		if (self.br_burst > 0)
@@ -3735,6 +3761,7 @@ void() W_WeaponFrame =
 			self.attack_finished = time;
 			self.weaponstate = WS_IDLE;
 		}
+		self.br_held = 0;	// r213: trigger is up -- the next pull starts a burst
 	}
 };
 

@@ -123,6 +123,7 @@ const char *NET_SlistPrintServer (size_t n);
 const char *NET_SlistPrintServerName (size_t n);
 void	NET_SlistServerInfo (size_t n, const char **name, const char **map, int *users, int *maxusers);
 void	NET_SlistServerMeta (size_t n, const char **title, const char **desc, const char **game, int *bots, int *rule, int *timelimit, int *fraglimit);	/* r175/r176 */
+int		NET_SlistServerPing (size_t n);	/* r181: ms, -1 = unmeasured */
 
 
 /* FIXME: driver related, but public:

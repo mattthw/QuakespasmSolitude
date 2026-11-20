@@ -33,7 +33,10 @@ FROM debian:bookworm-slim
 RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends \
       libsdl2-2.0-0 libgl1 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=build /src/quakespasm/Quake/quakespasm /opt/solitude/quakespasm
+# The binary lives outside /opt/solitude on purpose: deploy.sh mounts a
+# writable tmpfs over the working directory, and a binary underneath it would
+# be hidden by that mount at run time.
+COPY --from=build /src/quakespasm/Quake/quakespasm /usr/local/bin/quakespasm
 COPY docker/entrypoint.sh /usr/local/bin/solitude-entrypoint
 
 # A dedicated host has no display or sound card; without these SDL still tries

@@ -1,5 +1,6 @@
 // Game: Quake
 // Format: Valve
+// Generator: TrenchBroom 2026.2 (Build v2026.2 Release macOS)
 // entity 0
 {
 "classname" "worldspawn"
@@ -3440,4 +3441,64 @@
 {
 "classname" "weapon_sword"
 "origin" "1280 -168 -1952"
+}
+// entity 22
+{
+"classname" "info_player_deathmatch"
+"angles" "0 90 0"
+"origin" "768 -2672 -1960"
+}
+// entity 23
+{
+"classname" "info_player_deathmatch"
+"angles" "0 90 0"
+"origin" "1456 -2784 -1960"
+}
+// entity 24
+{
+"classname" "info_player_deathmatch"
+"angles" "0 90 0"
+"origin" "1296 -2784 -1960"
+}
+// entity 25
+{
+"classname" "info_player_deathmatch"
+"angles" "0 90 0"
+"origin" "1136 -2800 -1960"
+}
+// entity 26
+{
+"classname" "info_player_deathmatch"
+"angles" "0 90 0"
+"origin" "1616 -2672 -1960"
+}
+// entity 27
+{
+"classname" "info_player_deathmatch"
+"angles" "0 270 0"
+"origin" "912 -368 -1960"
+}
+// entity 28
+{
+"classname" "info_player_deathmatch"
+"angles" "0 270 0"
+"origin" "1120 -240 -1960"
+}
+// entity 29
+{
+"classname" "info_player_deathmatch"
+"angles" "0 270 0"
+"origin" "1280 -240 -1960"
+}
+// entity 30
+{
+"classname" "info_player_deathmatch"
+"angles" "0 270 0"
+"origin" "1440 -240 -1960"
+}
+// entity 31
+{
+"classname" "info_player_deathmatch"
+"angles" "0 270 0"
+"origin" "1552 -368 -1960"
 }
