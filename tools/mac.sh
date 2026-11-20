@@ -16,8 +16,10 @@
 # Codec dylibs and SDL2.framework are borrowed from the official 0.97 app.
 #
 # Usage (from anywhere):
-#   ./mac.sh launch [map]          # start Solitude.app (main menu, -game solitude)
+#   ./mac.sh launch [map]          # start Solitude.app (main menu; no -game, r153)
 #   ./mac.sh server [map] [port]   # SolitudeServer, dedicated, in this terminal
+#   ./mac.sh status [port]         # is a dedicated host running? name/map/players
+#   ./mac.sh stop                  # stop the dedicated host
 #   ./mac.sh build                 # rebuild + relink + deploy + sign (auto-cleans
 #                                  #   first — stale ARM/mismatched-arch .o silently
 #                                  #   break links; make won't notice flag changes)
@@ -60,7 +62,12 @@ launch() {
   rm -f "$REPO/solitude/mapshot.cfg"   # r94: normal launches must not inherit photo mode (flag was left by mapshot())
   # r94: start at the MAIN MENU (no auto +map) and force hud_mapshot 0 so a
   # leftover photo-mode cvar from a prior mapshot run can never hide the HUD.
-  open "$BUNDLE" --args -nolauncher -basedir "$REPO" -game solitude \
+  # r153: no -game solitude either (see server()) -- the engine already adds the
+  # Solitude game dir, and passing it again made this client advertise its own
+  # game-name list as "Solitude;solitude", which no longer matches a server that
+  # just says "Solitude" -> "Server is using a different gamedir" on connect.
+
+  open "$BUNDLE" --args -nolauncher -basedir "$REPO" \
     -window -condebug +exec config-mac.cfg +hud_mapshot 0 "$@"
   echo "Solitude launched: main menu (log: $BUNDLE/../qconsole.log)"
 }
@@ -75,7 +82,7 @@ mapshot() {   # photo mode armed at the main menu: no bots, HUD hidden once a ma
     # 'mapshot.c'); piggyback on config-mac.cfg which ends with a plain
     # 'exec mapshot.cfg' (silently fails when absent; launch() deletes it).
     touch "$REPO/solitude/mapshot.cfg"
-    open "$BUNDLE" --args -nolauncher -basedir "$REPO" -game solitude \
+    open "$BUNDLE" --args -nolauncher -basedir "$REPO" \
         -window -condebug +exec config-mac.cfg "$@"
     echo "Solitude launched (mapshot): pick a map, fly (noclip 1 if you want it), ',' saves a screenshot to solitude/spasmNNNN.png, hud back on: hud_mapshot 0 (log: $BUNDLE/../qconsole.log)"
 }
@@ -83,7 +90,7 @@ mapshot() {   # photo mode armed at the main menu: no bots, HUD hidden once a ma
 server() {   # dedicated host in THIS terminal: ./mac.sh server [map] [port]
   local map="${1:-highground}"
   local port="${2:-26000}"
-  pkill -f "MacOS/SolitudeServer -dedicated" 2>/dev/null || true
+  pkill -f "SolitudeServer -dedicated" 2>/dev/null || true
   cd "$REPO"
   echo "SolitudeServer: map=$map  udp/$port  (Ctrl-C stops; log: $ROOT/toolchain/fork-engine-mac/qconsole.log)"
   # server.cfg is auto-exec'd by Host_Init in dedicated mode, so no +exec here.
@@ -102,6 +109,56 @@ server() {   # dedicated host in THIS terminal: ./mac.sh server [map] [port]
   else
     SDL_VIDEODRIVER=dummy exec script -q /dev/null "$SERVER_BIN" -dedicated -basedir "$REPO" -port "$port" -nolauncher -condebug +map "$map"
   fi
+}
+
+stop() {
+  if pgrep -x SolitudeServer >/dev/null 2>&1; then
+    pkill -x SolitudeServer || true
+    sleep 1
+    echo "stopped"
+  else
+    echo "nothing to stop: no dedicated server running"
+  fi
+}
+
+status() {   # ./mac.sh status [port] [host] — is a host running, and who is on it
+  local port="${1:-26000}" host="${2:-127.0.0.1}" pids
+  if [ "$host" = "127.0.0.1" ]; then
+  pids="$(pgrep -x SolitudeServer 2>/dev/null | tr '\n' ' ' || true)"
+  if [ -z "$pids" ]; then
+    echo "dedicated server: NOT running"
+  else
+    echo "dedicated server: running (pid ${pids% })"
+    ps -o pid=,lstart=,etime=,rss= -p ${pids% } 2>/dev/null | sed 's/^/  /' || true
+  fi
+  fi
+
+  # A dedicated host has no window, no dock tile and no menu bar item, so the
+  # only honest answer is "does it answer on the wire". This is the same
+  # NetQuake server-info query the in-game LAN browser sends.
+  python3 - "$port" "$host" <<'PY' || true
+import socket, struct, sys
+port = int(sys.argv[1]); host = sys.argv[2]
+body = bytes([0x02]) + b'QUAKE\x00' + bytes([3])
+hdr = struct.pack('>I', 0x80000000 | (4 + len(body)))
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.settimeout(1.5)
+try:
+    s.sendto(hdr + body, (host, port))
+    d, _ = s.recvfrom(2048)
+except Exception:
+    print("  %s udp/%d: no answer (down, other port, or still booting)" % (host, port))
+    raise SystemExit(0)
+i = 5
+def rs():
+    global i
+    j = d.index(b'\0', i); v = d[i:j].decode('latin-1'); i = j + 1; return v
+addr, name, mp = rs(), rs(), rs()
+users, maxusers, proto = d[i], d[i+1], d[i+2]; i += 3
+tail = d[i:].split(b'\0')[0].decode('latin-1') if i < len(d) else ''
+print("  %s udp/%d: %s | %s | %d/%d | proto %d | gamedir %s"
+      % (host, port, name, mp, users, maxusers, proto, tail or '?'))
+print("  (advertised address '%s' is cosmetic; clients use the reply's source)" % addr)
+PY
 }
 
 build() {
@@ -193,11 +250,13 @@ case "${1:-launch}" in
   launch)    shift; if [ $# -gt 0 ]; then m="$1"; shift; else m="highground"; fi; launch "$m" "$@" ;;
   mapshot)   shift; mapshot "$@" ;;
   server)    shift; server "${1:-highground}" "${2:-26000}" ;;
+  status)    shift; status "${1:-26000}" "${2:-127.0.0.1}" ;;
+  stop)      stop ;;
   build)     build ;;
   cleanbuild) build ;;
   vita)      vita ;;
   all)       shift; build; vita; launch "${1:-highground}" ;;
   stock)     shift; pkill -x QuakeSpasm 2>/dev/null || true
              open "$STOCK" --args -basedir "$REPO" -game solitude +map "${1:-highground}" -window +exec config-mac.cfg ;;
-  *) echo "usage: $0 [launch|build|vita|all|stock|server] [map]"; exit 1 ;;
+  *) echo "usage: $0 [launch|build|vita|all|stock|server|status|stop] [map|port]"; exit 1 ;;
 esac
