@@ -101,6 +101,9 @@ void M_Main_Draw (void);
 		void M_Save_Draw (void);
     void M_Main_Multi_Draw (void);
     void M_Matchmaking_Draw (void);
+void M_Lobbies_f (void);
+void M_Lobbies_Draw (void);
+void M_Lobbies_Key (int key);
         void M_Matchmaking_Gamerules_Draw (void);
         void M_Matchmaking_Map_Draw (void);
 		void M_Setup_Draw (void);
@@ -149,6 +152,11 @@ qboolean	m_entersound;		// play after drawing a frame, so caching
 qboolean	m_recursiveDraw;
 
 enum m_state_e	m_return_state;
+/* r164 (user: "exiting custom games and matchmaking should go back to their
+ * respective menu, not always custom"): the mode a match was launched from.
+ * Set at every start/join entry point, consumed by the disconnect paths so
+ * Find Match games land back in the lobby and Custom Games in Custom Games. */
+enum m_state_e	match_return_state = m_gameoptions;
 qboolean	m_return_onerror;
 char		m_return_reason [32];
 int m_multiplayer_cursor = 1;
@@ -384,14 +392,20 @@ float main_x_offset_percent = 0.1;
 bool theme_started = false;
 void PlayMenuTheme(bool override) {
     //    Cbuf_AddText ("playdemo title.dem\n"); broken since there is a missing audio track. causes loop. do in config if wanted
-    if (!theme_started || override) {
+    /* r178: theme_started alone was not enough. It is only cleared on the
+     * pause-menu disconnect (menu.c:1175), while every other way out of a
+     * match -- joining from the lobby, "disconnect" in the console, a map
+     * change -- stops the track through CL_Disconnect/BGM_Stop and leaves the
+     * flag set, so the theme never came back. Ask the mixer instead: if no
+     * stream is open, the music is not actually running and must restart. */
+    if (!theme_started || override || !BGM_IsPlaying()) {
         /* r106: menu theme moved from the one-shot "play music/theme.wav"
          * sample to the bgmusic streamer - music/<file>.mp3 decoded by
          * snd_mp3 (libmad on Vita) and rewound at EOF (bgmloop default 1),
          * so the ambient track loops under the Music Volume slider. The old
          * theme.wav stays in the pak untouched. CL_Disconnect/BGM_Stop kills
-         * it on map start; theme_started resets on the pause-disconnect path
-         * so returning to the menu restarts it. */
+         * it on map start; BGM_IsPlaying() above notices and restarts it the
+         * next time a menu that owns the theme is entered. */
         Cbuf_AddText("music solitude_ambient_1_justin_medford.mp3\n");
         theme_started = true;
     }
@@ -408,6 +422,7 @@ void M_Menu_Main_f (void)
 	m_state = m_main;
 	m_entersound = true;
     main_multi = false;
+    m_main_cursor = 1;      /* r139 (user): open on Matchmaking */
     PlayMenuTheme(false);
 
 	IN_UpdateGrabs();
@@ -432,18 +447,19 @@ void M_Main_Draw (void)
     M_PrintWhite(tx, PixHeight(1)-MVS+TEXT_YMARGIN, "Select"); //tip
     }
     //cursor
-    Draw_Cursor(main_x_offset_pixels, main_y_offset_pixels+mvs(m_main_cursor), main_pixel_width, CURSOR_HEIGHT, !main_multi);
+    Draw_Cursor(main_x_offset_pixels, main_y_offset_pixels+mvs(m_main_cursor), main_pixel_width, CURSOR_HEIGHT, true);
     //menu items
-    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(0), "Matchmaking");
-    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(1), "Firefight");
-    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(2), "Options");
-    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(3), "Spartan");
+    /* r138 (user): flat five-row menu; Matchmaking is the online lobby browser,
+     * Custom Games is the local hosting screen, Spartan editing moved into the
+     * Options tabs, so the old main_multi fold-out is gone. */
+    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(0), "Firefight");
+    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(1), "Matchmaking");
+    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(2), "Custom Games");
+    M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(3), "Options");
     M_PrintWhite(main_x_offset_pixels+TEXT_XMARGIN, main_y_offset_pixels+TEXT_YMARGIN+mvs(4), "Quit");
 
     /* r94: welcome marquee disabled per user */
 
-    if (main_multi)
-        M_Main_Multi_Draw ();
 }
 
 void M_Main_Multi_Draw (void)
@@ -464,11 +480,6 @@ void M_Main_Key (int key)
 	case K_ESCAPE:
     case K_YBUTTON:
 	case K_BBUTTON:
-        if (main_multi == true)
-        {
-            main_multi = false;
-        }
-        else
         {
             m_main_cursor = 4;
             M_Menu_Quit_f ();
@@ -477,80 +488,42 @@ void M_Main_Key (int key)
 
 	case K_DOWNARROW:
 		S_LocalSound ("misc/menuoption.wav");
-            if (main_multi)
-            {
-                if (++m_main_multi_cursor >= MAIN_MULTI_ITEMS)
-                    m_main_multi_cursor = 0;
-            }
-            else
-            {
-                if (++m_main_cursor >= MAIN_ITEMS)
-                    m_main_cursor = 0;
-            }
+            if (++m_main_cursor >= MAIN_ITEMS)
+                m_main_cursor = 0;
 		break;
 
 	case K_UPARROW:
 		S_LocalSound ("misc/menuoption.wav");
-            if (main_multi)
-            {
-                if (--m_main_multi_cursor < 0)
-                    m_main_multi_cursor = MAIN_MULTI_ITEMS - 1;
-            }
-            else
-            {
-                if (--m_main_cursor < 0)
-                    m_main_cursor = MAIN_ITEMS - 1;
-            }
+            if (--m_main_cursor < 0)
+                m_main_cursor = MAIN_ITEMS - 1;
 		break;
 
 	case K_ENTER:
 	case K_KP_ENTER:
 	case K_ABUTTON:
-        if (m_main_cursor != 0) //submenu
-        {
-            S_LocalSound ("misc/menuoption.wav");
-        }
-        else
-        {
-            m_entersound = true;
-        }
+        m_entersound = true;
 
-        if (main_multi)
+        switch (m_main_cursor)
         {
-            switch (m_main_multi_cursor)
-            {
-                case 0:
-                    M_Matchmaking_f();
-                    break;
-                case 1:
-                    m_multiplayer_cursor = 0;
-                    M_Menu_LanConfig_f();
-                    break;
-            }
-        }
-        else
-        {
-            switch (m_main_cursor)
-            {
-                case 0:
-                    main_multi = true;
-                    break;
-                case 1:
-                    M_Menu_Firefight_f ();
-                    break;
+            case 0:
+                M_Menu_Firefight_f ();
+                break;
 
-                case 2:
-                    M_Menu_Options_f ();
-                    break;
+            case 1:
+                M_Lobbies_f ();          /* r137/r138: online lobbies */
+                break;
 
-                case 3:
-                    M_Menu_Setup_f ();
-                    break;
+            case 2:
+                M_Matchmaking_f ();      /* r138: local custom game */
+                break;
 
-                case 4:
-                    M_Menu_Quit_f ();
-                    break;
-            }
+            case 3:
+                M_Menu_Options_f ();     /* r138: Spartan tab lives in here */
+                break;
+
+            case 4:
+                M_Menu_Quit_f ();
+                break;
         }
 	}
 }
@@ -1206,10 +1179,7 @@ void M_Pause_Key (int key)
             {
                 Cbuf_AddText ("disconnect\n");
                 theme_started = 0;
-                if ((int)deathmatch.value == 2)
-                    M_Menu_Firefight_f(); // todo: do I need to do more than this (probably). Why not use entry menu f?
-                else
-                    M_Matchmaking_f(); // todo: same as above
+                M_ReturnToMatchMenu ();	/* r164: back where the match started */
             }
             break;
     }
@@ -2157,8 +2127,29 @@ char	lanConfig_joinname[22];
  * This method creates and/or joins a game over IPX or TCP/IP
  *  - Initializer component
  */
+/* r163 (user: "exiting custom games and matchmaking should go back to their
+ * respective menu, not always custom"): this screen is opened from Custom
+ * Games, the Matchmaking lobby and the main menu, but always returned to
+ * Custom Games. Latch who opened it and go back there. */
+static enum m_state_e	lanconfig_origin = m_main;
+
+static void M_LanConfig_Back (void)
+{
+	if (lanconfig_origin == m_lobbies)
+		M_Lobbies_f ();		/* Find Match */
+	else if (lanconfig_origin == m_gameoptions)
+		M_Matchmaking_f ();	/* Custom Games */
+	else if (m_multiplayer_cursor == 0)
+		M_Menu_Main_f ();
+	else
+		M_Matchmaking_f ();
+}
+
 void M_Menu_LanConfig_f (void)
 {
+	lanconfig_origin = m_state;
+	if (lanconfig_origin != m_lobbies && lanconfig_origin != m_gameoptions)
+		lanconfig_origin = m_main;
 	key_dest = key_menu;
 	m_state = m_lanconfig;
 	m_entersound = true;
@@ -2323,14 +2314,7 @@ void M_LanConfig_Key (int key)
 	{
 	case K_ESCAPE:
 	case K_BBUTTON:
-        if (m_multiplayer_cursor == 0)
-        {
-            M_Menu_Main_f ();
-        }
-        else
-        {
-            M_Matchmaking_f ();
-        }
+		M_LanConfig_Back ();	/* r163: back where we came from */
 //		M_Menu_Net_f ();
 		break;
 
@@ -2361,7 +2345,7 @@ void M_LanConfig_Key (int key)
 		if (StartingGame)
 		{
 			if (lanConfig_cursor == 1)
-                M_Matchmaking_f ();
+				M_LanConfig_Back ();	/* r163 */
 		}
 		else
 		{
@@ -2373,9 +2357,13 @@ void M_LanConfig_Key (int key)
 			{
 				m_return_state = m_state;
 				m_return_onerror = true;
+				/* r164: remember which screen asked for the join */
+				match_return_state = (lanconfig_origin == m_lobbies)
+					? m_lobbies : m_gameoptions;
 				key_dest = key_game;
 				m_state = m_none;
 				IN_UpdateGrabs();
+				SCR_ShowLoadingScreen ();
 				Cbuf_AddText ( va ("connect \"%s\"\n", lanConfig_joinname) );
 			}
 		}
@@ -4905,6 +4893,29 @@ static void M_Draw_HintY (int type, struct MenuCoords mc, int y) {
     } else if (type == MATCH_BOTTOM) {
         HINTI(b_ybutton); HINTW("Game Options");   /* square */
         HINTI(b_xbutton); HINTW("Maps");           /* triangle */
+    } else if (type == MATCH_LOBBY_BOTTOM) {
+        /* r165 (user): Find Match has its own two actions. The square opens
+         * the lobby list (Browse) and the triangle the advanced connect form;
+         * MATCH_BOTTOM's "Game Options"/"Maps" belong to Custom Games and were
+         * simply the wrong words here. b_ybutton holds the square art,
+         * b_xbutton the triangle art (see M_HintIcon). */
+        HINTI(b_ybutton); HINTW("Browse");         /* square -> K_XBUTTON */
+        HINTI(b_xbutton); HINTW("Advanced");       /* triangle -> K_YBUTTON */
+    } else if (type == MATCH_BROWSE_TOP) {
+        /* r167 (user): the lobby popup gained a playlist filter and a sort
+         * cycle, plus a rescan that does not need a keyboard.
+         * r179 (user: "vita is not showing the bumper image icons for the
+         * lobby menu"): the shoulders were the only groups in the menu spelled
+         * out as text ("LB Rescan"/"RB Sort"), so the popup had no arm art for
+         * them at all. Draw the real backl1/backr1 bumper art like every other
+         * hint, and keep the words short -- the popup panel is only 392
+         * virtual px wide and this row is centred inside it. */
+        extern qpic_t *b_lt, *b_rt;   /* L/R shoulder art (gl_hud.c) */
+        HINTI(b_bbutton); HINTW("Back");
+        HINTI(b_abutton); HINTW("Select");
+        HINTI(b_left); HINTI(b_right); HINTW("Filter");
+        HINTI(b_lt); HINTW("Scan");
+        HINTI(b_rt); HINTW("Sort");
     } else if (type == SELECT_DELETE) {
         HINTI(b_bbutton); HINTW("Back");
         HINTI(b_abutton); HINTW("Edit");
@@ -4942,6 +4953,21 @@ static void M_Draw_HintY (int type, struct MenuCoords mc, int y) {
 
     #undef HINTI
     #undef HINTW
+}
+
+/* r156 (user: "the hintes arent centered?"): M_Draw_HintY measures its whole
+ * group and centres it in the window (r76). The Mac lobby screen prints plain
+ * text instead of Vita arm art, so it needs the same arithmetic. */
+static void M_PrintHintCentred (struct MenuCoords mc, int y, const char *text)
+{
+    int lx = (int)mc.grid[0][mc.rows].x;
+    int rx = (int)(mc.grid[mc.cols - 1][mc.rows].x + mc.colw);
+    int w = (int)Draw_TTFWidth (text, 14.0f);
+    int x = lx + ((rx - lx) - w) / 2;
+
+    if (x < mc.grid[0][mc.rows].xp + CHARZ)
+        x = mc.grid[0][mc.rows].xp + CHARZ;
+    M_PrintWhite (x, y, text);
 }
 
 void M_Draw_Hint (int type, struct MenuCoords mc)
@@ -4988,7 +5014,7 @@ void M_Matchmaking_Draw (void)
     if (matchmaking_cursor >= NUM_GAMEOPTIONS)
         matchmaking_cursor = NUM_GAMEOPTIONS - 1;   /* perf B7: stale index lands on START MATCHMAKING */
     draw_grid_inset = 1;          /* r77: 20% side margin (user) */
-    struct MenuCoords mc = Draw_WindowGridLeft("Matchmaking",14,MVS*0.8f,2,0.2, 0.8, matchmaking_cursor, 1.0, 3.0);   /* r79b: edge to edge */
+    struct MenuCoords mc = Draw_WindowGridLeft("Custom Games",14,MVS*0.8f,2,0.2, 0.8, matchmaking_cursor, 1.0, 3.0);   /* r79b: edge to edge */
     draw_grid_inset = 0;
     // map thumbnail -- r79/r80 (user): panel stretches top to bottom;
     // nav hints (Back/Select/Change) live in the footer bar and the map +
@@ -5021,8 +5047,11 @@ void M_Matchmaking_Draw (void)
     M_Draw_HintY(MATCH_BOTTOM, mc, topbar + 5);   /* actions on top */
     {
         int botbar = (int)mc.grid[0][mc.rows].yp;
+        /* r161 (user: "the arrows and select are still not conditional"): the
+         * bar follows the row again -- PLAYLIST is changed with left/right,
+         * every other row is entered with A. */
         if (matchmaking_cursor == 1)
-            M_Draw_HintY(MATCH_SCROLL_TOP, mc, botbar);   /* nav on bottom */
+            M_Draw_HintY(MATCH_SCROLL_TOP, mc, botbar);
         else
             M_Draw_HintY(MATCH_MAIN_TOP, mc, botbar);
     }
@@ -5299,6 +5328,7 @@ void M_Matchmaking_Key (int key)
             if (matchmaking_cursor == 2)
             {
 //                S_LocalSound ("misc/menuback.wav"); // why was this here?
+                match_return_state = m_gameoptions;	/* r164: exit lands in Custom Games */
 
                 /*
                  * Pre-setup. Disconnect form last match, etc.
@@ -5483,7 +5513,8 @@ void M_Firefight_Draw (void)
             mappic = Draw_CachePic (va("gfx/maps/%s.lmp", levels[episodes_ff[startepisode].firstLevel + startlevel].thumbnail));
         Draw_StretchPic ((int)(bar_x + 1), pic_yfit, mappic, (int)(bar_w - 2), pic_fit);
 
-        /* bottom hint bar (window footer): Back + Select/Change */
+        /* bottom hint bar (window footer): Back + Select/Change.
+         * r161 (user): conditional -- row 0 is changed with left/right. */
         if (firefight_cursor == 0)
             M_Draw_HintY (MATCH_SCROLL_TOP, mc, (int)mc.grid[0][mc.rows].yp);
         else
@@ -5569,6 +5600,7 @@ void M_Firefight_Key (int key)
             S_LocalSound ("misc/menuenter.wav");
             if (firefight_cursor == 1) //on start options
             {
+                match_return_state = m_firefight;	/* r164 */
                 if (sv.active)
                     Cbuf_AddText ("disconnect\n");
                 SCR_BeginLoadingPlaque (); //#TODO: fix loading screen not working.
@@ -5587,6 +5619,1102 @@ void M_Firefight_Key (int key)
 }
 
 //=============================================================================
+
+//=============================================================================
+/* r137: FIND MATCH -- online lobby browser.
+ * r143 (user): the screen has to look like Custom Games: NETWORK, PLAYLIST and
+ * START MATCHMAKING on three rows, then a map card for the best (or the
+ * highlighted) lobby and the local player in the roster. Square opens a lobby
+ * list on top of this screen, the way Map Selection layers its list over the
+ * Custom Games card, so the preview follows the highlight. */
+
+#define LOBBY_FILTERS   2
+#define LOBBY_BROWSE_ROWS 8
+
+static int	lobby_cursor = LOBBY_FILTERS;
+static int	lobby_network = 0;		/* 0 Both, 1 Local, 2 Online */
+static int	lobby_playlist = 0;		/* 0 All, 1 Slayer, 2 Team Slayer, 3 Swat */
+static int	lobby_browse = 0;		/* square: lobby list overlay */
+static int	lobby_browsecursor = 0;
+static int	lobby_browsefirst = 0;
+static int	lobby_selected = -1;	/* r153: slot picked in the browser */
+static double	lobby_rescan_time = 0;	/* r147: auto-retry while empty */
+static double	lobby_rescan_delay = 1.0;	/* r148: exponential backoff */
+
+/* r167 (user): the browser can order and filter the list. The list is a
+ * filtered index map rebuilt on demand; hostCacheCount is small (a LAN sweep
+ * plus a master list), so sorting it per frame is cheaper than tracking
+ * invalidation across the asynchronous replies. */
+#define LOBBY_ORDER_MAX 96
+static int	lobby_sort = 0;		/* 0 real players, 1 players+bots, 2 title, 3 mode */
+static int	lobby_order[LOBBY_ORDER_MAX];
+static int	lobby_ordercount = 0;
+
+/* r137/r143: the browser exposes its rows through NET_SlistServerInfo, because
+ * menu.c cannot include net_defs.h (it needs arch_def/q_stdinc first). */
+static const char *M_Lobby_Name (int i)
+{
+	const char *name = "";
+	const char *map = "";
+
+	NET_SlistServerInfo ((size_t)i, &name, &map, NULL, NULL);
+	return name;
+}
+
+static const char *M_Lobby_Map (int i)
+{
+	const char *name = "";
+	const char *map = "";
+
+	NET_SlistServerInfo ((size_t)i, &name, &map, NULL, NULL);
+	return map;
+}
+
+static int M_Lobby_Users (int i)
+{
+	int	users = 0;
+
+	NET_SlistServerInfo ((size_t)i, NULL, NULL, &users, NULL);
+	return users;
+}
+
+static int M_Lobby_Max (int i)
+{
+	int	maxusers = 0;
+
+	NET_SlistServerInfo ((size_t)i, NULL, NULL, NULL, &maxusers);
+	return maxusers;
+}
+
+static const char *M_Lobby_NetworkName (void)
+{
+	switch (lobby_network)
+	{
+	case 1:		return "Local";
+	case 2:		return "Online";
+	default:	return "Both";
+	}
+}
+
+static const char *M_Lobby_PlaylistName (void)
+{
+	switch (lobby_playlist)
+	{
+	case 1:		return "Slayer";
+	case 2:		return "Team Slayer";
+	case 3:		return "Swat";
+	default:	return "All";
+	}
+}
+
+/* Both = broadcast + masters, Local = broadcast, Online = masters only. */
+static enum slistScope_e M_Lobby_Scope (void)
+{
+	switch (lobby_network)
+	{
+	case 1:		return SLIST_LAN;
+	case 2:		return SLIST_ONLINE;
+	default:	return SLIST_INTERNET;
+	}
+}
+
+/* Servers advertise sv_hostname_fmt "%mode%", so the hostname IS the mode. */
+static qboolean M_Lobby_NameIs (const char *name, const char *want)
+{
+	size_t n = strlen (want);
+
+	if (!name || !*name)
+		return false;
+	if (q_strncasecmp (name, want, n) != 0)
+		return false;
+	return (name[n] == '\0' || name[n] == ' ' || name[n] == ':' || name[n] == '-');
+}
+
+static int M_Lobby_Matches (int i)
+{
+	if (i < 0 || (size_t)i >= hostCacheCount)
+		return 0;
+	if (lobby_playlist == 0)
+		return 1;
+	if (lobby_playlist == 1)
+		return M_Lobby_NameIs (M_Lobby_Name (i), "Slayer");
+	return M_Lobby_NameIs (M_Lobby_Name (i), M_Lobby_PlaylistName ());
+}
+
+/* r167: how many of the advertised users are bots. The server-info reply only
+ * carries network clients today, so this is 0 until the broadcast update adds
+ * a bot count; the sort mode exists now so the UI does not change shape later. */
+/* r175: metadata helpers. Servers older than r175 do not send the trailing
+ * browse block, so title/game/desc fall back to the hostname (which carries
+ * the mode) and the map. */
+static const char *M_Lobby_Title (int i)
+{
+	const char *title = "";
+
+	NET_SlistServerMeta ((size_t)i, &title, NULL, NULL, NULL, NULL, NULL, NULL);
+	return title[0] ? title : M_Lobby_Name (i);
+}
+
+static const char *M_Lobby_Game (int i)
+{
+	const char *game = "";
+
+	NET_SlistServerMeta ((size_t)i, NULL, NULL, &game, NULL, NULL, NULL, NULL);
+	return game[0] ? game : M_Lobby_Name (i);
+}
+
+static const char *M_Lobby_Desc (int i)
+{
+	const char *desc = "";
+
+	NET_SlistServerMeta ((size_t)i, NULL, &desc, NULL, NULL, NULL, NULL, NULL);
+	return desc;
+}
+
+static int M_Lobby_Bots (int i)
+{
+	int	bots = 0;
+
+	NET_SlistServerMeta ((size_t)i, NULL, NULL, NULL, &bots, NULL, NULL, NULL);
+	return bots;
+}
+
+static int M_Lobby_Rule (int i)
+{
+	int	rule = 0;
+
+	NET_SlistServerMeta ((size_t)i, NULL, NULL, NULL, NULL, &rule, NULL, NULL);
+	return rule;
+}
+
+/* r176 (user: "for game info we should also broadcast the game length and max
+ * kills") -- the round shape the server advertises via \time\ and \limit\.
+ * 0 means the server did not say (older build) or the limit is off. */
+static int M_Lobby_Time (int i)
+{
+	int	minutes = 0;
+
+	NET_SlistServerMeta ((size_t)i, NULL, NULL, NULL, NULL, NULL, &minutes, NULL);
+	return minutes;
+}
+
+static int M_Lobby_MaxKills (int i)
+{
+	int	kills = 0;
+
+	NET_SlistServerMeta ((size_t)i, NULL, NULL, NULL, NULL, NULL, NULL, &kills);
+	return kills;
+}
+
+static int M_Lobby_ModeRank (int i)
+{
+	if (M_Lobby_NameIs (M_Lobby_Name (i), "Team Slayer"))
+		return 0;
+	if (M_Lobby_NameIs (M_Lobby_Name (i), "Slayer"))
+		return 1;
+	if (M_Lobby_NameIs (M_Lobby_Name (i), "Swat"))
+		return 2;
+	return 3;
+}
+
+static const char *M_Lobby_SortName (void)
+{
+	switch (lobby_sort)
+	{
+	case 1:		return "Bots";
+	case 2:		return "Title";
+	case 3:		return "Mode";
+	default:	return "Players";
+	}
+}
+
+static int M_Lobby_Compare (const void *pa, const void *pb)
+{
+	int	a = *(const int *)pa;
+	int	b = *(const int *)pb;
+	int	c = 0;
+
+	switch (lobby_sort)
+	{
+	case 2:		/* title */
+		c = q_strcasecmp (M_Lobby_Name (a), M_Lobby_Name (b));
+		break;
+	case 3:		/* gamemode, then title */
+		c = (int)M_Lobby_ModeRank (a) - (int)M_Lobby_ModeRank (b);
+		break;
+	case 1:		/* players including bots, high to low */
+		c = (M_Lobby_Users (b) + M_Lobby_Bots (b)) -
+		    (M_Lobby_Users (a) + M_Lobby_Bots (a));
+		break;
+	default:	/* real players, high to low (r167 default) */
+		c = M_Lobby_Users (b) - M_Lobby_Users (a);
+		break;
+	}
+	if (!c)
+		c = q_strcasecmp (M_Lobby_Name (a), M_Lobby_Name (b));
+	if (!c)
+		c = a - b;
+	return c;
+}
+
+static void M_Lobby_Rebuild (void)
+{
+	int	i, n = 0;
+
+	for (i = 0; (size_t)i < hostCacheCount && n < LOBBY_ORDER_MAX; i++)
+		if (M_Lobby_Matches (i))
+			lobby_order[n++] = i;
+	lobby_ordercount = n;
+	if (n > 1)
+		qsort (lobby_order, n, sizeof (lobby_order[0]), M_Lobby_Compare);
+}
+
+static int M_Lobby_Count (void)
+{
+	M_Lobby_Rebuild ();
+	return lobby_ordercount;
+}
+
+static int M_Lobby_IndexAt (int slot)
+{
+	M_Lobby_Rebuild ();
+	if (slot < 0 || slot >= lobby_ordercount)
+		return -1;
+	return lobby_order[slot];
+}
+
+static int M_Lobby_Best (void)
+{
+	int	i, best = -1, bestusers = -1;
+
+	for (i = 0; (size_t)i < hostCacheCount; i++)
+		if (M_Lobby_Matches (i) && M_Lobby_Users (i) > bestusers)
+		{
+			bestusers = M_Lobby_Users (i);
+			best = i;
+		}
+	return best;
+}
+
+static qpic_t *M_Lobby_MapPic (int i)
+{
+	const char	*map = (i >= 0 && (size_t)i < hostCacheCount) ? M_Lobby_Map (i) : NULL;
+	const char	*path;
+	int		k;
+
+	if (map && *map)
+	{
+		for (k = 0; k < (int)(sizeof(levels) / sizeof(levels[0])); k++)
+			if (!q_strcasecmp (levels[k].name, map))
+			{
+				qpic_t *png;
+
+				path = va ("gfx/maps/%s.png", levels[k].thumbnail);
+				if (COM_FileExists (path, NULL))
+				{
+					png = Draw_TryCachePic (path, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+					if (png)
+						return png;
+				}
+				/* r162 (user: "the map art is not loading"): most of the
+				 * pack ships only legacy art -- lockdown.tga, pit.lmp -- and
+				 * PNG-only lookups dropped straight to the "?" custom card.
+				 * Same fallback Custom Games' map select uses. */
+				return Draw_CachePic (va ("gfx/maps/%s.%s", levels[k].thumbnail,
+				                          levels[k].targaThumbnail ? "tga" : "lmp"));
+			}
+		path = va ("gfx/maps/%s.png", map);
+		if (COM_FileExists (path, NULL))
+			return Draw_TryCachePic (path, TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+	}
+	if (COM_FileExists ("gfx/maps/custom.png", NULL))
+		return Draw_TryCachePic ("gfx/maps/custom.png", TEXPREF_ALPHA | TEXPREF_PAD | TEXPREF_NOPICMIP);
+	return Draw_CachePic ("gfx/loading.tga");
+}
+
+/* r146 (user): the browse card shows the map's blurb + author, same data the
+ * map selection screen reads from levels[]. Unknown maps (custom packs) have
+ * neither, so callers fall back to the placeholder art and no subtitle. */
+static const char *M_Lobby_MapAuthor (int i)
+{
+	const char	*map = M_Lobby_Map (i);
+	int		k;
+
+	if (!map || !*map)
+		return "";
+	for (k = 0; k < (int)(sizeof(levels) / sizeof(levels[0])); k++)
+		if (!q_strcasecmp (levels[k].name, map) && levels[k].author)
+			return levels[k].author;
+	return "";
+}
+
+static const char *M_Lobby_MapDesc (int i)
+{
+	const char	*map = M_Lobby_Map (i);
+	int		k;
+
+	if (!map || !*map)
+		return "";
+	for (k = 0; k < (int)(sizeof(levels) / sizeof(levels[0])); k++)
+		if (!q_strcasecmp (levels[k].name, map) && levels[k].description)
+			return levels[k].description;
+	return "";
+}
+
+/* r169 (user: "there should be like boxes of your option below the header
+ * before the list"): the filter and sort pickers are chips, one active, drawn
+ * straight under the popup header. Widths follow the label so "Team Slayer"
+ * is not truncated. */
+static void M_Lobby_Chips (int x, int y, int h, const char **labels, int count, int active)
+{
+	int	i, cx = x;
+
+	for (i = 0; i < count; i++)
+	{
+		int		w = (int)Draw_TTFWidth (labels[i], 11.0f) + 12;
+		qboolean	on = (i == active);
+
+		if (on)
+			Draw_FillRGBA (cx, y, w, h, 0.24f, 0.37f, 0.72f, 0.95f);
+		else
+			Draw_FillRGBA (cx, y, w, h, 0.10f, 0.13f, 0.22f, 0.95f);
+		Draw_TTFString (cx + 6, y + h - 5, labels[i], 1, 1, 1,
+				on ? 1.0f : 0.6f, 11.0f);
+		cx += w + 4;
+	}
+}
+
+/* r171: the chip rows live in their own header module, so the layout needs to
+ * know how wide a row is before drawing it (module is right-aligned and each
+ * row is centred inside it). */
+static int M_Lobby_ChipsWidth (const char **labels, int count)
+{
+	int	i, w = 0;
+
+	for (i = 0; i < count; i++)
+		w += (int)Draw_TTFWidth (labels[i], 11.0f) + 12 + (i ? 4 : 0);
+
+	return w;
+}
+
+static void M_Lobby_Scan (void)
+{
+	slistSilent = true;
+	slistScope = M_Lobby_Scope ();
+	lobby_selected = -1;		/* r153: a rescan reorders the list */
+	NET_Slist_f ();
+}
+
+static void M_Lobby_Join (int i)
+{
+	if (i < 0 || (size_t)i >= hostCacheCount)
+		return;
+	S_LocalSound ("misc/menu2.wav");
+	m_return_state = m_lobbies;
+	m_return_onerror = true;
+	match_return_state = m_lobbies;	/* r164: a disconnect comes back here */
+	key_dest = key_game;
+	m_state = m_none;
+	IN_UpdateGrabs ();
+	/* r163/r164 (user: "connecting to a match freezes, draw the loading screen
+	 * asap"): the connect text is only queued here, so put the loading art up
+	 * before the first server packet. ShowLoadingScreen (not BeginLoadingPlaque)
+	 * keeps drawing live and can be taken down if the connect fails. */
+	SCR_ShowLoadingScreen ();
+	Cbuf_AddText (va ("connect \"%s\"\n", NET_SlistPrintServerName (i)));
+}
+
+void M_Lobbies_f (void)
+{
+	key_dest = key_menu;
+	m_state = m_lobbies;
+	m_entersound = true;
+	IN_UpdateGrabs ();
+	lobby_cursor = LOBBY_FILTERS;
+	lobby_rescan_delay = 1.0;
+	lobby_browse = 0;
+	lobby_browsecursor = lobby_browsefirst = 0;
+	lobby_selected = -1;
+	M_Lobby_Scan ();
+}
+
+/* r164: open the menu the finished match belongs to. Shared by the pause
+ * menu's Disconnect row and CL_Disconnect_Multi_f (end of a deathmatch), so
+ * both find their way back to Find Match or Custom Games as appropriate. */
+void M_ReturnToMatchMenu (void)
+{
+	/* r178: this is where the pause menu drops you after a match, and none
+	 * of the screens it lands on used to ask for the theme -- so leaving a
+	 * server through the lobby put you back in a silent menu. */
+	PlayMenuTheme (false);
+	switch (match_return_state)
+	{
+	case m_lobbies:
+		M_Lobbies_f ();
+		break;
+	case m_firefight:
+		M_Menu_Firefight_f ();
+		break;
+	case m_slist:
+		M_Menu_ServerList_f ();
+		break;
+	case m_gameoptions:
+	default:
+		M_Matchmaking_f ();
+		break;
+	}
+}
+
+/* the lobby the card is showing: highlighted one while browsing, else best */
+static int M_Lobby_Focus (void)
+{
+	int	total, n;
+
+	if (!lobby_browse)
+	{
+		n = M_Lobby_IndexAt (lobby_selected);
+		if (n >= 0 && M_Lobby_Matches (n))
+			return n;		/* r153: picked in the browser */
+		return M_Lobby_Best ();
+	}
+	total = M_Lobby_Count ();
+	if (total <= 0)
+		return M_Lobby_Best ();
+	if (lobby_browsecursor >= total)
+		lobby_browsecursor = total - 1;
+	n = M_Lobby_IndexAt (lobby_browsecursor);
+	return (n >= 0) ? n : M_Lobby_Best ();
+}
+
+/* r176 (user: "the list can go back to just the title (marquee when too
+ * long)"): one column of titles. The console font is fixed-width and the menu
+ * layer has no scissor, so the scroll is a plain character window -- cheap and
+ * clip-free. A three-cell blank gap marks where the title wraps. */
+static void M_Lobby_DrawTitle (int x, int y, const char *title, int maxchars, int row)
+{
+	char	line[96];
+	int	len = (int)strlen (title);
+	int	i, off;
+
+	if (maxchars < 4)
+		maxchars = 4;
+	if (maxchars > (int)sizeof (line) - 1)
+		maxchars = (int)sizeof (line) - 1;
+
+	if (len <= maxchars)
+	{
+		M_PrintWhite (x, y, title);
+		return;
+	}
+
+	/* per-row phase so neighbouring marquees do not tick in lockstep;
+	 * 24 px/s = 3 cells/s, the usual terminal-marquee pace */
+	off = ((int)(realtime * 24.0) + row * 5) % (len + 3);
+	for (i = 0; i < maxchars; i++)
+	{
+		int	p = (off + i) % (len + 3);
+
+		line[i] = (p < len) ? title[p] : ' ';
+	}
+	line[maxchars] = 0;
+	M_PrintWhite (x, y, line);
+}
+
+void M_Lobbies_Draw (void)
+{
+	int		rows = LOBBY_FILTERS + 1;	/* r143: filters + START, like Custom Games */
+	int		total, i, hidx, botbar, topbar;
+	int		pic_bottom, pic_fit, room, pic_yfit;
+	struct MenuCoords mc;
+	qpic_t		*mappic;
+	double		bar_x, bar_w, pic_x;
+
+	Draw_MenuBg ();
+
+	total = M_Lobby_Count ();
+	/* r147 (user): the scan started on entry can finish before the master
+	 * or LAN replies land, leaving an empty list with no search running.
+	 * Retry on a timer so the browser fills in without a keypress. */
+	if (!slistInProgress && M_Lobby_Count () == 0 && realtime >= lobby_rescan_time)
+	{
+		lobby_rescan_time = realtime + lobby_rescan_delay;
+		/* r149 (user): 1, 4, 8, 15, then settle into a one-minute poll */
+		if (lobby_rescan_delay < 3.0)
+			lobby_rescan_delay = 4.0;
+		else if (lobby_rescan_delay < 7.0)
+			lobby_rescan_delay = 8.0;
+		else if (lobby_rescan_delay < 12.0)
+			lobby_rescan_delay = 16.0;
+		else
+			lobby_rescan_delay = 60.0;
+		M_Lobby_Scan ();
+	}
+	hidx = M_Lobby_Focus ();
+	mappic = M_Lobby_MapPic (hidx);
+
+	if (lobby_cursor >= rows)
+		lobby_cursor = rows - 1;
+	if (lobby_cursor < 0)
+		lobby_cursor = 0;
+
+	draw_grid_inset = 1;
+	/* r144: the 2nd argument is the LAYOUT row count that sizes the panel, not
+	 * the number of rows we fill -- Custom Games passes 14. Passing our own 4..7
+	 * produced a stumpy panel and everything below collided. */
+	mc = Draw_WindowGridLeft ("Matchmaking", 14, MVS * 0.8f, 2, 0.2, 0.8,
+				  lobby_cursor, 1.0, 3.0);
+	draw_grid_inset = 0;
+
+	bar_x = mc.grid[0][0].x;
+	bar_w = (mc.grid[mc.cols - 1][0].x + mc.colw) - bar_x + 2;
+	pic_bottom = (int)mc.grid[1][mc.rows].y;
+	pic_fit = (int)((bar_w - 2) / 1.7);
+	/* r145: Custom Games measures the free space from row 3 (the row under the
+	 * ones it fills); using our own last row left no room, so pic_fit collapsed
+	 * and the map art never drew. */
+	room = pic_bottom - (int)mc.grid[0][3].y - 2 * (int)mc.rowh;
+	if (pic_fit > room)
+		pic_fit = room;
+	pic_x = bar_x + 1;
+	pic_yfit = pic_bottom - pic_fit;
+	topbar = pic_yfit - (int)mc.rowh;
+
+	/* card + roster, exactly the Custom Games stack (room is guaranteed now
+	 * that the list lives in the browse overlay instead of this grid) */
+	Draw_FillRGBA ((int)bar_x, topbar, (int)bar_w, (int)mc.rowh,
+		       20 / 255.0f, 25 / 255.0f, 44 / 255.0f, 0.85f);
+	Draw_StretchPic (pic_x, pic_yfit, mappic, bar_w - 2, pic_fit);
+
+	/* r153 (user): a roster on the right side, like the Custom Games lobby.
+	 * That one lists the bots you are about to spawn; this lobby belongs to
+	 * someone else, so what we can honestly show is yourself plus the player
+	 * count the server advertises. Same virtual menu space and geometry as
+	 * M_Matchmaking_Draw (past 560x350 projects off-screen). */
+	{
+		int	rrw = (int)(80 * MENU_SCALE);
+		/* r156 (user: "the playerlist should be on the right side"): follow THIS
+		 * panel's right edge instead of Custom Games' constant x, and sit
+		 * under the header rather than above the grid. */
+		int	rrx = (int)(320 * MENU_SCALE) - 55 - rrw;
+		int	rrh = 24;
+		int	rry = (int)mc.grid[0][0].y - rrh;
+		int	rband = 17;
+		int	rfs = 13;
+		int	prof = atoi (Cvar_VariableString ("bottomcolor"));
+		const char *me = cl_name.string;
+		char	count[16];
+
+		if (prof < 0 || prof > 13)
+			prof = 4;
+		if (hidx >= 0)
+			q_snprintf (count, sizeof (count), "%i/%i",
+				    M_Lobby_Users (hidx), M_Lobby_Max (hidx));
+		else
+			q_strlcpy (count, "-", sizeof (count));
+
+		Draw_FillRGBA (rrx, rry, rrw, rrh, 20/255.0f*0.85f, 25/255.0f*0.85f,
+			       44/255.0f*0.85f, 0.85f);
+		Draw_TTFStringHeader (rrx + CHARZ - 2, rry + 18, "ROSTER",
+				      1, 1, 1, 0.9f, 14.0f);
+		Draw_TTFString (rrx + rrw - 8 - (int)Draw_TTFWidth (count, 14.0f),
+				rry + 18, count, 1, 1, 1, 1, 14.0f);
+		{
+			byte *pcc = (byte *)&d_8to24table[prof * 16 + 8];
+			Draw_FillRGBA (rrx, rry + rrh + 2, rrw, rband,
+				       pcc[0]/255.0f*0.35f, pcc[1]/255.0f*0.35f,
+				       pcc[2]/255.0f*0.35f, 0.35f);
+		}
+		Draw_TTFString (rrx + CHARZ, rry + rrh + 2 + rfs,
+				(*me) ? me : "You", 1, 1, 1, 1, (float)rfs);
+	}
+
+	{
+		const char *cap;
+		float csize = 16.0f;
+		int cx = (int)pic_x + CHARZ;
+		double avail = (mc.grid[mc.cols - 1][0].x + mc.colw) - cx - 8;
+
+		if (hidx >= 0)
+			cap = va ("%s - %s", M_Lobby_Name (hidx), M_Lobby_Map (hidx));
+		else
+			if (slistInProgress)
+			cap = "Searching...";
+		else if (lobby_rescan_time > realtime)
+			cap = va ("Searching again in %i s...",
+				  (int)(lobby_rescan_time - realtime + 0.5));
+		else
+			cap = "No lobbies match";
+		while (csize > 9.0f && Draw_TTFHeaderWidth (cap, csize) > avail)
+			csize -= 0.5f;
+		Draw_TTFStringHeader (cx, pic_yfit + pic_fit - 9, cap, 1, 1, 1, 1, csize);
+
+		/* r146: artist + blurb on a second line, above the title */
+		if (hidx >= 0)
+		{
+			const char *au = M_Lobby_MapAuthor (hidx);
+			const char *de = M_Lobby_MapDesc (hidx);
+			const char *sub = NULL;
+			float ssize = 11.0f;
+
+			if (*au && *de)
+				sub = va ("%s - by %s", de, au);
+			else if (*au)
+				sub = va ("by %s", au);
+			else if (*de)
+				sub = de;
+			if (sub)
+			{
+				while (ssize > 8.0f && Draw_TTFWidth (sub, ssize) > avail)
+					ssize -= 0.5f;
+				Draw_TTFString (cx, pic_yfit + pic_fit - 9
+						- (int)(ssize + 6.0f), sub,
+						0.75f, 0.82f, 0.92f, 0.9f, ssize);
+			}
+		}
+	}
+
+	M_PrintWhite (mc.grid[0][0].xp, mc.grid[0][0].yp, "NETWORK");
+	M_Print (mc.grid[1][0].xp, mc.grid[1][0].yp, M_Lobby_NetworkName ());
+	M_PrintWhite (mc.grid[0][0].xp, mc.grid[0][1].yp, "PLAYLIST");
+	M_Print (mc.grid[1][1].xp, mc.grid[1][1].yp, M_Lobby_PlaylistName ());
+	M_PrintWhite (mc.grid[0][0].xp, mc.grid[0][2].yp, "START MATCHMAKING");
+
+#ifdef VITA
+	M_Draw_HintY (MATCH_LOBBY_BOTTOM, mc, topbar + 5);   /* r144: arm art is Vita-only */
+#else
+	/* r151 (user): browse/advanced belong on the bar above the map art,
+	 * exactly where Custom Games puts its action hints. */
+	M_PrintHintCentred (mc, topbar + 5, "B Browse    T Advanced");
+#endif
+	botbar = (int)mc.grid[0][mc.rows].yp;
+	/* r161 (user: "the arrows and select are still not conditional"): the bar
+	 * follows the row. NETWORK/PLAYLIST are changed with left/right; the lobby
+	 * rows and START MATCHMAKING are entered with A. */
+	if (lobby_cursor < LOBBY_FILTERS)
+	{
+#ifdef VITA
+		M_Draw_HintY (MATCH_SCROLL_TOP, mc, botbar);
+#else
+		M_PrintHintCentred (mc, botbar, "Left/Right Change    Esc Back");
+#endif
+	}
+	else
+	{
+#ifdef VITA
+		M_Draw_HintY (MATCH_MAIN_TOP, mc, botbar);
+#else
+		M_PrintHintCentred (mc, botbar, "Enter Select    Esc Back");
+#endif
+	}
+
+	if (lobby_browse)
+	{
+		struct MenuCoords bc;
+		int	shown, n;
+
+		/* r152 (user): the browser is always openable, empty included. */
+		if (total < 0)
+			total = 0;
+		if (lobby_browsecursor >= total)
+			lobby_browsecursor = total - 1;
+		if (lobby_browsecursor < 0)
+			lobby_browsecursor = 0;
+		/* r170: the chip rows moved into the header, so the popup body is
+		 * all list again -- two more lobbies fit in the same panel. */
+		shown = (total > LOBBY_BROWSE_ROWS + 2) ? LOBBY_BROWSE_ROWS + 2 : total;
+		if (lobby_browsefirst + shown - 1 < lobby_browsecursor)
+			lobby_browsefirst = lobby_browsecursor - (shown - 1);
+		if (lobby_browsefirst > lobby_browsecursor)
+			lobby_browsefirst = lobby_browsecursor;
+
+		/* r165 (user: "the browse modal shrinks to minimum rows needed
+		 * ... the map is squished"): size the popup for the FULL list, not
+		 * for however many lobbies answered. Passing `shown` collapsed the
+		 * right column (and with it the map art) whenever the browser held
+		 * one or two servers -- same "layout rows, not filled rows" rule the
+		 * main card already follows (r144). */
+		/* r170 (user: "darken the screen behind the modal by a bit"):
+		 * the same scrim the LAN config and rules pages already use, so
+		 * the popup reads as a layer instead of part of the menu. */
+		Draw_FillRGBA (0, 0, 1000, 1000, 0.02f, 0.02f, 0.025f, 0.45f);
+
+		/* r170 (user: "filters go right of the modal title, which no longer
+		 * needs to list your selections in the title"): plain screen name
+		 * again; the chips moved up into the header band (below), so no
+		 * body rows are spent on them. */
+		bc = Draw_WindowGridBase ("Lobbies",
+					  LOBBY_BROWSE_ROWS + 2, MVS_P, 2, 0.35, 1.0, 1.0,
+					  0, 2, lobby_browsecursor - lobby_browsefirst,
+					  1, 1.0, 2.2, 0.0);
+		draw_grid_translucent = 0;
+
+		/* r176 (user: "header needs some dark 50% opacity border on the
+		 * bottom"): a dark rule closes the header band off from the list. */
+		Draw_FillRGBA ((int)bc.x0, (int)bc.grid[0][0].y - 1, (int)bc.panelw, 1,
+			       0, 0, 0, 0.5f);
+
+		/* r172 (user: "looks kind of ugly"): the r171 module was crammed into
+		 * a 1.5-row header. The header is taller now (2.2 rows) and the
+		 * module is inset on all four sides with the chip rows centred, so
+		 * it reads as a segmented control instead of a box glued to the
+		 * edge. */
+		{
+			static const char *plabels[4] = {"All", "Slayer", "Team Slayer", "Swat"};
+			static const char *slabels[4] = {"Players", "Bots", "Title", "Mode"};
+			int	htop = (int)bc.grid[0][0].y - bc.headerh;
+			int	wf = M_Lobby_ChipsWidth (plabels, 4);
+			int	ws = M_Lobby_ChipsWidth (slabels, 4);
+			int	lw = 38;			/* label gutter inside the module */
+			/* r175 (user: "make the filter box width line up with the
+			 * sidebar width"): the module now starts at the sidebar's left
+			 * edge and ends at the panel border, so header and details
+			 * column read as one column. */
+			int	mx = (int)bc.grid[1][0].x;
+			int	mw = (int)(bc.x0 + bc.panelw - 2) - mx;
+			int	my = htop + 5;
+			int	mh = bc.headerh - 10;
+			int	r0 = my + (mh - 32) / 2;
+
+			/* r176 (user: "I dont like the box around the filters, just
+			 * keep them there with their title"): the r172/r173 frame and
+			 * its gutter rule are gone -- the chips float on the header
+			 * band and the row names do the labelling. */
+			Draw_TTFString (mx + 7, r0 + 10, "Filter", 0.55f, 0.62f, 0.76f, 0.9f, 12.0f);
+			Draw_TTFString (mx + 7, r0 + 27, "Sort", 0.55f, 0.62f, 0.76f, 0.9f, 12.0f);
+
+			M_Lobby_Chips (mx + lw + (mw - lw - wf) / 2, r0, 15, plabels, 4, lobby_playlist);
+			M_Lobby_Chips (mx + lw + (mw - lw - ws) / 2, r0 + 17, 15, slabels, 4, lobby_sort);
+		}
+
+		{
+			/* r176 (user: "the list can go back to just the title
+			 * (marquee when too long)"): Game and Players moved into the
+			 * sidebar, so a row is the title at the full column width. */
+			int	tmax = ((int)bc.colw - 15 - 6) / 8;	/* console font is 8 px */
+
+			if (tmax < 8)
+				tmax = 8;
+			for (i = 0; i < shown; i++)
+			{
+				n = M_Lobby_IndexAt (lobby_browsefirst + i);
+				if (n < 0)
+					break;
+				M_Lobby_DrawTitle (bc.grid[0][0].xp, bc.grid[0][i].yp,
+						   M_Lobby_Title (n), tmax, i);
+			}
+		}
+		if (!shown)
+			M_Print (bc.grid[0][0].xp, bc.grid[0][0].yp,
+				 slistInProgress ? "Searching..." : "No lobbies match this filter");
+
+		/* r158 (user: "all I said was the browse modal needs art in it"):
+		 * the highlighted lobby's map shot plus its name, artist and the
+		 * game mode it is running, in the popup's right column -- what Map
+		 * Selection shows for the highlighted map. r157 had moved the whole
+		 * list out of the popup instead, which covered the menu rows. */
+		/* r171 (user: "the right side of the modal with the map should also be
+		 * a slightly different color of blue or a line vertically to
+		 * differentiate the section"): tint the details column always, not
+		 * only when a lobby is selected, plus a rule on its left edge. */
+		{
+			/* r173 (user: "the sidebar overlaps the cursor by a bit"):
+			 * the tint started 8 px left of the column, on top of the
+			 * highlighted row's last 8 px. Start it at the column edge. */
+			int	dcol = (int)bc.grid[1][0].x;
+			int	dright = (int)bc.x0 + (int)bc.panelw - 2;
+			int	dtop = (int)bc.grid[1][0].y;
+			int	dbot = (int)bc.grid[1][bc.rows].y;
+
+			if (dbot > dtop)
+			{
+				Draw_FillRGBA (dcol, dtop, dright - dcol, dbot - dtop,
+					       0.08f, 0.11f, 0.18f, 0.30f);
+				Draw_FillRGBA (dcol, dtop, 1, dbot - dtop,
+					       0.30f, 0.42f, 0.72f, 0.85f);
+			}
+		}
+
+		n = M_Lobby_IndexAt (lobby_browsecursor);
+		if (n >= 0)
+		{
+			qpic_t	*mp = M_Lobby_MapPic (n);
+			char	by[80];
+			char	rl[96];
+			const char *ti = M_Lobby_Title (n);
+			const char *gm = M_Lobby_Game (n);
+			const char *ds = M_Lobby_Desc (n);
+			const char *au = M_Lobby_MapAuthor (n);
+			int	bt = M_Lobby_Bots (n);
+			int	ru = M_Lobby_Rule (n);
+			int	tm = M_Lobby_Time (n);
+			int	mk = M_Lobby_MaxKills (n);
+			/* r176 (user: "the content needs some left margin"): the
+			 * sidebar text used to sit flush on the column rule. */
+			int	ax = (int)bc.grid[1][0].x + 10;
+			int	pright = (int)bc.x0 + (int)bc.panelw - 2;
+			int	aw = pright - ax - 8;
+			int	apt = (int)bc.grid[1][0].y;
+			int	apb = (int)bc.grid[1][bc.rows].y;
+			int	afit = (int)(aw / 1.7);
+			int	texty = apt + 16;
+
+			/* r176: how the match ends, from the server's own limits.
+			 * Neither advertised (older build) draws nothing rather than
+			 * claiming there are no limits. */
+			rl[0] = 0;
+			if (tm > 0 && mk > 0)
+				q_snprintf (rl, sizeof (rl), "%i min    first to %i kills", tm, mk);
+			else if (tm > 0)
+				q_snprintf (rl, sizeof (rl), "%i min    no kill limit", tm);
+			else if (mk > 0)
+				q_snprintf (rl, sizeof (rl), "no time limit    first to %i kills", mk);
+
+			/* r175: the sidebar carries the whole record -- title, mode
+			 * and map, description, players and the bot rule, author --
+			 * over the map shot. */
+			if (afit > apb - apt - 112)
+				afit = apb - apt - 112;
+			if (aw > 0 && afit > 0)
+			{
+				Draw_TTFStringHeader (ax, texty, ti, 1, 1, 1, 1, 17.0f);
+				Draw_TTFString (ax, texty + 20,
+						va ("%s    %s", gm, M_Lobby_Map (n)),
+						0.75f, 0.82f, 0.92f, 0.9f, 13.0f);
+				if (*ds)
+					Draw_TTFString (ax, texty + 38, ds,
+							0.68f, 0.75f, 0.86f, 0.9f, 13.0f);
+				Draw_TTFString (ax, texty + 58,
+						va ("%i/%i players    %i bots (fill %i)",
+						    M_Lobby_Users (n), M_Lobby_Max (n), bt, ru),
+						0.75f, 0.82f, 0.92f, 0.9f, 13.0f);
+				if (rl[0])
+					Draw_TTFString (ax, texty + 76, rl,
+							0.75f, 0.82f, 0.92f, 0.9f, 13.0f);
+				if (*au)
+				{
+					q_snprintf (by, sizeof (by), "by %s", au);
+					Draw_TTFString (ax, texty + 94, by,
+							0.6f, 0.67f, 0.78f, 0.9f, 11.0f);
+				}
+				Draw_StretchPic (ax, apt + 112, mp, aw, afit);
+			}
+		}
+
+		/* r152 (user): the browser needs hints of its own; r156 centred them. */
+#ifdef VITA
+		M_Draw_HintY (MATCH_BROWSE_TOP, bc, (int)bc.grid[0][bc.rows].yp);
+#else
+		/* r169 (user: "you cant say LB on mac but have the bind something
+		 * else"): desktop hints name the desktop keys only -- arrow keys
+		 * and F cycle the filter, S the sort, R rescans, T advanced. */
+		M_PrintHintCentred (bc, (int)bc.grid[0][bc.rows].yp,
+				    "Enter Select   Esc Back   F Filter   S Sort   R Rescan");
+#endif
+	}
+}
+
+/* r165 (user): the Find Match screen's Advanced action must open the JOIN
+ * form. It used to call M_Menu_LanConfig_f directly, and that screen reads
+ * m_multiplayer_cursor (default 1 = New Game, still 1 after hosting a Custom
+ * Game), so the Vita showed hosting options it cannot use. Force the join
+ * side; the LAN config screen then leads with "Join Game - TCP/IP". */
+static void M_Lobby_AdvancedConnect (void)
+{
+	m_multiplayer_cursor = 0;
+	M_Menu_LanConfig_f ();
+}
+
+void M_Lobbies_Key (int key)
+{
+	int	rows = LOBBY_FILTERS + 1;
+	int	total = M_Lobby_Count ();
+
+	if (lobby_cursor >= rows)
+		lobby_cursor = rows - 1;
+
+	switch (key)
+	{
+	case K_ESCAPE:
+	case K_BBUTTON:
+		if (lobby_browse)
+		{
+			lobby_browse = 0;
+			S_LocalSound ("misc/menu1.wav");
+			break;
+		}
+		M_Menu_Main_f ();
+		break;
+#ifdef VITA
+	case K_ENTER:
+		if (!lobby_browse)
+		{
+			M_Menu_Main_f ();
+			break;
+		}
+		/* fall through to select while browsing */
+#endif
+
+	case K_XBUTTON:
+		S_LocalSound ("misc/menu1.wav");
+		if (!lobby_browse)
+		{
+			if (1)	/* r150: always openable, even with an empty list */
+			{
+				lobby_browse = 1;
+				lobby_browsecursor = 0;
+				lobby_browsefirst = 0;
+			}
+			else
+				M_Lobby_Scan ();
+		}
+		else
+			lobby_browse = 0;
+		break;
+
+	case K_YBUTTON:
+		/* r138: advanced connection; r165: always the join form */
+		S_LocalSound ("misc/menu1.wav");
+		M_Lobby_AdvancedConnect ();
+		break;
+#ifndef VITA
+	case 'r':
+	case 'R':
+		S_LocalSound ("misc/menu1.wav");
+		M_Lobby_Scan ();
+		break;
+	case 'f':
+	case 'F':
+		lobby_playlist = (lobby_playlist + 1) % 4;
+		lobby_browsecursor = lobby_browsefirst = 0;
+		S_LocalSound ("misc/menuoption.wav");
+		break;
+	case 's':
+	case 'S':
+		lobby_sort = (lobby_sort + 1) % 4;
+		S_LocalSound ("misc/menuoption.wav");
+		break;
+	case 't':
+	case 'T':
+		S_LocalSound ("misc/menu1.wav");
+		M_Lobby_AdvancedConnect ();
+		break;
+	case 'b':
+	case 'B':
+		if (!lobby_browse && total > 0)
+		{
+			lobby_browse = 1;
+			lobby_browsecursor = lobby_browsefirst = 0;
+			S_LocalSound ("misc/menu1.wav");
+		}
+		break;
+#endif
+
+	/* r167 (user): Vita-friendly refresh/sort. The popup already uses the
+	 * face buttons for open/close/select, so these live on the shoulders. */
+	case K_LSHOULDER:
+		S_LocalSound ("misc/menu1.wav");
+		M_Lobby_Scan ();
+		break;
+
+	case K_RSHOULDER:
+		lobby_sort = (lobby_sort + 1) % 4;
+		S_LocalSound ("misc/menuoption.wav");
+		break;
+
+	case K_UPARROW:
+		S_LocalSound ("misc/menuoption.wav");
+		if (lobby_browse)
+		{
+			if (--lobby_browsecursor < 0)
+				lobby_browsecursor = total > 0 ? total - 1 : 0;
+		}
+		else if (--lobby_cursor < 0)
+			lobby_cursor = rows - 1;
+		break;
+
+	case K_DOWNARROW:
+		S_LocalSound ("misc/menuoption.wav");
+		if (lobby_browse)
+		{
+			if (++lobby_browsecursor >= total)
+				lobby_browsecursor = 0;
+		}
+		else if (++lobby_cursor >= rows)
+			lobby_cursor = 0;
+		break;
+
+	case K_LEFTARROW:
+	case K_RIGHTARROW:
+		{
+			int dir = (key == K_RIGHTARROW) ? 1 : -1;
+
+			if (lobby_browse)
+			{
+				/* r167 (user): playlist filter inside the popup. It is a
+				 * client-side view over the cached list, so there is no
+				 * rescan -- just move the highlight back to the top. */
+				lobby_playlist += dir;
+				if (lobby_playlist > 3) lobby_playlist = 0;
+				if (lobby_playlist < 0) lobby_playlist = 3;
+				lobby_browsecursor = 0;
+				lobby_browsefirst = 0;
+				S_LocalSound ("misc/menuoption.wav");
+				break;
+			}
+			if (lobby_cursor == 0)
+			{
+				lobby_network += dir;
+				if (lobby_network > 2) lobby_network = 0;
+				if (lobby_network < 0) lobby_network = 2;
+			}
+			else if (lobby_cursor == 1)
+			{
+				lobby_playlist += dir;
+				if (lobby_playlist > 3) lobby_playlist = 0;
+				if (lobby_playlist < 0) lobby_playlist = 3;
+			}
+			else
+				break;
+			lobby_browsecursor = 0;
+			S_LocalSound ("misc/menuoption.wav");
+			M_Lobby_Scan ();
+		}
+		break;
+
+	case K_ABUTTON:
+#ifndef VITA
+	case K_ENTER:
+	case K_KP_ENTER:
+#endif
+		{
+			int idx;
+
+			if (lobby_browse)
+			{
+				/* r153 (user): picking a lobby in the browser only moves it
+				 * onto the main screen; the join still needs START. */
+				idx = M_Lobby_IndexAt (lobby_browsecursor);
+				if (idx >= 0)
+					lobby_selected = lobby_browsecursor;
+				lobby_browse = 0;
+				S_LocalSound ("misc/menuoption.wav");
+				break;
+			}
+			idx = M_Lobby_IndexAt (lobby_selected);
+			if (idx < 0 || !M_Lobby_Matches (idx))
+				idx = M_Lobby_Best ();
+			if (idx >= 0)
+			{
+				M_Lobby_Join (idx);
+				break;
+			}
+			S_LocalSound ("misc/menu1.wav");
+			M_Lobby_Scan ();
+		}
+		break;
+	}
+}
+
 /* SEARCH MENU */
 
 qboolean	searchComplete = false;
@@ -5665,7 +6793,6 @@ void M_Menu_ServerList_f (void)
 	slist_first = 0;
 	m_return_onerror = false;
 	m_return_reason[0] = 0;
-	slist_sorted = false;
 }
 
 
@@ -5742,10 +6869,11 @@ void M_ServerList_Key (int k)
 		S_LocalSound ("misc/menu2.wav");
 		m_return_state = m_state;
 		m_return_onerror = true;
-		slist_sorted = false;
+		match_return_state = m_slist;	/* r164: disconnect -> server list */
 		key_dest = key_game;
 		m_state = m_none;
 		IN_UpdateGrabs();
+		SCR_ShowLoadingScreen ();
 		Cbuf_AddText ( va ("connect \"%s\"\n", NET_SlistPrintServerName(slist_cursor)) );
 		break;
 
@@ -6177,6 +7305,10 @@ void M_Draw (void)
         M_Matchmaking_Draw ();
 		break;
 
+	case m_lobbies:
+		M_Lobbies_Draw ();
+		break;
+
     case m_matchmaking_map:
         M_Matchmaking_Map_Draw ();
         break;
@@ -6282,6 +7414,10 @@ void M_Keydown (int key)
 
 	case m_gameoptions:
         M_Matchmaking_Key (key);
+		return;
+
+	case m_lobbies:
+		M_Lobbies_Key (key);
 		return;
 
     case m_matchmaking_map:

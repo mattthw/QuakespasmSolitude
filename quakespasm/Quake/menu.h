@@ -39,6 +39,7 @@ enum m_state_e {
 	m_quit,
 	m_lanconfig,
 	m_gameoptions,
+    m_lobbies,          /* r137: Find Match -- online lobby browser/joiner */
     m_matchmaking_map,
     m_matchmaking_gamerules,
     m_performance,
@@ -51,6 +52,9 @@ enum m_state_e {
 
 extern enum m_state_e m_state;
 extern enum m_state_e m_return_state;
+extern enum m_state_e match_return_state;	/* r164: menu a match was started from */
+
+void M_ReturnToMatchMenu (void);		/* r164: disconnect -> that menu */
 
 extern qboolean m_entersound;
 
