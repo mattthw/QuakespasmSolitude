@@ -512,6 +512,8 @@ noref .float		gravity;		// Gravity Multiplier (0 to 1.0)
 // intermission
 float   intermission_running;
 float   intermission_exittime;
+float   rotation_done;          // r127: set once per map when sv_rotation fires
+float   last_human_time;        // r133: last frame a human was connected (idle rotation)
 
 #ifdef NETQUAKE
 entity newmis;

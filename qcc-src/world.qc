@@ -159,6 +159,11 @@ void() worldspawn =
 	BotInit();  // FrikBot
 	ENG_Check();
 
+	/* r181: VOICE_COUNT was only ever set to 1 and never cleared, so the
+	 * match-start announcer played at most once per server session -- every
+	 * later match was silent. Reset it with the map. */
+	VOICE_COUNT = 0;
+
 	sol_grav = cvar("sol_gravity");
 	sol_ms = cvar("sol_maxspeed");
 
@@ -347,7 +352,63 @@ void() StartFrame =
 	teamplay = cvar("teamplay");
 #endif
 	skill = cvar("skill");
-	
+
+#ifdef NETQUAKE
+	// r131: publish the SERVER's mode in serverinfo. A client's own
+	// deathmatch/teamplay cvars are just its local config, so the HUD of a
+	// client on a dedicated host drew "Slayer" over a Team Slayer match.
+	// framecount is still 0 on the first StartFrame of a map, so this runs once.
+	if (framecount == 0) {
+		if (teamplay)
+			localcmd("serverinfo teamplay 1\n");
+		else
+			localcmd("serverinfo teamplay 0\n");
+		if (deathmatch == 3)
+			localcmd("serverinfo deathmatch 3\n");
+		else if (deathmatch == 2)
+			localcmd("serverinfo deathmatch 2\n");
+		else
+			localcmd("serverinfo deathmatch 1\n");
+	}
+#endif
+
+#ifdef NETQUAKE
+	// r133: idle rotation. A round only ends through CheckRules, which runs in
+	// PlayerPreThink -- and BotPreFrame returns before it for every bot, so a
+	// server nobody joined sat on its starting map forever. Track when a human
+	// was last connected and, once sv_rotate_empty seconds pass with none, hop
+	// to the map named by the same `set <map> <nextmap>` hook GotoNextMap uses.
+	//
+	// Deliberately changelevel() and not NextLevel(): intermission is exited by
+	// IntermissionThink inside PlayerPreThink, which has no players to run for.
+	{
+		local entity	pe;
+		local string	nm;
+		local float		idle;
+
+		pe = find(world, classname, "player");
+		while (pe != world) {
+			if (pe.ishuman == TRUE)
+				last_human_time = time;
+			pe = find(pe, classname, "player");
+		}
+
+		idle = cvar("sv_rotate_empty");
+		if (idle > 0 && time - last_human_time >= idle) {
+			nm = stringserverinfokey(mapname);
+			if (nm != "") {
+				bprint("idle rotation: ");
+				bprint(mapname);
+				bprint(" -> ");
+				bprint(nm);
+				bprint("\n");
+				changelevel(nm);
+			}
+			last_human_time = time + 5;	// don't re-issue while it changes
+		}
+	}
+#endif
+
 	framecount = framecount + 1;
 };
 void() func_rotating =
