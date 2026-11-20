@@ -185,6 +185,19 @@ void() ExitIntermission = {
         if (deathmatch == 2) {
             stuffcmd(self, "disconnect_f\n");
             return;
+        } else if (deathmatch && cvar("sv_rotation")) {
+            /* r127: hosted rotation. Deathmatch used to dump every client back
+             * to the Matchmaking menu right here, so a dedicated server could
+             * only ever play one map. With sv_rotation set the clients stay
+             * connected and GotoNextMap picks the next map from the per-map
+             * hook (`set <map> <nextmap>`) -- the map list lives in server.cfg.
+             * The guard stops the other players from queueing their own
+             * changelevel after the first press. */
+            if (rotation_done)
+                return;
+            rotation_done = 1;
+            GotoNextMap();
+            return;
         } else if (deathmatch) {
             stuffcmd(self, "disconnect_m\n");
             return;
@@ -766,34 +779,196 @@ PutClientInServer
 called each time a player enters a new level
 ============
 */
+/* r129 (user 2026-11-18): join-driven team balancing.
+ *
+ * The old flow assigned a team exactly once -- PutClientInServer pinned every
+ * human to red and populate_bots split lobby_bots one time, 1.7 s after the
+ * FIRST human. A second human arriving later was never counted, so the sides
+ * could read 1 v 3 with that human on a colour band nobody else used.
+ *
+ * These helpers run on every spawn and re-balance around however many humans
+ * are actually connected:
+ *   - a human joining goes to the side with fewer humans, so two humans face
+ *     each other;
+ *   - bots fill both sides up to the same size (target derived from the human
+ *     count + lobby_bots, clamped to maxplayers, so any team size balances);
+ *   - when a human needs the room, a bot on the bigger side is dropped.
+ *
+ * Bots are flagged ishuman == 2 and humans ishuman == 1 (bot.qc sets 2 in
+ * BotConnect), so the tests below must compare, never just test truthiness.
+ */
+float TEAM_RED_ID = 5;          /* b_pants 4 + 1 (bot.qc) */
+float TEAM_BLUE_ID = 14;        /* b_pants 13 + 1 */
+
+/* r190 (user: "the announcer should fire even if joining a match mid-game"):
+ * the one-shot was a global VOICE_COUNT flag, so whoever spawned first on the
+ * map -- usually a bot-free human, but on a full server a bot-slot human --
+ * consumed it for everybody. Track it per player instead. */
+.float heard_intro;
+
+float(float t) TeamHumansOn = {
+        local entity e;
+        local float n;
+        n = 0;
+        e = find(world, classname, "player");
+        while (e != world) {
+                if (e.ishuman == TRUE && e.team == t)
+                        n = n + 1;
+                e = find(e, classname, "player");
+        }
+        return n;
+};
+
+float(float t) TeamBotsOn = {
+        local entity e;
+        local float n;
+        n = 0;
+        e = find(world, classname, "player");
+        while (e != world) {
+                if (e.ishuman != TRUE && e.team == t)
+                        n = n + 1;
+                e = find(e, classname, "player");
+        }
+        return n;
+};
+
+entity(float t) TeamOneBotOn = {
+        local entity e;
+        e = find(world, classname, "player");
+        while (e != world) {
+                if (e.ishuman != TRUE && e.team == t)
+                        return e;
+                e = find(e, classname, "player");
+        }
+        return world;
+};
+
+void() BalanceTeams = {
+        local entity uself;
+        local entity victim;
+        local float humans;
+        local float bots;
+        local float want;
+        local float guard;
+        local float redside;
+        local float blueside;
+
+        uself = self;
+        if (!teamplay)
+                return;
+        if (deathmatch != 1 && deathmatch != 3)
+                return;                 /* FFA has no sides */
+
+        humans = TeamHumansOn(TEAM_RED_ID) + TeamHumansOn(TEAM_BLUE_ID);
+        if (humans < 1)
+                return;                 /* nobody to balance around yet */
+
+        bots = cvar("lobby_bots");
+        if (bots < 0)
+                bots = 0;
+        if (bots > 7)
+                bots = 7;
+        /* r130: cvar("maxplayers") reads 0 from QuakeC in this engine -- the
+         * console reports 6, QC gets nothing -- so using it as the cap made
+         * the target 0 and BalanceTeams kicked the whole team the instant a
+         * human joined. Team size now comes from sv_team_size, and the bot
+         * budget is lobby_bots rather than the slot count. */
+        want = cvar("sv_team_size");
+        if (want <= 0)
+                want = ceil((humans + bots) / 2);
+        if (want < 1)
+                want = 1;
+
+        guard = 0;
+        while (guard < 12) {
+                guard = guard + 1;
+                redside = TeamHumansOn(TEAM_RED_ID) + TeamBotsOn(TEAM_RED_ID);
+                blueside = TeamHumansOn(TEAM_BLUE_ID) + TeamBotsOn(TEAM_BLUE_ID);
+
+                if (redside > want) {
+                        victim = TeamOneBotOn(TEAM_RED_ID);
+                        if (victim != world) {
+                                BotDisconnect(victim);
+                                continue;
+                        }
+                }
+                if (blueside > want) {
+                        victim = TeamOneBotOn(TEAM_BLUE_ID);
+                        if (victim != world) {
+                                BotDisconnect(victim);
+                                continue;
+                        }
+                }
+                /* r130: only fill up to the bot budget; never spawn past it,
+                 * and never top up a side that already has its team size. */
+                if (redside + blueside >= humans + bots)
+                        break;
+                if (redside < want)
+                        BotConnect(0, 0, cvar("skill"));
+                else if (blueside < want)
+                        BotConnect(1, 0, cvar("skill"));
+                else
+                        break;
+                continue;
+        }
+        self = uself;
+};
+
+/* r190 (user: a late join showed up as a third colour group -- "my team was
+ * green fighting both red and blue"): the colour push in PutClientInServer
+ * races the connect handshake. The engine can apply the player's own userinfo
+ * after our stuffcmd, so the model keeps the profile colour while .team
+ * already says red or blue -- and the scoreboard groups by colour, so the
+ * player lands in a group nobody else is in. Re-push once it settles, same
+ * trick as the nade sync. */
+void() TeamColor_Retry =
+{
+        local entity p;
+        p = self.goalentity;
+        remove (self);
+        if (p.classname != "player")
+                return;
+        if (!cvar("teamplay"))
+                return;
+        if (p.team == TEAM_BLUE_ID)
+                stuffcmd(p, "color 13 13\n");
+        else if (p.team == TEAM_RED_ID)
+                stuffcmd(p, "color 4 4\n");
+};
+
 void() PutClientInServer = {
         // r102: real humans never got a .team id -- only bots set theirs
         // (b_pants + 1, bot.qc). Without one, OnSameTeam() and team scoring
         // can never match the player, so friendly needles homed on teammates
         // and human frags skipped TeamScore_Add. Derive it the same way from
         // the color band (menu pins band 4 in TDM, matching friend bots).
-        if (self.ishuman == TRUE && cvar("teamplay"))
+        /* r132: was `ishuman == TRUE`, which is 0 for every PutClientInServer in
+         * this build -- the FrikBot connect hook that sets it runs after the
+         * engine's spawn (bots show ish=0 too), so the whole block below never
+         * ran: humans kept .team 0, so OnSameTeam() said no and every bot shot
+         * them, while the profile colour made them look like a red teammate.
+         * Keep a side the entity already holds (bots are given 5/14 by
+         * BotConnect before spawning, respawning humans keep theirs) and only
+         * pick a side for an unassigned player. */
+        if (cvar("teamplay")
+            && (deathmatch == 1 || deathmatch == 3)
+            && self.team != TEAM_RED_ID && self.team != TEAM_BLUE_ID)
         {
-                /* r116: TDM team id must NOT ride on bottomcolor -- the menu
-                 * pin (bottomcolor 4 at START GAME) is skipped by restart and
-                 * quick-start paths, and a green/light-blue profile then gave
-                 * the human a team id no bot shares (alone vs red and blue,
-                 * user 2026-11-18). Bot sides are hard-coded (friend b_pants 4
-                 * -> team 5, enemy 13 -> team 14), so pin the human to the
-                 * friend team id directly. */
-                self.team = 5;
-                /* r119b (user 2026-11-18): the scoreboard groups players by
-                 * the bottomcolor nibble (sbar.c me_nib = colors & 15), NOT
-                 * by .team -- so a green/light-blue profile read as a THIRD
-                 * team even though .team was right. The menu only pins band 4
-                 * on the START GAME path; restart/quick-start/console loads
-                 * skipped it. Force the TDM band on every spawn instead. */
-                /* r119c: the cvars alone do NOT reach the server -- userinfo
-                 * only updates through the "color" command, so the pin above
-                 * left scores[].colors on the old profile and the scoreboard
-                 * drew the human as a lone third team (user screenshot
-                 * 2026-11-18). "color <top> <bottom>" resends userinfo. */
-                stuffcmd(self, "color 4 4\n");
+                /* fresh spawn with no side yet: take the side with fewer
+                 * humans, so two humans end up facing each other. The band has
+                 * to be pushed with the "color" command because userinfo only
+                 * updates that way (r119c), and the scoreboard groups by the
+                 * bottomcolor nibble -- a stale profile colour read as a third
+                 * team. */
+                if (TeamHumansOn(TEAM_RED_ID) > TeamHumansOn(TEAM_BLUE_ID))
+                        self.team = TEAM_BLUE_ID;
+                else
+                        self.team = TEAM_RED_ID;
+                if (self.team == TEAM_BLUE_ID)
+                        stuffcmd(self, "color 13 13\n");
+                else
+                        stuffcmd(self, "color 4 4\n");
+                BalanceTeams();
         }
         Setup_Gametype(); //Rest is done In gametypes.qc
         /* r111b/r112c: custom maps ship no setparm16, so first-connect
@@ -815,6 +990,15 @@ void() PutClientInServer = {
                 sync.nextthink = time + 0.5;
                 sync.think = NadeSync_Retry;
                 sync.goalentity = self;
+        }
+        /* r190: and re-assert the team colour once the connect settles */
+        if (cvar("teamplay")
+            && (self.team == TEAM_RED_ID || self.team == TEAM_BLUE_ID)) {
+                local entity csync;
+                csync = spawn();
+                csync.nextthink = time + 0.5;
+                csync.think = TeamColor_Retry;
+                csync.goalentity = self;
         }
 };
 
@@ -1338,19 +1522,28 @@ void() PlayerPreThink = {
 
 };
 void() voice_play = {
+    /* r181 (user: the announcer is chopped when joining -- lots still loading):
+     * this used to be sound(self.owner, ...), a normal network sound, so it was
+     * mixed in the same frame that uploads the map's textures -- a stall longer
+     * than the audio ring buffer and the line tears. The engine now owns the
+     * timing: "announce" is a client command and CL_AnnounceTick holds it until
+     * the level stops hitching. The sound was ATTN_NONE, so it was already
+     * player-only; nothing is lost by moving it off the server. */
     if (deathmatch == FIREFIGHT)
-        sound(self.owner, CHAN_WEAPON, "firefight.wav", 1, ATTN_NONE);
+        stuffcmd(self.owner, "announce firefight.wav\n");
     else if (deathmatch == SLAYER)
-        sound(self.owner, CHAN_WEAPON, "slayer.wav", 1, ATTN_NONE);
+        stuffcmd(self.owner, "announce slayer.wav\n");
     remove(self);
 };
 
 void() Voice_announcer = {
     local entity avoice;
-    if (VOICE_COUNT == 1) {
+    if (self.heard_intro == TRUE) {
         return;
     }
+    self.heard_intro = TRUE;
     avoice = spawn();
+    avoice.owner = self;    /* r181: the player to stuffcmd */
     VOICE_COUNT = 1;
     avoice.think = voice_play;
     avoice.nextthink = time + 0.7;
@@ -1408,6 +1601,9 @@ void() populate_bots = {
                         }
                 }
         }
+        /* r129: even out whoever is actually connected. A human who joined
+         * after the first one was never counted by the split above. */
+        BalanceTeams();
         remove(self);
 }
 void() BotSpawner = {
